@@ -1,0 +1,21 @@
+# 미끼 & 떡밥 ('3. 아이템 목록' 3장)
+
+- id: item/bait/earthworm
+  name: 지렁이
+  lore: "꿈틀꿈틀. 물고기들이 가장 좋아하는 간식."
+  type: bait
+  grade: common
+  base_item: minecraft:wheat_seeds
+  model: harbor:bait/earthworm
+  tradeable: true
+  season_reset: true
+
+- id: item/bait/gunpowder_paste
+  name: 화약 떡밥
+  lore: "화약 복어가 참지 못하는 매캐한 냄새."
+  type: bait
+  grade: uncommon
+  base_item: minecraft:gunpowder
+  model: harbor:bait/gunpowder_paste
+  tradeable: true
+  season_reset: true

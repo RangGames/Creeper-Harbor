@@ -1,0 +1,56 @@
+# 모든 출력 문구 (MiniMessage). 코드에는 문구를 쓰지 않고 이 키를 쓴다.
+
+server:
+  closing: "<red>서버가 점검을 준비하고 있습니다. 잠시 후 다시 접속해 주세요."
+
+session:
+  busy: "<yellow>이전 접속을 정리하고 있습니다. 잠시 후 다시 접속해 주세요."
+  unavailable: "<red>서버 이동을 확인할 수 없어 접속을 막았습니다. 잠시 후 다시 시도해 주세요."
+  moved: "<yellow>다른 서버로 이동했습니다."
+
+player:
+  load_failed: "<red>데이터를 불러오지 못했습니다. 잠시 후 다시 접속해 주세요."
+
+item:
+  name:
+    common: "<white><name>"
+    uncommon: "<green><name>"
+    rare: "<aqua><name>"
+    epic: "<light_purple><name>"
+    legendary: "<gold><name>"
+    mythic: "<red><name>"
+  fish:
+    quality: "<gray>품질 <yellow><quality>"
+    size: "<gray>크기 <white><size>cm"
+    catcher: "<gray>낚은 사람 <white><catcher>"
+    date: "<dark_gray><date>"
+
+resourcepack:
+  prompt: "<yellow>크리퍼 항구 리소스팩이 필요합니다."
+  failed:
+    title: "리소스팩을 적용하지 못했습니다"
+    body: "서버 목록에서 크리퍼 항구를 선택하고 '편집 → 서버 리소스팩: 사용'으로 바꾼 뒤 다시 접속해 주세요."
+
+admin:
+  ledger_mismatch: "<red>[원장 검사] 원장과 잔액이 다른 플레이어 <count>명. 서버 로그를 확인하세요."
+
+command:
+  reload:
+    ok: "<green>리로드 완료: <gray><counts>"
+    failed: "<red>오류 <count>건, 리로드를 거부하고 기존 콘텐츠를 유지합니다."
+  validate:
+    ok: "<green>검사 통과: <gray><counts>"
+  error_line: "<gray> - <error>"
+  give:
+    ok: "<green><player>에게 <id>를 지급했습니다."
+    unknown: "<red>없는 아이템·어종입니다: <id>"
+  stat:
+    unknown: "<red>스탯 이름 형식이 틀렸습니다."
+    header: "<yellow><player> · <stat>: <white><result></white> <gray>(기본 <base>, 하한 <min>, 상한 <max>)"
+    line: "<gray> - <source> <op><value> <dark_gray>만료 <expires>"
+  player:
+    summary: "<yellow><player> <gray><uuid><newline><gray>시즌 <season> · <job> Lv.<level> · 골드 <gold> · 물비늘 <mulbineul> · 평판 <reputation> · 플레이 <playtime>"
+  currency:
+    ok: "<green><player>의 <currency> 잔액: <balance>"
+    failed: "<red>처리하지 못했습니다: <error>"
+  debug: "<yellow>DB 풀 <white><pool></white> · 지연 쓰기 <white><queue></white> · 접속자 <white><players></white> · 스레드 <white><threads>"

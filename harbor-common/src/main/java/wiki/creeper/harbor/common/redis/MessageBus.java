@@ -16,6 +16,9 @@ import wiki.creeper.harbor.common.util.Json;
 /**
  * 형식이 있는 Redis 발행·구독.
  *
+ * <p>한 Redis 채널에 여러 메시지 형식을 보낼 수 있다. 봉투의 type(레코드 이름)이 구독한 {@link Channel#type()}과 같을 때만 핸들러를
+ * 부른다.
+ *
  * <p>핸들러는 Lettuce 이벤트 스레드에서 불린다. 게임 상태를 바꾸려면 핸들러 안에서 메인 스레드로 넘겨야 한다. 자기가 보낸 메시지도 받으므로
  * 필요하면 {@link Envelope#server()}로 거른다.
  */
@@ -100,6 +103,9 @@ public final class MessageBus implements AutoCloseable {
             return;
         }
         for (Handler<?> handler : list) {
+            if (!handler.channel().type().getSimpleName().equals(raw.type())) {
+                continue;
+            }
             try {
                 handler.dispatch(raw);
             } catch (RuntimeException e) {

@@ -28,6 +28,8 @@ public interface HarborApi {
 
     Dialogs dialogs();
 
+    ProxyBridge proxy();
+
     InfraConfig infra();
 
     HarborTime time();

@@ -48,7 +48,7 @@ final class PlayerState implements HarborPlayer {
     private long exp;
     private int reputation;
     private boolean baseDirty;
-    private volatile boolean handingOff;
+    private volatile @Nullable String handoffRequest;
 
     PlayerState(PlayerRepository.Row row, Map<String, Object> loadedComponents) {
         this.uuid = row.uuid();
@@ -70,12 +70,17 @@ final class PlayerState implements HarborPlayer {
         sessionStart = Instant.now();
     }
 
-    boolean handingOff() {
-        return handingOff;
+    /** 서버 이동 중이면 그 요청 ID. 이동 중에는 저장하지 않는다 (이미 저장하고 잠금을 넘겼다). */
+    @Nullable String handoffRequest() {
+        return handoffRequest;
     }
 
-    void setHandingOff(boolean value) {
-        handingOff = value;
+    boolean handingOff() {
+        return handoffRequest != null;
+    }
+
+    void setHandoffRequest(@Nullable String requestId) {
+        handoffRequest = requestId;
     }
 
     void setCachedBalance(Currency currency, long balance) {

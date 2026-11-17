@@ -1,0 +1,20 @@
+# 로컬 개발용 MariaDB + Redis. harbor-core 기본 harbor-infra.yml과 접속 정보가 같다.
+#   docker compose -f dev/docker-compose.yml up -d
+services:
+  mariadb:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: harbor
+      MARIADB_USER: harbor
+      MARIADB_PASSWORD: harbor
+      MARIADB_ROOT_PASSWORD: harbor-root
+    ports:
+      - "3306:3306"
+    volumes:
+      - harbor-db:/var/lib/mysql
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "6379:6379"
+volumes:
+  harbor-db:

@@ -1,0 +1,24 @@
+# 낚싯대 ('3. 아이템 목록' 1장)
+
+- id: item/rod/apprentice_bamboo
+  name: 견습 대나무 낚싯대
+  lore: "항구에 온 모든 어부가 처음 손에 쥐는 낚싯대. 가볍지만 조금 휜다."
+  type: rod
+  grade: common
+  base_item: minecraft:fishing_rod
+  model: harbor:rod/apprentice_bamboo
+  tradeable: false
+  season_reset: true
+
+- id: item/rod/harbor_standard
+  name: 항구 표준 낚싯대
+  lore: "크리퍼 항구 어부 조합이 보증하는 표준품. 고장 나도 수리가 쉽다."
+  type: rod
+  grade: uncommon
+  base_item: minecraft:fishing_rod
+  model: harbor:rod/harbor_standard
+  stats:
+    bite_wait: -0.10
+    line_strength: 1
+  tradeable: true
+  season_reset: true

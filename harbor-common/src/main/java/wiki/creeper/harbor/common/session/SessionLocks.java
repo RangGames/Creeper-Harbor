@@ -14,18 +14,17 @@ import wiki.creeper.harbor.common.redis.Redis;
 /**
  * 서버 이동 세션 잠금 ({@code harbor:lock:<uuid>}, 30초 만료). Proxy와 Core가 같은 코드를 쓴다.
  *
- * <p>프로토콜 ('16. 플러그인 설계' 4.5):
+ * <p>프로토콜 ('16. 플러그인 설계' 4.5, docs 20 1.4 MoveCoordinator):
  *
  * <ol>
- *   <li>Proxy가 출발 서버에 이동을 요청한다 ({@link SessionProtocol#HANDOFF_REQUEST})
- *   <li>출발 서버가 플레이어 데이터를 즉시 저장한다
- *   <li>출발 서버가 잠금을 handoff 상태로 바꾸고 ({@link #beginHandoff}) 완료를 알린다
- *   <li>Proxy가 도착 서버로 접속을 넘긴다
- *   <li>도착 서버가 handoff 상태를 확인하고 소유권을 가져온다 ({@link #awaitClaim})
- *   <li>도착 서버가 플레이어 데이터를 로드한다
+ *   <li>백엔드가 MoveRequest를 프록시에 보낸다
+ *   <li>프록시가 출발 서버에 TransferPrepare를 보낸다
+ *   <li>출발 서버가 즉시 저장하고 잠금을 {@code handoff:<도착>:<요청 ID>}로 바꾼 뒤 ({@link #beginHandoff}) TransferReady를 보낸다
+ *   <li>프록시가 도착 서버로 접속을 넘긴다. 실패하면 TransferAbort → 출발 서버가 잠금을 되돌린다 ({@link #abortHandoff})
+ *   <li>도착 서버가 handoff 상태를 확인하고 소유권을 가져온 뒤 ({@link #awaitClaim}) 데이터를 로드한다
  * </ol>
  *
- * 모든 상태 변경은 Lua 스크립트로 비교 후 교체(CAS)한다. 모든 메서드는 블로킹이다.
+ * 로비는 게임 데이터가 없어서 잠금을 잡지 않는다. 모든 상태 변경은 Lua 스크립트로 비교 후 교체(CAS)한다. 모든 메서드는 블로킹이다.
  */
 public final class SessionLocks {
 
@@ -42,45 +41,57 @@ public final class SessionLocks {
             """
             local v = redis.call('get', KEYS[1])
             if not v then
-              redis.call('set', KEYS[1], 'OWNED|' .. ARGV[1], 'PX', ARGV[2])
+              redis.call('set', KEYS[1], 'owned:' .. ARGV[1], 'PX', ARGV[2])
               return 1
             end
-            if v == 'OWNED|' .. ARGV[1] then
+            if v == 'owned:' .. ARGV[1] then
               redis.call('pexpire', KEYS[1], ARGV[2])
               return 3
             end
-            local to = string.match(v, '^HANDOFF|[^|]+|(.+)$')
-            if to == ARGV[1] then
-              redis.call('set', KEYS[1], 'OWNED|' .. ARGV[1], 'PX', ARGV[2])
+            local prefix = 'handoff:' .. ARGV[1] .. ':'
+            if string.sub(v, 1, string.len(prefix)) == prefix then
+              redis.call('set', KEYS[1], 'owned:' .. ARGV[1], 'PX', ARGV[2])
               return 2
             end
             return 0
             """;
 
-    // ARGV[1] = 출발, ARGV[2] = 도착, ARGV[3] = TTL(ms)
+    // ARGV[1] = 출발, ARGV[2] = 도착, ARGV[3] = 요청 ID, ARGV[4] = TTL(ms)
     private static final String BEGIN_HANDOFF =
             """
-            if redis.call('get', KEYS[1]) == 'OWNED|' .. ARGV[1] then
-              redis.call('set', KEYS[1], 'HANDOFF|' .. ARGV[1] .. '|' .. ARGV[2], 'PX', ARGV[3])
+            if redis.call('get', KEYS[1]) == 'owned:' .. ARGV[1] then
+              redis.call('set', KEYS[1], 'handoff:' .. ARGV[2] .. ':' .. ARGV[3], 'PX', ARGV[4])
               return 1
             end
             return 0
             """;
 
-    // ARGV[1] = 출발, ARGV[2] = TTL(ms). 아직 도착 서버가 가져가지 않았을 때만 되돌린다
-    private static final String CANCEL_HANDOFF =
+    // ARGV[1] = 출발, ARGV[2] = 요청 ID, ARGV[3] = TTL(ms). 도착 서버가 아직 가져가지 않았을 때만 되돌린다
+    private static final String ABORT_HANDOFF =
             """
             local v = redis.call('get', KEYS[1])
-            if v and string.sub(v, 1, string.len('HANDOFF|' .. ARGV[1] .. '|')) == 'HANDOFF|' .. ARGV[1] .. '|' then
-              redis.call('set', KEYS[1], 'OWNED|' .. ARGV[1], 'PX', ARGV[2])
+            local suffix = ':' .. ARGV[2]
+            if v and string.sub(v, 1, 8) == 'handoff:' and string.sub(v, -string.len(suffix)) == suffix then
+              redis.call('set', KEYS[1], 'owned:' .. ARGV[1], 'PX', ARGV[3])
               return 1
+            end
+            return 0
+            """;
+
+    // ARGV[1] = 요청 ID. 이동 중 접속이 끊기면 그 요청의 handoff 잠금만 지운다
+    private static final String RELEASE_HANDOFF =
+            """
+            local v = redis.call('get', KEYS[1])
+            local suffix = ':' .. ARGV[1]
+            if v and string.sub(v, 1, 8) == 'handoff:' and string.sub(v, -string.len(suffix)) == suffix then
+              return redis.call('del', KEYS[1])
             end
             return 0
             """;
 
     private static final String RELEASE =
             """
-            if redis.call('get', KEYS[1]) == 'OWNED|' .. ARGV[1] then
+            if redis.call('get', KEYS[1]) == 'owned:' .. ARGV[1] then
               return redis.call('del', KEYS[1])
             end
             return 0
@@ -91,7 +102,7 @@ public final class SessionLocks {
             """
             local n = 0
             for i, key in ipairs(KEYS) do
-              if redis.call('get', key) == 'OWNED|' .. ARGV[1] then
+              if redis.call('get', key) == 'owned:' .. ARGV[1] then
                 redis.call('pexpire', key, ARGV[2])
                 n = n + 1
               end
@@ -153,40 +164,24 @@ public final class SessionLocks {
         }
     }
 
-    /** 출발 서버: 저장을 마친 뒤 잠금을 handoff 상태로 바꾼다. 내 잠금이 아니면 false. */
-    public boolean beginHandoff(UUID player, String from, String to) {
-        try {
-            @Nullable Long result = eval(BEGIN_HANDOFF, new String[] {key(player)}, from, to, ttl());
-            return result != null && result == 1L;
-        } catch (RedisException e) {
-            LOG.log(Level.WARNING, "handoff 전환 실패 (" + player + "): " + e.getMessage());
-            return false;
-        }
+    /** 출발 서버: 저장을 마친 뒤 잠금을 {@code handoff:<도착>:<요청 ID>}로 바꾼다. 내 잠금이 아니면 false. */
+    public boolean beginHandoff(UUID player, String from, String to, String requestId) {
+        return cas(BEGIN_HANDOFF, player, "handoff 전환", from, to, requestId, ttl());
     }
 
-    /**
-     * 출발 서버: handoff 후에도 플레이어가 그대로 남아 있으면 (프록시가 이동을 취소함) 소유권을 되찾는다. 도착 서버가 이미 가져갔으면
-     * false.
-     */
-    public boolean cancelHandoff(UUID player, String from) {
-        try {
-            @Nullable Long result = eval(CANCEL_HANDOFF, new String[] {key(player)}, from, ttl());
-            return result != null && result == 1L;
-        } catch (RedisException e) {
-            LOG.log(Level.WARNING, "handoff 취소 실패 (" + player + "): " + e.getMessage());
-            return false;
-        }
+    /** 출발 서버: TransferAbort를 받으면 잠금을 owned로 되돌린다. 도착 서버가 이미 가져갔으면 false. */
+    public boolean abortHandoff(UUID player, String from, String requestId) {
+        return cas(ABORT_HANDOFF, player, "handoff 취소", from, requestId, ttl());
     }
 
-    /** 퇴장: 내 잠금이면 지운다. handoff 중이거나 다른 서버 것이면 그대로 둔다. */
+    /** 출발 서버: 이동 중 접속이 끊기면 그 요청의 handoff 잠금만 지운다 (이미 저장했으므로 추가 저장 없음). */
+    public boolean releaseHandoff(UUID player, String requestId) {
+        return cas(RELEASE_HANDOFF, player, "handoff 해제", requestId);
+    }
+
+    /** 퇴장: 내 잠금(owned)이면 지운다. handoff 중이거나 다른 서버 것이면 그대로 둔다. */
     public boolean release(UUID player, String server) {
-        try {
-            @Nullable Long result = eval(RELEASE, new String[] {key(player)}, server);
-            return result != null && result == 1L;
-        } catch (RedisException e) {
-            LOG.log(Level.WARNING, "세션 잠금 해제 실패 (" + player + "), 30초 뒤 만료됩니다: " + e.getMessage());
-            return false;
-        }
+        return cas(RELEASE, player, "세션 잠금 해제", server);
     }
 
     /** 접속 중인 플레이어들의 잠금을 연장한다 (만료 30초보다 짧은 주기로 부른다). */
@@ -207,6 +202,16 @@ public final class SessionLocks {
     public Optional<LockState> inspect(UUID player) {
         String raw = redis.sync().get(key(player));
         return raw == null ? Optional.empty() : LockState.decode(raw);
+    }
+
+    private boolean cas(String script, UUID player, String what, String... args) {
+        try {
+            @Nullable Long result = eval(script, new String[] {key(player)}, args);
+            return result != null && result == 1L;
+        } catch (RedisException e) {
+            LOG.log(Level.WARNING, what + " 실패 (" + player + "): " + e.getMessage());
+            return false;
+        }
     }
 
     private @Nullable Long eval(String script, String[] keys, String... args) {

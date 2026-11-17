@@ -36,9 +36,10 @@ import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.common.session.ClaimResult;
 import wiki.creeper.harbor.common.session.SessionAudit;
 import wiki.creeper.harbor.common.session.SessionLocks;
-import wiki.creeper.harbor.common.session.SessionProtocol;
-import wiki.creeper.harbor.common.session.SessionProtocol.HandoffReply;
-import wiki.creeper.harbor.common.session.SessionProtocol.HandoffRequest;
+import wiki.creeper.harbor.common.proxy.ProxyMessages;
+import wiki.creeper.harbor.common.proxy.ProxyMessages.TransferAbort;
+import wiki.creeper.harbor.common.proxy.ProxyMessages.TransferPrepare;
+import wiki.creeper.harbor.common.proxy.ProxyMessages.TransferReady;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.PlayerComponent;
@@ -54,17 +55,19 @@ import wiki.creeper.harbor.core.task.Tasks;
  *       거부 (반쪽 데이터로 입장 금지)
  *   <li>접속 중: 메인 스레드에서 메모리 캐시만 읽고 쓴다. 바뀐 항목은 dirty 표시
  *   <li>자동 저장: 5분마다 바뀐 항목을 지연 쓰기 큐로
- *   <li>퇴장·서버 이동: 그 플레이어 키만 즉시 저장 → 잠금 해제 또는 handoff 전환
+ *   <li>퇴장: 그 플레이어 키만 즉시 저장 → 잠금 해제
+ *   <li>서버 이동 (프록시의 TransferPrepare): 즉시 저장 → 잠금을 handoff로 → TransferReady. TransferAbort면 되돌린다
  * </ul>
  *
- * 로비 서버는 읽기 전용이다 (잠금을 잡지 않고 저장하지 않는다).
+ * 로비 서버는 게임 데이터가 없는 대기 공간이라 읽기 전용이다 (잠금을 잡지 않고 저장하지 않는다).
  */
 public final class PlayerManager implements PlayerService, Listener {
 
     private static final long AUTOSAVE_TICKS = 5 * 60 * 20L;
     private static final long LOCK_REFRESH_TICKS = 10 * 20L;
     private static final long PENDING_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
-    private static final long STUCK_HANDOFF_TICKS = 10 * 20L;
+    /** 프록시의 TransferAbort가 오지 않을 때를 대비한 안전 확인 (프록시 쪽 제한 5초보다 길게). */
+    private static final long STUCK_HANDOFF_TICKS = 15 * 20L;
     private static final long LOAD_TIMEOUT_SECONDS = 5;
 
     private record Pending(PlayerState state, long createdNanos) {}
@@ -107,12 +110,11 @@ public final class PlayerManager implements PlayerService, Listener {
         var unused1 = tasks.timer(AUTOSAVE_TICKS, AUTOSAVE_TICKS, this::autosave);
         var unused2 = tasks.timer(LOCK_REFRESH_TICKS, LOCK_REFRESH_TICKS, this::refreshLocks);
         var unused3 = tasks.timer(LOCK_REFRESH_TICKS, LOCK_REFRESH_TICKS, this::cleanupPending);
-        bus.subscribe(SessionProtocol.HANDOFF_REQUEST, envelope -> {
-            HandoffRequest request = envelope.payload();
-            if (request.from().equals(infra.serverId())) {
-                tasks.main().execute(() -> handleHandoff(request));
-            }
-        });
+        String me = infra.serverId();
+        bus.subscribe(ProxyMessages.toServer(me, TransferPrepare.class),
+                envelope -> tasks.main().execute(() -> prepareTransfer(envelope.payload())));
+        bus.subscribe(ProxyMessages.toServer(me, TransferAbort.class),
+                envelope -> tasks.main().execute(() -> abortTransfer(envelope.payload().player(), envelope.payload().requestId())));
     }
 
     // ------------------------------------------------------------------ PlayerService
@@ -144,6 +146,11 @@ public final class PlayerManager implements PlayerService, Listener {
         if (!online.isEmpty() || !pending.isEmpty()) {
             log.warn("접속자가 있는 상태에서 컴포넌트 '{}'가 등록되었습니다. 지금 접속한 플레이어에게는 없습니다", component.id());
         }
+    }
+
+    /** 새 접속을 받는 중인지 (하트비트에 실어 보낸다). */
+    public boolean acceptingLogins() {
+        return acceptingLogins;
     }
 
     /** 재화 서비스가 커밋한 뒤 캐시 잔액을 바꾼다 (메인 스레드). */
@@ -212,8 +219,13 @@ public final class PlayerManager implements PlayerService, Listener {
         UUID uuid = event.getPlayer().getUniqueId();
         Sequence.cancelAll(uuid);
         PlayerState state = online.remove(uuid);
-        if (state == null || state.handingOff() || readOnly) {
-            // handoff 중이면 이미 저장하고 잠금을 넘겼다
+        if (state == null || readOnly) {
+            return;
+        }
+        String handoff = state.handoffRequest();
+        if (handoff != null) {
+            // 이동 중: 이미 저장했다. 도착 서버가 아직 가져가지 않았으면 (이동 중 접속 끊김) 그 요청의 잠금만 지운다
+            var unused = tasks.async(() -> locks.releaseHandoff(uuid, handoff));
             return;
         }
         enqueueSave(state, false);
@@ -232,62 +244,74 @@ public final class PlayerManager implements PlayerService, Listener {
 
     // ------------------------------------------------------------------ 서버 이동 (출발 서버)
 
-    private void handleHandoff(HandoffRequest request) {
-        PlayerState state = online.get(request.player());
+    private void prepareTransfer(TransferPrepare request) {
+        UUID uuid = request.player();
+        PlayerState state = online.get(uuid);
         if (state == null || state.handingOff() || readOnly) {
-            bus.publish(
-                    SessionProtocol.HANDOFF_REPLY,
-                    new HandoffReply(request.requestId(), request.player(), false, "not_online"));
+            String reason = readOnly ? "lobby" : state == null ? "not_online" : "already_moving";
+            bus.publish(ProxyMessages.toProxy(TransferReady.class), new TransferReady(request.requestId(), uuid, false, reason));
             return;
         }
-        state.setHandingOff(true);
+        state.setHandoffRequest(request.requestId());
+        Sequence.cancelAll(uuid);
         enqueueSave(state, false);
-        UUID uuid = request.player();
-        var unused =
-                tasks.async(
-                        () -> {
-                            boolean ok = false;
-                            String reason;
-                            try {
-                                queue.flushNow(prefix(uuid));
-                                ok = locks.beginHandoff(uuid, infra.serverId(), request.to());
-                                reason = ok ? "ok" : "lock_lost";
-                            } catch (SQLException e) {
-                                log.error("서버 이동 저장 실패: {}", uuid, e);
-                                reason = "save_failed";
-                            }
-                            bus.publish(
-                                    SessionProtocol.HANDOFF_REPLY,
-                                    new HandoffReply(request.requestId(), uuid, ok, reason));
-                            if (ok) {
-                                var unused2 = tasks.later(STUCK_HANDOFF_TICKS, () -> checkStuckHandoff(state));
-                            } else {
-                                tasks.main().execute(() -> state.setHandingOff(false));
-                            }
-                        });
+        var unused = tasks.async(() -> {
+            boolean ok = false;
+            String reason;
+            try {
+                queue.flushNow(prefix(uuid));
+                ok = locks.beginHandoff(uuid, infra.serverId(), request.destination(), request.requestId());
+                reason = ok ? "ok" : "lock_lost";
+            } catch (SQLException e) {
+                log.error("서버 이동 저장 실패: {}", uuid, e);
+                reason = "save_failed";
+            }
+            bus.publish(ProxyMessages.toProxy(TransferReady.class), new TransferReady(request.requestId(), uuid, ok, reason));
+            if (ok) {
+                var unused2 = tasks.later(STUCK_HANDOFF_TICKS, () -> checkStuckHandoff(uuid, request.requestId()));
+            } else {
+                tasks.main().execute(() -> clearHandoff(state, request.requestId()));
+            }
+        });
     }
 
-    /** handoff 후에도 플레이어가 남아 있으면 (프록시가 이동을 취소함) 소유권을 되찾는다. */
-    private void checkStuckHandoff(PlayerState state) {
-        if (online.get(state.uuid()) != state) {
+    /** 프록시가 이동을 취소했다 (TransferAbort): 잠금을 되돌리고 계속 플레이한다. */
+    private void abortTransfer(UUID uuid, String requestId) {
+        PlayerState state = online.get(uuid);
+        if (state == null || !requestId.equals(state.handoffRequest())) {
             return;
         }
-        var unused =
-                tasks.supplyAsync(() -> locks.cancelHandoff(state.uuid(), infra.serverId()))
-                        .thenAcceptAsync(
-                                reclaimed -> {
-                                    if (reclaimed) {
-                                        state.setHandingOff(false);
-                                        log.warn("서버 이동이 취소되어 세션을 되찾았습니다: {}", state.name());
-                                        return;
-                                    }
-                                    Player player = Bukkit.getPlayer(state.uuid());
-                                    if (player != null) {
-                                        // 다른 서버가 이미 데이터를 가져갔다. 여기 남으면 복제 위험
-                                        player.kick(messages.get("session.moved"));
-                                    }
-                                },
-                                tasks.main());
+        var unused = tasks.supplyAsync(() -> locks.abortHandoff(uuid, infra.serverId(), requestId))
+                .thenAcceptAsync(restored -> {
+                    if (restored) {
+                        clearHandoff(state, requestId);
+                    } else {
+                        kickMoved(uuid);
+                    }
+                }, tasks.main());
+    }
+
+    /** TransferAbort가 오지 않았는데 플레이어가 아직 남아 있으면 스스로 되돌린다. */
+    private void checkStuckHandoff(UUID uuid, String requestId) {
+        PlayerState state = online.get(uuid);
+        if (state != null && requestId.equals(state.handoffRequest())) {
+            log.warn("서버 이동 응답이 없어 세션을 되돌립니다: {}", state.name());
+            abortTransfer(uuid, requestId);
+        }
+    }
+
+    private static void clearHandoff(PlayerState state, String requestId) {
+        if (requestId.equals(state.handoffRequest())) {
+            state.setHandoffRequest(null);
+        }
+    }
+
+    /** 다른 서버가 이미 데이터를 가져갔다. 여기 남으면 복제 위험이 있으므로 내보낸다. */
+    private void kickMoved(UUID uuid) {
+        Player player = Bukkit.getPlayer(uuid);
+        if (player != null) {
+            player.kick(messages.get("session.moved"));
+        }
     }
 
     // ------------------------------------------------------------------ 저장

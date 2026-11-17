@@ -66,7 +66,9 @@ content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regi
 
 ## 현재 진행 상태
 
-Common은 설계 범위를 구현했다. Core는 작성 중이다: api, content, player, currency, flag, task까지 있고 item, modifier, message/ui/dialog, gui, command(`/harbor`), pack(리소스팩), 원장 검사 스케줄, `HarborCorePlugin`/`HarborCoreLoader`/`HarborCoreBootstrap`, `ModuleHost` 구현, `paper-plugin.yml`, 기본 `harbor-infra.yml`이 아직 없다. harbor-proxy, harbor-tools, content/는 비어 있고 게임 모듈 11개는 빈 `HarborModule` 껍데기다. 디스플레이 리그 재생(5.10)은 일정상 Fishing 연출 작업 때 만든다.
+Common·Core·tools와 샘플 콘텐츠(1구역 어종 16종)를 작성했다. 아직 한 번도 컴파일하지 않았으므로 첫 빌드에서 오류를 잡아야 한다. Proxy와 게임 모듈 11개는 docs 20 순서대로 작성 중이다. 디스플레이 리그 재생(Core 5.10)은 일정상 Fishing 연출 작업 때 만든다.
+
+로컬 실행: `docker compose -f dev/docker-compose.yml up -d` → `./gradlew :harbor-core:runServer` (기본 harbor-infra.yml이 이 구성을 가리킨다).
 
 ## 작업 규칙
 

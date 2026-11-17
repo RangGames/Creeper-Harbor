@@ -1,0 +1,60 @@
+package wiki.creeper.harbor.core.message;
+
+import io.papermc.paper.dialog.Dialog;
+import io.papermc.paper.registry.data.dialog.ActionButton;
+import io.papermc.paper.registry.data.dialog.DialogBase;
+import io.papermc.paper.registry.data.dialog.action.DialogAction;
+import io.papermc.paper.registry.data.dialog.body.DialogBody;
+import io.papermc.paper.registry.data.dialog.type.DialogType;
+import java.time.Duration;
+import java.util.List;
+import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickCallback;
+import org.bukkit.entity.Player;
+import wiki.creeper.harbor.core.api.Dialogs;
+import wiki.creeper.harbor.core.task.Tasks;
+
+/** Paper Dialog API 래퍼. API가 바뀌면 이 클래스만 고친다. */
+@SuppressWarnings("UnstableApiUsage")
+public final class DialogManager implements Dialogs {
+
+    private static final ClickCallback.Options ONCE =
+            ClickCallback.Options.builder().uses(1).lifetime(Duration.ofMinutes(5)).build();
+
+    private final Tasks tasks;
+
+    public DialogManager(Tasks tasks) {
+        this.tasks = tasks;
+    }
+
+    @Override
+    public void notice(Player player, Component title, List<Component> body) {
+        Dialog dialog = Dialog.create(factory -> factory.empty()
+                .base(base(title, body))
+                .type(DialogType.notice()));
+        player.showDialog(dialog);
+    }
+
+    @Override
+    public void confirm(
+            Player player, Component title, List<Component> body, Component yes, Component no, Consumer<Boolean> result) {
+        ActionButton yesButton = ActionButton.builder(yes)
+                .action(DialogAction.customClick((response, audience) -> tasks.main().execute(() -> result.accept(true)), ONCE))
+                .build();
+        ActionButton noButton = ActionButton.builder(no)
+                .action(DialogAction.customClick((response, audience) -> tasks.main().execute(() -> result.accept(false)), ONCE))
+                .build();
+        Dialog dialog = Dialog.create(factory -> factory.empty()
+                .base(base(title, body))
+                .type(DialogType.confirmation(yesButton, noButton)));
+        player.showDialog(dialog);
+    }
+
+    private static DialogBase base(Component title, List<Component> body) {
+        return DialogBase.builder(title)
+                .canCloseWithEscape(true)
+                .body(body.stream().map(DialogBody::plainMessage).toList())
+                .build();
+    }
+}

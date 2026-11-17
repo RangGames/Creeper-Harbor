@@ -1,0 +1,15 @@
+name: Harbor-Core
+version: '${version}'
+main: wiki.creeper.harbor.core.HarborCorePlugin
+loader: wiki.creeper.harbor.core.HarborCoreLoader
+bootstrapper: wiki.creeper.harbor.core.HarborCoreBootstrap
+api-version: '${apiVersion}'
+description: '크리퍼 항구 공통 플러그인 (콘텐츠, 플레이어 데이터, 재화, 아이템, 보정자, 메시지, 명령어)'
+website: https://creeper.wiki
+permissions:
+  harbor.admin:
+    description: /harbor 관리 명령
+    default: op
+  harbor.admin.alerts:
+    description: 원장 불일치 등 운영 알림 받기
+    default: op

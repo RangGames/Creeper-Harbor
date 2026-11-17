@@ -1,0 +1,8 @@
+# 지역 ('11. 데이터 설계' 2.4). bounds·fishing_spots는 맵 확정 전 제안값이다.
+
+- id: region/harbor
+  name: 크리퍼 항구 & 잔잔한 만
+  world: harbor_main
+  bounds: [[-512, -512], [512, -512], [512, 512], [-512, 512]]
+  biome: creeper:harbor
+  fishing_spots: 12

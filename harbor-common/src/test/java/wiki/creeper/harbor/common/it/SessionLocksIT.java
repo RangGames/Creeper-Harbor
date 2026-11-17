@@ -60,15 +60,37 @@ class SessionLocksIT {
     void handoffMovesOwnershipOnlyToTarget() {
         UUID player = UUID.randomUUID();
         locks.claim(player, "main-1");
-        assertFalse(locks.beginHandoff(player, "main-2", "main-3"));
-        assertTrue(locks.beginHandoff(player, "main-1", "main-2"));
-        assertEquals(Optional.of(new LockState.Handoff("main-1", "main-2")), locks.inspect(player));
+        assertFalse(locks.beginHandoff(player, "main-2", "inst-1", "req-1"));
+        assertTrue(locks.beginHandoff(player, "main-1", "inst-1", "req-1"));
+        assertEquals(Optional.of(new LockState.Handoff("inst-1", "req-1")), locks.inspect(player));
 
-        // 출발 서버의 늦은 퇴장 처리가 넘긴 잠금을 지우면 안 된다
+        // 출발 서버의 퇴장 처리가 넘긴 잠금을 owned 해제로 지우면 안 된다
         assertFalse(locks.release(player, "main-1"));
-        assertEquals(ClaimResult.BUSY, locks.claim(player, "main-3"));
-        assertEquals(ClaimResult.HANDOFF_CLAIMED, locks.claim(player, "main-2"));
-        assertEquals(Optional.of(new LockState.Owned("main-2")), locks.inspect(player));
+        assertEquals(ClaimResult.BUSY, locks.claim(player, "inst-2"));
+        assertEquals(ClaimResult.HANDOFF_CLAIMED, locks.claim(player, "inst-1"));
+        assertEquals(Optional.of(new LockState.Owned("inst-1")), locks.inspect(player));
+        // 도착 서버가 가져간 뒤에는 되돌릴 수 없다
+        assertFalse(locks.abortHandoff(player, "main-1", "req-1"));
+    }
+
+    @Test
+    void abortRestoresOwnershipToOrigin() {
+        UUID player = UUID.randomUUID();
+        locks.claim(player, "main-1");
+        assertTrue(locks.beginHandoff(player, "main-1", "inst-1", "req-2"));
+        assertFalse(locks.abortHandoff(player, "main-1", "req-other"));
+        assertTrue(locks.abortHandoff(player, "main-1", "req-2"));
+        assertEquals(Optional.of(new LockState.Owned("main-1")), locks.inspect(player));
+    }
+
+    @Test
+    void disconnectDuringHandoffReleasesOnlyThatRequest() {
+        UUID player = UUID.randomUUID();
+        locks.claim(player, "main-1");
+        locks.beginHandoff(player, "main-1", "inst-1", "req-3");
+        assertFalse(locks.releaseHandoff(player, "req-other"));
+        assertTrue(locks.releaseHandoff(player, "req-3"));
+        assertTrue(locks.inspect(player).isEmpty());
     }
 
     @Test
@@ -76,9 +98,9 @@ class SessionLocksIT {
         UUID player = UUID.randomUUID();
         locks.claim(player, "main-1");
         CompletableFuture<ClaimResult> target =
-                CompletableFuture.supplyAsync(() -> locks.awaitClaim(player, "main-2", SessionLocks.HANDOFF_WAIT));
+                CompletableFuture.supplyAsync(() -> locks.awaitClaim(player, "inst-1", SessionLocks.HANDOFF_WAIT));
         Thread.sleep(500);
-        assertTrue(locks.beginHandoff(player, "main-1", "main-2"));
+        assertTrue(locks.beginHandoff(player, "main-1", "inst-1", "req-4"));
         assertEquals(ClaimResult.HANDOFF_CLAIMED, target.get(5, TimeUnit.SECONDS));
     }
 

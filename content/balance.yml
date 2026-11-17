@@ -1,0 +1,54 @@
+# '7. 밸런스 기획'의 수치. 서버 재시작 없이 /harbor reload balance로 다시 읽는다.
+
+fishing:
+  grade_weight:          # 4.1 등급 가중치 (지역에 없는 등급은 빼고 다시 100%로 맞춤)
+    common: 60
+    uncommon: 25
+    rare: 10
+    epic: 4
+  rare_bonus_cap: 0.60   # 4.2 희귀 이상 보정 합계 상한
+  legend:                # 4.3 전설 판정
+    base_chance: 0.004
+    pity_start: 150
+    pity_step: 0.0002
+    max_chance: 0.025
+  mythic:
+    event_chance: 0.01   # 4.4
+  quality:               # 4.5 품질 경계 (백분위)
+    star2: 0.40
+    star3: 0.70
+    star4: 0.90
+    star5: 0.98
+    tier_cap: [3, 4, 5]  # 직업 단계별 품질 상한
+
+economy:
+  market:                # 6.2 시세 계수 M = clamp(1 − 0.35 × (S/S₀ − 1), 0.5, 1.2)
+    slope: 0.35
+    min: 0.5
+    max: 1.2
+
+# 보정자 스탯: 기본값·하한·상한 (/harbor stat에서 확인)
+stats:
+  rare_weight:
+    base: 0
+    max: 0.60
+  bite_wait:
+    base: 1.0
+    min: 0.2
+  sell_price:
+    base: 1.0
+    min: 0
+  reel_speed:
+    base: 1.0
+    min: 0.1
+  line_strength:
+    base: 0
+    min: 0
+  exp_gain:
+    base: 1.0
+    min: 0
+
+items:
+  fish_base_item: minecraft:cod
+  # tooltip_style:       # 등급별 툴팁 테두리 (리소스팩 준비 후)
+  #   legendary: harbor:legendary
