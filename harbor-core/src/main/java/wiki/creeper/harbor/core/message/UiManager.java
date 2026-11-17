@@ -16,14 +16,16 @@ public final class UiManager implements Ui {
 
     private final Map<String, String> glyphs = new ConcurrentHashMap<>();
     private final TagResolver glyphResolver =
-            TagResolver.resolver("glyph", (args, ctx) -> {
-                String name = args.popOr("글리프 이름이 필요합니다").value();
-                String glyph = glyphs.get(name);
-                if (glyph == null) {
-                    throw ctx.newException("등록되지 않은 글리프: " + name, args);
-                }
-                return Tag.selfClosingInserting(Component.text(glyph));
-            });
+            TagResolver.resolver(
+                    "glyph",
+                    (args, ctx) -> {
+                        String name = args.popOr("글리프 이름이 필요합니다").value();
+                        String glyph = glyphs.get(name);
+                        if (glyph == null) {
+                            throw ctx.newException("등록되지 않은 글리프: " + name, args);
+                        }
+                        return Tag.selfClosingInserting(Component.text(glyph));
+                    });
 
     @Override
     public void actionBar(Player player, Component message) {
@@ -31,13 +33,21 @@ public final class UiManager implements Ui {
     }
 
     @Override
-    public void title(Player player, Component title, Component subtitle, Duration fadeIn, Duration stay, Duration fadeOut) {
+    public void title(
+            Player player,
+            Component title,
+            Component subtitle,
+            Duration fadeIn,
+            Duration stay,
+            Duration fadeOut) {
         player.showTitle(Title.title(title, subtitle, Title.Times.times(fadeIn, stay, fadeOut)));
     }
 
     @Override
     public BossBar showBossBar(Player player, Component name, float progress, BossBar.Color color) {
-        BossBar bar = BossBar.bossBar(name, Math.clamp(progress, 0f, 1f), color, BossBar.Overlay.PROGRESS);
+        BossBar bar =
+                BossBar.bossBar(
+                        name, Math.clamp(progress, 0f, 1f), color, BossBar.Overlay.PROGRESS);
         player.showBossBar(bar);
         return bar;
     }

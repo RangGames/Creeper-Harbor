@@ -2,9 +2,7 @@ package wiki.creeper.harbor.common.session;
 
 import java.util.Optional;
 
-/**
- * 세션 잠금 상태. Redis 값: {@code owned:<서버>} 또는 {@code handoff:<도착 서버>:<요청 ID>} (docs 20 1.2).
- */
+/** 세션 잠금 상태. Redis 값: {@code owned:<서버>} 또는 {@code handoff:<도착 서버>:<요청 ID>} (docs 20 1.2). */
 public sealed interface LockState permits LockState.Owned, LockState.Handoff {
 
     /** 서버 하나가 플레이어 데이터를 가지고 있다. */

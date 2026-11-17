@@ -23,7 +23,13 @@ public final class PagedMenu<T> extends Menu {
     private final int perPage;
     private int page;
 
-    public PagedMenu(Component title, int rows, List<T> items, Function<T, Entry> render, ItemStack previous, ItemStack next) {
+    public PagedMenu(
+            Component title,
+            int rows,
+            List<T> items,
+            Function<T, Entry> render,
+            ItemStack previous,
+            ItemStack next) {
         super(title, rows);
         if (rows < 2) {
             throw new IllegalArgumentException("페이지 GUI는 2줄 이상이어야 합니다");
@@ -60,7 +66,7 @@ public final class PagedMenu<T> extends Menu {
         if (page < pageCount() - 1) {
             button(navRow + 8, next, e -> show(player, page + 1));
         }
-        if (player.getOpenInventory().getTopInventory() != getInventory()) {
+        if (player.getOpenInventory().getTopInventory().getHolder(false) != this) {
             open(player);
         }
     }

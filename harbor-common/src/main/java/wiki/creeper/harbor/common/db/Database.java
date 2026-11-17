@@ -38,7 +38,8 @@ public final class Database implements AutoCloseable {
     private final BooleanSupplier isMainThread;
     private final boolean warnOnMainThread;
 
-    private Database(HikariDataSource dataSource, BooleanSupplier isMainThread, boolean warnOnMainThread) {
+    private Database(
+            HikariDataSource dataSource, BooleanSupplier isMainThread, boolean warnOnMainThread) {
         this.dataSource = dataSource;
         this.isMainThread = isMainThread;
         this.warnOnMainThread = warnOnMainThread;
@@ -50,7 +51,8 @@ public final class Database implements AutoCloseable {
      * @param isMainThread 지금 스레드가 서버 메인 스레드인지 (Purpur: Bukkit::isPrimaryThread, 그 밖: () -> false)
      * @param warnOnMainThread 메인 스레드 입출력 감지 시 경고 (개발 빌드)
      */
-    public static Database connect(DatabaseConfig config, BooleanSupplier isMainThread, boolean warnOnMainThread) {
+    public static Database connect(
+            DatabaseConfig config, BooleanSupplier isMainThread, boolean warnOnMainThread) {
         HikariConfig hikari = new HikariConfig();
         hikari.setPoolName(config.poolName());
         hikari.setDriverClassName("org.mariadb.jdbc.Driver");
@@ -171,7 +173,10 @@ public final class Database implements AutoCloseable {
 
     private void checkThread() {
         if (warnOnMainThread && isMainThread.getAsBoolean()) {
-            LOG.log(Level.WARNING, "메인 스레드에서 DB 입출력", new IllegalStateException("main-thread DB access"));
+            LOG.log(
+                    Level.WARNING,
+                    "메인 스레드에서 DB 입출력",
+                    new IllegalStateException("main-thread DB access"));
         }
     }
 

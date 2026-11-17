@@ -22,17 +22,27 @@ public final class HarborCoreLoader implements PluginLoader {
     @Override
     public void classloader(PluginClasspathBuilder classpathBuilder) {
         MavenLibraryResolver resolver = new MavenLibraryResolver();
-        resolver.addRepository(new RemoteRepository.Builder("central", "default",
-                MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR).build());
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream("harbor-libraries.txt")) {
+        resolver.addRepository(
+                new RemoteRepository.Builder(
+                                "central",
+                                "default",
+                                MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR)
+                        .build());
+        try (InputStream in =
+                getClass().getClassLoader().getResourceAsStream("harbor-libraries.txt")) {
             if (in == null) {
                 throw new IllegalStateException("harbor-libraries.txt가 jar에 없습니다");
             }
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+            try (BufferedReader reader =
+                    new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
                 reader.lines()
                         .map(String::strip)
                         .filter(line -> !line.isEmpty() && !line.startsWith("#"))
-                        .forEach(coordinates -> resolver.addDependency(new Dependency(new DefaultArtifact(coordinates), null)));
+                        .forEach(
+                                coordinates ->
+                                        resolver.addDependency(
+                                                new Dependency(
+                                                        new DefaultArtifact(coordinates), null)));
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);

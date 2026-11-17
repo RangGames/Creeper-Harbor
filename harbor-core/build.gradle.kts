@@ -1,8 +1,8 @@
 // Harbor-Core: 모든 게임 모듈이 기대는 Purpur 공통 플러그인. Harbor-Common을 jar 안에 품는다.
 plugins {
     id("harbor.paper-plugin")
-    id("com.gradleup.shadow")
-    id("xyz.jpenilla.run-paper")
+    id("harbor.shadow")
+    id("harbor.run-paper")
 }
 
 dependencies {

@@ -12,7 +12,8 @@ public final class SessionAudit {
 
     private SessionAudit() {}
 
-    public static void recordOwner(Connection connection, UUID player, String server, Instant lockedUntil)
+    public static void recordOwner(
+            Connection connection, UUID player, String server, Instant lockedUntil)
             throws SQLException {
         try (PreparedStatement ps =
                 connection.prepareStatement(

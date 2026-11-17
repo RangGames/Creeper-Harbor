@@ -18,8 +18,8 @@ import wiki.creeper.harbor.core.currency.SeasonBalanceStore;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 원장 합계와 잔액 대조 ('16. 플러그인 설계' 4.3). 매일 새벽(04:00, 제안값) 한 서버만 실행하고 (분산 잠금), 틀리면 오류 로그를 남기고
- * 접속 중인 관리자(harbor.admin.alerts)에게 알린다.
+ * 원장 합계와 잔액 대조 ('16. 플러그인 설계' 4.3). 매일 새벽(04:00, 제안값) 한 서버만 실행하고 (분산 잠금), 틀리면 오류 로그를 남기고 접속 중인
+ * 관리자(harbor.admin.alerts)에게 알린다.
  */
 public final class LedgerAuditJob {
 
@@ -36,7 +36,13 @@ public final class LedgerAuditJob {
     private final Logger log;
 
     public LedgerAuditJob(
-            Database db, SeasonBalanceStore store, DistributedLock locks, HarborTime time, MessageService messages, Tasks tasks, Logger log) {
+            Database db,
+            SeasonBalanceStore store,
+            DistributedLock locks,
+            HarborTime time,
+            MessageService messages,
+            Tasks tasks,
+            Logger log) {
         this.db = db;
         this.store = store;
         this.locks = locks;
@@ -48,10 +54,13 @@ public final class LedgerAuditJob {
 
     public void schedule() {
         long delayTicks = Math.max(20, time.untilNext(RUN_AT).toSeconds() * 20);
-        var unused = tasks.later(delayTicks, () -> {
-            var unused2 = tasks.async(this::runOnce);
-            schedule();
-        });
+        var _ =
+                tasks.later(
+                        delayTicks,
+                        () -> {
+                            var _ = tasks.async(this::runOnce);
+                            schedule();
+                        });
     }
 
     /** 가상 스레드에서 실행한다. 다른 서버가 이미 하고 있으면 건너뛴다. */
@@ -71,8 +80,14 @@ public final class LedgerAuditJob {
             for (Currency currency : List.of(Currency.GOLD, Currency.MULBINEUL)) {
                 List<LedgerAuditor.Mismatch> mismatches = LedgerAuditor.audit(db, currency, store);
                 total += mismatches.size();
-                mismatches.forEach(m -> log.error("원장 불일치: {} {} 원장 합계 {} / 잔액 {}",
-                        m.player(), m.currency(), m.ledgerSum(), m.balance()));
+                mismatches.forEach(
+                        m ->
+                                log.error(
+                                        "원장 불일치: {} {} 원장 합계 {} / 잔액 {}",
+                                        m.player(),
+                                        m.currency(),
+                                        m.ledgerSum(),
+                                        m.balance()));
             }
         } catch (SQLException e) {
             log.error("원장 검사 실패", e);
@@ -83,9 +98,20 @@ public final class LedgerAuditJob {
         log.info("원장 검사 완료: 불일치 {}건", total);
         if (total > 0) {
             int count = total;
-            tasks.main().execute(() -> Bukkit.getOnlinePlayers().stream()
-                    .filter(p -> p.hasPermission("harbor.admin.alerts"))
-                    .forEach(p -> messages.send(p, "admin.ledger_mismatch", Placeholder.unparsed("count", String.valueOf(count)))));
+            tasks.main()
+                    .execute(
+                            () ->
+                                    Bukkit.getOnlinePlayers().stream()
+                                            .filter(p -> p.hasPermission("harbor.admin.alerts"))
+                                            .forEach(
+                                                    p ->
+                                                            messages.send(
+                                                                    p,
+                                                                    "admin.ledger_mismatch",
+                                                                    Placeholder.unparsed(
+                                                                            "count",
+                                                                            String.valueOf(
+                                                                                    count)))));
         }
     }
 }

@@ -34,7 +34,8 @@ final class PlayerRepository {
     private PlayerRepository() {}
 
     /** 계정 행을 만들거나 이름·마지막 접속을 갱신하고, 이번 시즌 행이 없으면 만든 뒤 읽는다. */
-    static Row loadOrCreate(Connection c, UUID uuid, String name, SeasonId season) throws SQLException {
+    static Row loadOrCreate(Connection c, UUID uuid, String name, SeasonId season)
+            throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
                         "INSERT INTO players (uuid, name) VALUES (?, ?)"
@@ -44,7 +45,8 @@ final class PlayerRepository {
             ps.executeUpdate();
         }
         try (PreparedStatement ps =
-                c.prepareStatement("INSERT IGNORE INTO player_season (uuid, season) VALUES (?, ?)")) {
+                c.prepareStatement(
+                        "INSERT IGNORE INTO player_season (uuid, season) VALUES (?, ?)")) {
             ps.setString(1, uuid.toString());
             ps.setInt(2, season.value());
             ps.executeUpdate();
@@ -80,7 +82,8 @@ final class PlayerRepository {
     }
 
     static void saveBase(Connection c, PlayerState.BaseSnapshot s) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement("UPDATE players SET name = ?, playtime = ? WHERE uuid = ?")) {
+        try (PreparedStatement ps =
+                c.prepareStatement("UPDATE players SET name = ?, playtime = ? WHERE uuid = ?")) {
             ps.setString(1, s.name());
             ps.setLong(2, s.playtimeSeconds());
             ps.setString(3, s.uuid().toString());

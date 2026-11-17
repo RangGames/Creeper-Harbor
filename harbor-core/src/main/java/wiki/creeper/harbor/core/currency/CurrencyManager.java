@@ -27,7 +27,8 @@ public final class CurrencyManager implements CurrencyService {
     private final PlayerManager players;
     private final Tasks tasks;
 
-    public CurrencyManager(Database db, SeasonBalanceStore store, PlayerManager players, Tasks tasks) {
+    public CurrencyManager(
+            Database db, SeasonBalanceStore store, PlayerManager players, Tasks tasks) {
         this.db = db;
         this.writer = new LedgerWriter(Map.of(Currency.GOLD, store, Currency.MULBINEUL, store));
         this.players = players;
@@ -40,20 +41,29 @@ public final class CurrencyManager implements CurrencyService {
 
     @Override
     public CompletableFuture<Result<Long, LedgerError>> give(
-            UUID player, Currency currency, long amount, LedgerReason reason, @Nullable String refId) {
+            UUID player,
+            Currency currency,
+            long amount,
+            LedgerReason reason,
+            @Nullable String refId) {
         requirePositive(amount);
         return post(new LedgerEntry(player, currency, amount, reason, refId));
     }
 
     @Override
     public CompletableFuture<Result<Long, LedgerError>> take(
-            UUID player, Currency currency, long amount, LedgerReason reason, @Nullable String refId) {
+            UUID player,
+            Currency currency,
+            long amount,
+            LedgerReason reason,
+            @Nullable String refId) {
         requirePositive(amount);
         return post(new LedgerEntry(player, currency, -amount, reason, refId));
     }
 
     @Override
-    public CompletableFuture<Result<List<Long>, LedgerError>> atomic(List<LedgerEntry> entries, @Nullable SqlConsumer extra) {
+    public CompletableFuture<Result<List<Long>, LedgerError>> atomic(
+            List<LedgerEntry> entries, @Nullable SqlConsumer extra) {
         if (entries.isEmpty()) {
             throw new IllegalArgumentException("원장 기록이 없습니다");
         }
@@ -64,7 +74,9 @@ public final class CurrencyManager implements CurrencyService {
         return tasks.supplyAsync(() -> writer.postAll(db, copy, extra))
                 .thenApplyAsync(
                         result -> {
-                            if (result instanceof Result.Ok<List<Long>, LedgerError>(List<Long> balances)) {
+                            if (result
+                                    instanceof
+                                    Result.Ok<List<Long>, LedgerError>(List<Long> balances)) {
                                 for (int i = 0; i < copy.size(); i++) {
                                     committed(copy.get(i), balances.get(i));
                                 }
@@ -108,7 +120,13 @@ public final class CurrencyManager implements CurrencyService {
     private void committed(LedgerEntry entry, long balance) {
         players.updateCachedBalance(entry.player(), entry.currency(), balance);
         Bukkit.getPluginManager()
-                .callEvent(new CurrencyChangedEvent(entry.player(), entry.currency(), entry.delta(), balance, entry.reason()));
+                .callEvent(
+                        new CurrencyChangedEvent(
+                                entry.player(),
+                                entry.currency(),
+                                entry.delta(),
+                                balance,
+                                entry.reason()));
     }
 
     private static void requirePositive(long amount) {

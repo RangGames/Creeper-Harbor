@@ -14,9 +14,7 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.model.Currency;
 
-/**
- * 원장 합계와 잔액이 맞는지 검사한다. 매일 새벽 한 서버만 실행하고 (분산 잠금), 틀리면 관리자에게 알린다.
- */
+/** 원장 합계와 잔액이 맞는지 검사한다. 매일 새벽 한 서버만 실행하고 (분산 잠금), 틀리면 관리자에게 알린다. */
 public final class LedgerAuditor {
 
     /** 원장 합계와 잔액이 다른 플레이어. */
@@ -44,7 +42,8 @@ public final class LedgerAuditor {
                 });
     }
 
-    private static Map<UUID, Long> ledgerSums(Connection connection, Currency currency) throws SQLException {
+    private static Map<UUID, Long> ledgerSums(Connection connection, Currency currency)
+            throws SQLException {
         String sql =
                 currency == Currency.PEARL
                         ? "SELECT uuid, SUM(delta) FROM pearl_ledger GROUP BY uuid"

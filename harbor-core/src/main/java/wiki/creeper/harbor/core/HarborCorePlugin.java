@@ -82,7 +82,11 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
     }
 
     private void start(Logger log) throws IOException, SQLException {
-        Path harborDir = getDataFolder().toPath().toAbsolutePath().getParent().resolve("Harbor");
+        Path pluginsDir = getDataFolder().toPath().toAbsolutePath().getParent();
+        if (pluginsDir == null) {
+            throw new IOException("plugins 폴더를 찾지 못했습니다");
+        }
+        Path harborDir = pluginsDir.resolve("Harbor");
         Path infraFile = harborDir.resolve("harbor-infra.yml");
         if (Files.notExists(infraFile)) {
             Files.createDirectories(harborDir);
@@ -98,7 +102,9 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         // 1. 인프라 설정
         Result<InfraConfig, ValidationErrors> loaded = InfraConfig.load(infraFile);
         if (!(loaded instanceof Result.Ok<InfraConfig, ValidationErrors>(InfraConfig infra))) {
-            log.error("harbor-infra.yml 오류:\n{}", ((Result.Err<InfraConfig, ValidationErrors>) loaded).error().format());
+            log.error(
+                    "harbor-infra.yml 오류:\n{}",
+                    ((Result.Err<InfraConfig, ValidationErrors>) loaded).error().format());
             Bukkit.shutdown();
             return;
         }
@@ -120,10 +126,12 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         // 4. 콘텐츠 로드 (실패하면 시작 중단)
         Tasks tasks = new Tasks(this);
         Path configuredContent = infra.contentDir();
-        Path contentRoot = configuredContent != null ? configuredContent : harborDir.resolve("content");
+        Path contentRoot =
+                configuredContent != null ? configuredContent : harborDir.resolve("content");
         HarborContent content = new HarborContent(contentRoot, tasks, log);
         Result<ContentSnapshot, ValidationErrors> contentResult = content.loadBlocking();
-        if (contentResult instanceof Result.Err<ContentSnapshot, ValidationErrors>(ValidationErrors errors)) {
+        if (contentResult
+                instanceof Result.Err<ContentSnapshot, ValidationErrors>(ValidationErrors errors)) {
             log.error("콘텐츠 오류 {}건 ({}):\n{}", errors.size(), contentRoot, errors.format());
             Bukkit.shutdown();
             return;
@@ -132,27 +140,67 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         // 5. 서비스
         HarborTime time = infra.time();
         UiManager ui = new UiManager();
-        MessageManager msg = new MessageManager(() -> content.snapshot().single(Messages.TYPE), ui::glyphs, log);
+        MessageManager msg =
+                new MessageManager(() -> content.snapshot().single(Messages.TYPE), ui::glyphs, log);
         messages = msg;
         DialogManager dialogs = new DialogManager(tasks);
         WriteBehindQueue writeBehind = new WriteBehindQueue(database);
         queue = writeBehind;
         DistributedLock locks = new DistributedLock(r);
-        PlayerManager playerManager = new PlayerManager(
-                infra, database, writeBehind, new SessionLocks(r), messageBus, msg, tasks, log);
+        PlayerManager playerManager =
+                new PlayerManager(
+                        infra,
+                        database,
+                        writeBehind,
+                        new SessionLocks(r),
+                        messageBus,
+                        msg,
+                        tasks,
+                        log);
         players = playerManager;
-        FlagManager flags = new FlagManager(database, messageBus, playerManager, tasks, infra.season());
+        FlagManager flags =
+                new FlagManager(database, messageBus, playerManager, tasks, infra.season());
         flags.start();
-        ModifierManager modifiers = new ModifierManager(() -> content.snapshot().single(Balance.TYPE));
+        ModifierManager modifiers =
+                new ModifierManager(() -> content.snapshot().single(Balance.TYPE));
         SeasonBalanceStore balanceStore = new SeasonBalanceStore(infra.season());
-        CurrencyManager currency = new CurrencyManager(database, balanceStore, playerManager, tasks);
-        ItemManager items = new ItemManager(content::snapshot, msg, database, infra.season(), infra.zone(), log);
+        CurrencyManager currency =
+                new CurrencyManager(database, balanceStore, playerManager, tasks);
+        ItemManager items =
+                new ItemManager(
+                        content::snapshot, msg, database, infra.season(), infra.zone(), log);
         ProxyLink proxy = new ProxyLink(infra, messageBus, tasks, playerManager::acceptingLogins);
         AdminLog adminLog = new AdminLog(database, log);
-        HarborCommand command = new HarborCommand(content, items, modifiers, playerManager, currency, msg, database, writeBehind, adminLog);
+        HarborCommand command =
+                new HarborCommand(
+                        content,
+                        items,
+                        modifiers,
+                        playerManager,
+                        currency,
+                        msg,
+                        database,
+                        writeBehind,
+                        adminLog);
 
-        CoreApi api = new CoreApi(content, playerManager, items, currency, modifiers, msg, flags, ui, dialogs, proxy,
-                infra, time, database, writeBehind, messageBus, locks);
+        CoreApi api =
+                new CoreApi(
+                        content,
+                        playerManager,
+                        items,
+                        currency,
+                        modifiers,
+                        msg,
+                        flags,
+                        ui,
+                        dialogs,
+                        proxy,
+                        infra,
+                        time,
+                        database,
+                        writeBehind,
+                        messageBus,
+                        locks);
         Harbor.install(api);
         ModuleHost.install(new ModuleRegistry(api, content, playerManager, command, log));
 
@@ -166,7 +214,9 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         }
 
         // 6. 명령어 (모든 모듈이 켜진 뒤 발생하므로 모듈 하위 명령도 들어간다)
-        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> command.register(event.registrar()));
+        getLifecycleManager()
+                .registerEventHandler(
+                        LifecycleEvents.COMMANDS, event -> command.register(event.registrar()));
 
         playerManager.start();
         proxy.start();

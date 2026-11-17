@@ -22,6 +22,7 @@ import wiki.creeper.harbor.core.task.Tasks;
 public final class ProxyLink implements ProxyBridge {
 
     private static final long HEARTBEAT_TICKS = 5 * 20L;
+
     /** 이동 요청 응답 제한. 프록시의 핸드오프 제한(5초)보다 길게 둔다. */
     private static final Duration MOVE_TIMEOUT = Duration.ofSeconds(10);
 
@@ -39,21 +40,25 @@ public final class ProxyLink implements ProxyBridge {
     }
 
     public void start() {
-        bus.subscribe(ProxyMessages.toServer(infra.serverId(), MoveResult.class), envelope -> {
-            MoveResult result = envelope.payload();
-            CompletableFuture<MoveResult> future = pending.remove(result.requestId());
-            if (future != null) {
-                tasks.main().execute(() -> future.complete(result));
-            }
-        });
-        var unused = tasks.timer(HEARTBEAT_TICKS, HEARTBEAT_TICKS, this::heartbeat);
+        bus.subscribe(
+                ProxyMessages.toServer(infra.serverId(), MoveResult.class),
+                envelope -> {
+                    MoveResult result = envelope.payload();
+                    CompletableFuture<MoveResult> future = pending.remove(result.requestId());
+                    if (future != null) {
+                        tasks.main().execute(() -> future.complete(result));
+                    }
+                });
+        var _ = tasks.timer(HEARTBEAT_TICKS, HEARTBEAT_TICKS, this::heartbeat);
     }
 
     @Override
-    public CompletableFuture<MoveResult> requestMove(UUID player, String destination, String reason) {
+    public CompletableFuture<MoveResult> requestMove(
+            UUID player, String destination, String reason) {
         String requestId = UUID.randomUUID().toString();
         CompletableFuture<MoveResult> future = track(requestId, player);
-        bus.publish(ProxyMessages.toProxy(MoveRequest.class),
+        bus.publish(
+                ProxyMessages.toProxy(MoveRequest.class),
                 new MoveRequest(requestId, player, infra.serverId(), destination, reason));
         return future;
     }
@@ -65,7 +70,8 @@ public final class ProxyLink implements ProxyBridge {
         }
         String requestId = UUID.randomUUID().toString();
         CompletableFuture<MoveResult> future = track(requestId, party.getFirst());
-        bus.publish(ProxyMessages.toProxy(InstanceRequest.class),
+        bus.publish(
+                ProxyMessages.toProxy(InstanceRequest.class),
                 new InstanceRequest(requestId, List.copyOf(party), kind, infra.serverId()));
         return future;
     }
@@ -73,23 +79,28 @@ public final class ProxyLink implements ProxyBridge {
     private CompletableFuture<MoveResult> track(String requestId, UUID player) {
         CompletableFuture<MoveResult> future = new CompletableFuture<>();
         pending.put(requestId, future);
-        var unused = tasks.later(MOVE_TIMEOUT.toSeconds() * 20, () -> {
-            CompletableFuture<MoveResult> timedOut = pending.remove(requestId);
-            if (timedOut != null) {
-                timedOut.complete(new MoveResult(requestId, player, false, "timeout"));
-            }
-        });
+        var _ =
+                tasks.later(
+                        MOVE_TIMEOUT.toSeconds() * 20,
+                        () -> {
+                            CompletableFuture<MoveResult> timedOut = pending.remove(requestId);
+                            if (timedOut != null) {
+                                timedOut.complete(
+                                        new MoveResult(requestId, player, false, "timeout"));
+                            }
+                        });
         return future;
     }
 
     private void heartbeat() {
-        ServerHeartbeat beat = new ServerHeartbeat(
-                infra.serverId(),
-                infra.role().key(),
-                Bukkit.getOnlinePlayers().size(),
-                Bukkit.getMaxPlayers(),
-                Bukkit.getTPS()[0],
-                accepting.getAsBoolean());
-        var unused = tasks.async(() -> bus.publish(ProxyMessages.HEARTBEATS, beat));
+        ServerHeartbeat beat =
+                new ServerHeartbeat(
+                        infra.serverId(),
+                        infra.role().key(),
+                        Bukkit.getOnlinePlayers().size(),
+                        Bukkit.getMaxPlayers(),
+                        Bukkit.getTPS()[0],
+                        accepting.getAsBoolean());
+        var _ = tasks.async(() -> bus.publish(ProxyMessages.HEARTBEATS, beat));
     }
 }

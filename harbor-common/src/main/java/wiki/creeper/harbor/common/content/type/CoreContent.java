@@ -6,8 +6,7 @@ import wiki.creeper.harbor.common.content.ContentLoader;
 import wiki.creeper.harbor.common.content.ContentType;
 
 /**
- * Core가 기본으로 등록하는 콘텐츠 형식 (fish·items·regions·balance·messages). 서버 플러그인과 harbor-tools가 같은
- * 목록을 쓴다.
+ * Core가 기본으로 등록하는 콘텐츠 형식 (fish·items·regions·balance·messages). 서버 플러그인과 harbor-tools가 같은 목록을 쓴다.
  */
 public final class CoreContent {
 

@@ -17,13 +17,11 @@ import wiki.creeper.harbor.core.api.ModifierService;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 
-/**
- * ModifierService 구현. 플레이어별·스탯별로 결과를 캐시하고, 보정자가 바뀌거나 가장 이른 만료 시각이 지나면 다시 계산한다. 메인 스레드
- * 전용.
- */
+/** ModifierService 구현. 플레이어별·스탯별로 결과를 캐시하고, 보정자가 바뀌거나 가장 이른 만료 시각이 지나면 다시 계산한다. 메인 스레드 전용. */
 public final class ModifierManager implements ModifierService, Listener {
 
-    private record Cached(double base, Breakdown breakdown, long globalVersion, @Nullable Instant nextExpiry) {}
+    private record Cached(
+            double base, Breakdown breakdown, long globalVersion, @Nullable Instant nextExpiry) {}
 
     private static final class PlayerMods {
         final List<Modifier> modifiers = new ArrayList<>();

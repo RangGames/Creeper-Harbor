@@ -47,13 +47,15 @@ public final class LedgerWriter {
     public long apply(Connection connection, LedgerEntry entry) throws SQLException {
         BalanceStore store = stores.get(entry.currency());
         if (store == null) {
-            throw new LedgerException(LedgerError.UNSUPPORTED_CURRENCY, "잔액 저장소 없음: " + entry.currency());
+            throw new LedgerException(
+                    LedgerError.UNSUPPORTED_CURRENCY, "잔액 저장소 없음: " + entry.currency());
         }
         long balance = store.lockBalance(connection, entry.player(), entry.currency());
         long newBalance = Math.addExact(balance, entry.delta());
         if (newBalance < 0) {
             throw new LedgerException(
-                    LedgerError.INSUFFICIENT_FUNDS, "잔액 부족: " + balance + " + (" + entry.delta() + ")");
+                    LedgerError.INSUFFICIENT_FUNDS,
+                    "잔액 부족: " + balance + " + (" + entry.delta() + ")");
         }
         try {
             insertLedger(connection, entry, newBalance);
@@ -74,14 +76,14 @@ public final class LedgerWriter {
         } catch (LedgerException e) {
             return Result.err(e.error());
         } catch (SQLException e) {
-            System.getLogger("Harbor/Ledger").log(System.Logger.Level.ERROR, "원장 쓰기 실패: " + entry, e);
+            System.getLogger("Harbor/Ledger")
+                    .log(System.Logger.Level.ERROR, "원장 쓰기 실패: " + entry, e);
             return Result.err(LedgerError.DATABASE);
         }
     }
 
     /**
-     * 여러 건을 한 트랜잭션으로 처리한다 (송금, 경매 낙찰 등). 하나라도 실패하면 모두 취소된다. 교착 상태를 줄이려고 잠금은 (플레이어 UUID,
-     * 재화) 순서로 건다.
+     * 여러 건을 한 트랜잭션으로 처리한다 (송금, 경매 낙찰 등). 하나라도 실패하면 모두 취소된다. 교착 상태를 줄이려고 잠금은 (플레이어 UUID, 재화) 순서로 건다.
      *
      * @param extra 같은 트랜잭션에서 실행할 추가 SQL (경매 행 상태 변경 등). 원장 기록이 모두 성공한 뒤 실행한다. 업무 규칙 위반은 {@link
      *     LedgerException}을 던져 알린다.
@@ -94,7 +96,8 @@ public final class LedgerWriter {
         } catch (LedgerException e) {
             return Result.err(e.error());
         } catch (SQLException e) {
-            System.getLogger("Harbor/Ledger").log(System.Logger.Level.ERROR, "원장 쓰기 실패: " + entries, e);
+            System.getLogger("Harbor/Ledger")
+                    .log(System.Logger.Level.ERROR, "원장 쓰기 실패: " + entries, e);
             return Result.err(LedgerError.DATABASE);
         }
     }
@@ -104,13 +107,16 @@ public final class LedgerWriter {
     }
 
     /** 이미 열린 트랜잭션 안에서 여러 건을 처리한다. */
-    public List<Long> applyAll(Connection connection, List<LedgerEntry> entries, @Nullable SqlConsumer extra)
+    public List<Long> applyAll(
+            Connection connection, List<LedgerEntry> entries, @Nullable SqlConsumer extra)
             throws SQLException {
         List<LedgerEntry> lockOrder =
                 entries.stream()
-                        .sorted(Comparator.comparing(LedgerEntry::player).thenComparing(LedgerEntry::currency))
+                        .sorted(
+                                Comparator.comparing(LedgerEntry::player)
+                                        .thenComparing(LedgerEntry::currency))
                         .toList();
-        Map<LedgerEntry, Long> after = new IdentityHashMap<>();
+        IdentityHashMap<LedgerEntry, Long> after = new IdentityHashMap<>();
         for (LedgerEntry entry : lockOrder) {
             after.put(entry, apply(connection, entry));
         }
@@ -163,7 +169,8 @@ public final class LedgerWriter {
     }
 
     private static boolean isDuplicate(SQLException e) {
-        return e instanceof SQLIntegrityConstraintViolationException || e.getErrorCode() == MARIADB_DUPLICATE_KEY;
+        return e instanceof SQLIntegrityConstraintViolationException
+                || e.getErrorCode() == MARIADB_DUPLICATE_KEY;
     }
 
     /** 잔액 저장소 (원장 검사용). */

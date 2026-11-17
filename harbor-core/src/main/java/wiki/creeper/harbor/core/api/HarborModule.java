@@ -19,7 +19,7 @@ import org.jspecify.annotations.Nullable;
  */
 public abstract class HarborModule extends JavaPlugin {
 
-    private @Nullable ModuleHost.Handle handle;
+    private ModuleHost.@Nullable Handle handle;
 
     /** 모듈 ID (소문자). 마이그레이션 폴더와 이력 테이블 이름에 쓴다. */
     public abstract String moduleId();

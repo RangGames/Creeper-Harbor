@@ -11,7 +11,13 @@ public interface Ui {
 
     void actionBar(Player player, Component message);
 
-    void title(Player player, Component title, Component subtitle, Duration fadeIn, Duration stay, Duration fadeOut);
+    void title(
+            Player player,
+            Component title,
+            Component subtitle,
+            Duration fadeIn,
+            Duration stay,
+            Duration fadeOut);
 
     /** 보스바를 만들어 보여준다. 숨길 때는 {@link #hideBossBar}. */
     BossBar showBossBar(Player player, Component name, float progress, BossBar.Color color);

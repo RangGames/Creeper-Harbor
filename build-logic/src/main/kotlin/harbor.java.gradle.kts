@@ -42,6 +42,8 @@ tasks.withType<JavaCompile>().configureEach {
     )
     options.errorprone {
         disableWarningsInGeneratedCode = true
+        // 한국어 Javadoc에는 영어 요약 문장 규칙이 맞지 않는다
+        disable("MissingSummary")
         nullaway {
             // 테스트 코드는 널 검사에서 제외 (본 코드만 강제)
             if (isTestCompile) disable() else error()

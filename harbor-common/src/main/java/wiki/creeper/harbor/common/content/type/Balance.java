@@ -10,8 +10,8 @@ import wiki.creeper.harbor.common.content.ParseContext;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * balance.yml. '7. 밸런스 기획'의 모든 수치를 점으로 이은 경로로 읽는다 (예: {@code fishing.legend.pity_start}).
- * 서버 재시작 없이 리로드한다.
+ * balance.yml. '7. 밸런스 기획'의 모든 수치를 점으로 이은 경로로 읽는다 (예: {@code fishing.legend.pity_start}). 서버 재시작 없이
+ * 리로드한다.
  */
 public final class Balance {
 
@@ -71,7 +71,8 @@ public final class Balance {
 
     private static void flatten(String prefix, YamlNode node, Map<String, Object> out) {
         if (node.isMap()) {
-            node.entries().forEach((k, v) -> flatten(prefix.isEmpty() ? k : prefix + "." + k, v, out));
+            node.entries()
+                    .forEach((k, v) -> flatten(prefix.isEmpty() ? k : prefix + "." + k, v, out));
         } else if (node.isList()) {
             out.put(prefix, node.toPlain());
         } else if (!node.isNull()) {

@@ -65,7 +65,17 @@ public record InfraConfig(
     }
 
     static InfraConfig parse(YamlNode root) {
-        root.allowOnly(Set.of("server", "dev", "database", "redis", "season", "time", "content_dir", "lobby_server", "resource_packs"));
+        root.allowOnly(
+                Set.of(
+                        "server",
+                        "dev",
+                        "database",
+                        "redis",
+                        "season",
+                        "time",
+                        "content_dir",
+                        "lobby_server",
+                        "resource_packs"));
 
         YamlNode server = root.require("server").orElse(root);
         String serverId = server.string("id");
@@ -74,7 +84,7 @@ public record InfraConfig(
                 SessionLocks.requireServerId(serverId);
             }
         } catch (IllegalArgumentException e) {
-            server.error(e.getMessage());
+            server.error(String.valueOf(e.getMessage()));
         }
         ServerRole role = server.enumValue("role", ServerRole.class).orElse(ServerRole.MAIN);
 
@@ -112,9 +122,13 @@ public record InfraConfig(
             try {
                 zone = ZoneId.of(t.string("zone", HarborTime.DEFAULT_ZONE.getId()));
                 dailyReset = LocalTime.parse(t.string("daily_reset", "06:00"));
-                weeklyReset = DayOfWeek.valueOf(t.string("weekly_reset", "MONDAY").toUpperCase(Locale.ROOT));
+                weeklyReset =
+                        DayOfWeek.valueOf(
+                                t.string("weekly_reset", "MONDAY").toUpperCase(Locale.ROOT));
             } catch (DateTimeException | IllegalArgumentException e) {
-                t.error("time 설정이 틀렸습니다 (zone: Asia/Seoul, daily_reset: \"06:00\", weekly_reset: MONDAY): " + e.getMessage());
+                t.error(
+                        "time 설정이 틀렸습니다 (zone: Asia/Seoul, daily_reset: \"06:00\", weekly_reset: MONDAY): "
+                                + e.getMessage());
             }
         }
 

@@ -30,8 +30,8 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *   <li>추가 검사({@link ContentCheck})를 실행한다
  * </ol>
  *
- * 오류가 하나도 없을 때만 새 스냅샷을 돌려준다. 이 클래스는 서버 API를 쓰지 않아서 harbor-tools(CI)에서도 같은 코드로 검사한다.
- * 스레드 안전하지 않으므로 등록은 시작할 때 한 스레드에서 한다.
+ * 오류가 하나도 없을 때만 새 스냅샷을 돌려준다. 이 클래스는 서버 API를 쓰지 않아서 harbor-tools(CI)에서도 같은 코드로 검사한다. 스레드 안전하지 않으므로
+ * 등록은 시작할 때 한 스레드에서 한다.
  */
 public final class ContentLoader {
 
@@ -135,7 +135,9 @@ public final class ContentLoader {
 
     private static List<String> matching(List<String> files, List<String> globs) {
         List<Pattern> patterns = globs.stream().map(Glob::compile).toList();
-        return files.stream().filter(f -> patterns.stream().anyMatch(p -> p.matcher(f).matches())).toList();
+        return files.stream()
+                .filter(f -> patterns.stream().anyMatch(p -> p.matcher(f).matches()))
+                .toList();
     }
 
     private static void copyPrevious(
@@ -244,14 +246,17 @@ public final class ContentLoader {
                     Map<HarborId, SourcePos> pos = positions.getOrDefault(e.name(), Map.of());
                     for (Map.Entry<HarborId, Object> entry :
                             snapshot.rawEntries().getOrDefault(e.name(), Map.of()).entrySet()) {
-                        SourcePos at = pos.getOrDefault(entry.getKey(), new SourcePos(e.name(), 1, 1));
+                        SourcePos at =
+                                pos.getOrDefault(entry.getKey(), new SourcePos(e.name(), 1, 1));
                         runChecks(typeChecks, entry.getValue(), snapshot, at, errors);
                     }
                 }
                 case ContentType.Single<?> s -> {
                     Object value = snapshot.rawSingles().get(s.name());
                     if (value != null) {
-                        SourcePos at = singlePositions.getOrDefault(s.name(), new SourcePos(s.file(), 1, 1));
+                        SourcePos at =
+                                singlePositions.getOrDefault(
+                                        s.name(), new SourcePos(s.file(), 1, 1));
                         runChecks(typeChecks, value, snapshot, at, errors);
                     }
                 }

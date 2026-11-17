@@ -40,9 +40,25 @@ public record FishDef(
 
     private static final Set<String> FIELDS =
             Set.of(
-                    "id", "no", "name", "lore", "grade", "region", "area", "time", "weather", "moon",
-                    "bait", "job_tier_min", "unlock_flag", "size_cm", "base_price", "weight",
-                    "release_only", "model", "season");
+                    "id",
+                    "no",
+                    "name",
+                    "lore",
+                    "grade",
+                    "region",
+                    "area",
+                    "time",
+                    "weather",
+                    "moon",
+                    "bait",
+                    "job_tier_min",
+                    "unlock_flag",
+                    "size_cm",
+                    "base_price",
+                    "weight",
+                    "release_only",
+                    "model",
+                    "season");
 
     public static final ContentType.Entries<FishDef> TYPE =
             new ContentType.Entries<>(
@@ -55,7 +71,8 @@ public record FishDef(
 
     static FishDef parse(YamlNode node, ParseContext ctx) {
         node.allowOnly(FIELDS);
-        HarborId rawId = node.require("id").flatMap(n -> n.asId(FishId.PREFIX)).orElse(Placeholder.FISH);
+        HarborId rawId =
+                node.require("id").flatMap(n -> n.asId(FishId.PREFIX)).orElse(Placeholder.FISH);
         Grade grade = node.enumValue("grade", Grade.class).orElse(Grade.COMMON);
 
         RegionId region = new RegionId(Placeholder.REGION);

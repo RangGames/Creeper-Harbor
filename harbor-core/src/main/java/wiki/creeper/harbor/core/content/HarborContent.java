@@ -21,10 +21,7 @@ import wiki.creeper.harbor.core.api.ContentService;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
 
-/**
- * 콘텐츠 로더 (YAML → 메모리 레지스트리). 읽기·검사는 가상 스레드에서, 스냅샷 교체만 메인 스레드에서 한다. 교체는 참조 하나를 바꾸는
- * 것이라 틱 지연이 없다.
- */
+/** 콘텐츠 로더 (YAML → 메모리 레지스트리). 읽기·검사는 가상 스레드에서, 스냅샷 교체만 메인 스레드에서 한다. 교체는 참조 하나를 바꾸는 것이라 틱 지연이 없다. */
 public final class HarborContent implements ContentService {
 
     private final ContentLoader loader = new ContentLoader();
@@ -66,20 +63,26 @@ public final class HarborContent implements ContentService {
     /** 서버 시작 중: 전체를 읽고 바로 적용한다. 오류가 있으면 Err (서버 시작 중단). 메인 스레드에서 블로킹하지만 시작 단계라 허용한다. */
     public Result<ContentSnapshot, ValidationErrors> loadBlocking() {
         Result<ContentSnapshot, ValidationErrors> result = loader.load(root);
-        if (result instanceof Result.Ok<ContentSnapshot, ValidationErrors>(ContentSnapshot loaded)) {
+        if (result
+                instanceof Result.Ok<ContentSnapshot, ValidationErrors>(ContentSnapshot loaded)) {
             apply(loaded, allTypes());
         }
         return result;
     }
 
     @Override
-    public CompletableFuture<Result<ContentSnapshot, ValidationErrors>> reload(Set<String> types, boolean apply) {
+    public CompletableFuture<Result<ContentSnapshot, ValidationErrors>> reload(
+            Set<String> types, boolean apply) {
         Set<String> only = types.isEmpty() ? allTypes() : Set.copyOf(types);
         ContentSnapshot previous = snapshot;
         return tasks.supplyAsync(() -> loader.reload(root, only, previous))
                 .thenApplyAsync(
                         result -> {
-                            if (apply && result instanceof Result.Ok<ContentSnapshot, ValidationErrors>(ContentSnapshot loaded)) {
+                            if (apply
+                                    && result
+                                            instanceof
+                                            Result.Ok<ContentSnapshot, ValidationErrors>(
+                                                    ContentSnapshot loaded)) {
                                 apply(loaded, only);
                             }
                             return result;
@@ -108,7 +111,7 @@ public final class HarborContent implements ContentService {
 
     private static void checkModel(String model, ContentCheck.Context ctx) {
         try {
-            var unused = Key.key(model);
+            var _ = Key.key(model);
         } catch (RuntimeException e) {
             ctx.error("model '" + model + "'는 'harbor:fish/harbor_mackerel' 같은 키여야 합니다");
         }

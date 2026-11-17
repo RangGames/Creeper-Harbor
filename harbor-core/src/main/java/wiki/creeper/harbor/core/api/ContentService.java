@@ -21,5 +21,6 @@ public interface ContentService {
      * @param types 다시 읽을 형식 이름 (비우면 전체)
      * @param apply false면 검사만 한다 (/harbor validate)
      */
-    CompletableFuture<Result<ContentSnapshot, ValidationErrors>> reload(Set<String> types, boolean apply);
+    CompletableFuture<Result<ContentSnapshot, ValidationErrors>> reload(
+            Set<String> types, boolean apply);
 }

@@ -8,8 +8,10 @@ import wiki.creeper.harbor.common.redis.Channel;
  * 백엔드 ↔ 프록시 메시지 (docs 20 1.2, 추가 제안). 한 Redis 채널에 여러 메시지 형식이 오가며, 봉투의 type(레코드 이름)으로 구분한다.
  *
  * <ul>
- *   <li>{@code harbor:proxy}: 백엔드 → 프록시 (MoveRequest, TransferReady, PackStatus, ChatMessage, InstanceRequest)
- *   <li>{@code harbor:proxy:<서버 ID>}: 프록시 → 특정 백엔드 (TransferPrepare, TransferAbort, MoveResult, SaveAll)
+ *   <li>{@code harbor:proxy}: 백엔드 → 프록시 (MoveRequest, TransferReady, PackStatus, ChatMessage,
+ *       InstanceRequest)
+ *   <li>{@code harbor:proxy:<서버 ID>}: 프록시 → 특정 백엔드 (TransferPrepare, TransferAbort, MoveResult,
+ *       SaveAll)
  *   <li>{@code harbor:server}: 백엔드 → 프록시, 5초마다 (ServerHeartbeat)
  * </ul>
  */
@@ -36,7 +38,8 @@ public final class ProxyMessages {
     // ------------------------------------------------------------------ 서버 이동
 
     /** 백엔드 → 프록시: 플레이어를 옮겨 달라 (/로비, 인스턴스 입장, 귀환 …). */
-    public record MoveRequest(String requestId, UUID player, String origin, String destination, String reason) {}
+    public record MoveRequest(
+            String requestId, UUID player, String origin, String destination, String reason) {}
 
     /** 프록시 → 출발 서버: 저장하고 잠금을 handoff로 바꿔라. */
     public record TransferPrepare(String requestId, UUID player, String destination) {}
@@ -77,14 +80,25 @@ public final class ProxyMessages {
      * @param recipients 귓속말·파티 수신자 (그 밖은 빈 목록)
      */
     public record ChatMessage(
-            UUID sender, String senderName, String server, String channel, String message, List<UUID> recipients) {}
+            UUID sender,
+            String senderName,
+            String server,
+            String channel,
+            String message,
+            List<UUID> recipients) {}
 
     /** Boss·World → 프록시: 파티를 인스턴스로 보내 달라. kind: dungeon · raid. */
     public record InstanceRequest(String requestId, List<UUID> party, String kind, String origin) {}
 
     /** 백엔드 → 프록시, 5초마다. */
     public record ServerHeartbeat(
-            String serverId, String role, int online, int capacity, double tps, boolean accepting) {}
+            String serverId,
+            String role,
+            int online,
+            int capacity,
+            double tps,
+            boolean accepting) {}
 
-    public static final Channel<ServerHeartbeat> HEARTBEATS = new Channel<>(HEARTBEAT, ServerHeartbeat.class);
+    public static final Channel<ServerHeartbeat> HEARTBEATS =
+            new Channel<>(HEARTBEAT, ServerHeartbeat.class);
 }

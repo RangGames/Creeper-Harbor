@@ -6,8 +6,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
- * 진행 플래그 (예: climax_done, cutscene/ch1_intro). Quest보다 먼저 적재되는 Fishing·NPC·Collection도 읽고 쓸 수 있도록 Core에 둔다
- * (docs 20 0.2).
+ * 진행 플래그 (예: climax_done, cutscene/ch1_intro). Quest보다 먼저 적재되는 Fishing·NPC·Collection도 읽고 쓸 수 있도록
+ * Core에 둔다 (docs 20 0.2).
  *
  * <ul>
  *   <li>플레이어 플래그: 접속 중에는 메모리 캐시에서 읽고, 쓰기는 즉시 DB에 반영한다. 범위는 시즌(시즌 전환 때 초기화)과 영구 두 가지

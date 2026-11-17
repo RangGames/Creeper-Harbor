@@ -18,21 +18,32 @@ public final class AdminLog {
         this.log = log;
     }
 
-    public void record(CommandSender admin, String action, @Nullable String target, @Nullable String detail) {
-        String adminId = admin instanceof Player player ? player.getUniqueId().toString() : "CONSOLE";
-        var unused = db.asyncVoid(c -> {
-                    try (PreparedStatement ps = c.prepareStatement(
-                            "INSERT INTO admin_log (admin, action, target, detail) VALUES (?, ?, ?, ?)")) {
-                        ps.setString(1, adminId);
-                        ps.setString(2, action);
-                        ps.setString(3, target);
-                        ps.setString(4, detail);
-                        ps.executeUpdate();
-                    }
-                })
-                .exceptionally(e -> {
-                    log.error("admin_log 기록 실패: {} {} {}", adminId, action, target, e);
-                    return null;
-                });
+    public void record(
+            CommandSender admin, String action, @Nullable String target, @Nullable String detail) {
+        String adminId =
+                admin instanceof Player player ? player.getUniqueId().toString() : "CONSOLE";
+        var _ =
+                db.asyncVoid(
+                                c -> {
+                                    try (PreparedStatement ps =
+                                            c.prepareStatement(
+                                                    "INSERT INTO admin_log (admin, action, target, detail) VALUES (?, ?, ?, ?)")) {
+                                        ps.setString(1, adminId);
+                                        ps.setString(2, action);
+                                        ps.setString(3, target);
+                                        ps.setString(4, detail);
+                                        ps.executeUpdate();
+                                    }
+                                })
+                        .exceptionally(
+                                e -> {
+                                    log.error(
+                                            "admin_log 기록 실패: {} {} {}",
+                                            adminId,
+                                            action,
+                                            target,
+                                            e);
+                                    return null;
+                                });
     }
 }

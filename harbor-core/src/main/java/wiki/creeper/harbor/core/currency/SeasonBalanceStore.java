@@ -11,9 +11,7 @@ import wiki.creeper.harbor.common.ledger.BalanceStore;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/**
- * 골드·물비늘 잔액 = player_season (이번 시즌 행). 물비늘 잔액은 mulbineul_earned - mulbineul_spent로 계산한다.
- */
+/** 골드·물비늘 잔액 = player_season (이번 시즌 행). 물비늘 잔액은 mulbineul_earned - mulbineul_spent로 계산한다. */
 public final class SeasonBalanceStore implements BalanceStore {
 
     private final SeasonId season;
@@ -25,7 +23,9 @@ public final class SeasonBalanceStore implements BalanceStore {
     @Override
     public long lockBalance(Connection c, UUID player, Currency currency) throws SQLException {
         requireGameCurrency(currency);
-        try (PreparedStatement ps = c.prepareStatement("INSERT IGNORE INTO player_season (uuid, season) VALUES (?, ?)")) {
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "INSERT IGNORE INTO player_season (uuid, season) VALUES (?, ?)")) {
             ps.setString(1, player.toString());
             ps.setInt(2, season.value());
             ps.executeUpdate();
@@ -33,7 +33,9 @@ public final class SeasonBalanceStore implements BalanceStore {
         String column = currency == Currency.GOLD ? "gold" : "mulbineul_earned - mulbineul_spent";
         try (PreparedStatement ps =
                 c.prepareStatement(
-                        "SELECT " + column + " FROM player_season WHERE uuid = ? AND season = ? FOR UPDATE")) {
+                        "SELECT "
+                                + column
+                                + " FROM player_season WHERE uuid = ? AND season = ? FOR UPDATE")) {
             ps.setString(1, player.toString());
             ps.setInt(2, season.value());
             try (ResultSet rs = ps.executeQuery()) {
@@ -46,7 +48,8 @@ public final class SeasonBalanceStore implements BalanceStore {
     }
 
     @Override
-    public void writeBalance(Connection c, UUID player, Currency currency, long newBalance, long delta)
+    public void writeBalance(
+            Connection c, UUID player, Currency currency, long newBalance, long delta)
             throws SQLException {
         requireGameCurrency(currency);
         String sql;
@@ -55,10 +58,12 @@ public final class SeasonBalanceStore implements BalanceStore {
             sql = "UPDATE player_season SET gold = ? WHERE uuid = ? AND season = ?";
             value = newBalance;
         } else if (delta > 0) {
-            sql = "UPDATE player_season SET mulbineul_earned = mulbineul_earned + ? WHERE uuid = ? AND season = ?";
+            sql =
+                    "UPDATE player_season SET mulbineul_earned = mulbineul_earned + ? WHERE uuid = ? AND season = ?";
             value = delta;
         } else {
-            sql = "UPDATE player_season SET mulbineul_spent = mulbineul_spent + ? WHERE uuid = ? AND season = ?";
+            sql =
+                    "UPDATE player_season SET mulbineul_spent = mulbineul_spent + ? WHERE uuid = ? AND season = ?";
             value = -delta;
         }
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -74,7 +79,9 @@ public final class SeasonBalanceStore implements BalanceStore {
         requireGameCurrency(currency);
         String column = currency == Currency.GOLD ? "gold" : "mulbineul_earned - mulbineul_spent";
         Map<UUID, Long> result = new HashMap<>();
-        try (PreparedStatement ps = c.prepareStatement("SELECT uuid, " + column + " FROM player_season WHERE season = ?")) {
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "SELECT uuid, " + column + " FROM player_season WHERE season = ?")) {
             ps.setInt(1, season.value());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {

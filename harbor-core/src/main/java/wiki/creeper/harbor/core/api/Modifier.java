@@ -8,10 +8,12 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>계산 순서: 기본값 → ADD 합 → MULTIPLY 곱 → 상한·하한. MULTIPLY의 값은 배율이다 (1.1 = +10%).
  *
- * @param source 출처 (예: {@code skill:collect/legend_breath}, {@code event:storm}). 같은 출처는 한 번에 지울 수 있다.
+ * @param source 출처 (예: {@code skill:collect/legend_breath}, {@code event:storm}). 같은 출처는 한 번에 지울 수
+ *     있다.
  * @param expiresAt 만료 시각 (null = 영구)
  */
-public record Modifier(StatKey stat, Op op, double value, String source, @Nullable Instant expiresAt) {
+public record Modifier(
+        StatKey stat, Op op, double value, String source, @Nullable Instant expiresAt) {
 
     /** 연산. */
     public enum Op {

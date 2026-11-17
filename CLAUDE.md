@@ -29,7 +29,7 @@ Gradle 9.9.1 wrapper, JDK 25 toolchain. (Windows에서는 `gradlew.bat`)
 ./gradlew validateContent               # content/ YAML을 서버와 같은 로더로 검사 (harbor-tools)
 ```
 
-- 컴파일러는 `-Werror` + ErrorProne + NullAway(ERROR, 테스트 제외)다. 경고 하나도 빌드 실패이므로: 버리는 Future는 `var unused = ...`, 널 가능 값은 JSpecify `@Nullable`, 레코드 접근자 결과는 지역 변수에 담은 뒤 널 검사한다.
+- 컴파일러는 `-Werror` + ErrorProne + NullAway(ERROR, 테스트 제외)다. 경고 하나도 빌드 실패이므로: 버리는 Future는 `var _ = ...`, `e.getMessage()`처럼 널일 수 있는 값은 `String.valueOf`로 감싸고, 중첩 타입에는 `Outer.@Nullable Inner`, 널 가능 값은 JSpecify `@Nullable`, 레코드 접근자 결과는 지역 변수에 담은 뒤 널 검사한다.
 - `*IT` 테스트는 Testcontainers(MariaDB 11.4, Redis 7.4)를 쓴다. Docker가 없으면 건너뛴다.
 - 버전은 `gradle/libs.versions.toml`에서만 관리한다. `server-runtime` 묶음(HikariCP·MariaDB·Lettuce·Flyway)은 jar에 넣지 않고 Core의 PluginLoader가 Maven에서 받는다. 목록은 빌드 때 `harbor-libraries.txt` 리소스로 생성된다.
 
@@ -66,7 +66,7 @@ content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regi
 
 ## 현재 진행 상태
 
-Common·Core·tools와 샘플 콘텐츠(1구역 어종 16종)를 작성했다. 아직 한 번도 컴파일하지 않았으므로 첫 빌드에서 오류를 잡아야 한다. Proxy와 게임 모듈 11개는 docs 20 순서대로 작성 중이다. 디스플레이 리그 재생(Core 5.10)은 일정상 Fishing 연출 작업 때 만든다.
+Common·Core·tools와 샘플 콘텐츠(1구역 어종 16종)가 빌드·단위 테스트·콘텐츠 검사를 통과한다. Proxy와 게임 모듈 11개는 docs 20 순서대로 작성 중이다. 디스플레이 리그 재생(Core 5.10)은 일정상 Fishing 연출 작업 때 만든다.
 
 로컬 실행: `plugins/Harbor/harbor-infra.yml`(처음 실행 때 기본값 생성)에 DB·Redis 접속 정보를 넣고 `./gradlew :harbor-core:runServer`.
 

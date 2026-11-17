@@ -18,7 +18,8 @@ public interface ItemService {
      *
      * @param sizeCm 크기 (소수 첫째 자리까지 저장)
      */
-    ItemStack createFish(FishDef def, double sizeCm, Quality quality, PlayerRef catcher, Instant caughtAt);
+    ItemStack createFish(
+            FishDef def, double sizeCm, Quality quality, PlayerRef catcher, Instant caughtAt);
 
     /** Harbor 아이템이 아니면 빈 Optional. 옛 형식 버전은 새 형식으로 읽는다. */
     Optional<HarborItem> read(ItemStack stack);

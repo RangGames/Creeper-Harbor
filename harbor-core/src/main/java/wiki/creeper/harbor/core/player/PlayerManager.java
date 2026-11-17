@@ -32,14 +32,14 @@ import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.db.WriteBehindQueue;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.model.SeasonId;
-import wiki.creeper.harbor.common.redis.MessageBus;
-import wiki.creeper.harbor.common.session.ClaimResult;
-import wiki.creeper.harbor.common.session.SessionAudit;
-import wiki.creeper.harbor.common.session.SessionLocks;
 import wiki.creeper.harbor.common.proxy.ProxyMessages;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.TransferAbort;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.TransferPrepare;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.TransferReady;
+import wiki.creeper.harbor.common.redis.MessageBus;
+import wiki.creeper.harbor.common.session.ClaimResult;
+import wiki.creeper.harbor.common.session.SessionAudit;
+import wiki.creeper.harbor.common.session.SessionLocks;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.PlayerComponent;
@@ -51,8 +51,8 @@ import wiki.creeper.harbor.core.task.Tasks;
  * 플레이어 데이터 수명 주기.
  *
  * <ul>
- *   <li>접속 전 (AsyncPlayerPreLoginEvent): 세션 잠금 확인 → players·player_season 로드 → 모듈 컴포넌트를 병렬 로드 → 실패하면 접속
- *       거부 (반쪽 데이터로 입장 금지)
+ *   <li>접속 전 (AsyncPlayerPreLoginEvent): 세션 잠금 확인 → players·player_season 로드 → 모듈 컴포넌트를 병렬 로드 →
+ *       실패하면 접속 거부 (반쪽 데이터로 입장 금지)
  *   <li>접속 중: 메인 스레드에서 메모리 캐시만 읽고 쓴다. 바뀐 항목은 dirty 표시
  *   <li>자동 저장: 5분마다 바뀐 항목을 지연 쓰기 큐로
  *   <li>퇴장: 그 플레이어 키만 즉시 저장 → 잠금 해제
@@ -66,8 +66,10 @@ public final class PlayerManager implements PlayerService, Listener {
     private static final long AUTOSAVE_TICKS = 5 * 60 * 20L;
     private static final long LOCK_REFRESH_TICKS = 10 * 20L;
     private static final long PENDING_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
+
     /** 프록시의 TransferAbort가 오지 않을 때를 대비한 안전 확인 (프록시 쪽 제한 5초보다 길게). */
     private static final long STUCK_HANDOFF_TICKS = 15 * 20L;
+
     private static final long LOAD_TIMEOUT_SECONDS = 5;
 
     private record Pending(PlayerState state, long createdNanos) {}
@@ -107,14 +109,22 @@ public final class PlayerManager implements PlayerService, Listener {
     }
 
     public void start() {
-        var unused1 = tasks.timer(AUTOSAVE_TICKS, AUTOSAVE_TICKS, this::autosave);
-        var unused2 = tasks.timer(LOCK_REFRESH_TICKS, LOCK_REFRESH_TICKS, this::refreshLocks);
-        var unused3 = tasks.timer(LOCK_REFRESH_TICKS, LOCK_REFRESH_TICKS, this::cleanupPending);
+        var _ = tasks.timer(AUTOSAVE_TICKS, AUTOSAVE_TICKS, this::autosave);
+        var _ = tasks.timer(LOCK_REFRESH_TICKS, LOCK_REFRESH_TICKS, this::refreshLocks);
+        var _ = tasks.timer(LOCK_REFRESH_TICKS, LOCK_REFRESH_TICKS, this::cleanupPending);
         String me = infra.serverId();
-        bus.subscribe(ProxyMessages.toServer(me, TransferPrepare.class),
+        bus.subscribe(
+                ProxyMessages.toServer(me, TransferPrepare.class),
                 envelope -> tasks.main().execute(() -> prepareTransfer(envelope.payload())));
-        bus.subscribe(ProxyMessages.toServer(me, TransferAbort.class),
-                envelope -> tasks.main().execute(() -> abortTransfer(envelope.payload().player(), envelope.payload().requestId())));
+        bus.subscribe(
+                ProxyMessages.toServer(me, TransferAbort.class),
+                envelope ->
+                        tasks.main()
+                                .execute(
+                                        () ->
+                                                abortTransfer(
+                                                        envelope.payload().player(),
+                                                        envelope.payload().requestId())));
     }
 
     // ------------------------------------------------------------------ PlayerService
@@ -170,7 +180,8 @@ public final class PlayerManager implements PlayerService, Listener {
         }
         UUID uuid = event.getUniqueId();
         if (!acceptingLogins) {
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("server.closing"));
+            event.disallow(
+                    AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("server.closing"));
             return;
         }
         if (!readOnly) {
@@ -189,16 +200,18 @@ public final class PlayerManager implements PlayerService, Listener {
             if (!readOnly) {
                 locks.release(uuid, infra.serverId());
             }
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("player.load_failed"));
+            event.disallow(
+                    AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("player.load_failed"));
             return;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("player.load_failed"));
+            event.disallow(
+                    AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("player.load_failed"));
             return;
         }
         if (!readOnly) {
             Instant until = Instant.now().plus(SessionLocks.TTL);
-            var unused = db.asyncVoid(c -> SessionAudit.recordOwner(c, uuid, infra.serverId(), until));
+            var _ = db.asyncVoid(c -> SessionAudit.recordOwner(c, uuid, infra.serverId(), until));
         }
     }
 
@@ -225,11 +238,11 @@ public final class PlayerManager implements PlayerService, Listener {
         String handoff = state.handoffRequest();
         if (handoff != null) {
             // 이동 중: 이미 저장했다. 도착 서버가 아직 가져가지 않았으면 (이동 중 접속 끊김) 그 요청의 잠금만 지운다
-            var unused = tasks.async(() -> locks.releaseHandoff(uuid, handoff));
+            var _ = tasks.async(() -> locks.releaseHandoff(uuid, handoff));
             return;
         }
         enqueueSave(state, false);
-        var unused =
+        var _ =
                 tasks.async(
                         () -> {
                             try {
@@ -249,30 +262,45 @@ public final class PlayerManager implements PlayerService, Listener {
         PlayerState state = online.get(uuid);
         if (state == null || state.handingOff() || readOnly) {
             String reason = readOnly ? "lobby" : state == null ? "not_online" : "already_moving";
-            bus.publish(ProxyMessages.toProxy(TransferReady.class), new TransferReady(request.requestId(), uuid, false, reason));
+            bus.publish(
+                    ProxyMessages.toProxy(TransferReady.class),
+                    new TransferReady(request.requestId(), uuid, false, reason));
             return;
         }
         state.setHandoffRequest(request.requestId());
         Sequence.cancelAll(uuid);
         enqueueSave(state, false);
-        var unused = tasks.async(() -> {
-            boolean ok = false;
-            String reason;
-            try {
-                queue.flushNow(prefix(uuid));
-                ok = locks.beginHandoff(uuid, infra.serverId(), request.destination(), request.requestId());
-                reason = ok ? "ok" : "lock_lost";
-            } catch (SQLException e) {
-                log.error("서버 이동 저장 실패: {}", uuid, e);
-                reason = "save_failed";
-            }
-            bus.publish(ProxyMessages.toProxy(TransferReady.class), new TransferReady(request.requestId(), uuid, ok, reason));
-            if (ok) {
-                var unused2 = tasks.later(STUCK_HANDOFF_TICKS, () -> checkStuckHandoff(uuid, request.requestId()));
-            } else {
-                tasks.main().execute(() -> clearHandoff(state, request.requestId()));
-            }
-        });
+        var _ =
+                tasks.async(
+                        () -> {
+                            boolean ok = false;
+                            String reason;
+                            try {
+                                queue.flushNow(prefix(uuid));
+                                ok =
+                                        locks.beginHandoff(
+                                                uuid,
+                                                infra.serverId(),
+                                                request.destination(),
+                                                request.requestId());
+                                reason = ok ? "ok" : "lock_lost";
+                            } catch (SQLException e) {
+                                log.error("서버 이동 저장 실패: {}", uuid, e);
+                                reason = "save_failed";
+                            }
+                            bus.publish(
+                                    ProxyMessages.toProxy(TransferReady.class),
+                                    new TransferReady(request.requestId(), uuid, ok, reason));
+                            if (ok) {
+                                var _ =
+                                        tasks.later(
+                                                STUCK_HANDOFF_TICKS,
+                                                () -> checkStuckHandoff(uuid, request.requestId()));
+                            } else {
+                                tasks.main()
+                                        .execute(() -> clearHandoff(state, request.requestId()));
+                            }
+                        });
     }
 
     /** 프록시가 이동을 취소했다 (TransferAbort): 잠금을 되돌리고 계속 플레이한다. */
@@ -281,14 +309,17 @@ public final class PlayerManager implements PlayerService, Listener {
         if (state == null || !requestId.equals(state.handoffRequest())) {
             return;
         }
-        var unused = tasks.supplyAsync(() -> locks.abortHandoff(uuid, infra.serverId(), requestId))
-                .thenAcceptAsync(restored -> {
-                    if (restored) {
-                        clearHandoff(state, requestId);
-                    } else {
-                        kickMoved(uuid);
-                    }
-                }, tasks.main());
+        var _ =
+                tasks.supplyAsync(() -> locks.abortHandoff(uuid, infra.serverId(), requestId))
+                        .thenAcceptAsync(
+                                restored -> {
+                                    if (restored) {
+                                        clearHandoff(state, requestId);
+                                    } else {
+                                        kickMoved(uuid);
+                                    }
+                                },
+                                tasks.main());
     }
 
     /** TransferAbort가 오지 않았는데 플레이어가 아직 남아 있으면 스스로 되돌린다. */
@@ -345,7 +376,8 @@ public final class PlayerManager implements PlayerService, Listener {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> void save(PlayerComponent<T> component, Connection c, UUID uuid, SeasonId season, Object value)
+    private static <T> void save(
+            PlayerComponent<T> component, Connection c, UUID uuid, SeasonId season, Object value)
             throws SQLException {
         component.saver().save(c, uuid, season, (T) value);
     }
@@ -383,20 +415,23 @@ public final class PlayerManager implements PlayerService, Listener {
                 owned.add(state.uuid());
             }
         }
-        var unused = tasks.async(() -> locks.refresh(owned, infra.serverId()));
+        var _ = tasks.async(() -> locks.refresh(owned, infra.serverId()));
     }
 
     /** 접속 전 로드는 했지만 접속하지 않은 플레이어 정리. */
     private void cleanupPending() {
         long now = System.nanoTime();
-        pending.entrySet().removeIf(entry -> {
-            boolean expired = now - entry.getValue().createdNanos() > PENDING_TIMEOUT_NANOS;
-            if (expired && !readOnly) {
-                UUID uuid = entry.getKey();
-                var unused = tasks.async(() -> locks.release(uuid, infra.serverId()));
-            }
-            return expired;
-        });
+        pending.entrySet()
+                .removeIf(
+                        entry -> {
+                            boolean expired =
+                                    now - entry.getValue().createdNanos() > PENDING_TIMEOUT_NANOS;
+                            if (expired && !readOnly) {
+                                UUID uuid = entry.getKey();
+                                var _ = tasks.async(() -> locks.release(uuid, infra.serverId()));
+                            }
+                            return expired;
+                        });
     }
 
     // ------------------------------------------------------------------ 로드
@@ -409,7 +444,17 @@ public final class PlayerManager implements PlayerService, Listener {
         for (PlayerComponent<?> component : components.values()) {
             futures.put(
                     component.id(),
-                    db.executor().submit(() -> (Object) db.tx(c -> component.loader().load(c, uuid, season))));
+                    db.executor()
+                            .submit(
+                                    () ->
+                                            (Object)
+                                                    db.tx(
+                                                            c ->
+                                                                    component
+                                                                            .loader()
+                                                                            .load(
+                                                                                    c, uuid,
+                                                                                    season))));
         }
         Map<String, Object> loaded = new HashMap<>();
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(LOAD_TIMEOUT_SECONDS);

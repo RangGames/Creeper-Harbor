@@ -15,7 +15,8 @@ public final class MenuListener implements Listener {
     public void onClick(InventoryClickEvent event) {
         if (event.getInventory().getHolder(false) instanceof Menu menu) {
             event.setCancelled(true);
-            if (event.getClickedInventory() == event.getView().getTopInventory()) {
+            if (event.getRawSlot() >= 0
+                    && event.getRawSlot() < event.getView().getTopInventory().getSize()) {
                 menu.handleClick(event);
             }
         }
@@ -30,7 +31,8 @@ public final class MenuListener implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
-        if (event.getInventory().getHolder(false) instanceof Menu menu && event.getPlayer() instanceof Player player) {
+        if (event.getInventory().getHolder(false) instanceof Menu menu
+                && event.getPlayer() instanceof Player player) {
             menu.handleClose(player);
         }
     }

@@ -44,7 +44,8 @@ public final class Messages {
 
     private static void flatten(String prefix, YamlNode node, Map<String, String> out) {
         if (node.isMap()) {
-            node.entries().forEach((k, v) -> flatten(prefix.isEmpty() ? k : prefix + "." + k, v, out));
+            node.entries()
+                    .forEach((k, v) -> flatten(prefix.isEmpty() ? k : prefix + "." + k, v, out));
         } else if (node.isList()) {
             out.put(prefix, String.join("\n", node.asStringOrList()));
         } else if (!node.isNull()) {

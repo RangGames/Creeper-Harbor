@@ -47,12 +47,14 @@ class LedgerWriterIT {
         @Override
         public long lockBalance(Connection c, UUID player, Currency currency) throws SQLException {
             try (PreparedStatement ps =
-                    c.prepareStatement("INSERT IGNORE INTO test_wallet (uuid, balance) VALUES (?, 0)")) {
+                    c.prepareStatement(
+                            "INSERT IGNORE INTO test_wallet (uuid, balance) VALUES (?, 0)")) {
                 ps.setString(1, player.toString());
                 ps.executeUpdate();
             }
             try (PreparedStatement ps =
-                    c.prepareStatement("SELECT balance FROM test_wallet WHERE uuid = ? FOR UPDATE")) {
+                    c.prepareStatement(
+                            "SELECT balance FROM test_wallet WHERE uuid = ? FOR UPDATE")) {
                 ps.setString(1, player.toString());
                 try (ResultSet rs = ps.executeQuery()) {
                     rs.next();
@@ -62,9 +64,11 @@ class LedgerWriterIT {
         }
 
         @Override
-        public void writeBalance(Connection c, UUID player, Currency currency, long newBalance, long delta)
+        public void writeBalance(
+                Connection c, UUID player, Currency currency, long newBalance, long delta)
                 throws SQLException {
-            try (PreparedStatement ps = c.prepareStatement("UPDATE test_wallet SET balance = ? WHERE uuid = ?")) {
+            try (PreparedStatement ps =
+                    c.prepareStatement("UPDATE test_wallet SET balance = ? WHERE uuid = ?")) {
                 ps.setLong(1, newBalance);
                 ps.setString(2, player.toString());
                 ps.executeUpdate();
@@ -74,7 +78,8 @@ class LedgerWriterIT {
         @Override
         public Map<UUID, Long> allBalances(Connection c, Currency currency) throws SQLException {
             Map<UUID, Long> result = new HashMap<>();
-            try (PreparedStatement ps = c.prepareStatement("SELECT uuid, balance FROM test_wallet");
+            try (PreparedStatement ps =
+                            c.prepareStatement("SELECT uuid, balance FROM test_wallet");
                     ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     result.put(UUID.fromString(rs.getString(1)), rs.getLong(2));
@@ -96,8 +101,10 @@ class LedgerWriterIT {
         db.txVoid(
                 c -> {
                     try (var st = c.createStatement()) {
-                        st.execute("CREATE TABLE test_wallet (uuid UUID PRIMARY KEY, balance BIGINT NOT NULL)");
-                        st.execute("CREATE TABLE test_kv (k VARCHAR(64) PRIMARY KEY, v INT NOT NULL)");
+                        st.execute(
+                                "CREATE TABLE test_wallet (uuid UUID PRIMARY KEY, balance BIGINT NOT NULL)");
+                        st.execute(
+                                "CREATE TABLE test_kv (k VARCHAR(64) PRIMARY KEY, v INT NOT NULL)");
                     }
                 });
         writer = new LedgerWriter(Map.of(Currency.GOLD, new TestWallet()));
@@ -111,17 +118,33 @@ class LedgerWriterIT {
     @Test
     void grantsAndRejectsNegativeBalance() {
         UUID player = UUID.randomUUID();
-        assertEquals(100L, writer.post(db, new LedgerEntry(player, Currency.GOLD, 100, LedgerReason.ADMIN_GRANT, null)).orThrow());
+        assertEquals(
+                100L,
+                writer.post(
+                                db,
+                                new LedgerEntry(
+                                        player, Currency.GOLD, 100, LedgerReason.ADMIN_GRANT, null))
+                        .orThrow());
         assertEquals(
                 Result.err(LedgerError.INSUFFICIENT_FUNDS),
-                writer.post(db, new LedgerEntry(player, Currency.GOLD, -101, LedgerReason.SHOP_BUY, null)));
-        assertEquals(40L, writer.post(db, new LedgerEntry(player, Currency.GOLD, -60, LedgerReason.SHOP_BUY, null)).orThrow());
+                writer.post(
+                        db,
+                        new LedgerEntry(player, Currency.GOLD, -101, LedgerReason.SHOP_BUY, null)));
+        assertEquals(
+                40L,
+                writer.post(
+                                db,
+                                new LedgerEntry(
+                                        player, Currency.GOLD, -60, LedgerReason.SHOP_BUY, null))
+                        .orThrow());
     }
 
     @Test
     void sameReferenceIsPaidOnce() {
         UUID player = UUID.randomUUID();
-        LedgerEntry reward = new LedgerEntry(player, Currency.GOLD, 500, LedgerReason.QUEST_REWARD, "quest-done-1");
+        LedgerEntry reward =
+                new LedgerEntry(
+                        player, Currency.GOLD, 500, LedgerReason.QUEST_REWARD, "quest-done-1");
         assertTrue(writer.post(db, reward).isOk());
         assertEquals(Result.err(LedgerError.DUPLICATE), writer.post(db, reward));
     }
@@ -130,18 +153,34 @@ class LedgerWriterIT {
     void transferIsAtomic() {
         UUID buyer = UUID.randomUUID();
         UUID seller = UUID.randomUUID();
-        writer.post(db, new LedgerEntry(buyer, Currency.GOLD, 50, LedgerReason.ADMIN_GRANT, null)).orThrow();
+        writer.post(db, new LedgerEntry(buyer, Currency.GOLD, 50, LedgerReason.ADMIN_GRANT, null))
+                .orThrow();
 
         Result<List<Long>, LedgerError> result =
                 writer.postAll(
                         db,
                         List.of(
-                                new LedgerEntry(seller, Currency.GOLD, 80, LedgerReason.AUCTION_SALE, "sale-1"),
-                                new LedgerEntry(buyer, Currency.GOLD, -80, LedgerReason.AUCTION_BUY, "sale-1")));
+                                new LedgerEntry(
+                                        seller,
+                                        Currency.GOLD,
+                                        80,
+                                        LedgerReason.AUCTION_SALE,
+                                        "sale-1"),
+                                new LedgerEntry(
+                                        buyer,
+                                        Currency.GOLD,
+                                        -80,
+                                        LedgerReason.AUCTION_BUY,
+                                        "sale-1")));
 
         assertEquals(Result.err(LedgerError.INSUFFICIENT_FUNDS), result);
         // 판매자 지급도 취소되어야 한다
-        assertEquals(Result.ok(30L), writer.post(db, new LedgerEntry(seller, Currency.GOLD, 30, LedgerReason.ADMIN_GRANT, null)));
+        assertEquals(
+                Result.ok(30L),
+                writer.post(
+                        db,
+                        new LedgerEntry(
+                                seller, Currency.GOLD, 30, LedgerReason.ADMIN_GRANT, null)));
     }
 
     @Test
@@ -149,9 +188,18 @@ class LedgerWriterIT {
         UUID player = UUID.randomUUID();
         List<CompletableFuture<Result<Long, LedgerError>>> futures = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
-            futures.add(CompletableFuture.supplyAsync(
-                    () -> writer.post(db, new LedgerEntry(player, Currency.GOLD, 10, LedgerReason.FISH_SELL, null)),
-                    db.executor()));
+            futures.add(
+                    CompletableFuture.supplyAsync(
+                            () ->
+                                    writer.post(
+                                            db,
+                                            new LedgerEntry(
+                                                    player,
+                                                    Currency.GOLD,
+                                                    10,
+                                                    LedgerReason.FISH_SELL,
+                                                    null)),
+                            db.executor()));
         }
         CompletableFuture.allOf(futures.toArray(CompletableFuture<?>[]::new)).get();
 
@@ -164,23 +212,31 @@ class LedgerWriterIT {
         WriteBehindQueue queue = new WriteBehindQueue(db);
         for (int i = 1; i <= 3; i++) {
             int value = i;
-            queue.enqueue("kv:a", c -> {
-                try (PreparedStatement ps = c.prepareStatement(
-                        "INSERT INTO test_kv (k, v) VALUES ('a', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")) {
-                    ps.setInt(1, value);
-                    ps.executeUpdate();
-                }
-            });
+            queue.enqueue(
+                    "kv:a",
+                    c -> {
+                        try (PreparedStatement ps =
+                                c.prepareStatement(
+                                        "INSERT INTO test_kv (k, v) VALUES ('a', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")) {
+                            ps.setInt(1, value);
+                            ps.executeUpdate();
+                        }
+                    });
         }
         assertEquals(1, queue.pendingCount());
         queue.close();
 
-        int stored = db.tx(c -> {
-            try (var st = c.createStatement(); ResultSet rs = st.executeQuery("SELECT v FROM test_kv WHERE k = 'a'")) {
-                rs.next();
-                return rs.getInt(1);
-            }
-        });
+        int stored =
+                db.tx(
+                        c -> {
+                            try (var st = c.createStatement();
+                                    ResultSet rs =
+                                            st.executeQuery(
+                                                    "SELECT v FROM test_kv WHERE k = 'a'")) {
+                                rs.next();
+                                return rs.getInt(1);
+                            }
+                        });
         assertEquals(3, stored);
     }
 }

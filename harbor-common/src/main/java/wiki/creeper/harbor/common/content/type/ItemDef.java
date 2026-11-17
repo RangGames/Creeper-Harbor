@@ -60,16 +60,33 @@ public record ItemDef(
 
     private static final Set<String> FIELDS =
             Set.of(
-                    "id", "name", "lore", "type", "grade", "base_item", "model", "stats",
-                    "region_access", "buy_price", "sell_price", "shop", "tradeable", "season_reset");
+                    "id",
+                    "name",
+                    "lore",
+                    "type",
+                    "grade",
+                    "base_item",
+                    "model",
+                    "stats",
+                    "region_access",
+                    "buy_price",
+                    "sell_price",
+                    "shop",
+                    "tradeable",
+                    "season_reset");
 
     public static final ContentType.Entries<ItemDef> TYPE =
             new ContentType.Entries<>(
-                    "item", List.of("items/*.yml"), ItemId.PREFIX, ItemDef::parse, i -> i.id().id());
+                    "item",
+                    List.of("items/*.yml"),
+                    ItemId.PREFIX,
+                    ItemDef::parse,
+                    i -> i.id().id());
 
     static ItemDef parse(YamlNode node, ParseContext ctx) {
         node.allowOnly(FIELDS);
-        HarborId rawId = node.require("id").flatMap(n -> n.asId(ItemId.PREFIX)).orElse(Placeholder.ITEM);
+        HarborId rawId =
+                node.require("id").flatMap(n -> n.asId(ItemId.PREFIX)).orElse(Placeholder.ITEM);
 
         String baseItem = node.string("base_item");
         if (!baseItem.isEmpty() && !RESOURCE_KEY.matcher(baseItem).matches()) {

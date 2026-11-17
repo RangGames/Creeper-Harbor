@@ -11,7 +11,8 @@ public final class ModifierStack {
 
     private ModifierStack() {}
 
-    public static Breakdown compute(double base, List<Modifier> modifiers, double min, double max, Instant now) {
+    public static Breakdown compute(
+            double base, List<Modifier> modifiers, double min, double max, Instant now) {
         double add = 0;
         double multiply = 1;
         List<Modifier> applied = new ArrayList<>();

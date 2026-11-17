@@ -13,9 +13,14 @@ class HarborIdTest {
 
     @Test
     void parsesWithAndWithoutNamespace() {
-        assertEquals(new HarborId("harbor", "fish/harbor_mackerel"), HarborId.parse("fish/harbor_mackerel"));
-        assertEquals(new HarborId("harbor", "fish/harbor_mackerel"), HarborId.parse("harbor:fish/harbor_mackerel"));
-        assertEquals("harbor:item/rod/coral_carbon", HarborId.parse("item/rod/coral_carbon").toString());
+        assertEquals(
+                new HarborId("harbor", "fish/harbor_mackerel"),
+                HarborId.parse("fish/harbor_mackerel"));
+        assertEquals(
+                new HarborId("harbor", "fish/harbor_mackerel"),
+                HarborId.parse("harbor:fish/harbor_mackerel"));
+        assertEquals(
+                "harbor:item/rod/coral_carbon", HarborId.parse("item/rod/coral_carbon").toString());
     }
 
     @Test

@@ -17,7 +17,8 @@ public final class CurrencyChangedEvent extends Event {
     private final long balance;
     private final LedgerReason reason;
 
-    public CurrencyChangedEvent(UUID player, Currency currency, long delta, long balance, LedgerReason reason) {
+    public CurrencyChangedEvent(
+            UUID player, Currency currency, long delta, long balance, LedgerReason reason) {
         this.player = player;
         this.currency = currency;
         this.delta = delta;

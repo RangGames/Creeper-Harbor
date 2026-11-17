@@ -35,7 +35,12 @@ final class ModuleRegistry implements ModuleHost {
     private final Logger log;
     private final Map<String, HarborModule> modules = new ConcurrentHashMap<>();
 
-    ModuleRegistry(HarborApi api, HarborContent content, PlayerManager players, HarborCommand command, Logger log) {
+    ModuleRegistry(
+            HarborApi api,
+            HarborContent content,
+            PlayerManager players,
+            HarborCommand command,
+            Logger log) {
         this.api = api;
         this.content = content;
         this.players = players;
@@ -75,8 +80,11 @@ final class ModuleRegistry implements ModuleHost {
             }
             // 새 형식이 들어왔으니 전체를 다시 읽는다. 실패하면 서버 시작 중단 (반쪽 콘텐츠로 열지 않음)
             Result<ContentSnapshot, ValidationErrors> result = content.loadBlocking();
-            if (result instanceof Result.Err<ContentSnapshot, ValidationErrors>(ValidationErrors errors)) {
-                log.error("모듈 {} 콘텐츠 오류 {}건:\n{}", module.moduleId(), errors.size(), errors.format());
+            if (result
+                    instanceof
+                    Result.Err<ContentSnapshot, ValidationErrors>(ValidationErrors errors)) {
+                log.error(
+                        "모듈 {} 콘텐츠 오류 {}건:\n{}", module.moduleId(), errors.size(), errors.format());
                 Bukkit.shutdown();
             }
         }
@@ -133,7 +141,11 @@ final class ModuleRegistry implements ModuleHost {
 
         @Override
         public void migrate() {
-            int applied = Migrations.migrate(api.database().dataSource(), module.moduleId(), module.getClass().getClassLoader());
+            int applied =
+                    Migrations.migrate(
+                            api.database().dataSource(),
+                            module.moduleId(),
+                            module.getClass().getClassLoader());
             if (applied > 0) {
                 log.info("모듈 {} 마이그레이션 {}건 적용", module.moduleId(), applied);
             }

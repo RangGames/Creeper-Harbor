@@ -30,14 +30,18 @@ class SessionLocksIT {
 
     @Container
     static final GenericContainer<?> REDIS =
-            new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);
+            new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
+                    .withExposedPorts(6379);
 
     static Redis redis;
     static SessionLocks locks;
 
     @BeforeAll
     static void setUp() {
-        redis = Redis.connect(new RedisConfig("redis://" + REDIS.getHost() + ":" + REDIS.getMappedPort(6379)));
+        redis =
+                Redis.connect(
+                        new RedisConfig(
+                                "redis://" + REDIS.getHost() + ":" + REDIS.getMappedPort(6379)));
         locks = new SessionLocks(redis);
     }
 
@@ -98,7 +102,8 @@ class SessionLocksIT {
         UUID player = UUID.randomUUID();
         locks.claim(player, "main-1");
         CompletableFuture<ClaimResult> target =
-                CompletableFuture.supplyAsync(() -> locks.awaitClaim(player, "inst-1", SessionLocks.HANDOFF_WAIT));
+                CompletableFuture.supplyAsync(
+                        () -> locks.awaitClaim(player, "inst-1", SessionLocks.HANDOFF_WAIT));
         Thread.sleep(500);
         assertTrue(locks.beginHandoff(player, "main-1", "inst-1", "req-4"));
         assertEquals(ClaimResult.HANDOFF_CLAIMED, target.get(5, TimeUnit.SECONDS));

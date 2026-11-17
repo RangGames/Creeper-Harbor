@@ -33,8 +33,8 @@ import wiki.creeper.harbor.common.util.ValidationErrors;
 /**
  * 줄 번호를 기억하는 YAML 노드. SnakeYAML 노드 단위로 읽어서 오류 위치("42행 3열")를 알려준다.
  *
- * <p>값을 꺼내는 메서드는 오류가 나도 예외를 던지지 않고 오류 목록에 기록한 뒤 기본값을 돌려준다. 파일 하나를 끝까지 읽어서 오류를 모두 모은
- * 다음, 오류가 하나라도 있으면 결과를 버리는 방식으로 쓴다.
+ * <p>값을 꺼내는 메서드는 오류가 나도 예외를 던지지 않고 오류 목록에 기록한 뒤 기본값을 돌려준다. 파일 하나를 끝까지 읽어서 오류를 모두 모은 다음, 오류가 하나라도
+ * 있으면 결과를 버리는 방식으로 쓴다.
  */
 public final class YamlNode {
 
@@ -61,7 +61,8 @@ public final class YamlNode {
         }
     }
 
-    public static Optional<YamlNode> parse(String displayName, Reader reader, ValidationErrors errors) {
+    public static Optional<YamlNode> parse(
+            String displayName, Reader reader, ValidationErrors errors) {
         LoaderOptions options = new LoaderOptions();
         options.setAllowDuplicateKeys(false);
         try {
@@ -176,7 +177,8 @@ public final class YamlNode {
     public void allowOnly(Set<String> allowed) {
         if (node instanceof MappingNode mapping) {
             for (NodeTuple tuple : mapping.getValue()) {
-                if (tuple.getKeyNode() instanceof ScalarNode key && !allowed.contains(key.getValue())) {
+                if (tuple.getKeyNode() instanceof ScalarNode key
+                        && !allowed.contains(key.getValue())) {
                     child(key).error("알 수 없는 필드 '" + key.getValue() + "'");
                 }
             }
@@ -263,14 +265,13 @@ public final class YamlNode {
 
     /** 접두사가 정해진 ID (예: {@code region/}). */
     public Optional<HarborId> asId(String prefix) {
-        return asId()
-                .filter(
+        return asId().filter(
                         id -> {
                             try {
                                 TypedId.requirePrefix(id, prefix);
                                 return true;
                             } catch (IllegalArgumentException e) {
-                                error(e.getMessage());
+                                error(String.valueOf(e.getMessage()));
                                 return false;
                             }
                         });

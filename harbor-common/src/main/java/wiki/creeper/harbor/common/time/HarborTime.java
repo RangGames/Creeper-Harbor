@@ -24,7 +24,8 @@ public final class HarborTime {
     private final DayOfWeek weeklyResetDay;
     private final LocalDate seasonStart;
 
-    public HarborTime(Clock clock, LocalTime dailyReset, DayOfWeek weeklyResetDay, LocalDate seasonStart) {
+    public HarborTime(
+            Clock clock, LocalTime dailyReset, DayOfWeek weeklyResetDay, LocalDate seasonStart) {
         this.clock = clock;
         this.dailyReset = dailyReset;
         this.weeklyResetDay = weeklyResetDay;
@@ -64,7 +65,9 @@ public final class HarborTime {
     public ZonedDateTime nextWeeklyReset() {
         ZonedDateTime now = now();
         ZonedDateTime candidate =
-                now.with(TemporalAdjusters.nextOrSame(weeklyResetDay)).with(dailyReset).truncatedTo(ChronoUnit.MINUTES);
+                now.with(TemporalAdjusters.nextOrSame(weeklyResetDay))
+                        .with(dailyReset)
+                        .truncatedTo(ChronoUnit.MINUTES);
         return candidate.isAfter(now) ? candidate : candidate.plusWeeks(1);
     }
 

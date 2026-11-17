@@ -90,7 +90,8 @@ public final class Sequence {
 
     public Handle start() {
         Runner runner = new Runner(List.copyOf(steps), onCancel, onComplete);
-        ACTIVE.computeIfAbsent(player.getUniqueId(), k -> ConcurrentHashMap.newKeySet()).add(runner);
+        ACTIVE.computeIfAbsent(player.getUniqueId(), k -> ConcurrentHashMap.newKeySet())
+                .add(runner);
         runner.task = Bukkit.getScheduler().runTaskTimer(plugin, runner::tick, 0L, 1L);
         return runner;
     }
@@ -121,7 +122,10 @@ public final class Sequence {
         private int repeated;
         private boolean finished;
 
-        Runner(List<Step> steps, @Nullable Consumer<Player> cancelAction, @Nullable Consumer<Player> completeAction) {
+        Runner(
+                List<Step> steps,
+                @Nullable Consumer<Player> cancelAction,
+                @Nullable Consumer<Player> completeAction) {
             this.steps = steps;
             this.cancelAction = cancelAction;
             this.completeAction = completeAction;

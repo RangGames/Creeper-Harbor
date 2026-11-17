@@ -36,12 +36,23 @@ public record RegionDef(
 
     private static final Set<String> FIELDS =
             Set.of(
-                    "id", "name", "world", "bounds", "biome", "unlock", "fishing_spots", "trap_zone",
+                    "id",
+                    "name",
+                    "world",
+                    "bounds",
+                    "biome",
+                    "unlock",
+                    "fishing_spots",
+                    "trap_zone",
                     "music");
 
     public static final ContentType.Entries<RegionDef> TYPE =
             new ContentType.Entries<>(
-                    "region", List.of("regions.yml"), RegionId.PREFIX, RegionDef::parse, r -> r.id().id());
+                    "region",
+                    List.of("regions.yml"),
+                    RegionId.PREFIX,
+                    RegionDef::parse,
+                    r -> r.id().id());
 
     /** 점이 경계 다각형 안에 있는지 (ray casting). */
     public boolean contains(double x, double z) {
@@ -49,7 +60,8 @@ public record RegionDef(
         for (int i = 0, j = bounds.size() - 1; i < bounds.size(); j = i++) {
             Point a = bounds.get(i);
             Point b = bounds.get(j);
-            if ((a.z() > z) != (b.z() > z) && x < (b.x() - a.x()) * (z - a.z()) / (b.z() - a.z()) + a.x()) {
+            if ((a.z() > z) != (b.z() > z)
+                    && x < (b.x() - a.x()) * (z - a.z()) / (b.z() - a.z()) + a.x()) {
                 inside = !inside;
             }
         }
@@ -58,11 +70,15 @@ public record RegionDef(
 
     static RegionDef parse(YamlNode node, ParseContext ctx) {
         node.allowOnly(FIELDS);
-        HarborId rawId = node.require("id").flatMap(n -> n.asId(RegionId.PREFIX)).orElse(Placeholder.REGION);
+        HarborId rawId =
+                node.require("id").flatMap(n -> n.asId(RegionId.PREFIX)).orElse(Placeholder.REGION);
 
         String world = node.string("world");
         if (!world.isEmpty() && !WORLDS.contains(world)) {
-            node.error("world는 " + String.join(" · ", WORLDS.stream().sorted().toList()) + " 중 하나여야 합니다");
+            node.error(
+                    "world는 "
+                            + String.join(" · ", WORLDS.stream().sorted().toList())
+                            + " 중 하나여야 합니다");
         }
 
         List<Point> bounds = points(node.list("bounds"));

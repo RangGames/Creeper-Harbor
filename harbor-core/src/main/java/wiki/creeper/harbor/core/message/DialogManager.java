@@ -30,24 +30,43 @@ public final class DialogManager implements Dialogs {
 
     @Override
     public void notice(Player player, Component title, List<Component> body) {
-        Dialog dialog = Dialog.create(factory -> factory.empty()
-                .base(base(title, body))
-                .type(DialogType.notice()));
+        Dialog dialog =
+                Dialog.create(
+                        factory ->
+                                factory.empty().base(base(title, body)).type(DialogType.notice()));
         player.showDialog(dialog);
     }
 
     @Override
     public void confirm(
-            Player player, Component title, List<Component> body, Component yes, Component no, Consumer<Boolean> result) {
-        ActionButton yesButton = ActionButton.builder(yes)
-                .action(DialogAction.customClick((response, audience) -> tasks.main().execute(() -> result.accept(true)), ONCE))
-                .build();
-        ActionButton noButton = ActionButton.builder(no)
-                .action(DialogAction.customClick((response, audience) -> tasks.main().execute(() -> result.accept(false)), ONCE))
-                .build();
-        Dialog dialog = Dialog.create(factory -> factory.empty()
-                .base(base(title, body))
-                .type(DialogType.confirmation(yesButton, noButton)));
+            Player player,
+            Component title,
+            List<Component> body,
+            Component yes,
+            Component no,
+            Consumer<Boolean> result) {
+        ActionButton yesButton =
+                ActionButton.builder(yes)
+                        .action(
+                                DialogAction.customClick(
+                                        (response, audience) ->
+                                                tasks.main().execute(() -> result.accept(true)),
+                                        ONCE))
+                        .build();
+        ActionButton noButton =
+                ActionButton.builder(no)
+                        .action(
+                                DialogAction.customClick(
+                                        (response, audience) ->
+                                                tasks.main().execute(() -> result.accept(false)),
+                                        ONCE))
+                        .build();
+        Dialog dialog =
+                Dialog.create(
+                        factory ->
+                                factory.empty()
+                                        .base(base(title, body))
+                                        .type(DialogType.confirmation(yesButton, noButton)));
         player.showDialog(dialog);
     }
 

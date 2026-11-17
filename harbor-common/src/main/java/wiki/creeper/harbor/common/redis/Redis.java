@@ -11,8 +11,8 @@ import java.time.Duration;
 /**
  * Lettuce 연결. 명령용 연결 하나와 구독용 연결 하나를 연다.
  *
- * <p>연결이 끊기면 Lettuce가 자동으로 다시 연결하고, 구독 연결은 다시 연결된 뒤 구독을 복구한다. 그 사이 공지·이벤트 전파만 멈추고
- * 게임은 계속 진행한다. 세션 잠금은 Redis가 없으면 실패로 보고 서버 이동을 막는다.
+ * <p>연결이 끊기면 Lettuce가 자동으로 다시 연결하고, 구독 연결은 다시 연결된 뒤 구독을 복구한다. 그 사이 공지·이벤트 전파만 멈추고 게임은 계속 진행한다. 세션
+ * 잠금은 Redis가 없으면 실패로 보고 서버 이동을 막는다.
  */
 public final class Redis implements AutoCloseable {
 

@@ -54,8 +54,8 @@ public final class Tasks {
     }
 
     /**
-     * 메인 스레드 실행기. {@code future.thenAcceptAsync(result -> …, tasks.main())}처럼 결과를 메인 스레드로 넘길 때 쓴다. 이미 메인
-     * 스레드면 바로 실행하고, 플러그인이 꺼졌으면 버린다.
+     * 메인 스레드 실행기. {@code future.thenAcceptAsync(result -> …, tasks.main())}처럼 결과를 메인 스레드로 넘길 때 쓴다.
+     * 이미 메인 스레드면 바로 실행하고, 플러그인이 꺼졌으면 버린다.
      */
     public Executor main() {
         return main;
@@ -71,7 +71,7 @@ public final class Tasks {
         if (Bukkit.isPrimaryThread()) {
             task.run();
         } else if (plugin.isEnabled()) {
-            var unused = Bukkit.getScheduler().runTask(plugin, task);
+            var _ = Bukkit.getScheduler().runTask(plugin, task);
         }
     }
 }

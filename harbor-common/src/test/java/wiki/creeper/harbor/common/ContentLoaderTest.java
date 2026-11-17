@@ -32,14 +32,18 @@ class ContentLoaderTest {
     void setUp() throws IOException {
         loader = new ContentLoader();
         CoreContent.register(loader);
-        write("regions.yml", """
+        write(
+                "regions.yml",
+                """
                 - id: region/harbor
                   name: 크리퍼 항구
                   world: harbor_main
                   bounds: [[0, 0], [100, 0], [100, 100], [0, 100]]
                   biome: creeper:harbor
                 """);
-        write("items/bait.yml", """
+        write(
+                "items/bait.yml",
+                """
                 - id: item/bait/earthworm
                   name: 지렁이
                   type: bait
@@ -49,12 +53,16 @@ class ContentLoaderTest {
                   tradeable: true
                   season_reset: false
                 """);
-        write("balance.yml", """
+        write(
+                "balance.yml",
+                """
                 fishing:
                   legend:
                     pity_start: 150
                 """);
-        write("messages_ko.yml", """
+        write(
+                "messages_ko.yml",
+                """
                 harbor:
                   reload:
                     ok: "<green>리로드 완료"
@@ -67,11 +75,14 @@ class ContentLoaderTest {
 
         ContentSnapshot snapshot = loader.load(root).orThrow();
 
-        FishDef mackerel = snapshot.get(FishDef.TYPE, HarborId.parse("fish/harbor_mackerel")).orElseThrow();
+        FishDef mackerel =
+                snapshot.get(FishDef.TYPE, HarborId.parse("fish/harbor_mackerel")).orElseThrow();
         assertEquals(Grade.COMMON, mackerel.grade());
         assertEquals(20, mackerel.sizeMin());
         assertEquals(150, snapshot.single(Balance.TYPE).integer("fishing.legend.pity_start", 0));
-        assertEquals("<green>리로드 완료", snapshot.single(Messages.TYPE).get("harbor.reload.ok").orElseThrow());
+        assertEquals(
+                "<green>리로드 완료",
+                snapshot.single(Messages.TYPE).get("harbor.reload.ok").orElseThrow());
     }
 
     @Test
@@ -90,16 +101,25 @@ class ContentLoaderTest {
     void reportsMissingReference() throws IOException {
         write("fish/harbor.yml", fish("fish/harbor_mackerel", 1, "[20, 45]", "region/nowhere"));
 
-        String errors = ((Result.Err<ContentSnapshot, ValidationErrors>) loader.load(root)).error().format();
+        String errors =
+                ((Result.Err<ContentSnapshot, ValidationErrors>) loader.load(root))
+                        .error()
+                        .format();
 
         assertTrue(errors.contains("region 'harbor:region/nowhere'를 찾을 수 없습니다"), errors);
     }
 
     @Test
     void reportsDuplicateCodexNumber() throws IOException {
-        write("fish/harbor.yml", fish("fish/a", 1, "[20, 45]", "region/harbor") + fish("fish/b", 1, "[20, 45]", "region/harbor"));
+        write(
+                "fish/harbor.yml",
+                fish("fish/a", 1, "[20, 45]", "region/harbor")
+                        + fish("fish/b", 1, "[20, 45]", "region/harbor"));
 
-        String errors = ((Result.Err<ContentSnapshot, ValidationErrors>) loader.load(root)).error().format();
+        String errors =
+                ((Result.Err<ContentSnapshot, ValidationErrors>) loader.load(root))
+                        .error()
+                        .format();
 
         assertTrue(errors.contains("도감 번호 1"), errors);
     }
@@ -130,7 +150,8 @@ class ContentLoaderTest {
                   bait: [item/bait/earthworm]
                   model: harbor:fish/test
                   season: 1
-                """.formatted(id, no, region, size);
+                """
+                .formatted(id, no, region, size);
     }
 
     private void write(String path, String content) throws IOException {

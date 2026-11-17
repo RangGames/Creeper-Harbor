@@ -8,8 +8,7 @@ import org.flywaydb.core.api.output.MigrateResult;
 /**
  * 모듈별 Flyway 마이그레이션. 마이그레이션 폴더는 {@code db/migration/<모듈>}, 이력 테이블은 {@code flyway_<모듈>}.
  *
- * <p>여러 모듈이 같은 스키마를 쓰므로 빈 스키마가 아니어도 시작할 수 있게 baseline 0으로 둔다. 운영 중에는 열을 지우거나 이름을 바꾸지
- * 않고 추가만 한다.
+ * <p>여러 모듈이 같은 스키마를 쓰므로 빈 스키마가 아니어도 시작할 수 있게 baseline 0으로 둔다. 운영 중에는 열을 지우거나 이름을 바꾸지 않고 추가만 한다.
  */
 public final class Migrations {
 

@@ -19,7 +19,8 @@ import wiki.creeper.harbor.common.redis.Redis;
  * <ol>
  *   <li>백엔드가 MoveRequest를 프록시에 보낸다
  *   <li>프록시가 출발 서버에 TransferPrepare를 보낸다
- *   <li>출발 서버가 즉시 저장하고 잠금을 {@code handoff:<도착>:<요청 ID>}로 바꾼 뒤 ({@link #beginHandoff}) TransferReady를 보낸다
+ *   <li>출발 서버가 즉시 저장하고 잠금을 {@code handoff:<도착>:<요청 ID>}로 바꾼 뒤 ({@link #beginHandoff})
+ *       TransferReady를 보낸다
  *   <li>프록시가 도착 서버로 접속을 넘긴다. 실패하면 TransferAbort → 출발 서버가 잠금을 되돌린다 ({@link #abortHandoff})
  *   <li>도착 서버가 handoff 상태를 확인하고 소유권을 가져온 뒤 ({@link #awaitClaim}) 데이터를 로드한다
  * </ol>

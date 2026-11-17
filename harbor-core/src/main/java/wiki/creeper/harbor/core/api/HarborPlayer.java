@@ -11,9 +11,7 @@ import wiki.creeper.harbor.common.model.JobTier;
 import wiki.creeper.harbor.common.model.PlayerRef;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/**
- * 접속 중인 플레이어의 메모리 캐시. 메인 스레드에서만 읽고 쓴다. 바뀐 항목은 표시(dirty)되어 5분마다 지연 쓰기 큐로 저장된다.
- */
+/** 접속 중인 플레이어의 메모리 캐시. 메인 스레드에서만 읽고 쓴다. 바뀐 항목은 표시(dirty)되어 5분마다 지연 쓰기 큐로 저장된다. */
 public interface HarborPlayer {
 
     UUID uuid();

@@ -16,11 +16,10 @@ import wiki.creeper.harbor.common.util.Json;
 /**
  * 형식이 있는 Redis 발행·구독.
  *
- * <p>한 Redis 채널에 여러 메시지 형식을 보낼 수 있다. 봉투의 type(레코드 이름)이 구독한 {@link Channel#type()}과 같을 때만 핸들러를
- * 부른다.
+ * <p>한 Redis 채널에 여러 메시지 형식을 보낼 수 있다. 봉투의 type(레코드 이름)이 구독한 {@link Channel#type()}과 같을 때만 핸들러를 부른다.
  *
- * <p>핸들러는 Lettuce 이벤트 스레드에서 불린다. 게임 상태를 바꾸려면 핸들러 안에서 메인 스레드로 넘겨야 한다. 자기가 보낸 메시지도 받으므로
- * 필요하면 {@link Envelope#server()}로 거른다.
+ * <p>핸들러는 Lettuce 이벤트 스레드에서 불린다. 게임 상태를 바꾸려면 핸들러 안에서 메인 스레드로 넘겨야 한다. 자기가 보낸 메시지도 받으므로 필요하면 {@link
+ * Envelope#server()}로 거른다.
  */
 public final class MessageBus implements AutoCloseable {
 
@@ -58,15 +57,20 @@ public final class MessageBus implements AutoCloseable {
         envelope.addProperty("sentAt", Instant.now().toString());
         envelope.add("payload", Json.GSON.toJsonTree(payload));
         try {
-            var unused =
+            var _ =
                     redis.connection()
-                    .async()
-                    .publish(channel.name(), envelope.toString())
-                    .exceptionally(
-                            e -> {
-                                LOG.log(Level.WARNING, "Redis 발행 실패 (" + channel.name() + "): " + e.getMessage());
-                                return 0L;
-                            });
+                            .async()
+                            .publish(channel.name(), envelope.toString())
+                            .exceptionally(
+                                    e -> {
+                                        LOG.log(
+                                                Level.WARNING,
+                                                "Redis 발행 실패 ("
+                                                        + channel.name()
+                                                        + "): "
+                                                        + e.getMessage());
+                                        return 0L;
+                                    });
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, "Redis 발행 실패 (" + channel.name() + "): " + e.getMessage());
         }
@@ -78,7 +82,7 @@ public final class MessageBus implements AutoCloseable {
                 handlers.computeIfAbsent(
                         channel.name(),
                         name -> {
-                            var unused = redis.pubSub().async().subscribe(name);
+                            var _ = redis.pubSub().async().subscribe(name);
                             return new CopyOnWriteArrayList<>();
                         });
         list.add(new Handler<>(channel, consumer));
@@ -117,7 +121,7 @@ public final class MessageBus implements AutoCloseable {
     @Override
     public void close() {
         if (!handlers.isEmpty()) {
-            var unused = redis.pubSub().async().unsubscribe(handlers.keySet().toArray(String[]::new));
+            var _ = redis.pubSub().async().unsubscribe(handlers.keySet().toArray(String[]::new));
         }
         handlers.clear();
     }

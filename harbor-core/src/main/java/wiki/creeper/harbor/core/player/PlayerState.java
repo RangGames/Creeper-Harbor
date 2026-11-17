@@ -109,7 +109,8 @@ final class PlayerState implements HarborPlayer {
 
     @Override
     public Duration playtime() {
-        return Duration.ofSeconds(storedPlaytimeSeconds).plus(Duration.between(sessionStart, Instant.now()));
+        return Duration.ofSeconds(storedPlaytimeSeconds)
+                .plus(Duration.between(sessionStart, Instant.now()));
     }
 
     @Override
@@ -183,7 +184,15 @@ final class PlayerState implements HarborPlayer {
 
     BaseSnapshot snapshotBase() {
         return new BaseSnapshot(
-                uuid, name, season, playtime().toSeconds(), jobLine, jobTier, level, exp, reputation);
+                uuid,
+                name,
+                season,
+                playtime().toSeconds(),
+                jobLine,
+                jobTier,
+                level,
+                exp,
+                reputation);
     }
 
     /** 플레이 시간 때문에 기본 필드는 항상 저장할 거리가 있다. */
@@ -197,7 +206,8 @@ final class PlayerState implements HarborPlayer {
 
     /** 바뀐 컴포넌트 ID를 꺼내고 표시를 지운다. all이면 전부. */
     Set<String> drainDirtyComponents(boolean all) {
-        Set<String> result = all ? new HashSet<>(components.keySet()) : new HashSet<>(dirtyComponents);
+        Set<String> result =
+                all ? new HashSet<>(components.keySet()) : new HashSet<>(dirtyComponents);
         dirtyComponents.clear();
         return result;
     }

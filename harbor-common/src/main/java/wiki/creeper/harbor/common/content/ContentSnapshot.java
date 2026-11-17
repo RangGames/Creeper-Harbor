@@ -10,9 +10,7 @@ import java.util.TreeSet;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.HarborId;
 
-/**
- * 콘텐츠 전체의 변경 불가 스냅샷. 리로드는 새 스냅샷을 만들어 참조 하나를 바꾸는 방식이라, 읽는 쪽은 잠금 없이 써도 된다.
- */
+/** 콘텐츠 전체의 변경 불가 스냅샷. 리로드는 새 스냅샷을 만들어 참조 하나를 바꾸는 방식이라, 읽는 쪽은 잠금 없이 써도 된다. */
 public final class ContentSnapshot {
 
     private static final ContentSnapshot EMPTY = new ContentSnapshot(Map.of(), Map.of());

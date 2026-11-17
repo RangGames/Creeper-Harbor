@@ -19,8 +19,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <ul>
  *   <li>5초마다, 또는 500건이 쌓이면 한 트랜잭션으로 쓴다.
  *   <li>같은 키는 마지막 값만 쓴다 (예: {@code codex:<uuid>:<fish>}).
- *   <li>한 건이 계속 실패해서 전체가 막히지 않도록, 묶음 쓰기가 실패하면 한 건씩 다시 쓴다. 연결 오류면 큐에 되돌리고, 데이터 오류면 로그를
- *       남기고 버린다.
+ *   <li>한 건이 계속 실패해서 전체가 막히지 않도록, 묶음 쓰기가 실패하면 한 건씩 다시 쓴다. 연결 오류면 큐에 되돌리고, 데이터 오류면 로그를 남기고 버린다.
  *   <li>{@link #close()}는 남은 것을 모두 쓴 뒤 끝난다.
  * </ul>
  *
@@ -54,7 +53,9 @@ public final class WriteBehindQueue implements AutoCloseable {
                 Executors.newSingleThreadScheduledExecutor(
                         Thread.ofPlatform().name("harbor-write-behind").daemon(true).factory());
         long millis = interval.toMillis();
-        var unused = scheduler.scheduleWithFixedDelay(this::flushQuietly, millis, millis, TimeUnit.MILLISECONDS);
+        var _ =
+                scheduler.scheduleWithFixedDelay(
+                        this::flushQuietly, millis, millis, TimeUnit.MILLISECONDS);
     }
 
     /** 쓰기를 예약한다. 같은 키가 이미 있으면 새 값으로 바꾼다. */
@@ -107,7 +108,11 @@ public final class WriteBehindQueue implements AutoCloseable {
                         });
                 written.addAndGet(batch.size());
             } catch (SQLException e) {
-                LOG.log(Level.WARNING, "묶음 쓰기 실패, 한 건씩 다시 씁니다 ({0}건): {1}", batch.size(), e.getMessage());
+                LOG.log(
+                        Level.WARNING,
+                        "묶음 쓰기 실패, 한 건씩 다시 씁니다 ({0}건): {1}",
+                        batch.size(),
+                        e.getMessage());
                 flushOneByOne(batch);
             }
         } finally {
@@ -116,8 +121,8 @@ public final class WriteBehindQueue implements AutoCloseable {
     }
 
     /**
-     * 키가 prefix로 시작하는 것만 지금 바로 한 트랜잭션으로 쓴다 (퇴장·서버 이동 때 그 플레이어 데이터만 즉시 저장). 실패하면 큐에 되돌리고
-     * 예외를 던진다. 백그라운드 쓰기와 순서가 섞이지 않도록 같은 잠금을 쓴다.
+     * 키가 prefix로 시작하는 것만 지금 바로 한 트랜잭션으로 쓴다 (퇴장·서버 이동 때 그 플레이어 데이터만 즉시 저장). 실패하면 큐에 되돌리고 예외를 던진다.
+     * 백그라운드 쓰기와 순서가 섞이지 않도록 같은 잠금을 쓴다.
      */
     public void flushNow(String keyPrefix) throws SQLException {
         flushLock.lock();

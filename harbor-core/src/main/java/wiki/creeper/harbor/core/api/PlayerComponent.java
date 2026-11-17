@@ -9,8 +9,8 @@ import wiki.creeper.harbor.common.model.SeasonId;
 /**
  * 모듈이 플레이어에 붙이는 데이터 (예: Jobs의 스킬 배분, Collection의 도감 캐시). Core는 로드·저장 시점만 관리하고 내용은 모른다.
  *
- * <p>값은 변경 불가 객체(record, List.copyOf …)로 둔다. 바꿀 때는 {@link HarborPlayer#set}으로 새 값을 넣는다. 저장은 다른 스레드에서
- * 하므로, 값을 직접 고치면 저장 중인 값과 섞일 수 있다.
+ * <p>값은 변경 불가 객체(record, List.copyOf …)로 둔다. 바꿀 때는 {@link HarborPlayer#set}으로 새 값을 넣는다. 저장은 다른
+ * 스레드에서 하므로, 값을 직접 고치면 저장 중인 값과 섞일 수 있다.
  *
  * @param id 저장 키에 쓰는 이름 (소문자·숫자·밑줄)
  */

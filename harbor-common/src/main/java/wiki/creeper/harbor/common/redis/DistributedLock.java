@@ -6,9 +6,7 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * SET NX PX 방식의 분산 잠금. 월드 보스·시세 갱신·원장 검사처럼 한 서버만 해야 하는 작업에 쓴다. 블로킹 호출이다.
- */
+/** SET NX PX 방식의 분산 잠금. 월드 보스·시세 갱신·원장 검사처럼 한 서버만 해야 하는 작업에 쓴다. 블로킹 호출이다. */
 public final class DistributedLock {
 
     private static final String RELEASE =
@@ -48,12 +46,18 @@ public final class DistributedLock {
         public boolean extend(Duration ttl) {
             Long result =
                     redis.sync()
-                            .eval(EXTEND, ScriptOutputType.INTEGER, new String[] {key}, token, String.valueOf(ttl.toMillis()));
+                            .eval(
+                                    EXTEND,
+                                    ScriptOutputType.INTEGER,
+                                    new String[] {key},
+                                    token,
+                                    String.valueOf(ttl.toMillis()));
             return result != null && result == 1L;
         }
 
         public boolean release() {
-            Long result = redis.sync().eval(RELEASE, ScriptOutputType.INTEGER, new String[] {key}, token);
+            Long result =
+                    redis.sync().eval(RELEASE, ScriptOutputType.INTEGER, new String[] {key}, token);
             return result != null && result == 1L;
         }
 

@@ -40,8 +40,8 @@ import wiki.creeper.harbor.core.api.ItemService;
 import wiki.creeper.harbor.core.api.MessageService;
 
 /**
- * 아이템 정의(YAML) → ItemStack. Paper Data Component API로 item_model·item_name·lore·tooltip_style을 붙이고, Harbor 데이터는
- * custom_data(PersistentDataContainer)에 넣는다.
+ * 아이템 정의(YAML) → ItemStack. Paper Data Component API로 item_model·item_name·lore·tooltip_style을 붙이고,
+ * Harbor 데이터는 custom_data(PersistentDataContainer)에 넣는다.
  */
 public final class ItemManager implements ItemService {
 
@@ -58,7 +58,12 @@ public final class ItemManager implements ItemService {
     private final Logger log;
 
     public ItemManager(
-            Supplier<ContentSnapshot> content, MessageService messages, Database db, SeasonId season, ZoneId zone, Logger log) {
+            Supplier<ContentSnapshot> content,
+            MessageService messages,
+            Database db,
+            SeasonId season,
+            ZoneId zone,
+            Logger log) {
         this.content = content;
         this.messages = messages;
         this.db = db;
@@ -71,51 +76,74 @@ public final class ItemManager implements ItemService {
     public ItemStack create(ItemDef def, int amount) {
         ItemStack stack = ItemStack.of(material(def.baseItem()), amount);
         decorate(stack, def.name(), def.grade(), def.model(), lore(def.lore()));
-        stack.editPersistentDataContainer(pdc -> {
-            pdc.set(ItemKeys.ID, PersistentDataType.STRING, def.id().toString());
-            pdc.set(ItemKeys.VERSION, PersistentDataType.INTEGER, CURRENT_VERSION);
-        });
+        stack.editPersistentDataContainer(
+                pdc -> {
+                    pdc.set(ItemKeys.ID, PersistentDataType.STRING, def.id().toString());
+                    pdc.set(ItemKeys.VERSION, PersistentDataType.INTEGER, CURRENT_VERSION);
+                });
         return stack;
     }
 
     @Override
-    public ItemStack createFish(FishDef def, double sizeCm, Quality quality, PlayerRef catcher, Instant caughtAt) {
+    public ItemStack createFish(
+            FishDef def, double sizeCm, Quality quality, PlayerRef catcher, Instant caughtAt) {
         double size = Math.round(sizeCm * 10) / 10.0;
         boolean unique = quality.isMax() || def.grade().isAtLeast(Grade.LEGENDARY);
         @Nullable UUID uid = unique ? UUID.randomUUID() : null;
         Balance balance = content.get().single(Balance.TYPE);
 
-        ItemStack stack = ItemStack.of(material(balance.string("items.fish_base_item").orElse("minecraft:cod")), 1);
+        ItemStack stack =
+                ItemStack.of(
+                        material(balance.string("items.fish_base_item").orElse("minecraft:cod")),
+                        1);
         List<Component> lore = lore(def.lore());
         lore.add(line("item.fish.quality", Placeholder.unparsed("quality", quality.display())));
-        lore.add(line("item.fish.size", Placeholder.unparsed("size", String.format(Locale.ROOT, "%.1f", size))));
+        lore.add(
+                line(
+                        "item.fish.size",
+                        Placeholder.unparsed("size", String.format(Locale.ROOT, "%.1f", size))));
         lore.add(line("item.fish.catcher", Placeholder.unparsed("catcher", catcher.name())));
-        lore.add(line("item.fish.date", Placeholder.unparsed("date", DATE.format(caughtAt.atZone(zone)))));
+        lore.add(
+                line(
+                        "item.fish.date",
+                        Placeholder.unparsed("date", DATE.format(caughtAt.atZone(zone)))));
         decorate(stack, def.name(), def.grade(), def.model(), lore);
         if (def.grade().isAtLeast(Grade.LEGENDARY)) {
             stack.setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
         }
-        stack.editPersistentDataContainer(pdc -> {
-            pdc.set(ItemKeys.ID, PersistentDataType.STRING, def.id().toString());
-            pdc.set(ItemKeys.VERSION, PersistentDataType.INTEGER, CURRENT_VERSION);
-            pdc.set(ItemKeys.SPECIES, PersistentDataType.STRING, def.id().toString());
-            pdc.set(ItemKeys.SIZE, PersistentDataType.DOUBLE, size);
-            pdc.set(ItemKeys.QUALITY, PersistentDataType.INTEGER, quality.stars());
-            pdc.set(ItemKeys.CATCHER, PersistentDataType.STRING, catcher.uuid().toString());
-            pdc.set(ItemKeys.CATCHER_NAME, PersistentDataType.STRING, catcher.name());
-            pdc.set(ItemKeys.SEASON, PersistentDataType.INTEGER, season.value());
-            pdc.set(ItemKeys.CAUGHT_AT, PersistentDataType.LONG, caughtAt.toEpochMilli());
-            if (uid != null) {
-                pdc.set(ItemKeys.UID, PersistentDataType.STRING, uid.toString());
-            }
-        });
+        stack.editPersistentDataContainer(
+                pdc -> {
+                    pdc.set(ItemKeys.ID, PersistentDataType.STRING, def.id().toString());
+                    pdc.set(ItemKeys.VERSION, PersistentDataType.INTEGER, CURRENT_VERSION);
+                    pdc.set(ItemKeys.SPECIES, PersistentDataType.STRING, def.id().toString());
+                    pdc.set(ItemKeys.SIZE, PersistentDataType.DOUBLE, size);
+                    pdc.set(ItemKeys.QUALITY, PersistentDataType.INTEGER, quality.stars());
+                    pdc.set(ItemKeys.CATCHER, PersistentDataType.STRING, catcher.uuid().toString());
+                    pdc.set(ItemKeys.CATCHER_NAME, PersistentDataType.STRING, catcher.name());
+                    pdc.set(ItemKeys.SEASON, PersistentDataType.INTEGER, season.value());
+                    pdc.set(ItemKeys.CAUGHT_AT, PersistentDataType.LONG, caughtAt.toEpochMilli());
+                    if (uid != null) {
+                        pdc.set(ItemKeys.UID, PersistentDataType.STRING, uid.toString());
+                    }
+                });
         if (uid != null) {
-            HarborItem.Fish fish = new HarborItem.Fish(def.id(), size, quality, catcher, season, caughtAt, uid, CURRENT_VERSION);
-            var unused = db.asyncVoid(c -> FishLedger.insert(c, uid, fish))
-                    .exceptionally(e -> {
-                        log.error("고유 ID 장부 기록 실패: {} {}", def.id(), uid, e);
-                        return null;
-                    });
+            HarborItem.Fish fish =
+                    new HarborItem.Fish(
+                            def.id(),
+                            size,
+                            quality,
+                            catcher,
+                            season,
+                            caughtAt,
+                            uid,
+                            CURRENT_VERSION);
+            var _ =
+                    db.asyncVoid(c -> FishLedger.insert(c, uid, fish))
+                            .exceptionally(
+                                    e -> {
+                                        log.error("고유 ID 장부 기록 실패: {} {}", def.id(), uid, e);
+                                        return null;
+                                    });
         }
         return stack;
     }
@@ -144,19 +172,26 @@ public final class ItemManager implements ItemService {
             Integer fishSeason = pdc.get(ItemKeys.SEASON, PersistentDataType.INTEGER);
             Long caughtAt = pdc.get(ItemKeys.CAUGHT_AT, PersistentDataType.LONG);
             String uid = pdc.get(ItemKeys.UID, PersistentDataType.STRING);
-            if (size == null || quality == null || catcher == null || fishSeason == null || caughtAt == null) {
+            if (size == null
+                    || quality == null
+                    || catcher == null
+                    || fishSeason == null
+                    || caughtAt == null) {
                 log.warn("어종 아이템 데이터가 빠졌습니다: {}", rawId);
                 return Optional.empty();
             }
-            return Optional.of(new HarborItem.Fish(
-                    new FishId(id),
-                    size,
-                    Quality.of(quality),
-                    new PlayerRef(UUID.fromString(catcher), catcherName == null ? "?" : catcherName),
-                    new SeasonId(fishSeason),
-                    Instant.ofEpochMilli(caughtAt),
-                    uid == null ? null : UUID.fromString(uid),
-                    version));
+            return Optional.of(
+                    new HarborItem.Fish(
+                            new FishId(id),
+                            size,
+                            Quality.of(quality),
+                            new PlayerRef(
+                                    UUID.fromString(catcher),
+                                    catcherName == null ? "?" : catcherName),
+                            new SeasonId(fishSeason),
+                            Instant.ofEpochMilli(caughtAt),
+                            uid == null ? null : UUID.fromString(uid),
+                            version));
         } catch (IllegalArgumentException e) {
             log.warn("잘못된 Harbor 아이템 데이터: {} ({})", rawId, e.getMessage());
             return Optional.empty();
@@ -170,33 +205,42 @@ public final class ItemManager implements ItemService {
             return false;
         }
         // v0 → v1: 버전 키만 추가 (형식 변경 없음). 이후 버전은 여기에 단계별 변환을 추가한다.
-        stack.editPersistentDataContainer(pdc -> pdc.set(ItemKeys.VERSION, PersistentDataType.INTEGER, CURRENT_VERSION));
+        stack.editPersistentDataContainer(
+                pdc -> pdc.set(ItemKeys.VERSION, PersistentDataType.INTEGER, CURRENT_VERSION));
         return true;
     }
 
     // ------------------------------------------------------------------ 내부
 
-    private void decorate(ItemStack stack, String name, Grade grade, String model, List<Component> lore) {
-        stack.setData(DataComponentTypes.ITEM_NAME, messages.get("item.name." + grade.key(), Placeholder.unparsed("name", name)));
+    private void decorate(
+            ItemStack stack, String name, Grade grade, String model, List<Component> lore) {
+        stack.setData(
+                DataComponentTypes.ITEM_NAME,
+                messages.get("item.name." + grade.key(), Placeholder.unparsed("name", name)));
         stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(model));
         stack.setData(DataComponentTypes.LORE, ItemLore.lore(lore));
         content.get()
                 .single(Balance.TYPE)
                 .string("items.tooltip_style." + grade.key())
-                .ifPresent(style -> stack.setData(DataComponentTypes.TOOLTIP_STYLE, Key.key(style)));
+                .ifPresent(
+                        style -> stack.setData(DataComponentTypes.TOOLTIP_STYLE, Key.key(style)));
     }
 
     /** 설명 문구 (디자이너가 MiniMessage 서식을 쓸 수 있다). 기울임 기본값을 끈다. */
     private static List<Component> lore(List<String> lines) {
         List<Component> result = new ArrayList<>();
         for (String raw : lines) {
-            result.add(MiniMessage.miniMessage().deserialize(raw).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE));
+            result.add(
+                    MiniMessage.miniMessage()
+                            .deserialize(raw)
+                            .decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE));
         }
         return result;
     }
 
     private Component line(String key, TagResolver resolver) {
-        return messages.get(key, resolver).decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE);
+        return messages.get(key, resolver)
+                .decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE);
     }
 
     private static Material material(String key) {
