@@ -44,6 +44,14 @@ economy:
     slope: 0.35
     min: 0.5
     max: 1.2
+    window_h: 24
+    s0_floor: 20           # 제안값
+    catches_per_hour: 80
+    sell_ratio: 0.85
+  quality_mult: {1: 1.0, 2: 1.2, 3: 1.5, 4: 2.5, 5: 5.0}   # ★4·★5는 제안값 (docs 20 7.4)
+  region_factor: {void_sea: 0.65}
+  legend_cap: 3000
+  repair: {rate: 0.03, broken_rate: 0.10}
 
 # 보정자 스탯: 기본값·하한·상한 (/harbor stat에서 확인)
 stats:
@@ -87,6 +95,14 @@ stats:
     base: 1.0
   cast_distance:
     base: 1.0
+  shop_buy_price:
+    base: 1.0
+    min: 0.5
+  repair_cost:
+    base: 1.0
+    min: 0
+  market_info:
+    base: 0
 
 # 개발 서버의 월드 이름을 지역 월드(harbor_main 등)에 대응시킨다 (운영 서버는 비움)
 world_alias:

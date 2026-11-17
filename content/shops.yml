@@ -1,0 +1,7 @@
+# NPC 상점 (추가 제안, docs 20 7.3). price가 없으면 아이템 buy_price ('13. 제작 · 상점 가격' 2장).
+
+- id: shop/tackle
+  title: 낚시용품점
+  entries:
+    - {item: item/bait/earthworm}
+    - {item: item/rod/harbor_standard}

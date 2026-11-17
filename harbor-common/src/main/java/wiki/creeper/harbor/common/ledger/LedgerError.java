@@ -8,6 +8,8 @@ public enum LedgerError {
     DUPLICATE,
     /** 이 재화를 다루는 잔액 저장소가 없음. */
     UNSUPPORTED_CURRENCY,
+    /** 함께 실행한 추가 SQL이 업무 규칙 위반으로 거부함 (일일 한도 초과 등). */
+    REJECTED,
     /** DB 오류. */
     DATABASE,
 }

@@ -20,6 +20,10 @@ public final class FishLedger {
         RELEASED,
         /** 수족관에 기부됨 (Collection). */
         DONATED,
+        /** NPC에게 판매됨 (Economy). */
+        SOLD,
+        /** 경매에 등록됨 (Economy). */
+        IN_AUCTION,
         DESTROYED
     }
 

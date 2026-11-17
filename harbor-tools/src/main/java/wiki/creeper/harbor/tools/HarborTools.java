@@ -10,6 +10,8 @@ import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.content.type.CoreContent;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
+import wiki.creeper.harbor.economy.content.EconomyContent;
+import wiki.creeper.harbor.economy.content.ShopDef;
 import wiki.creeper.harbor.jobs.content.JobLineDef;
 import wiki.creeper.harbor.jobs.content.JobsContent;
 
@@ -37,6 +39,8 @@ public final class HarborTools {
         CoreContent.register(loader);
         JobsContent.TYPES.forEach(loader::register);
         CollectionContent.TYPES.forEach(loader::register);
+        EconomyContent.TYPES.forEach(loader::register);
+        loader.addCheck(ShopDef.TYPE, ShopDef.PRICE_CHECK);
         loader.addCheck(Balance.TYPE, JobsContent.CURVE_CHECK);
         loader.addCheck(JobLineDef.TYPE, JobsContent.CAPSTONE_CHECK);
         Result<ContentSnapshot, ValidationErrors> result = loader.load(Path.of(args[1]));

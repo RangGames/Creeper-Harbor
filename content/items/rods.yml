@@ -20,5 +20,6 @@
   stats:
     bite_wait: -0.10
     line_strength: 1
+  buy_price: 2000
   tradeable: true
   season_reset: true

@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":harbor-core"))
     implementation(project(":harbor-jobs"))
     implementation(project(":harbor-collection"))
+    implementation(project(":harbor-economy"))
     implementation(libs.snakeyaml)
     implementation(libs.gson)
 }

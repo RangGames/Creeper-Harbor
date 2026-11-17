@@ -190,3 +190,52 @@ collection:
   admin:
     done: "<green>처리했습니다."
     failed: "<red>처리하지 못했습니다."
+
+economy:
+  sell:
+    nothing: "<gray>팔 수 있는 어종이 없습니다."
+    title: "어종 판매"
+    body: "<white><count></white>마리를 <gold><total>G</gold>에 팝니다."
+    yes: "판다"
+    no: "그만둔다"
+    requote: "<yellow>시세가 바뀌어 견적을 다시 보여드립니다."
+    done: "<green><count>마리를 팔아 <gold><total>G</gold>를 받았습니다."
+    failed: "<red>판매하지 못해 아이템을 돌려드렸습니다."
+  shop:
+    previous: "이전"
+    next: "다음"
+    price: "<gray>가격 <gold><price>G"
+    locked: "<red><tier>차 전직 후 구매할 수 있습니다."
+    daily_limit: "<gray>하루 <limit>개까지"
+    choose: "몇 개 살까요?"
+    amount: "<amount>개 · <price>G"
+    bought: "<green><name> <amount>개를 <gold><price>G</gold>에 샀습니다."
+    no_gold: "<red>골드가 모자랍니다."
+    limit: "<red>오늘 구매 한도를 넘었습니다."
+    failed: "<red>구매하지 못했습니다."
+    to_mail: "<yellow>가방이 가득 차서 남은 물건은 우편함으로 보냈습니다."
+  mail:
+    arrived: "<aqua>우편이 도착했습니다. <gray>/우편함"
+    title: "우편함"
+    previous: "이전"
+    next: "다음"
+    gold: "<gold><gold>G"
+    empty: "<gray>받을 우편이 없습니다."
+    full: "<red>가방에 빈칸이 없습니다."
+    claimed: "<green>우편을 받았습니다."
+    failed: "<red>우편을 받지 못했습니다."
+  repair:
+    nothing: "<gray>손에 든 장비는 수리할 필요가 없거나 수리할 수 없습니다."
+    title: "장비 수리"
+    body: "수리비 <gold><cost>G"
+    yes: "수리한다"
+    no: "그만둔다"
+    changed: "<red>손에 든 장비가 바뀌었습니다."
+    done: "<green>수리했습니다."
+    failed: "<red>골드가 모자라 수리하지 못했습니다."
+  market:
+    locked: "<gray>시세는 어시장 게시판에서 볼 수 있습니다. (경제 계열 '시세 정보' 스킬로 어디서나 열람)"
+    coef: "<yellow><fish></yellow> <gray>현재 시세 계수 <white><coef>"
+  admin:
+    done: "<green>처리했습니다."
+    failed: "<red>처리하지 못했습니다."

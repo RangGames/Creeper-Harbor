@@ -9,3 +9,7 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    Harbor-Jobs:
+      load: BEFORE
+      required: true
+      join-classpath: true
