@@ -1,5 +1,5 @@
 # 서버마다 다른 인프라 설정. 게임 수치는 content/balance.yml에 둔다.
-# 이 기본값은 로컬 개발용 (dev/docker-compose.yml의 MariaDB·Redis)이다.
+# DB·Redis 접속 정보를 서버 환경에 맞게 바꾼다.
 
 server:
   id: main-1          # 프록시에 등록한 서버 이름과 같아야 한다 (소문자·숫자·-·_)

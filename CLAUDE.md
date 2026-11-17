@@ -68,7 +68,7 @@ content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regi
 
 Common·Core·tools와 샘플 콘텐츠(1구역 어종 16종)를 작성했다. 아직 한 번도 컴파일하지 않았으므로 첫 빌드에서 오류를 잡아야 한다. Proxy와 게임 모듈 11개는 docs 20 순서대로 작성 중이다. 디스플레이 리그 재생(Core 5.10)은 일정상 Fishing 연출 작업 때 만든다.
 
-로컬 실행: `docker compose -f dev/docker-compose.yml up -d` → `./gradlew :harbor-core:runServer` (기본 harbor-infra.yml이 이 구성을 가리킨다).
+로컬 실행: `plugins/Harbor/harbor-infra.yml`(처음 실행 때 기본값 생성)에 DB·Redis 접속 정보를 넣고 `./gradlew :harbor-core:runServer`.
 
 ## 작업 규칙
 

@@ -48,7 +48,7 @@ tasks.assemble {
 }
 
 // ---------------------------------------------------------------- 로컬 테스트 서버
-// ./gradlew :harbor-core:runServer → 모든 Purpur 모듈을 넣은 테스트 서버 실행 (dev/docker-compose.yml로 DB·Redis 먼저 실행)
+// ./gradlew :harbor-core:runServer → 모든 Purpur 모듈을 넣은 테스트 서버 실행 (DB·Redis는 harbor-infra.yml에 설정)
 val devPlugins by configurations.creating {
     isCanBeConsumed = false
     isTransitive = false
