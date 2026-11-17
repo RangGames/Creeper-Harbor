@@ -1,0 +1,39 @@
+# 계열 정의 (추가 제안, docs 20 2.3): 단계별 이름, 자동 패시브('10. 스킬 트리' 2장), 캡스톤.
+
+- id: job/explore
+  line: explore
+  names: {1: 견습 어부, 2: 원양 탐험가, 3: 바다의 개척자}
+  passives:
+    - {tier: 2, modifier: boat_speed, value: 0.10}
+    - {tier: 2, modifier: boat_damage, value: -0.10}      # 폭풍 해역 내구도 피해
+    - {tier: 3, modifier: boat_speed, value: 0.10}
+    - {tier: 3, modifier: debuff_duration, value: -0.20}  # 혹한·화염·산소
+  capstone: {node: skill/capstone/uncharted_waters, item: item/capstone/uncharted_waters, duration_s: 600, cooldown_s: 7200, radius: 64}
+
+- id: job/collect
+  line: collect
+  names: {1: 견습 어부, 2: 희귀어 추적자, 3: 전설의 강태공}
+  passives:
+    - {tier: 2, modifier: rare_weight, value: 0.10}
+    - {tier: 2, modifier: epic_weight, value: 0.05}
+    - {tier: 3, modifier: epic_weight, value: 0.05}
+  capstone: {node: skill/capstone/legend_presence, item: item/capstone/legend_presence, duration_s: 900, cooldown_s: 86400}
+
+- id: job/produce
+  line: produce
+  names: {1: 견습 어부, 2: 통발 장인, 3: 심해 명인}
+  passives:
+    - {tier: 2, modifier: trap_slots, value: 3}
+    - {tier: 2, modifier: trap_count, value: 1}
+    - {tier: 3, modifier: trap_slots, value: 3}
+    - {tier: 3, modifier: trap_count, value: 1}
+  capstone: {node: skill/capstone/deep_trap}
+
+- id: job/economy
+  line: economy
+  names: {1: 견습 어부, 2: 어시장 중개인, 3: 항구 거상}
+  passives:
+    - {tier: 2, modifier: sell_price, value: 0.05}
+    - {tier: 2, modifier: auction_fee, value: -0.01}   # 경매 판매 수수료 5% → 4% (기본 수수료는 Economy)
+    - {tier: 3, modifier: auction_fee, value: -0.01}   # → 3%
+  capstone: {node: skill/capstone/big_deal, weekly_uses: 1}

@@ -21,6 +21,8 @@ public record RegionDef(
         String biome,
         Unlock unlock,
         int fishingSpots,
+        // 권장 레벨 상단값 (추가 제안, '7. 밸런스 기획' 3.2). 경험치 지역 감쇠 기준. 0이면 감쇠 없음
+        int recLevel,
         List<Point> trapZone,
         @Nullable String music) {
 
@@ -44,7 +46,8 @@ public record RegionDef(
                     "unlock",
                     "fishing_spots",
                     "trap_zone",
-                    "music");
+                    "music",
+                    "rec_level");
 
     public static final ContentType.Entries<RegionDef> TYPE =
             new ContentType.Entries<>(
@@ -105,6 +108,7 @@ public record RegionDef(
                 node.string("biome"),
                 unlock,
                 node.integer("fishing_spots", 0, 0, 1000),
+                node.integer("rec_level", 0, 0, 100),
                 points(node.list("trap_zone")),
                 node.optString("music").orElse(null));
     }

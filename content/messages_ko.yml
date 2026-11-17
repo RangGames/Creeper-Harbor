@@ -54,3 +54,58 @@ command:
     ok: "<green><player>의 <currency> 잔액: <balance>"
     failed: "<red>처리하지 못했습니다: <error>"
   debug: "<yellow>DB 풀 <white><pool></white> · 지연 쓰기 <white><queue></white> · 접속자 <white><players></white> · 스레드 <white><threads>"
+
+jobs:
+  level_up:
+    title: "<gold>Lv.<level>"
+    subtitle: "<yellow>물비늘 +1"
+  info:
+    title: "직업 정보"
+    apprentice: "견습 어부"
+    job: "<yellow><job></yellow> <gray>(<tier>차)"
+    level: "<gray>레벨 <white><level></white>/<cap> · 경험치 <white><exp></white>/<need>"
+    quality_cap: "<gray>최대 품질 <yellow><stars>"
+    next: "<gray>다음 전직: Lv.<level> · <gold><gold>G</gold> · 전직 퀘스트"
+    catchup: "<gray>서버 레벨 중앙값 <white><median>"
+  advance:
+    choose_title: "계열 선택"
+    choose_body: "2차 전직 계열을 고르세요. 계열에 따라 자동 효과와 스킬 트리가 달라집니다."
+    confirm_title: "전직"
+    confirm_body: "<yellow><job></yellow>(으)로 전직합니다. 비용 <gold><cost>G"
+    yes: "전직한다"
+    no: "그만둔다"
+    cutscene_title: "<gold>전직"
+    done: "<gold><job></gold><yellow>(으)로 전직했습니다!"
+  skill:
+    title: "스킬 트리 · 물비늘 <mulbineul>"
+    previous: "이전"
+    next: "다음"
+    confirm: "물비늘 <cost>개를 투자합니다. 개별 회수는 할 수 없습니다."
+    yes: "투자"
+    no: "취소"
+    lore:
+      rank: "<gray>랭크 <white><rank>/<max></white> · 비용 <aqua><cost></aqua> · <tree> <tier>단"
+      effect: "<gray>랭크당 <white><stat> <value>"
+      active: "<gold>액티브 · 쿨타임 <minutes>분"
+  invest:
+    ok: "<green>투자했습니다."
+    unknown_node: "<red>없는 스킬입니다."
+    job_locked: "<red>직업 단계·계열 조건이 맞지 않습니다."
+    tier_locked: "<red>이 단을 열려면 트리에 더 투자해야 합니다."
+    requires_nodes: "<red>먼저 찍어야 하는 노드가 있습니다."
+    max_rank: "<gray>최대 랭크입니다."
+    not_enough_mulbineul: "<red>물비늘이 모자랍니다."
+    busy: "<yellow>처리 중입니다."
+    failed: "<red>투자하지 못했습니다."
+  capstone:
+    wrong_line: "<red>지금 계열의 캡스톤이 아닙니다. 어부 길드에서 교환하세요."
+    locked: "<red>캡스톤을 아직 찍지 않았습니다."
+    cooldown: "<yellow>쿨타임 <minutes>분 남았습니다."
+    used: "<gold>캡스톤을 사용했습니다!"
+  admin:
+    done: "<green>처리했습니다."
+    failed: "<red>처리하지 못했습니다."
+    bad_line: "<red>계열은 explore · collect · produce · economy 중 하나입니다."
+    bad_scope: "<red>범위는 common · line · all 중 하나입니다."
+    median: "<yellow>캐치업 중앙값: <median>"
+    info: "<yellow><player></yellow> <gray>계열 <line> · <tier>차 · Lv.<level> · EXP <exp><newline>스킬 <skills><newline>캡스톤 <capstone>"

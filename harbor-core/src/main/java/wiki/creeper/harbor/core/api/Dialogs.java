@@ -19,4 +19,20 @@ public interface Dialogs {
             Component yes,
             Component no,
             Consumer<Boolean> result);
+
+    /** 선택지 하나. */
+    record Choice(Component label, Component tooltip) {}
+
+    /**
+     * 여러 선택지 중 하나를 고르는 화면 (2차 전직 계열 선택 등). 고른 순서 번호(0부터)를 메인 스레드에서 받는다.
+     *
+     * @param columns 한 줄에 놓을 버튼 수
+     */
+    void choose(
+            Player player,
+            Component title,
+            List<Component> body,
+            List<Choice> choices,
+            int columns,
+            Consumer<Integer> result);
 }

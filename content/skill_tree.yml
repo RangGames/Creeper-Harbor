@@ -1,0 +1,422 @@
+# 스킬 트리 ('10. 스킬 트리'). 트리 합계: 공통 60 + 계열 2차 80 + 계열 3차 80 + 캡스톤 40 = 260
+# 단 잠금(2단 8, 3단 30 투자)·직업 잠금은 balance.yml jobs 절과 코드가 처리한다. 수치가 아닌 효과는 값 1의 feature_ 스탯.
+# 캡스톤의 cooldown이 있으면 액티브: 효과는 사용할 때만 걸린다 (jobs.yml capstone).
+
+- id: skill/common/casting
+  name: 캐스팅 숙련
+  tree: common
+  tier: 1
+  max_rank: 3
+  cost: 4
+  effects:
+    - {modifier: cast_distance, value_per_rank: 0.1}
+    - {modifier: bite_wait, value_per_rank: -0.03}
+
+- id: skill/common/feel
+  name: 손맛 감각
+  tree: common
+  tier: 1
+  max_rank: 3
+  cost: 4
+  effects:
+    - {modifier: tension_safe_zone, value_per_rank: 0.05}
+
+- id: skill/common/bait_saver
+  name: 미끼 절약
+  tree: common
+  tier: 2
+  max_rank: 2
+  cost: 5
+  effects:
+    - {modifier: bait_save_chance, value_per_rank: 0.08}
+
+- id: skill/common/quick_hands
+  name: 빠른 손
+  tree: common
+  tier: 2
+  max_rank: 2
+  cost: 5
+  effects:
+    - {modifier: reel_speed, value_per_rank: 0.05}
+
+- id: skill/common/sea_reading
+  name: 바다 읽기
+  tree: common
+  tier: 3
+  max_rank: 1
+  cost: 8
+  effects:
+    - {modifier: feature_school_radar, value_per_rank: 1}
+
+- id: skill/common/lucky_float
+  name: 행운의 찌
+  tree: common
+  tier: 3
+  max_rank: 1
+  cost: 8
+  effects:
+    - {modifier: size_luck, value_per_rank: 0.03}
+
+- id: skill/explore_2/tailwind
+  name: 순풍
+  tree: explore_2
+  tier: 1
+  max_rank: 3
+  cost: 6
+  effects:
+    - {modifier: boat_speed, value_per_rank: 0.05}
+
+- id: skill/explore_2/sturdy_hull
+  name: 튼튼한 선체
+  tree: explore_2
+  tier: 1
+  max_rank: 3
+  cost: 6
+  effects:
+    - {modifier: boat_damage, value_per_rank: -0.08}
+
+- id: skill/explore_2/hidden_spot
+  name: 숨은 낚시터 감지
+  tree: explore_2
+  tier: 2
+  max_rank: 1
+  cost: 12
+  effects:
+    - {modifier: feature_hidden_spot, value_per_rank: 1}
+
+- id: skill/explore_2/adaptation
+  name: 환경 적응
+  tree: explore_2
+  tier: 2
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: debuff_damage, value_per_rank: -0.15}
+
+- id: skill/explore_2/long_hook
+  name: 원거리 챔질
+  tree: explore_2
+  tier: 3
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: tension_safe_zone_long_cast, value_per_rank: 0.05}
+
+- id: skill/explore_3/storm_sailing
+  name: 폭풍 항해
+  tree: explore_3
+  tier: 1
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: feature_storm_sailing, value_per_rank: 1}
+
+- id: skill/explore_3/chart_master
+  name: 해도 장인
+  tree: explore_3
+  tier: 1
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: chart_reward_gold, value_per_rank: 0.25}
+
+- id: skill/explore_3/treasure_hunter
+  name: 보물 사냥꾼
+  tree: explore_3
+  tier: 2
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: treasure_map_chance, value_per_rank: 0.15}
+
+- id: skill/explore_3/tide_reading
+  name: 물때 읽기
+  tree: explore_3
+  tier: 3
+  max_rank: 1
+  cost: 20
+  effects:
+    - {modifier: event_forewarn_s, value_per_rank: 30}
+
+- id: skill/capstone/uncharted_waters
+  name: 미개척 해역 일시 개방
+  tree: capstone
+  line: explore
+  tier: 1
+  max_rank: 1
+  cost: 40
+  effects:
+    - {modifier: rare_weight, value_per_rank: 0.2}
+  cooldown: 7200
+
+- id: skill/collect_2/condition_hint
+  name: 출현 조건 힌트
+  tree: collect_2
+  tier: 1
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: feature_condition_hint, value_per_rank: 1}
+
+- id: skill/collect_2/shadow_sense
+  name: 그림자 감별
+  tree: collect_2
+  tier: 1
+  max_rank: 1
+  cost: 12
+  effects:
+    - {modifier: feature_shadow_grade, value_per_rank: 1}
+
+- id: skill/collect_2/pattern_warning
+  name: 패턴 예고
+  tree: collect_2
+  tier: 2
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: pattern_warn, value_per_rank: 0.2}
+
+- id: skill/collect_2/big_feel
+  name: 큰 손맛
+  tree: collect_2
+  tier: 2
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: size_luck, value_per_rank: 0.02}
+
+- id: skill/collect_2/codex_hunter
+  name: 도감 사냥꾼
+  tree: collect_2
+  tier: 3
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: uncaught_weight, value_per_rank: 0.1}
+
+- id: skill/collect_3/legend_breath
+  name: 전설의 숨결
+  tree: collect_3
+  tier: 1
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: legend_pity_start, value_per_rank: -30}
+
+- id: skill/collect_3/first_meeting
+  name: 첫 만남
+  tree: collect_3
+  tier: 1
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: first_catch_exp_bonus, value_per_rank: 1}
+
+- id: skill/collect_3/anchor_hand
+  name: 앵커의 손
+  tree: collect_3
+  tier: 2
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: anchor_tension_limit, value_per_rank: 0.1}
+
+- id: skill/collect_3/mythic_omen
+  name: 신화의 예감
+  tree: collect_3
+  tier: 3
+  max_rank: 1
+  cost: 20
+  effects:
+    - {modifier: mythic_chance, value_per_rank: 0.005}
+
+- id: skill/capstone/legend_presence
+  name: 전설의 기척
+  tree: capstone
+  line: collect
+  tier: 1
+  max_rank: 1
+  cost: 40
+  effects:
+    - {modifier: legend_chance, value_per_rank: 2, op: multiply}
+  cooldown: 86400
+
+- id: skill/produce_2/trap_expansion
+  name: 통발 확장
+  tree: produce_2
+  tier: 1
+  max_rank: 3
+  cost: 6
+  effects:
+    - {modifier: trap_slots, value_per_rank: 1}
+
+- id: skill/produce_2/repairman
+  name: 수리공
+  tree: produce_2
+  tier: 1
+  max_rank: 1
+  cost: 14
+  effects:
+    - {modifier: repair_cost, value_per_rank: -0.3}
+
+- id: skill/produce_2/trap_rotation
+  name: 통발 회전
+  tree: produce_2
+  tier: 2
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: trap_cycle_hours, value_per_rank: -1}
+
+- id: skill/produce_2/bait_artisan
+  name: 미끼 장인
+  tree: produce_2
+  tier: 2
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: bait_craft_bonus, value_per_rank: 1}
+
+- id: skill/produce_2/cook
+  name: 요리사
+  tree: produce_2
+  tier: 3
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: food_buff_duration, value_per_rank: 0.25}
+
+- id: skill/produce_3/bountiful_trap
+  name: 풍어 통발
+  tree: produce_3
+  tier: 1
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: trap_extra_chance, value_per_rank: 0.15}
+
+- id: skill/produce_3/master_hands
+  name: 장인의 손
+  tree: produce_3
+  tier: 1
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: craft_material_save, value_per_rank: 0.1}
+
+- id: skill/produce_3/feast
+  name: 연회 요리
+  tree: produce_3
+  tier: 2
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: feast_share, value_per_rank: 1}
+
+- id: skill/produce_3/bait_research
+  name: 미끼 연구
+  tree: produce_3
+  tier: 3
+  max_rank: 1
+  cost: 20
+  effects:
+    - {modifier: feature_legend_bait_recipe, value_per_rank: 1}
+
+- id: skill/capstone/deep_trap
+  name: 심해 통발
+  tree: capstone
+  line: produce
+  tier: 1
+  max_rank: 1
+  cost: 40
+  effects:
+    - {modifier: feature_deep_trap, value_per_rank: 1}
+
+- id: skill/economy_2/bargain
+  name: 흥정
+  tree: economy_2
+  tier: 1
+  max_rank: 3
+  cost: 6
+  effects:
+    - {modifier: sell_price, value_per_rank: 0.02}
+
+- id: skill/economy_2/merchant_network
+  name: 상인 인맥
+  tree: economy_2
+  tier: 1
+  max_rank: 2
+  cost: 9
+  effects:
+    - {modifier: shop_buy_price, value_per_rank: -0.03}
+
+- id: skill/economy_2/auction_stall
+  name: 경매 좌판
+  tree: economy_2
+  tier: 2
+  max_rank: 1
+  cost: 12
+  effects:
+    - {modifier: auction_slots, value_per_rank: 2}
+
+- id: skill/economy_2/market_info
+  name: 시세 정보
+  tree: economy_2
+  tier: 2
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: market_info, value_per_rank: 1}
+
+- id: skill/economy_2/bulk_trade
+  name: 대량 거래
+  tree: economy_2
+  tier: 3
+  max_rank: 2
+  cost: 8
+  effects:
+    - {modifier: bulk_sell_slip, value_per_rank: -0.15}
+
+- id: skill/economy_3/big_hand
+  name: 큰손
+  tree: economy_3
+  tier: 1
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: sell_price, value_per_rank: 0.02}
+
+- id: skill/economy_3/auction_sense
+  name: 경매 감각
+  tree: economy_3
+  tier: 1
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: auction_list_fee, value_per_rank: -0.005}
+
+- id: skill/economy_3/harbor_investment
+  name: 항구 투자
+  tree: economy_3
+  tier: 2
+  max_rank: 2
+  cost: 10
+  effects:
+    - {modifier: reputation_gain, value_per_rank: 0.25}
+
+- id: skill/economy_3/market_forecast
+  name: 시세 예측
+  tree: economy_3
+  tier: 3
+  max_rank: 1
+  cost: 20
+  effects:
+    - {modifier: feature_market_forecast, value_per_rank: 1}
+
+- id: skill/capstone/big_deal
+  name: 큰손 거래
+  tree: capstone
+  line: economy
+  tier: 1
+  max_rank: 1
+  cost: 40

@@ -6,6 +6,9 @@ plugins {
 
 dependencies {
     implementation(project(":harbor-common"))
+    // 모듈 콘텐츠 형식 (서버 API를 쓰지 않는 클래스만 불러온다)
+    implementation(project(":harbor-core"))
+    implementation(project(":harbor-jobs"))
     implementation(libs.snakeyaml)
     implementation(libs.gson)
 }

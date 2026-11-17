@@ -7,6 +7,7 @@ import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
@@ -67,6 +68,41 @@ public final class DialogManager implements Dialogs {
                                 factory.empty()
                                         .base(base(title, body))
                                         .type(DialogType.confirmation(yesButton, noButton)));
+        player.showDialog(dialog);
+    }
+
+    @Override
+    public void choose(
+            Player player,
+            Component title,
+            List<Component> body,
+            List<Choice> choices,
+            int columns,
+            Consumer<Integer> result) {
+        List<ActionButton> buttons = new ArrayList<>();
+        for (int i = 0; i < choices.size(); i++) {
+            int index = i;
+            Choice choice = choices.get(i);
+            buttons.add(
+                    ActionButton.builder(choice.label())
+                            .tooltip(choice.tooltip())
+                            .action(
+                                    DialogAction.customClick(
+                                            (response, audience) ->
+                                                    tasks.main()
+                                                            .execute(() -> result.accept(index)),
+                                            ONCE))
+                            .build());
+        }
+        Dialog dialog =
+                Dialog.create(
+                        factory ->
+                                factory.empty()
+                                        .base(base(title, body))
+                                        .type(
+                                                DialogType.multiAction(buttons)
+                                                        .columns(columns)
+                                                        .build()));
         player.showDialog(dialog);
     }
 

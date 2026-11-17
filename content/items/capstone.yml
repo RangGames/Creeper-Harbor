@@ -1,0 +1,21 @@
+# 캡스톤 사용 아이템 ('10. 스킬 트리', docs 20 2.4). 모델은 리소스팩 준비 후 교체한다.
+
+- id: item/capstone/uncharted_waters
+  name: 미개척 해역의 나침반
+  lore: "주변 바다를 잠시 미개척 수역으로 바꾼다."
+  type: tool
+  grade: legendary
+  base_item: minecraft:recovery_compass
+  model: harbor:capstone/uncharted_waters
+  tradeable: false
+  season_reset: true
+
+- id: item/capstone/legend_presence
+  name: 전설의 기척
+  lore: "바다 깊은 곳의 무언가가 이쪽을 바라본다."
+  type: tool
+  grade: legendary
+  base_item: minecraft:echo_shard
+  model: harbor:capstone/legend_presence
+  tradeable: false
+  season_reset: true
