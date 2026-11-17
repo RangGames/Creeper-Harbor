@@ -33,6 +33,7 @@ import wiki.creeper.harbor.common.db.WriteBehindQueue;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.model.SeasonId;
 import wiki.creeper.harbor.common.proxy.ProxyMessages;
+import wiki.creeper.harbor.common.proxy.ProxyMessages.SaveAll;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.TransferAbort;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.TransferPrepare;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.TransferReady;
@@ -125,6 +126,10 @@ public final class PlayerManager implements PlayerService, Listener {
                                                 abortTransfer(
                                                         envelope.payload().player(),
                                                         envelope.payload().requestId())));
+        // 점검 직전 프록시의 저장 신호: 접속자 전원을 지금 저장한다
+        bus.subscribe(
+                ProxyMessages.toServer(me, SaveAll.class),
+                envelope -> tasks.main().execute(this::saveAllNow));
     }
 
     // ------------------------------------------------------------------ PlayerService
@@ -356,6 +361,12 @@ public final class PlayerManager implements PlayerService, Listener {
                 enqueueSave(state, false);
             }
         }
+    }
+
+    /** 메인 스레드: 접속자 전원을 큐에 넣고 바로 쓴다 (점검 직전). 잠금은 그대로 둔다. */
+    private void saveAllNow() {
+        autosave();
+        var _ = tasks.async(queue::flush);
     }
 
     /** 메인 스레드: 복사본을 만들어 지연 쓰기 큐에 넣는다. */

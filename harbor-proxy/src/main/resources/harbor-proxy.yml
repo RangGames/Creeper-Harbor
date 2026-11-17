@@ -1,0 +1,58 @@
+# Harbor-Proxy 설정 (docs 20 1.3). 제안값은 CBT 지표를 보고 조정한다.
+
+lobby: lobby                 # 첫 서버, 대기 공간 (잠금 없음)
+
+main_servers:                # 본 서버와 수용 한도 (기본 150명)
+  main-1: 150
+
+instance_servers:            # 인스턴스 종류별 서버
+  dungeon: []
+  raid: []
+
+queue:
+  normal_share: 4            # 입장 4명 중 최소 1명은 일반 줄 (제안값)
+  grace_seconds: 180         # 재접속 유예 3분 (제안값)
+  per_second: 3              # 1초에 최대 입장 수
+  tps_freeze: 18.0           # TPS가 이 아래면 한도 동결
+  tps_resume: 19.5           # 이 이상 1분 유지되면 해제
+
+priority: []                 # 우선 줄 UUID (CBT 운영진·테스터. 후원 등급은 Shop 연동 후)
+
+maintenance:
+  bypass: []                 # 점검 중에도 들어올 수 있는 UUID
+  fallback: false            # Redis가 없을 때 점검 상태
+
+ip_hash_secret: change-me    # 접속 기록 IP 해시용 비밀 키 (반드시 바꾼다)
+
+chat:
+  repeat_limit: 3            # 같은 문장 연속 (제안값)
+  lines_per_second: 3        # 1초 줄 수 (제안값)
+  block_seconds: 3
+  banned_words: []
+
+messages:
+  maintenance:
+    kick: "<yellow>점검 중입니다: <reason><newline><gray>예상 종료 <until>"
+    countdown: "<yellow>[점검] <seconds>초 뒤 점검을 시작합니다: <reason>"
+    started: "<yellow>점검을 시작합니다. 접속을 정리합니다."
+    status: "<yellow>점검 <state> · 사유 <reason> · 종료 <until>"
+  move:
+    failed: "<red>이동하지 못했습니다: <reason>"
+    busy: "<yellow>이미 이동 중입니다."
+    returned_lobby: "<yellow>서버와 연결이 끊어져 로비로 돌아왔습니다. 자리는 3분간 유지됩니다."
+    unapproved: "<red>이 방법으로는 서버를 옮길 수 없습니다. /로비 를 이용해 주세요."
+  queue:
+    position: "<yellow>대기 순번 <position> · 예상 <eta>"
+    bar: "대기열 <position>번째 · 예상 <eta>"
+    not_queued: "<gray>대기열에 없습니다."
+    list: "<yellow>대기 <count>명"
+    paused: "<yellow>대기열이 잠시 멈췄습니다."
+  chat:
+    format: "<gray>[<server>]</gray> <white><name></white>: <message>"
+    whisper_to: "<light_purple>[귓 → <name>]</light_purple> <message>"
+    whisper_from: "<light_purple>[귓 ← <name>]</light_purple> <message>"
+    no_target: "<red>대상을 찾을 수 없습니다."
+    blocked: "<red>도배 방지로 잠시 채팅이 막혔습니다."
+  admin:
+    done: "<green>처리했습니다."
+    servers_line: "<gray><server> · <role> · <online>/<capacity> · TPS <tps> · <age>초 전 · <state>"

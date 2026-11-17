@@ -1,24 +1,34 @@
-// Harbor-Proxy: Velocity 플러그인. Common과 Redis 클라이언트(Lettuce)를 jar에 품는다.
+// Harbor-Proxy: Velocity 플러그인. Velocity에는 PluginLoader가 없어서 Common과 그 런타임 라이브러리
+// (Lettuce, HikariCP, MariaDB, Flyway)를 jar에 넣고 패키지를 옮긴다. Netty·SLF4J·Gson·SnakeYAML은 Velocity가 제공한다.
 plugins {
     id("harbor.velocity-plugin")
 }
 
 dependencies {
     implementation(project(":harbor-common"))
+    testImplementation(libs.snakeyaml)
+    testImplementation(libs.gson)
 }
 
 tasks.shadowJar {
     archiveClassifier = ""
+    mergeServiceFiles()
     dependencies {
-        include(project(":harbor-common"))
-        include(dependency("io.lettuce:lettuce-core"))
-        include(dependency("io.projectreactor:reactor-core"))
-        include(dependency("org.reactivestreams:reactive-streams"))
-        // Netty는 Velocity가 제공한다
+        exclude(dependency("io.netty:.*"))
+        exclude(dependency("org.slf4j:.*"))
+        exclude(dependency("com.google.code.gson:.*"))
+        exclude(dependency("org.yaml:.*"))
+        exclude(dependency("org.jspecify:.*"))
     }
-    relocate("io.lettuce", "wiki.creeper.harbor.lib.lettuce")
-    relocate("reactor", "wiki.creeper.harbor.lib.reactor")
-    relocate("org.reactivestreams", "wiki.creeper.harbor.lib.reactivestreams")
+    val lib = "wiki.creeper.harbor.proxy.lib"
+    relocate("io.lettuce", "$lib.lettuce")
+    relocate("reactor", "$lib.reactor")
+    relocate("org.reactivestreams", "$lib.reactivestreams")
+    relocate("com.zaxxer.hikari", "$lib.hikari")
+    relocate("org.mariadb", "$lib.mariadb")
+    relocate("org.flywaydb", "$lib.flywaydb")
+    relocate("com.fasterxml", "$lib.fasterxml")
+    relocate("redis.clients", "$lib.redisclients")
 }
 
 tasks.jar {

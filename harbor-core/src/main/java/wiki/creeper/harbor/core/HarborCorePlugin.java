@@ -31,6 +31,7 @@ import wiki.creeper.harbor.core.admin.AdminLog;
 import wiki.creeper.harbor.core.api.Harbor;
 import wiki.creeper.harbor.core.api.ModuleHost;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
+import wiki.creeper.harbor.core.chat.ChatBridge;
 import wiki.creeper.harbor.core.command.HarborCommand;
 import wiki.creeper.harbor.core.content.HarborContent;
 import wiki.creeper.harbor.core.currency.CurrencyManager;
@@ -208,6 +209,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         pm.registerEvents(playerManager, this);
         pm.registerEvents(modifiers, this);
         pm.registerEvents(new MenuListener(), this);
+        pm.registerEvents(new ChatBridge(infra, r, messageBus), this);
         pm.registerEvents(this, this);
         if (infra.role() == ServerRole.LOBBY) {
             pm.registerEvents(new ResourcePacks(infra, messageBus, msg, dialogs), this);

@@ -66,7 +66,7 @@ content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regi
 
 ## 현재 진행 상태
 
-Common·Core·tools와 샘플 콘텐츠(1구역 어종 16종)가 빌드·단위 테스트·콘텐츠 검사를 통과한다. Proxy와 게임 모듈 11개는 docs 20 순서대로 작성 중이다. 디스플레이 리그 재생(Core 5.10)은 일정상 Fishing 연출 작업 때 만든다.
+Common·Core·Proxy·tools와 샘플 콘텐츠(1구역 어종 16종)가 빌드·단위 테스트·콘텐츠 검사를 통과한다. Proxy는 Phase 2a 범위(첫 서버 지정, 리소스팩 결과 연동, 이동 지휘, 점검, 하트비트, 대기열, 채팅·공지, 접속 기록)까지 있고 다계정 탐지·제재·MOTD는 아직 없다. 게임 모듈 11개는 docs 20 순서대로 작성 중이다. 디스플레이 리그 재생(Core 5.10)은 일정상 Fishing 연출 작업 때 만든다.
 
 로컬 실행: `plugins/Harbor/harbor-infra.yml`(처음 실행 때 기본값 생성)에 DB·Redis 접속 정보를 넣고 `./gradlew :harbor-core:runServer`.
 

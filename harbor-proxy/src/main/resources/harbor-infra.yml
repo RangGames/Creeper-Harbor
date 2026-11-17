@@ -1,0 +1,19 @@
+# 프록시 인프라 설정. DB·Redis 접속 정보를 서버 환경에 맞게 바꾼다.
+server:
+  id: proxy
+  role: proxy
+
+database:
+  host: localhost
+  port: 3306
+  name: harbor
+  user: harbor
+  password: harbor
+  # pool_size: 5
+
+redis:
+  uri: redis://localhost:6379/0
+
+season:
+  id: 1
+  start: 2027-09-01
