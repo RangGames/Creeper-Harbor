@@ -3,6 +3,7 @@ package wiki.creeper.harbor.tools;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import wiki.creeper.harbor.collection.content.CollectionContent;
 import wiki.creeper.harbor.common.content.ContentLoader;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.Balance;
@@ -35,6 +36,7 @@ public final class HarborTools {
         ContentLoader loader = new ContentLoader();
         CoreContent.register(loader);
         JobsContent.TYPES.forEach(loader::register);
+        CollectionContent.TYPES.forEach(loader::register);
         loader.addCheck(Balance.TYPE, JobsContent.CURVE_CHECK);
         loader.addCheck(JobLineDef.TYPE, JobsContent.CAPSTONE_CHECK);
         Result<ContentSnapshot, ValidationErrors> result = loader.load(Path.of(args[1]));

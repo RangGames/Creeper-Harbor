@@ -9,3 +9,7 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    Harbor-Fishing:
+      load: BEFORE
+      required: true
+      join-classpath: true

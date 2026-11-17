@@ -1,0 +1,13 @@
+# 항구 수족관 (추가 제안, docs 20 4.4). 점수는 개인 기여 순위에만 쓰고, 단계는 기부율로 판정한다.
+
+points: {common: 1, uncommon: 2, rare: 5, epic: 15, legendary: 60}   # 제안값
+quality_bonus: 0.1          # × (1 + 0.1 × (★ − 1))
+first_species_mult: 3       # 서버에 처음 기부되는 어종
+per_player_species_cap: 5   # 같은 어종 한 사람 시즌 점수 인정 마리 수
+
+stages:                     # 기부율 (제안값)
+  - {stage: 1, rate: 0.10, flag: aquarium_stage_1, modifiers: [{stat: exp_gain, value: 0.02}]}
+  - {stage: 2, rate: 0.25, flag: aquarium_stage_2, modifiers: [{stat: exp_gain, value: 0.02}]}
+  - {stage: 3, rate: 0.45, flag: aquarium_stage_3, modifiers: [{stat: sell_price, value: 0.02}]}
+  - {stage: 4, rate: 0.65, flag: aquarium_stage_4, modifiers: [{stat: rare_weight, value: 0.02}]}
+  - {stage: 5, rate: 0.80, flag: aquarium_stage_5}

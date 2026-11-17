@@ -18,6 +18,8 @@ public final class FishLedger {
         ACTIVE,
         LISTED,
         RELEASED,
+        /** 수족관에 기부됨 (Collection). */
+        DONATED,
         DESTROYED
     }
 

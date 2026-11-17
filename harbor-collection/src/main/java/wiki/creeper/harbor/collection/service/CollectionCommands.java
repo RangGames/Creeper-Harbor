@@ -1,0 +1,354 @@
+package wiki.creeper.harbor.collection.service;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.tree.LiteralCommandNode;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
+import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import wiki.creeper.harbor.collection.api.AquariumService;
+import wiki.creeper.harbor.collection.api.RecordEntry;
+import wiki.creeper.harbor.collection.api.RecordService;
+import wiki.creeper.harbor.common.content.type.FishDef;
+import wiki.creeper.harbor.common.id.HarborId;
+import wiki.creeper.harbor.core.api.HarborApi;
+
+/** /도감, /기록, /수족관, /harbor collection … (docs 20 4.5). */
+public final class CollectionCommands {
+
+    private final HarborApi api;
+    private final CollectionManager codex;
+    private final AquariumManager aquarium;
+
+    public CollectionCommands(HarborApi api, CollectionManager codex, AquariumManager aquarium) {
+        this.api = api;
+        this.codex = codex;
+        this.aquarium = aquarium;
+    }
+
+    public void registerPlayerCommands(Commands commands) {
+        commands.register(codexCommand(), "도감", List.of("codex"));
+        commands.register(
+                Commands.literal("기록").then(fishArgument().executes(this::records)).build(),
+                "최대어 기록",
+                List.of("records"));
+        commands.register(
+                Commands.literal("수족관")
+                        .executes(this::aquariumStatus)
+                        .then(
+                                Commands.literal("기부")
+                                        .executes(
+                                                ctx -> {
+                                                    if (ctx.getSource().getExecutor()
+                                                            instanceof Player player) {
+                                                        var _ = aquarium.donateHeld(player);
+                                                    }
+                                                    return Command.SINGLE_SUCCESS;
+                                                }))
+                        .build(),
+                "항구 수족관",
+                List.of("aquarium"));
+    }
+
+    private LiteralCommandNode<CommandSourceStack> codexCommand() {
+        return Commands.literal("도감")
+                .requires(src -> src.getExecutor() instanceof Player)
+                .executes(
+                        ctx -> {
+                            if (ctx.getSource().getExecutor() instanceof Player player) {
+                                codex.open(player, player.getUniqueId(), 0);
+                            }
+                            return Command.SINGLE_SUCCESS;
+                        })
+                .then(
+                        Commands.argument("target", ArgumentTypes.player())
+                                .executes(
+                                        ctx -> {
+                                            Player owner =
+                                                    ctx.getArgument(
+                                                                    "target",
+                                                                    PlayerSelectorArgumentResolver
+                                                                            .class)
+                                                            .resolve(ctx.getSource())
+                                                            .getFirst();
+                                            if (ctx.getSource().getExecutor()
+                                                    instanceof Player viewer) {
+                                                codex.open(viewer, owner.getUniqueId(), 0);
+                                            }
+                                            return Command.SINGLE_SUCCESS;
+                                        }))
+                .build();
+    }
+
+    private int records(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Optional<FishDef> fish = fish(ctx);
+        if (fish.isEmpty()) {
+            api.messages().send(sender, "collection.unknown_fish");
+            return 0;
+        }
+        api.messages()
+                .send(
+                        sender,
+                        "collection.records.header",
+                        Placeholder.unparsed("name", fish.get().name()));
+        for (String league : RecordService.LEAGUES) {
+            List<RecordEntry> top = codex.serverTop(fish.get().id(), league, 10);
+            for (int i = 0; i < top.size(); i++) {
+                api.messages()
+                        .send(
+                                sender,
+                                "collection.records.line",
+                                Placeholder.unparsed("league", league),
+                                Placeholder.unparsed("rank", String.valueOf(i + 1)),
+                                Placeholder.unparsed("player", top.get(i).name()),
+                                Placeholder.unparsed(
+                                        "size", CollectionManager.fmt(top.get(i).size())));
+            }
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int aquariumStatus(CommandContext<CommandSourceStack> ctx) {
+        AquariumService.Status s = aquarium.status();
+        api.messages()
+                .send(
+                        ctx.getSource().getSender(),
+                        "collection.aquarium.status",
+                        Placeholder.unparsed("stage", String.valueOf(s.stage())),
+                        Placeholder.unparsed("species", String.valueOf(s.species())),
+                        Placeholder.unparsed("donatable", String.valueOf(s.donatable())),
+                        Placeholder.unparsed(
+                                "rate", String.format(Locale.ROOT, "%.1f", s.rate() * 100)),
+                        Placeholder.unparsed("points", String.valueOf(s.points())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** /harbor collection … (권한 harbor.admin.collection은 Core가 건다). */
+    public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {
+        return Commands.literal("collection")
+                .then(
+                        Commands.literal("codex")
+                                .then(
+                                        target().then(
+                                                        Commands.literal("set")
+                                                                .then(
+                                                                        fishArgument()
+                                                                                .executes(
+                                                                                        ctx ->
+                                                                                                codexSet(
+                                                                                                        ctx,
+                                                                                                        false))
+                                                                                .then(
+                                                                                        Commands
+                                                                                                .argument(
+                                                                                                        "size",
+                                                                                                        DoubleArgumentType
+                                                                                                                .doubleArg(
+                                                                                                                        0.1))
+                                                                                                .then(
+                                                                                                        Commands
+                                                                                                                .argument(
+                                                                                                                        "quality",
+                                                                                                                        IntegerArgumentType
+                                                                                                                                .integer(
+                                                                                                                                        1,
+                                                                                                                                        5))
+                                                                                                                .executes(
+                                                                                                                        ctx ->
+                                                                                                                                codexSet(
+                                                                                                                                        ctx,
+                                                                                                                                        true))))))
+                                                .then(
+                                                        Commands.literal("remove")
+                                                                .then(
+                                                                        fishArgument()
+                                                                                .executes(
+                                                                                        this
+                                                                                                ::codexRemove)))))
+                .then(
+                        Commands.literal("record")
+                                .then(
+                                        Commands.literal("remove")
+                                                .then(
+                                                        fishArgument()
+                                                                .then(
+                                                                        Commands.argument(
+                                                                                        "league",
+                                                                                        StringArgumentType
+                                                                                                .word())
+                                                                                .suggests(
+                                                                                        (c, b) -> {
+                                                                                            RecordService
+                                                                                                    .LEAGUES
+                                                                                                    .forEach(
+                                                                                                            b
+                                                                                                                    ::suggest);
+                                                                                            return b
+                                                                                                    .buildFuture();
+                                                                                        })
+                                                                                .then(
+                                                                                        target().executes(
+                                                                                                        this
+                                                                                                                ::recordRemove))))))
+                .then(
+                        Commands.literal("hint")
+                                .then(
+                                        target().then(
+                                                        fishArgument()
+                                                                .then(
+                                                                        Commands.argument(
+                                                                                        "level",
+                                                                                        IntegerArgumentType
+                                                                                                .integer(
+                                                                                                        0,
+                                                                                                        3))
+                                                                                .executes(
+                                                                                        this
+                                                                                                ::hint)))))
+                .then(
+                        Commands.literal("aquarium")
+                                .then(
+                                        Commands.literal("recount")
+                                                .executes(
+                                                        ctx -> {
+                                                            var _ = aquarium.recount();
+                                                            api.messages()
+                                                                    .send(
+                                                                            ctx.getSource()
+                                                                                    .getSender(),
+                                                                            "collection.admin.done");
+                                                            return Command.SINGLE_SUCCESS;
+                                                        }))
+                                .then(
+                                        Commands.literal("stage")
+                                                .then(
+                                                        Commands.argument(
+                                                                        "stage",
+                                                                        IntegerArgumentType.integer(
+                                                                                1, 100))
+                                                                .executes(
+                                                                        ctx -> {
+                                                                            CommandSender sender =
+                                                                                    ctx.getSource()
+                                                                                            .getSender();
+                                                                            var _ =
+                                                                                    aquarium.forceStage(
+                                                                                                    IntegerArgumentType
+                                                                                                            .getInteger(
+                                                                                                                    ctx,
+                                                                                                                    "stage"))
+                                                                                            .thenAccept(
+                                                                                                    ok ->
+                                                                                                            api.messages()
+                                                                                                                    .send(
+                                                                                                                            sender,
+                                                                                                                            ok
+                                                                                                                                    ? "collection.admin.done"
+                                                                                                                                    : "collection.admin.failed"));
+                                                                            return Command
+                                                                                    .SINGLE_SUCCESS;
+                                                                        }))));
+    }
+
+    private int codexSet(CommandContext<CommandSourceStack> ctx, boolean withValues)
+            throws CommandSyntaxException {
+        Player p = player(ctx);
+        Optional<FishDef> fish = fish(ctx);
+        if (fish.isEmpty()) {
+            api.messages().send(ctx.getSource().getSender(), "collection.unknown_fish");
+            return 0;
+        }
+        double size = withValues ? DoubleArgumentType.getDouble(ctx, "size") : fish.get().sizeMin();
+        int quality = withValues ? IntegerArgumentType.getInteger(ctx, "quality") : 1;
+        codex.adminSet(
+                p.getUniqueId(),
+                fish.get(),
+                Math.clamp(size, fish.get().sizeMin(), fish.get().sizeMax()),
+                quality);
+        api.messages().send(ctx.getSource().getSender(), "collection.admin.done");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int codexRemove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        Player p = player(ctx);
+        fish(ctx).ifPresent(f -> codex.adminRemove(p.getUniqueId(), f.id()));
+        api.messages().send(ctx.getSource().getSender(), "collection.admin.done");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int recordRemove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        Player p = player(ctx);
+        String league = StringArgumentType.getString(ctx, "league");
+        fish(ctx).ifPresent(f -> codex.removeRecord(f.id(), league, p.getUniqueId()));
+        api.messages().send(ctx.getSource().getSender(), "collection.admin.done");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int hint(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        Player p = player(ctx);
+        int level = IntegerArgumentType.getInteger(ctx, "level");
+        boolean ok =
+                fish(ctx)
+                        .map(f -> codex.grant(p.getUniqueId(), f.id(), level, "admin"))
+                        .orElse(false);
+        api.messages()
+                .send(
+                        ctx.getSource().getSender(),
+                        ok ? "collection.admin.done" : "collection.admin.failed");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    // ------------------------------------------------------------------ 도우미
+
+    private RequiredArgumentBuilder<CommandSourceStack, Key> fishArgument() {
+        return Commands.argument("fish", ArgumentTypes.key())
+                .suggests(
+                        (ctx, b) -> {
+                            api.content()
+                                    .snapshot()
+                                    .ids(FishDef.TYPE.name())
+                                    .forEach(id -> b.suggest(id.toString()));
+                            return b.buildFuture();
+                        });
+    }
+
+    private Optional<FishDef> fish(CommandContext<CommandSourceStack> ctx) {
+        Key key = ctx.getArgument("fish", Key.class);
+        String namespace =
+                key.namespace().equals(Key.MINECRAFT_NAMESPACE)
+                        ? HarborId.DEFAULT_NAMESPACE
+                        : key.namespace();
+        try {
+            return api.content().snapshot().get(FishDef.TYPE, new HarborId(namespace, key.value()));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static RequiredArgumentBuilder<CommandSourceStack, PlayerSelectorArgumentResolver>
+            target() {
+        return Commands.argument("target", ArgumentTypes.player());
+    }
+
+    private static Player player(CommandContext<CommandSourceStack> ctx)
+            throws CommandSyntaxException {
+        return ctx.getArgument("target", PlayerSelectorArgumentResolver.class)
+                .resolve(ctx.getSource())
+                .getFirst();
+    }
+}

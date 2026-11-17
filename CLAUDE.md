@@ -66,7 +66,7 @@ content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regi
 
 ## 현재 진행 상태
 
-Common·Core·Proxy·tools와 샘플 콘텐츠(1구역 어종 16종)가 빌드·단위 테스트·콘텐츠 검사를 통과한다. Proxy는 Phase 2a 범위(첫 서버 지정, 리소스팩 결과 연동, 이동 지휘, 점검, 하트비트, 대기열, 채팅·공지, 접속 기록)까지 있고 다계정 탐지·제재·MOTD는 아직 없다. Jobs는 docs 20 2장 범위(레벨·EXP·전직·스킬 투자/초기화/계열 변경·캡스톤·캐치업)를 구현했다. Fishing은 docs 20 3장 중 Phase 2a 5~6주차 범위(세션 상태 기계, 출현 판정·전설 천장, 크기·품질·직업 상한, 미니게임, 미끼·내구도, EXP, 매크로 방지, 관리 명령)를 구현했고, 그림자·점프 연출(Core 리그 재생 필요)과 통발·잡템·신화 이벤트는 아직 없다. 미니게임 조작은 Shift 감기 + A/D 방향 (consumable 방식은 Phase 1 검증 뒤). 나머지 게임 모듈 9개는 docs 20 순서대로 작성 중이다. 모듈 콘텐츠 형식은 서버 API 없는 `XxxContent`로 모아 플러그인과 harbor-tools가 같이 등록한다. 디스플레이 리그 재생(Core 5.10)은 일정상 Fishing 연출 작업 때 만든다.
+Common·Core·Proxy·tools와 샘플 콘텐츠(1구역 어종 16종)가 빌드·단위 테스트·콘텐츠 검사를 통과한다. Proxy는 Phase 2a 범위(첫 서버 지정, 리소스팩 결과 연동, 이동 지휘, 점검, 하트비트, 대기열, 채팅·공지, 접속 기록)까지 있고 다계정 탐지·제재·MOTD는 아직 없다. Jobs는 docs 20 2장 범위(레벨·EXP·전직·스킬 투자/초기화/계열 변경·캡스톤·캐치업)를 구현했다. Fishing은 docs 20 3장 중 Phase 2a 5~6주차 범위(세션 상태 기계, 출현 판정·전설 천장, 크기·품질·직업 상한, 미니게임, 미끼·내구도, EXP, 매크로 방지, 관리 명령)를 구현했고, 그림자·점프 연출(Core 리그 재생 필요)과 통발·잡템·신화 이벤트는 아직 없다. 미니게임 조작은 Shift 감기 + A/D 방향 (consumable 방식은 Phase 1 검증 뒤). Collection은 docs 20 4장 중 도감·힌트·최대어 기록(리그, 공지, 서버 간 캐시 동기화)·수족관 기부·단계·버프·시즌 도감 버프를 구현했고, 수조·개인 어항 리그 연출과 방류(Phase 3)·전광판은 아직 없다. 칭호는 Season이 생기면 CodexMilestoneEvent를 듣고 지급한다. 나머지 게임 모듈 8개(NPC, Quest, Economy, World, Wildlife, Boss, Season, Shop)는 docs 20 순서대로 작성 중이다. 모듈 콘텐츠 형식은 서버 API 없는 `XxxContent`로 모아 플러그인과 harbor-tools가 같이 등록한다. 디스플레이 리그 재생(Core 5.10)은 일정상 Fishing 연출 작업 때 만든다.
 
 로컬 실행: `plugins/Harbor/harbor-infra.yml`(처음 실행 때 기본값 생성)에 DB·Redis 접속 정보를 넣고 `./gradlew :harbor-core:runServer`.
 

@@ -147,3 +147,46 @@ fishing:
     session: "<yellow><player></yellow> <gray>상태 <white><state></white> · 어종 <fish> · 텐션 <tension> · 체력 <hp> · 패턴 <pattern>"
     forced: "<yellow><player></yellow><gray>의 다음 판정을 <white><fish></white>(으)로 고정했습니다."
     macro: "<yellow><player></yellow> <gray>의심 점수 <white><score></white> (<reasons>)"
+
+collection:
+  unknown_fish: "<red>없는 어종입니다."
+  registered:
+    title: "<aqua>도감 등록!"
+  new_record:
+    title: "<gold>NEW RECORD!"
+    subtitle: "<yellow><size>cm"
+  region_complete: "<gold><region></gold><yellow> 도감을 완성했습니다! 물비늘을 받았습니다."
+  milestone: "<aqua>누적 도감 <percent>% 달성!"
+  menu:
+    title: "도감 · 시즌 <percent>%"
+    previous: "이전"
+    next: "다음"
+    no: "<gray>No.<no>"
+    unknown: "<dark_gray>No.<no> ???"
+    best: "<gray>최대 <white><size>cm</white> · 최고 <yellow><quality></yellow> · <white><count></white>마리"
+    leader: "<gray>[<league>] 서버 1위 <white><player></white> <size>cm"
+  hint:
+    region: "<gray>지역: <white><region>"
+    time: "<gray>시간대: <white><value>"
+    weather: "<gray>날씨: <white><value>"
+    bait: "<gray>미끼: <white><value>"
+    extra: "<gray>구역 <white><area></white> · 달 <white><moon></white> · <white><tier></white>차 이상"
+  records:
+    header: "<yellow><name></yellow> <gray>최대어 기록"
+    line: "<gray>[<league>] <white><rank>.</white> <player> <yellow><size>cm"
+  aquarium:
+    status: "<aqua>항구 수족관</aqua> <gray>단계 <white><stage></white> · 기부율 <white><rate>%</white> (<species>/<donatable>종) · 점수 <points>"
+    not_fish: "<red>손에 어종 아이템을 들고 기부하세요."
+    changed: "<red>손에 든 아이템이 바뀌어 기부를 취소했습니다."
+    confirm_title: "수족관 기부"
+    confirm_body: "<white><name></white>을(를) 기부합니다. 예상 점수 <yellow><points>"
+    yes: "기부한다"
+    no: "그만둔다"
+    donated: "<aqua><name></aqua><gray>을(를) 기부했습니다. 점수 <yellow><points>"
+    failed: "<red>기부하지 못해 아이템을 돌려드렸습니다."
+  announce:
+    server_record: "<gold>[신기록]</gold> <white><player></white>님이 <yellow><name></yellow> <white><size>cm</white>로 서버 최대어를 갱신했습니다!"
+    aquarium_stage: "<aqua>[수족관]</aqua> 항구 수족관이 <yellow><stage>단계</yellow>로 성장했습니다!"
+  admin:
+    done: "<green>처리했습니다."
+    failed: "<red>처리하지 못했습니다."
