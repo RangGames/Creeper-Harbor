@@ -1,0 +1,11 @@
+name: Harbor-Wildlife
+version: '${version}'
+main: wiki.creeper.harbor.wildlife.HarborWildlifePlugin
+api-version: '${apiVersion}'
+description: '야생 물고기 AI'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

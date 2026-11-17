@@ -1,0 +1,11 @@
+name: Harbor-Npc
+version: '${version}'
+main: wiki.creeper.harbor.npc.HarborNpcPlugin
+api-version: '${apiVersion}'
+description: 'NPC·대화·호감도'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

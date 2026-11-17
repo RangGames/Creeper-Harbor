@@ -1,0 +1,11 @@
+name: Harbor-Shop
+version: '${version}'
+main: wiki.creeper.harbor.shop.HarborShopPlugin
+api-version: '${apiVersion}'
+description: '결제·진주·코스메틱'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

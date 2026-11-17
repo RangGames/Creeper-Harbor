@@ -1,0 +1,11 @@
+name: Harbor-Quest
+version: '${version}'
+main: wiki.creeper.harbor.quest.HarborQuestPlugin
+api-version: '${apiVersion}'
+description: '퀘스트'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

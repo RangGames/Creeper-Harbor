@@ -1,0 +1,11 @@
+name: Harbor-Collection
+version: '${version}'
+main: wiki.creeper.harbor.collection.HarborCollectionPlugin
+api-version: '${apiVersion}'
+description: '도감·수족관'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

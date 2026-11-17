@@ -1,0 +1,11 @@
+name: Harbor-Boss
+version: '${version}'
+main: wiki.creeper.harbor.boss.HarborBossPlugin
+api-version: '${apiVersion}'
+description: '보스전'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

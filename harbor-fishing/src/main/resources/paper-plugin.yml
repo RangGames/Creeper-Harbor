@@ -1,0 +1,11 @@
+name: Harbor-Fishing
+version: '${version}'
+main: wiki.creeper.harbor.fishing.HarborFishingPlugin
+api-version: '${apiVersion}'
+description: '낚시·미니게임·통발'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

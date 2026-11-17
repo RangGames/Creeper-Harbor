@@ -1,0 +1,11 @@
+name: Harbor-Jobs
+version: '${version}'
+main: wiki.creeper.harbor.jobs.HarborJobsPlugin
+api-version: '${apiVersion}'
+description: '직업·전직·스킬 트리'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

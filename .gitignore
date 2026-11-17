@@ -1,0 +1,57 @@
+### Gradle ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+.kotlin/
+
+### 로컬 테스트 서버 (run-paper / run-velocity) ###
+run/
+**/run/
+
+### 로컬 설정·비밀 ###
+# 서버별 실제 설정은 커밋하지 않는다 (예시 파일만 커밋)
+harbor-infra.yml
+!**/src/main/resources/harbor-infra.yml
+.env
+*.local.yml
+
+### IntelliJ IDEA ###
+# 코드 스타일·실행 구성 등 공유할 것만 남기고 개인 설정은 제외
+.idea/*
+!.idea/codeStyles/
+!.idea/runConfigurations/
+!.idea/vcs.xml
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### VS Code ###
+.vscode/
+
+### OS ###
+.DS_Store
+Thumbs.db
+desktop.ini
+
+### 로그·임시 ###
+*.log
+logs/
+hs_err_pid*
+replay_pid*

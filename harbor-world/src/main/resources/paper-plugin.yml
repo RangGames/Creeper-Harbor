@@ -1,0 +1,11 @@
+name: Harbor-World
+version: '${version}'
+main: wiki.creeper.harbor.world.HarborWorldPlugin
+api-version: '${apiVersion}'
+description: '지역·해도·선박·하우징'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

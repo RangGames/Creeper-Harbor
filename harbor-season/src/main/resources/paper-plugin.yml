@@ -1,0 +1,11 @@
+name: Harbor-Season
+version: '${version}'
+main: wiki.creeper.harbor.season.HarborSeasonPlugin
+api-version: '${apiVersion}'
+description: '시즌 전환·시즌 패스'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true

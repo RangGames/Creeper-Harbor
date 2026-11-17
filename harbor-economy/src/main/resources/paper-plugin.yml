@@ -1,0 +1,11 @@
+name: Harbor-Economy
+version: '${version}'
+main: wiki.creeper.harbor.economy.HarborEconomyPlugin
+api-version: '${apiVersion}'
+description: '상점·경매·시세'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true
