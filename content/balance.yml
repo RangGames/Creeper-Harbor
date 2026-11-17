@@ -14,6 +14,24 @@ fishing:
     max_chance: 0.025
   mythic:
     event_chance: 0.01   # 4.4
+  bite_wait_s: {min: 15, max: 35}   # 제안값 (시간당 약 80마리 목표로 CBT에서 조정)
+  no_bait_wait: 1.2
+  line_strength_step: 0.08          # 줄 강도 1당 텐션 한계 +8% (5장)
+  ping_comp_s: 0.2                  # 핑 150ms 이상이면 패턴 예고 +0.2초
+  grade_exp: {common: 5, uncommon: 12, rare: 40, epic: 150, legendary: 800, mythic: 2000}   # 3.3
+  first_catch_mult: {default: 5, legendary: 3}
+  region_exp_mult: {harbor: 1.0, swamp: 1.1, coral_isles: 1.3, lava_lake: 1.6, frost_fjord: 1.7, ash_trench: 1.9, void_sea: 2.2}
+  minigame:                         # 5장. 텐션 상승·틱당 감기는 제안값
+    release_rate: 0.03
+    reel_per_tick: 1.6
+    safe_low: 0.25
+    safe_width: 0.45
+    escape_ticks: 40
+    common: {hp: 100, tension_rise: 0.012, patterns: 0}
+    uncommon: {hp: 180, tension_rise: 0.018, patterns: 1, pattern_interval_s: 4}
+    rare: {hp: 350, tension_rise: 0.022, patterns: 2, pattern_interval_s: 3}
+    epic: {hp: 600, tension_rise: 0.030, patterns: 3, pattern_interval_s: 2.5}
+    legendary: {hp: 1200, tension_rise: 0.035, patterns: 4, pattern_interval_s: 2}
   quality:               # 4.5 품질 경계 (백분위)
     star2: 0.40
     star3: 0.70
@@ -47,6 +65,32 @@ stats:
   exp_gain:
     base: 1.0
     min: 0
+  tension_safe_zone:
+    base: 1.0
+    min: 0.2
+  size_luck:
+    base: 0
+  bait_save_chance:
+    base: 0
+    max: 1
+  pattern_warn:
+    base: 0
+  first_catch_exp_bonus:
+    base: 0
+  uncaught_weight:
+    base: 0
+  epic_weight:
+    base: 0
+  legend_pity_start:
+    base: 0
+  legend_chance:
+    base: 1.0
+  cast_distance:
+    base: 1.0
+
+# 개발 서버의 월드 이름을 지역 월드(harbor_main 등)에 대응시킨다 (운영 서버는 비움)
+world_alias:
+  world: harbor_main
 
 items:
   fish_base_item: minecraft:cod

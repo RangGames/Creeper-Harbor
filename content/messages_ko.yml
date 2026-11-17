@@ -109,3 +109,41 @@ jobs:
     bad_scope: "<red>범위는 common · line · all 중 하나입니다."
     median: "<yellow>캐치업 중앙값: <median>"
     info: "<yellow><player></yellow> <gray>계열 <line> · <tier>차 · Lv.<level> · EXP <exp><newline>스킬 <skills><newline>캡스톤 <capstone>"
+
+fishing:
+  no_region: "<gray>여기서는 낚시를 할 수 없습니다."
+  no_fish: "<gray>지금 이곳에는 물고기가 없는 것 같습니다."
+  bite: "<yellow><bold>! 입질 !</bold> <gray>지금 챔질하세요"
+  missed_big: "<gold>놓친 대어! <gray>더 높은 품질은 다음 전직 후에 잡을 수 있습니다"
+  minigame:
+    unknown: "???"
+    help: "<gray>Shift를 누르고 있으면 감기, 놓으면 풀기 · A/D로 물고기 방향을 따라가세요"
+  pattern:
+    dash: "<red>돌진! 줄을 풀어요"
+    dive: "<aqua>잠수 중…"
+    jump: "<gold>점프! 놓으세요"
+    rest: "<green>지쳤다! 지금 감으세요"
+  result:
+    caught: "<green>낚았다! <white><name></white> <gray><size>cm</gray> <yellow><quality>"
+    released: "<aqua><name></aqua><gray>을(를) 도감에 기록하고 바다로 돌려보냈습니다."
+    line_broke: "<red>줄이 끊어졌습니다."
+    escaped: "<gray>물고기가 도망갔습니다."
+  announce:
+    legendary: "<gold>[전설]</gold> <white><player></white>님이 <gold><name></gold> <gray>(<size>cm)</gray>를 낚았습니다!"
+  macro:
+    title: "확인"
+    question: "아래에서 물고기를 고르세요."
+    answer:
+      "0": "물고기"
+      "1": "돌멩이"
+      "2": "나뭇가지"
+    passed: "<green>확인되었습니다. 즐거운 낚시 되세요!"
+    blocked: "<red>자동 낚시가 의심되어 5분 동안 낚시가 제한됩니다."
+  admin:
+    distribution: "<yellow><count>회 판정:</yellow> <white><grades>"
+    simulation: "<yellow><count>회 시뮬레이션:</yellow> <white><grades></white> <gray>· 전설 첫 포획 평균 <legend>회"
+    unknown_fish: "<red>없는 어종입니다."
+    pity: "<yellow><player></yellow> <gray><fish> 천장 카운터 <white><value>"
+    session: "<yellow><player></yellow> <gray>상태 <white><state></white> · 어종 <fish> · 텐션 <tension> · 체력 <hp> · 패턴 <pattern>"
+    forced: "<yellow><player></yellow><gray>의 다음 판정을 <white><fish></white>(으)로 고정했습니다."
+    macro: "<yellow><player></yellow> <gray>의심 점수 <white><score></white> (<reasons>)"
