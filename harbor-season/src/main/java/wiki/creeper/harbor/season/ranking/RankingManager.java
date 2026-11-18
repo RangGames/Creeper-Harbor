@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.RejectedExecutionException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.redis.DistributedLock;
@@ -240,6 +241,10 @@ public final class RankingManager implements RankingService {
             return Optional.of(new RankingBoard(def.id(), league, season, Instant.now(), entries));
         } catch (RuntimeException e) {
             Throwable cause = e.getCause() == null ? e : e.getCause();
+            if (cause instanceof RejectedExecutionException) {
+                // 서버 종료 중 DB 실행기가 닫혔다. 집계를 조용히 그만둔다
+                return Optional.empty();
+            }
             if (cause instanceof SQLSyntaxErrorException) {
                 warnOnce(
                         "table:" + def.id(),

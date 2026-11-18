@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Bukkit;
 import org.jspecify.annotations.Nullable;
@@ -57,10 +58,17 @@ public final class FlagManager implements FlagService {
                 new PlayerComponent<>("flags", this::loadPlayer, (c, uuid, s, value) -> {});
     }
 
-    /** 시작: 컴포넌트 등록, 서버 플래그 로드 (블로킹, 시작 단계), 다른 서버의 변경 구독. */
+    /** 시작: 컴포넌트 등록, 서버 플래그 로드 (가상 스레드에서 읽고 시작 단계라 기다린다), 다른 서버의 변경 구독. */
     public void start() throws SQLException {
         players.register(component);
-        serverFlags.putAll(db.tx(this::loadServer));
+        try {
+            serverFlags.putAll(db.async(this::loadServer).join());
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof SQLException sql) {
+                throw sql;
+            }
+            throw e;
+        }
         bus.subscribe(
                 CHANNEL,
                 envelope ->

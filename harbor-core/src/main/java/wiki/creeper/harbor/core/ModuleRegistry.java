@@ -10,10 +10,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.ContentCheck;
-import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.db.Migrations;
-import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborApi;
@@ -80,13 +78,10 @@ final class ModuleRegistry implements ModuleHost {
             if (addedTypes.isEmpty()) {
                 return;
             }
-            // 새 형식이 들어왔으니 전체를 다시 읽는다. 실패하면 서버 시작 중단 (반쪽 콘텐츠로 열지 않음)
-            Result<ContentSnapshot, ValidationErrors> result = content.loadBlocking();
-            if (result
-                    instanceof
-                    Result.Err<ContentSnapshot, ValidationErrors>(ValidationErrors errors)) {
-                log.error(
-                        "모듈 {} 콘텐츠 오류 {}건:\n{}", module.moduleId(), errors.size(), errors.format());
+            // 새 형식은 enable 중 첫 콘텐츠 읽기 때 이미 읽었을 수 있다. 남은 것을 읽고, 실패하면 서버 시작 중단 (반쪽 콘텐츠로 열지 않음)
+            ValidationErrors errors = content.finishPending();
+            if (errors != null) {
+                log.error("모듈 {} 콘텐츠 오류 {}건으로 서버를 멈춥니다", module.moduleId(), errors.size());
                 Bukkit.shutdown();
             }
         }

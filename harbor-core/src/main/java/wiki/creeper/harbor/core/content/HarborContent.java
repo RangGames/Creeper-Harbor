@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.ContentCheck;
 import wiki.creeper.harbor.common.content.ContentLoader;
@@ -31,6 +32,12 @@ public final class HarborContent implements ContentService {
     private final Logger log;
     private volatile ContentSnapshot snapshot = ContentSnapshot.empty();
 
+    // 시작 단계: 모듈이 등록했지만 아직 읽지 않은 형식. 모듈이 enable 안에서 바로 콘텐츠를 읽어도 보이도록 첫 snapshot() 때 읽는다
+    private volatile boolean pending;
+    private final Set<String> pendingTypes = new HashSet<>(); // this로 보호
+    private final Set<String> owedEventTypes = new HashSet<>(); // 메인 스레드가 아닌 곳에서 읽어 아직 이벤트를 못 보낸 형식
+    private @Nullable ValidationErrors pendingErrors; // this로 보호
+
     public HarborContent(Path root, Tasks tasks, Logger log) {
         this.root = root;
         this.tasks = tasks;
@@ -43,9 +50,14 @@ public final class HarborContent implements ContentService {
         loader.addCheck(RigDef.TYPE, HarborContent::checkRigParts);
     }
 
-    /** 모듈의 콘텐츠 형식 등록. 등록 후 {@link #loadBlocking()} 또는 reload로 다시 읽어야 반영된다. */
-    public void register(ContentType<?> type) {
+    /**
+     * 모듈의 콘텐츠 형식 등록 (시작 단계). 다음 {@link #snapshot()} 호출 또는 {@link #finishPending()}에서 전체를 다시 읽어
+     * 반영한다.
+     */
+    public synchronized void register(ContentType<?> type) {
         loader.register(type);
+        pendingTypes.add(type.name());
+        pending = true;
     }
 
     public <T> void addCheck(ContentType<T> type, ContentCheck<T> check) {
@@ -54,7 +66,53 @@ public final class HarborContent implements ContentService {
 
     @Override
     public ContentSnapshot snapshot() {
+        if (pending) {
+            loadPending();
+        }
         return snapshot;
+    }
+
+    /**
+     * 모듈 enable이 끝날 때 (메인 스레드): 남은 등록 형식을 읽고, 메인 스레드 밖에서 읽느라 못 보낸 {@link ContentReloadedEvent}를
+     * 보낸다.
+     *
+     * @return 등록 뒤 읽기에서 난 오류 (없으면 null). 오류는 이미 로그에 남겼다
+     */
+    public synchronized @Nullable ValidationErrors finishPending() {
+        loadPending();
+        if (pendingErrors == null && !owedEventTypes.isEmpty()) {
+            Set<String> types = Set.copyOf(owedEventTypes);
+            owedEventTypes.clear();
+            Bukkit.getPluginManager().callEvent(new ContentReloadedEvent(snapshot, types));
+        }
+        ValidationErrors errors = pendingErrors;
+        pendingErrors = null;
+        return errors;
+    }
+
+    private synchronized void loadPending() {
+        if (!pending) {
+            return;
+        }
+        pending = false;
+        Set<String> added = Set.copyOf(pendingTypes);
+        pendingTypes.clear();
+        Result<ContentSnapshot, ValidationErrors> result = loader.load(root);
+        switch (result) {
+            case Result.Ok<ContentSnapshot, ValidationErrors>(ContentSnapshot loaded) -> {
+                if (Bukkit.isPrimaryThread()) {
+                    apply(loaded, added);
+                } else {
+                    snapshot = loaded;
+                    log.info("콘텐츠 적용: {}", loaded.counts());
+                    owedEventTypes.addAll(added);
+                }
+            }
+            case Result.Err<ContentSnapshot, ValidationErrors>(ValidationErrors errors) -> {
+                pendingErrors = errors;
+                log.error("콘텐츠 오류 {}건 ({}):\n{}", errors.size(), added, errors.format());
+            }
+        }
     }
 
     @Override
