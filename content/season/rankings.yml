@@ -1,0 +1,41 @@
+# 랭킹 보드 (docs 20 11.3·11.4). source: records · level · codex_season · boss_records (+ 다른 모듈이 등록한 원천)
+# 한 서버가 refresh(분)마다 상위 size명을 집계해 모든 서버에 보낸다. 동점은 먼저 달성한 사람이 앞선다.
+
+boards:
+  - id: level
+    name: "<gold>시즌 레벨"
+    source: level
+    leagues: [all, tier1, tier2]
+    size: 100
+    refresh: 10
+
+  - id: codex
+    name: "<aqua>시즌 도감"
+    source: codex_season
+    leagues: [all]
+
+  - id: mackerel
+    name: "<white>항구 고등어 최대어"
+    source: records
+    subject: fish/harbor_mackerel
+    leagues: [all, tier1, tier2]
+
+  - id: hairtail
+    name: "<green>등대 갈치 최대어"
+    source: records
+    subject: fish/lighthouse_hairtail
+    leagues: [all, tier1, tier2]
+
+  - id: boss_swamp_catfish
+    name: "<dark_green>늪지의 주인 최단 처치"
+    source: boss_records
+    subject: boss/swamp_catfish
+    leagues: [all]
+    size: 10
+
+  - id: tournament           # 주간 낚시 대회 (Harbor-World가 source: tournament 원천을 등록, 이번 주 대회 점수)
+    name: "<yellow>주간 낚시 대회"
+    source: tournament
+    leagues: [all]
+    size: 30
+    refresh: 5

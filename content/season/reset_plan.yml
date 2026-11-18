@@ -1,0 +1,75 @@
+# 시즌 전환 계획 (docs 20 11.3·11.4, '11. 데이터 설계' 3·5장).
+# season 열이 있는 테이블은 모두 여기 있어야 한다 (없으면 PRECHECK·리로드 검사에서 거부).
+# policy: archive_reset (복사 후 시즌 n 행 삭제) · archive_keep (복사만) · keep (손대지 않음) · custom (복사 후 모듈 SeasonHook이 정리)
+# scope: season_column (기본, column 열 = n 행만) · full (season 열 없음, 전체)
+# 아카이브는 MariaDB 스키마 archive_s<n>에 원래 테이블 이름 그대로 만든다 (docs 20 0.4).
+
+# RESET 때 잔액을 SEASON_RESET 원장 기록(참조 ID season_reset:<n>:<uuid>)으로 0으로 만들 재화.
+# player_season이 초기화되므로 골드·물비늘 모두 원장에 남겨야 원장 합계 검사가 맞는다.
+currencies: [gold, mulbineul]
+
+fish_ledger:
+  archive_states: [ACTIVE, IN_AUCTION, LISTED]   # 시즌 n 아이템을 ARCHIVED로
+
+open_titles:
+  # CBT → 시즌 1 전환의 OPEN 단계에서 CBT 참여자 전원에게 기념 칭호 ('14. 개발 일정' 3장)
+  - {from_season: 1, title: title/cbt_pioneer, who: season_players}
+
+tables:
+  # ---- archive_reset
+  - {table: player_season, policy: archive_reset}
+  - {table: skill_alloc, policy: archive_reset}
+  - {table: jobs_state, policy: archive_reset}
+  - {table: codex_season, policy: archive_reset}
+  - {table: pity_counter, policy: archive_reset}
+  - {table: npc_affinity, policy: archive_reset}
+  - {table: npc_reputation_log, policy: archive_reset}
+  - {table: traps, policy: archive_reset}
+  - {table: weekly_counter, policy: archive_reset}
+  - {table: mailbox, policy: archive_reset}
+  - {table: region_visit, policy: archive_reset}
+  - {table: sea_chart, policy: archive_reset}
+  - {table: treasure_claim, policy: archive_reset}
+  - {table: ships, policy: archive_reset}
+  - {table: tournament_score, policy: archive_reset}   # World 주간 낚시 대회 점수 (추가 제안)
+  - {table: boss_encounter, policy: archive_reset}
+  - {table: boss_participation, policy: archive_reset}
+  - {table: boss_pity, policy: archive_reset}
+  - {table: chest_pity, policy: archive_reset}
+  # ---- archive_reset + keep_where
+  - {table: quest_progress, policy: archive_reset, keep_where: "quest_id LIKE 'harbor:quest/main/%'"}   # 메인 퀘스트 이월 (0.4)
+  - {table: player_flags, policy: archive_reset}   # 영구 플래그는 season = 0이라 시즌 n 조건에 걸리지 않는다
+  - {table: server_flags, policy: archive_reset}   # 시즌 범위 플래그만 season = n
+  # ---- full (season 열 없음, 전환 때 비움)
+  - {table: auction_listing, scope: full, policy: archive_reset}
+  - {table: auction_sale, scope: full, policy: archive_reset}
+  - {table: quest_board, scope: full, policy: archive_reset}
+  # ---- archive_keep (복사만)
+  - {table: records, policy: archive_keep}
+  - {table: titles, policy: archive_keep}
+  - {table: season_pass, policy: archive_keep}
+  - {table: season_pass_claim, policy: archive_keep}
+  - {table: ranking_snapshot, policy: archive_keep}
+  - {table: hall_of_fame, policy: archive_keep}
+  - {table: aquarium_species, policy: archive_keep}
+  - {table: aquarium_state, policy: archive_keep}
+  - {table: aquarium_donation, policy: archive_keep}
+  # ---- keep (season 열이 있지만 손대지 않음)
+  - {table: fish_ledger, policy: keep}        # 상태만 ARCHIVED (위 fish_ledger)
+  - {table: boss_records, policy: keep}       # 이월 (시즌별 1~10위)
+  - {table: season_meta, policy: keep}
+
+gate:                     # 새 시즌 첫 접속 정리 (SeasonGate)
+  keep_vanilla: false     # season_reset 표시가 없는 바닐라 아이템도 지운다 (제안)
+  keep_old_fish: false    # 지난 시즌 어종 아이템은 지운다 (★5·전설은 fish_ledger ARCHIVED)
+  reset_vanilla_state: true
+  spawn: {world: harbor_main, x: 0.5, y: 64, z: 0.5, yaw: 0, pitch: 0}   # 크리퍼 항구 시작 지점 (제안값)
+
+transition:               # 제안값
+  notice_minutes: [30, 10, 5, 1]   # 2단계 NOTICE 카운트다운
+  flush_timeout_s: 120             # 3단계 FREEZE 응답 대기
+  batch_rows: 50000                # 대형 테이블 분할 단위 (docs 20 11.6)
+  disk_factor: 2.0                 # 1단계 디스크 여유 = DB 크기 × 2
+  backup_marker: season-backup.marker   # 5단계 운영 스크립트가 백업 뒤 남기는 표식 (plugins/Harbor-Season/)
+  rows_per_second: 20000           # dry-run 예상 시간
+  max_minutes: 60                  # 목표 소요 시간

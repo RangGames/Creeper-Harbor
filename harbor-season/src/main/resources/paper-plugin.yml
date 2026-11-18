@@ -2,10 +2,29 @@ name: Harbor-Season
 version: '${version}'
 main: wiki.creeper.harbor.season.HarborSeasonPlugin
 api-version: '${apiVersion}'
-description: '시즌 전환·시즌 패스'
+description: '시즌 시계·주간 제한·칭호·랭킹·명예의 전당·시즌 전환'
 dependencies:
   server:
     Harbor-Core:
       load: BEFORE
       required: true
       join-classpath: true
+permissions:
+  harbor.season:
+    description: '/시즌 · /랭킹 · /명예의전당 · /칭호'
+    default: true
+  harbor.admin.season.transition:
+    description: '/harbor season transition …'
+    default: op
+  harbor.admin.season.week:
+    description: '/harbor season week shift'
+    default: op
+  harbor.admin.season.ranking:
+    description: '/harbor season ranking refresh'
+    default: op
+  harbor.admin.season.title:
+    description: '/harbor season title grant · revoke'
+    default: op
+  harbor.admin.season.limit:
+    description: '/harbor season limit show · reset (추가 제안)'
+    default: op

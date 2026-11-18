@@ -1,0 +1,19 @@
+# 시즌 정의 (docs 20 11.3). 주차 = floor((지금 − starts_at − 주차 보정) ÷ 7일) + 1.
+# starts_at에 날짜만 쓰면 그날 일일 초기화 시각(harbor-infra.yml time.daily_reset, 기본 06:00)에 시작한다.
+# 서버가 돌리는 시즌 번호는 harbor-infra.yml season.id다 (전환 후 운영자가 바꾼다, next-season.yml 참고).
+# 시즌 1 = CBT (제안: SeasonId는 1부터라 CBT를 1로 두고 정식 시즌 1을 2로 둔다. 표시 이름으로 구분)
+
+seasons:
+  - season: 1
+    name: "클로즈 베타"
+    starts_at: 2027-05-03        # 월요일 ('14. 개발 일정' CBT 2027.5~6)
+    weeks: 8                     # 제안값
+    theme_region: region/harbor
+
+  - season: 2
+    name: "시즌 1 · 등대의 항구"
+    starts_at: 2027-09-06        # 월요일 (제안값)
+    weeks: 12                    # '7. 밸런스 기획' 1장 시즌 길이
+    theme_region: region/harbor
+    # resourcepack: {url: "https://cdn.example.invalid/creeper-harbor-s1.zip", sha1: "0000000000000000000000000000000000000000"}
+    # content_dir: seasons/s1
