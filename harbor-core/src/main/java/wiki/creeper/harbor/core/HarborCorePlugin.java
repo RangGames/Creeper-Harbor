@@ -41,6 +41,7 @@ import wiki.creeper.harbor.core.currency.SeasonBalanceStore;
 import wiki.creeper.harbor.core.flag.FlagManager;
 import wiki.creeper.harbor.core.gui.MenuListener;
 import wiki.creeper.harbor.core.item.ItemManager;
+import wiki.creeper.harbor.core.item.ItemModelSync;
 import wiki.creeper.harbor.core.ledger.LedgerAuditJob;
 import wiki.creeper.harbor.core.message.DialogManager;
 import wiki.creeper.harbor.core.message.MessageManager;
@@ -228,6 +229,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         pm.registerEvents(modifiers, this);
         pm.registerEvents(borders, this);
         pm.registerEvents(rigManager, this);
+        pm.registerEvents(new ItemModelSync(items), this);
         command.addModuleCommand(new RigCommand(rigManager, msg, adminLog).build());
         pm.registerEvents(new MenuListener(), this);
         pm.registerEvents(new ChatBridge(infra, r, messageBus), this);

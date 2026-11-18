@@ -1,10 +1,8 @@
 package wiki.creeper.harbor.fishing.present;
 
-import io.papermc.paper.datacomponent.DataComponentTypes;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import net.kyori.adventure.key.Key;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,6 +15,7 @@ import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import wiki.creeper.harbor.common.content.type.FishDef;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.Locs;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
@@ -48,11 +47,7 @@ public final class DisplayShadowPresenter implements ShadowPresenter {
             FishingPresets.GradePreset preset,
             boolean gradeGlow) {
         ItemStack model = ItemStack.of(Material.COD);
-        try {
-            model.setData(DataComponentTypes.ITEM_MODEL, Key.key(preset.shadowModel()));
-        } catch (IllegalArgumentException e) {
-            // 모델 키가 틀리면 바닐라 대구 모양
-        }
+        ItemModels.apply(model, preset.shadowModel()); // 못 쓰면 바닐라 대구 모양
         float scale = (float) Math.max(0.1, preset.shadowScale());
         String glow = preset.glowColor();
         ItemDisplay display =

@@ -9,7 +9,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -22,6 +21,7 @@ import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.util.Result;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.Menu;
 import wiki.creeper.harbor.core.gui.PagedMenu;
@@ -703,9 +703,7 @@ public final class ShopMenus {
         Material material =
                 Optional.ofNullable(Material.matchMaterial(base)).orElse(Material.PAPER);
         ItemStack stack = ItemStack.of(material);
-        if (model != null) {
-            stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(model));
-        }
+        ItemModels.apply(stack, model);
         stack.setData(DataComponentTypes.ITEM_NAME, name);
         stack.setData(
                 DataComponentTypes.LORE,

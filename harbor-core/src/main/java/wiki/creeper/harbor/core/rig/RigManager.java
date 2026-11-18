@@ -1,6 +1,5 @@
 package wiki.creeper.harbor.core.rig;
 
-import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,7 +18,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -55,6 +53,7 @@ import wiki.creeper.harbor.common.rig.RigBaker;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.common.rig.RigPlayback;
 import wiki.creeper.harbor.common.rig.RigSampler;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.RigHit;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
@@ -376,9 +375,12 @@ public final class RigManager implements RigService, Listener {
                             ItemDisplay.class,
                             d -> {
                                 common.accept(d);
+                                // 커스텀 모델을 못 쓰면 (리소스팩 준비 전) 종이 대신 빈 표시로 둔다
                                 ItemStack stack = ItemStack.of(Material.PAPER);
-                                stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(part.model()));
-                                d.setItemStack(stack);
+                                if (ItemModels.apply(
+                                        stack, part.model(), content.get().single(Balance.TYPE))) {
+                                    d.setItemStack(stack);
+                                }
                                 d.setItemDisplayTransform(
                                         ItemDisplay.ItemDisplayTransform.valueOf(
                                                 part.transform().name()));

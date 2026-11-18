@@ -19,6 +19,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Material;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.jspecify.annotations.Nullable;
@@ -36,6 +37,7 @@ import wiki.creeper.harbor.common.model.PlayerRef;
 import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.common.model.SeasonId;
 import wiki.creeper.harbor.core.api.HarborItem;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.ItemService;
 import wiki.creeper.harbor.core.api.MessageService;
 
@@ -210,6 +212,58 @@ public final class ItemManager implements ItemService {
         return true;
     }
 
+    /**
+     * 인벤토리의 Harbor 아이템 모델을 지금 설정({@link ItemModels})에 맞춘다 (접속할 때). 꺼져 있으면 harbor: 모델을 떼고, 켜져 있으면
+     * 모델이 없는 아이템에 정의의 모델을 붙인다 (스킨 등 이미 붙은 모델은 그대로).
+     *
+     * @return 고친 칸 수
+     */
+    public int syncModels(Inventory inventory) {
+        ContentSnapshot snapshot = content.get();
+        Balance balance = snapshot.single(Balance.TYPE);
+        boolean on = ItemModels.enabled(balance);
+        int changed = 0;
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            Optional<HarborItem> item = read(stack);
+            if (item.isEmpty()) {
+                continue;
+            }
+            boolean overridden = stack.isDataOverridden(DataComponentTypes.ITEM_MODEL);
+            boolean fixed;
+            if (!on) {
+                Key current = stack.getData(DataComponentTypes.ITEM_MODEL);
+                fixed = overridden && current != null && current.namespace().equals("harbor");
+                if (fixed) {
+                    stack.resetData(DataComponentTypes.ITEM_MODEL);
+                }
+            } else {
+                fixed =
+                        !overridden
+                                && ItemModels.apply(stack, modelOf(snapshot, item.get()), balance);
+            }
+            if (fixed) {
+                inventory.setItem(slot, stack);
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    private static @Nullable String modelOf(ContentSnapshot snapshot, HarborItem item) {
+        return switch (item) {
+            case HarborItem.Plain plain ->
+                    snapshot.get(ItemDef.TYPE, plain.id().id()).map(ItemDef::model).orElse(null);
+            case HarborItem.Fish fish ->
+                    snapshot.get(FishDef.TYPE, fish.species().id())
+                            .map(FishDef::model)
+                            .orElse(null);
+        };
+    }
+
     // ------------------------------------------------------------------ 내부
 
     private void decorate(
@@ -217,11 +271,10 @@ public final class ItemManager implements ItemService {
         stack.setData(
                 DataComponentTypes.ITEM_NAME,
                 messages.get("item.name." + grade.key(), Placeholder.unparsed("name", name)));
-        stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(model));
+        Balance balance = content.get().single(Balance.TYPE);
+        ItemModels.apply(stack, model, balance);
         stack.setData(DataComponentTypes.LORE, ItemLore.lore(lore));
-        content.get()
-                .single(Balance.TYPE)
-                .string("items.tooltip_style." + grade.key())
+        balance.string("items.tooltip_style." + grade.key())
                 .ifPresent(
                         style -> stack.setData(DataComponentTypes.TOOLTIP_STYLE, Key.key(style)));
     }

@@ -10,7 +10,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
-import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -26,6 +25,7 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.HarborItem;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.shop.ShopRuntime;
 import wiki.creeper.harbor.shop.api.CosmeticService;
 import wiki.creeper.harbor.shop.api.event.CosmeticEquipEvent;
@@ -202,10 +202,9 @@ public final class CosmeticManager implements CosmeticService, Listener {
         }
         Optional<ItemDef> def = rodDef(stack);
         stack.editPersistentDataContainer(pdc -> pdc.remove(skinKey));
+        stack.resetData(DataComponentTypes.ITEM_MODEL);
         if (def.isPresent()) {
-            stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(def.get().model()));
-        } else {
-            stack.resetData(DataComponentTypes.ITEM_MODEL);
+            ItemModels.apply(stack, def.get().model());
         }
         return true;
     }
@@ -252,7 +251,7 @@ public final class CosmeticManager implements CosmeticService, Listener {
         }
         stack.editPersistentDataContainer(
                 pdc -> pdc.set(skinKey, PersistentDataType.STRING, value));
-        stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(model));
+        ItemModels.apply(stack, model);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -23,6 +22,7 @@ import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.PagedMenu;
 
@@ -71,7 +71,7 @@ final class CodexMenu {
         ItemStack stack = ItemStack.of(material);
         List<Component> lore = new ArrayList<>();
         if (entry.isPresent()) {
-            stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(fish.model()));
+            ItemModels.apply(stack, fish.model());
             stack.setData(
                     DataComponentTypes.ITEM_NAME,
                     msg.get(
@@ -98,7 +98,7 @@ final class CodexMenu {
                             .single(Balance.TYPE)
                             .string("items.silhouette_model")
                             .orElse("harbor:fish/silhouette");
-            stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(silhouette));
+            ItemModels.apply(stack, silhouette);
             stack.setData(
                     DataComponentTypes.ITEM_NAME,
                     msg.get(

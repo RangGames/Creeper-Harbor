@@ -4,12 +4,12 @@ import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.ItemLore;
 import java.util.ArrayList;
 import java.util.List;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.core.api.ItemModels;
 
 /** GUI 아이콘 도우미 (이름·설명·모델). */
 public final class Icons {
@@ -30,9 +30,7 @@ public final class Icons {
             lines.add(c.decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE));
         }
         stack.setData(DataComponentTypes.LORE, ItemLore.lore(lines));
-        if (model != null && Key.parseable(model)) {
-            stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(model));
-        }
+        ItemModels.apply(stack, model);
         return stack;
     }
 }

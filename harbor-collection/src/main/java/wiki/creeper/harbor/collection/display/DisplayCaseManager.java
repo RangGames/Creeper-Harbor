@@ -16,7 +16,6 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -66,6 +65,7 @@ import wiki.creeper.harbor.common.model.SeasonId;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
@@ -790,11 +790,7 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         Material material =
                 Optional.ofNullable(Material.matchMaterial(baseItem)).orElse(Material.COD);
         ItemStack stack = ItemStack.of(material);
-        try {
-            stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(fish.model()));
-        } catch (IllegalArgumentException e) {
-            // 모델 키 형식이 틀리면 기본 모양
-        }
+        ItemModels.apply(stack, fish.model());
         stack.setData(
                 DataComponentTypes.ITEM_NAME,
                 api.messages()

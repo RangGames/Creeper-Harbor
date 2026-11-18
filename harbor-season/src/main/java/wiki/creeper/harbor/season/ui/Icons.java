@@ -5,12 +5,12 @@ import io.papermc.paper.datacomponent.item.ItemLore;
 import io.papermc.paper.datacomponent.item.ResolvableProfile;
 import java.util.List;
 import java.util.UUID;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.core.api.ItemModels;
 
 /** GUI 아이콘 도우미 (데이터 컴포넌트). */
 final class Icons {
@@ -50,11 +50,7 @@ final class Icons {
 
     static ItemStack model(ItemStack stack, @Nullable String model) {
         if (model != null) {
-            try {
-                stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(model));
-            } catch (IllegalArgumentException e) {
-                // 형식이 틀린 모델 이름은 기본 모양으로 둔다
-            }
+            ItemModels.apply(stack, model);
         }
         return stack;
     }

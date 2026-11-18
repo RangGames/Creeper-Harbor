@@ -191,6 +191,9 @@ world_alias:
   world: harbor_main
 
 items:
+  # 커스텀 모델(item_model) 사용. 리소스팩이 없으면 harbor: 모델이 보라·검정 상자로 깨지므로 팩을 배포한 뒤에 true로 바꾼다.
+  # false면 아이템은 base_item 모양, 리그(디스플레이 모델)는 보이지 않는다. 키가 없으면 false (추가 제안)
+  custom_models: false
   fish_base_item: minecraft:cod
   # tooltip_style:       # 등급별 툴팁 테두리 (리소스팩 준비 후)
   #   legendary: harbor:legendary

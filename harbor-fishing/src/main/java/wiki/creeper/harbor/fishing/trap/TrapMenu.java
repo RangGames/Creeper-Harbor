@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -21,6 +20,7 @@ import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.Menu;
 import wiki.creeper.harbor.fishing.api.TrapService;
@@ -181,7 +181,7 @@ final class TrapMenu {
         ItemStack stack = ItemStack.of(material);
         MessageService msg = api.messages();
         if (fish.isPresent()) {
-            stack.setData(DataComponentTypes.ITEM_MODEL, Key.key(fish.get().model()));
+            ItemModels.apply(stack, fish.get().model());
             stack.setData(
                     DataComponentTypes.ITEM_NAME,
                     msg.get(

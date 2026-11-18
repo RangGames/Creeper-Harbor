@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -41,6 +40,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.PagedMenu;
 import wiki.creeper.harbor.world.Icons;
@@ -481,10 +481,7 @@ public final class DecorManager implements Listener {
         at.setYaw(Math.round(WorldKit.loc(player).getYaw() / 90f) * 90f + 180f);
         String model = d.get().model();
         ItemStack look = ItemStack.of(Material.PAPER);
-        if (model != null && Key.parseable(model)) {
-            look.setData(
-                    io.papermc.paper.datacomponent.DataComponentTypes.ITEM_MODEL, Key.key(model));
-        }
+        ItemModels.apply(look, model);
         String decorId = d.get().id().toString();
         ItemDisplay display =
                 world.spawn(
