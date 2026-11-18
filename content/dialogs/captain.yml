@@ -1,0 +1,17 @@
+# 수상한 선장: 밤 + 폭풍 히든 퀘스트 시작점 (quest:offer는 Quest가 등록)
+- id: dialog/captain
+  entries:
+    - {conditions: [not_flag: met_captain], node: first_meet}
+    - {node: greet}
+  nodes:
+    first_meet:
+      pages: [npc.dialog.captain.first_meet.1, npc.dialog.captain.first_meet.2]
+      options:
+        - label: npc.dialog.option.listen
+          actions: [{type: flag:set, flag: met_captain}, {type: sound, sound: "minecraft:ambient.cave", volume: 0.6}]
+          goto: greet
+    greet:
+      pages: [npc.dialog.captain.greet.1]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.bye, actions: [close]}

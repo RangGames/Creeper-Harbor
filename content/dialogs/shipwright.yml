@@ -1,0 +1,11 @@
+# 상점 거래는 Economy가 shop:open을 등록한다 (할인은 AffinityService.discountPercent).
+- id: dialog/shipwright
+  entries:
+    - {node: greet}
+  nodes:
+    greet:
+      pages: [npc.dialog.shipwright.greet.1]
+      options:
+        - {label: npc.dialog.option.shop, actions: [shop:open]}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}

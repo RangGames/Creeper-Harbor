@@ -1,0 +1,9 @@
+- id: dialog/aquarium_keeper
+  entries:
+    - {node: greet}
+  nodes:
+    greet:
+      pages: [npc.dialog.aquarium_keeper.greet.1]
+      options:
+        - {label: npc.dialog.option.donate, actions: [aquarium:donate]}
+        - {label: npc.dialog.option.bye, actions: [close]}

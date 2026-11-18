@@ -1,0 +1,16 @@
+# 전직 컷씬 (Jobs가 CutsceneService.play로 재생). 길드 앞에서 바위가 축하한다.
+- id: cutscene/job_advance
+  world: harbor_main
+  skippable: always
+  camera:
+    - {t: 0, pos: [36, 66, 4], yaw: 90, pitch: 5}
+    - {t: 60, pos: [33, 65.5, 4], yaw: 90, pitch: 2}
+  actors:
+    - {id: bawi, npc: npc/bawi, path: [{t: 0, pos: [30.5, 64, 4.5, 270, 0]}]}
+  lines:
+    - {t: 10, actor: bawi, text: npc.cutscene.job_advance.bawi_1, ticks: 60}
+  titles:
+    - {t: 40, title: npc.cutscene.job_advance.title, subtitle: npc.cutscene.job_advance.subtitle, stay: 40}
+  sounds:
+    - {t: 40, sound: "minecraft:ui.toast.challenge_complete"}
+  end: {return: origin}

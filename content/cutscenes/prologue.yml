@@ -1,0 +1,25 @@
+# 프롤로그 · 표류 ('5. 서버 스토리' 3장). 좌표는 맵 확정 전 제안값.
+- id: cutscene/prologue_drift
+  world: harbor_main
+  skippable: seen
+  time: night
+  weather: thunder
+  camera:
+    - {t: 0, pos: [40, 75, 60], yaw: 200, pitch: 15}
+    - {t: 100, pos: [25, 70, 30], yaw: 190, pitch: 10}
+    - {t: 200, pos: [14, 66, -2], yaw: 180, pitch: 5}
+  actors:
+    - id: hansol
+      npc: npc/hansol
+      path: [{t: 0, pos: [12.5, 64, -8.5, 0, 0]}]
+  titles:
+    - {t: 0, title: npc.cutscene.prologue.title, subtitle: npc.cutscene.prologue.subtitle, stay: 60}
+  lines:
+    - {t: 70, text: npc.cutscene.prologue.narration_1, ticks: 60}
+    - {t: 140, actor: hansol, text: npc.cutscene.prologue.hansol_1, ticks: 60}
+    - {t: 200, actor: hansol, text: npc.cutscene.prologue.hansol_2, ticks: 70}
+  sounds:
+    - {t: 0, sound: "minecraft:weather.rain", volume: 0.8}
+    - {t: 60, sound: "minecraft:entity.lightning_bolt.thunder", volume: 0.5, pitch: 0.8}
+  duration: 280
+  end: {return: origin}

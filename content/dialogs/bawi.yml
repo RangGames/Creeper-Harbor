@@ -1,0 +1,25 @@
+# 어부 길드 마스터 바위. 전직·계열 변경·스킬 초기화는 Jobs가 job:* 액션을 등록한다 (선택 의존, 없으면 선택지 숨김).
+- id: dialog/bawi
+  entries:
+    - {conditions: [not_flag: met_bawi], node: first_meet}
+    - {node: greet}
+  nodes:
+    first_meet:
+      pages: [npc.dialog.bawi.first_meet.1, npc.dialog.bawi.first_meet.2]
+      options:
+        - label: npc.dialog.option.listen
+          actions: [{type: flag:set, flag: met_bawi}, {type: sound, sound: "minecraft:entity.villager.yes"}]
+          goto: greet
+    greet:
+      pages: [npc.dialog.bawi.greet.1]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.job_line, conditions: [job_tier: 2], actions: [job:change_line]}
+        - {label: npc.dialog.option.job_reset, actions: [job:reset_skill]}
+        - {label: npc.dialog.option.teaching, goto: teaching}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    teaching:
+      pages: [npc.dialog.bawi.teaching.1, npc.dialog.bawi.teaching.2]
+      options:
+        - {label: npc.dialog.option.back, goto: greet}

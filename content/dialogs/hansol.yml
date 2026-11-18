@@ -1,0 +1,44 @@
+# 항구장 한솔 ('5. 서버 스토리' 2장). 문구는 messages_ko.yml npc.dialog.hansol.*
+- id: dialog/hansol
+  entries:                                   # 위에서부터 첫 일치
+    - {conditions: [not_flag: met_hansol], node: first_meet}
+    - {conditions: [server_flag: climax_done], node: after_climax}
+    - {conditions: [{affinity_min: {level: 2}}], node: greet_friend}
+    - {node: greet}
+  nodes:
+    first_meet:
+      pages: [npc.dialog.hansol.first_meet.1, npc.dialog.hansol.first_meet.2]
+      options:
+        - label: npc.dialog.option.listen
+          actions:
+            - {type: flag:set, flag: met_hansol, scope: perm}
+            - {type: affinity:add, value: 5, once: hansol_first_meet}
+          goto: greet
+    greet:
+      pages: [npc.dialog.hansol.greet.1]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.green_light, conditions: [rep_tier_min: 2], goto: green_light}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    greet_friend:
+      pages: [npc.dialog.hansol.greet_friend.1]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.brother, conditions: [flag: story/hermit_revealed], goto: brother}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    green_light:
+      pages: [npc.dialog.hansol.green_light.1, npc.dialog.hansol.green_light.2]
+      options:
+        - {label: npc.dialog.option.back, goto: greet}
+    brother:
+      pages: [npc.dialog.hansol.brother.1]
+      options:
+        - {label: npc.dialog.option.back, goto: greet_friend}
+    after_climax:
+      pages: [npc.dialog.hansol.after_climax.1]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}

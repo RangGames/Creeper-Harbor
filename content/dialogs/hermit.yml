@@ -1,0 +1,34 @@
+# 늪지 은둔자 = 등대지기 한결 (5장에서 정체 공개, 이름 변형은 npcs.yml name_variants)
+- id: dialog/hermit
+  entries:
+    - {conditions: [flag: story/hermit_revealed], node: revealed}
+    - {conditions: [{affinity_min: {level: 2}}], node: riddle}
+    - {node: greet}
+  nodes:
+    greet:
+      pages: [npc.dialog.hermit.greet.1]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.green_light, goto: green_light}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    green_light:
+      pages: [npc.dialog.hermit.green_light.1]
+      options:
+        - {label: npc.dialog.option.back, goto: greet}
+    riddle:
+      pages: [npc.dialog.hermit.riddle.1, npc.dialog.hermit.riddle.2]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    revealed:
+      pages: [npc.dialog.hermit.revealed.1, npc.dialog.hermit.revealed.2]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.memory, actions: [{type: cutscene:play, id: cutscene/green_night, after_node: after_memory}]}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    after_memory:
+      pages: [npc.dialog.hermit.after_memory.1]
+      options:
+        - {label: npc.dialog.option.bye, actions: [close]}

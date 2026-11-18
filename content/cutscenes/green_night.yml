@@ -1,0 +1,24 @@
+# 회상 · 초록 폭발의 밤 (5장 은둔자 정체 공개 뒤 다시 보기). 등대 언덕에서 앞바다를 내려다본다.
+- id: cutscene/green_night
+  world: harbor_main
+  skippable: seen
+  time: night
+  weather: thunder
+  camera:
+    - {t: 0, pos: [-10, 90, -70], yaw: 0, pitch: 20}
+    - {t: 120, pos: [-10, 86, -30], yaw: 0, pitch: 10}
+  actors:
+    - id: hangyeol
+      npc: npc/hermit
+      name: "<green>젊은 등대지기 한결"
+      path:
+        - {t: 0, pos: [-10.5, 82, -60.5, 0, 0]}
+        - {t: 120, pos: [-10.5, 82, -55.5, 0, 0]}
+  lines:
+    - {t: 20, text: npc.cutscene.green_night.narration_1, ticks: 60}
+    - {t: 90, actor: hangyeol, text: npc.cutscene.green_night.hangyeol_1, ticks: 70}
+  titles:
+    - {t: 160, title: npc.cutscene.green_night.title, stay: 50}
+  sounds:
+    - {t: 140, sound: "minecraft:entity.generic.explode", volume: 0.6, pitch: 0.7}
+  end: {return: origin}

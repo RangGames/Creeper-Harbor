@@ -1,0 +1,17 @@
+- id: dialog/coral
+  entries:
+    - {conditions: [{affinity_min: {level: 3}}], node: secret}
+    - {node: greet}
+  nodes:
+    greet:
+      pages: [npc.dialog.coral.greet.1]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    secret:
+      pages: [npc.dialog.coral.secret.1, npc.dialog.coral.secret.2]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}

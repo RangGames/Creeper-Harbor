@@ -1,0 +1,9 @@
+- id: dialog/hangyeol
+  entries:
+    - {node: greet}
+  nodes:
+    greet:
+      pages: [npc.dialog.hangyeol.greet.1, npc.dialog.hangyeol.greet.2]
+      options:
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}

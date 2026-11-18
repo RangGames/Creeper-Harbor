@@ -1,0 +1,18 @@
+# 수족관 관장 이슬. 기부함·힌트는 Collection이 aquarium:donate·codex:hint를 등록한다.
+- id: dialog/iseul
+  entries:
+    - {node: greet}
+  nodes:
+    greet:
+      pages: [npc.dialog.iseul.greet.1]
+      options:
+        - {label: npc.dialog.option.donate, actions: [aquarium:donate]}
+        - {label: npc.dialog.option.hint, conditions: [{affinity_min: {level: 1}}], actions: [codex:hint]}
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.ritual, conditions: [rep_tier_min: 3], goto: ritual}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    ritual:
+      pages: [npc.dialog.iseul.ritual.1, npc.dialog.iseul.ritual.2]
+      options:
+        - {label: npc.dialog.option.back, goto: greet}

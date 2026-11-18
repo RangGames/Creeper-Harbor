@@ -1,0 +1,17 @@
+- id: dialog/seori
+  entries:
+    - {conditions: [{affinity_min: {level: 3}}], node: secret}
+    - {node: greet}
+  nodes:
+    greet:
+      pages: [npc.dialog.seori.greet.1]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    secret:
+      pages: [npc.dialog.seori.secret.1, npc.dialog.seori.secret.2]
+      options:
+        - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.gift, actions: [gift:open]}
+        - {label: npc.dialog.option.bye, actions: [close]}

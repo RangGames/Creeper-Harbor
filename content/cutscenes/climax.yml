@@ -1,0 +1,20 @@
+# 클라이맥스 · 등대가 다시 켜지는 날 (Boss가 월드 보스 뒤 playGroup으로 재생). 처음 보는 사람도 건너뛸 수 없다.
+- id: cutscene/climax_lighthouse
+  world: harbor_main
+  skippable: seen
+  time: dusk
+  camera:
+    - {t: 0, pos: [0, 70, 10], yaw: 180, pitch: -10}
+    - {t: 120, pos: [-8, 78, -40], yaw: 180, pitch: -20}
+    - {t: 240, pos: [-10, 95, -20], yaw: 180, pitch: 15}
+  actors:
+    - {id: hansol, npc: npc/hansol, path: [{t: 0, pos: [-12.5, 82, -58.5, 180, 0]}]}
+    - {id: hangyeol, npc: npc/hermit, name: "<green>등대지기 한결", path: [{t: 0, pos: [-8.5, 82, -58.5, 180, 0]}]}
+  lines:
+    - {t: 40, actor: hangyeol, text: npc.cutscene.climax.hangyeol_1, ticks: 70}
+    - {t: 120, actor: hansol, text: npc.cutscene.climax.hansol_1, ticks: 60}
+  titles:
+    - {t: 200, title: npc.cutscene.climax.title, subtitle: npc.cutscene.climax.subtitle, stay: 80}
+  sounds:
+    - {t: 200, sound: "minecraft:block.beacon.activate", volume: 1.0}
+  end: {return: origin}

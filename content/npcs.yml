@@ -1,0 +1,139 @@
+# NPC ('11. 데이터 설계' 2.5, docs 20 5.3). 인물은 '5. 서버 스토리' 2장, 역할은 '1. 기획서 본문' 4.1.
+# 좌표는 맵 확정 전 제안값이다 (harbor_main 기준). skin은 리소스팩 텍스처 키 (assets/harbor/textures/entity/npc/*.png).
+
+# ---------------------------------------------------------------- 크리퍼 항구
+- id: npc/hansol
+  name: "<gold>항구장 한솔"
+  role: story
+  location: {world: harbor_main, x: 12.5, y: 64, z: -8.5, yaw: 180}
+  skin: harbor:entity/npc/hansol
+  dialog: dialog/hansol
+  gifts:
+    fish/lighthouse_hairtail: 15     # 등대 이야기를 떠올리게 하는 갈치 (좋아함)
+    fish/harbor_mackerel: 5
+    fish/gunpowder_pufferfish: -5    # 폭뢰어를 닮은 복어는 싫어한다
+  gift_lines:
+    love: npc.gift.hansol.love
+    dislike: npc.gift.hansol.dislike
+
+- id: npc/bawi
+  name: "<aqua>길드 마스터 바위"
+  role: job
+  location: {world: harbor_main, x: 30.5, y: 64, z: 4.5, yaw: 90}
+  skin: harbor:entity/npc/bawi
+  dialog: dialog/bawi
+  gifts:
+    fish/storm_sea_bass: 15
+    fish/breakwater_rockfish: 5
+    item/bait/earthworm: 1
+
+- id: npc/iseul
+  name: "<light_purple>수족관 관장 이슬"
+  role: collect
+  location: {world: harbor_main, x: -40.5, y: 64, z: 20.5, yaw: 270}
+  skin: {texture: harbor:entity/npc/iseul, model: slim}
+  dialog: dialog/iseul
+  gifts:
+    fish/ink_cuttlefish: 15
+    fish/celebration_red_snapper: 5
+
+- id: npc/aquarium_keeper
+  name: "<light_purple>사육사 물결"      # (추가 제안) 수족관 2단계에 상주하는 새 NPC
+  role: collect
+  location: {world: harbor_main, x: -46.5, y: 64, z: 26.5, yaw: 0}
+  skin: harbor:entity/npc/aquarium_keeper
+  dialog: dialog/aquarium_keeper
+  spawn_flag: aquarium_stage_2
+
+- id: npc/fish_market
+  name: "<yellow>어시장 상인 갯벌"
+  role: shop
+  location: {world: harbor_main, x: 4.5, y: 64, z: 30.5, yaw: 0}
+  skin: harbor:entity/npc/fish_market
+  dialog: dialog/fish_market
+
+- id: npc/tackle_keeper
+  name: "<yellow>낚시용품점 주인 찌"
+  role: shop
+  location: {world: harbor_main, x: 16.5, y: 64, z: 30.5, yaw: 0}
+  skin: harbor:entity/npc/tackle_keeper
+  dialog: dialog/tackle_keeper
+  shop: shop/tackle
+
+- id: npc/shipwright
+  name: "<yellow>조선공 돛"
+  role: shop
+  location: {world: harbor_main, x: 52.5, y: 63, z: -20.5, yaw: 90}
+  skin: harbor:entity/npc/shipwright
+  dialog: dialog/shipwright
+  pose: sneaking
+
+# ---------------------------------------------------------------- 지역
+- id: npc/hermit
+  name: "<dark_green>늪지 은둔자"
+  role: region
+  location: {world: harbor_main, x: 220.5, y: 63, z: 140.5, yaw: 200}
+  skin: harbor:entity/npc/hermit
+  dialog: dialog/hermit
+  hide_flag: climax_done              # 클라이맥스 뒤에는 등대로 옮겨 간다 (npc/hangyeol)
+  name_variants:
+    - {player_flag: story/hermit_revealed, name: "<dark_green>등대지기 한결"}   # 5장 이후 ('5. 서버 스토리' 3장)
+  gifts:
+    fish/lighthouse_hairtail: 15
+    fish/gunpowder_pufferfish: 15     # 폭뢰어를 원수로 보지 않는다
+
+- id: npc/hangyeol
+  name: "<green>등대지기 한결"
+  role: story
+  location: {world: harbor_main, x: -10.5, y: 82, z: -60.5, yaw: 0}
+  skin: harbor:entity/npc/hermit
+  dialog: dialog/hangyeol
+  spawn_flag: climax_done             # 클라이맥스 뒤 등대에 상주
+
+- id: npc/coral
+  name: "<green>산호섬 족장 코랄"
+  role: region
+  location: {world: harbor_main, x: 380.5, y: 64, z: -260.5, yaw: 45}
+  skin: harbor:entity/npc/coral
+  dialog: dialog/coral
+
+- id: npc/seori
+  name: "<white>협만 사냥꾼 서리"
+  role: region
+  location: {world: harbor_main, x: -300.5, y: 70, z: -420.5, yaw: 135}
+  skin: harbor:entity/npc/seori
+  dialog: dialog/seori
+
+- id: npc/morae
+  name: "<gray>심해 연구원 모래"
+  role: region
+  location: {world: harbor_main, x: 150.5, y: 40, z: 420.5, yaw: 300}
+  skin: harbor:entity/npc/morae
+  dialog: dialog/morae
+
+# ---------------------------------------------------------------- 떠돌이 (Phase 3)
+- id: npc/peddler
+  name: "<gold>떠돌이 행상 보따리"
+  role: wanderer
+  skin: harbor:entity/npc/peddler
+  dialog: dialog/peddler
+  schedule:
+    slot_hours: 3
+    announce: true                    # 도착을 harbor:announce로 알린다
+    candidates:
+      - {id: market_square, location: {world: harbor_main, x: 0.5, y: 64, z: 40.5, yaw: 0}, weight: 40}
+      - {id: lighthouse_hill, location: {world: harbor_main, x: -14.5, y: 72, z: -50.5, yaw: 180}, weight: 20}
+      - {id: swamp_dock, location: {world: harbor_main, x: 200.5, y: 63, z: 120.5, yaw: 90}, weight: 20}
+      - {id: coral_beach, location: {world: harbor_main, x: 360.5, y: 64, z: -240.5, yaw: 270}, weight: 20}
+
+- id: npc/captain
+  name: "<dark_aqua>수상한 선장"
+  role: wanderer
+  skin: harbor:entity/npc/captain
+  dialog: dialog/captain
+  schedule:
+    slot_hours: 3
+    announce: false                   # 선장은 알리지 않는다
+    candidates:                       # 밤 + 폭풍에만 나타나는 히든 퀘스트 시작점
+      - {id: old_pier, location: {world: harbor_main, x: 70.5, y: 63, z: -80.5, yaw: 0}, time: [night], weather: [thunder]}
+      - {id: breakwater_end, location: {world: harbor_main, x: 120.5, y: 63, z: -140.5, yaw: 90}, time: [night], weather: [thunder]}

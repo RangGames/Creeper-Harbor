@@ -1,0 +1,14 @@
+- id: dialog/peddler
+  entries:
+    - {node: greet}
+  nodes:
+    greet:
+      pages: [npc.dialog.peddler.greet.1]
+      options:
+        - {label: npc.dialog.option.shop, actions: [shop:open]}
+        - {label: npc.dialog.option.rumor, goto: rumor}
+        - {label: npc.dialog.option.bye, actions: [close]}
+    rumor:
+      pages: [npc.dialog.peddler.rumor.1]
+      options:
+        - {label: npc.dialog.option.back, goto: greet}
