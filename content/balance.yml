@@ -32,12 +32,34 @@ fishing:
     rare: {hp: 350, tension_rise: 0.022, patterns: 2, pattern_interval_s: 3}
     epic: {hp: 600, tension_rise: 0.030, patterns: 3, pattern_interval_s: 2.5}
     legendary: {hp: 1200, tension_rise: 0.035, patterns: 4, pattern_interval_s: 2}
+    warn_tension: 0.85              # 이 이상이면 화면 가장자리 경고 (WorldBorderService)
   quality:               # 4.5 품질 경계 (백분위)
     star2: 0.40
     star3: 0.70
     star4: 0.90
     star5: 0.98
     tier_cap: [3, 4, 5]  # 직업 단계별 품질 상한
+  bite_window_ticks: 20             # 입질 창 (제안값, + 핑 보정)
+  long_cast: {distance: 20}         # 원투 기준 거리 (이상이면 tension_safe_zone_long_cast 적용)
+  trap:                             # 8장 통발 (D1: 계정 전체 하루 상한)
+    cycle_h: 8
+    min_cycle_h: 2                  # 통발 회전으로 줄어도 이보다 짧지 않음 (제안값)
+    max_cycles: 2
+    bait_per_slot: 1
+    bait_capacity: 64               # 통발 하나에 넣어 둘 수 있는 미끼 (제안값)
+    base_count: 2                   # 설치 개수 기본 (생산 2차·3차 trap_count +1, 최대 4)
+    max_count: 4
+    revenue_cap: {base: 0.4, produce_2: 0.5, produce_3: 0.6}
+    revenue_window_h: 24
+    # 수동 낚시 시간당 골드 (3.2 표). 상한 = 주인 통발 지역 중 가장 높은 값 × revenue_cap (World 해금 정보 대신 근사, 제안)
+    hourly_gold: {harbor: 600, swamp: 1000, coral_isles: 1800, lava_lake: 2800, frost_fjord: 3200, ash_trench: 3800, void_sea: 4500}
+    slot_price: 2000                # 6.3 슬롯당 2,000 × 통발 단계
+    max_extra_slots: 3              # 통발 하나에 살 수 있는 확장 슬롯 (제안값)
+    retrieve_days: 7
+    buoy_radius: 2.5                # 부표 자리 인정 거리 (블록, 제안값)
+    refund_bait_item: harbor:item/bait/earthworm   # 철거·회수 때 남은 미끼를 돌려주는 아이템 (제안값)
+  food:
+    feast_radius: 16                # 연회 요리 공유 거리 (블록, 제안값)
 
 economy:
   market:                # 6.2 시세 계수 M = clamp(1 − 0.35 × (S/S₀ − 1), 0.5, 1.2)
@@ -132,3 +154,88 @@ jobs:
   capstone_requires: 60
   other_line_limit: 40
   curve_check: {10: 620, 20: 5640, 30: 19940, 40: 48560, 50: 96650, 60: 169410, 70: 272120}
+
+# 디스플레이 리그 재생 ('16. 플러그인 설계' 5.10, 시제품 값은 '17-3' 9.4)
+rig:
+  fps: 10                  # 리그 동작을 10fps로 샘플링 (시제품). 20의 약수
+  compress:                # 부품별 키프레임 압축 허용 오차 (시제품: 이동 0.005블록, 회전 1.2°, 최대 간격 8프레임)
+    position: 0.005
+    rotation: 1.2
+    scale: 0.005           # 제안값
+    max_gap: 8
+  max_parts: 30            # 리그 하나의 부품·판정 상자 상한 ('8. 시스템 상세 기획' 12장 보스 부위 30개 이하)
+  move_ticks: 2            # 이동·방향 보간 기본값 (teleport_duration, '17-3' 9.4 16블록 이하 2틱)
+  blend_ticks: 4           # 동작 전환 이어 붙이기 (제안값)
+  lod_distance: 48         # 가장 가까운 시청자가 이보다 멀면 애니메이션 갱신 생략 (제안값)
+  tick_budget_ms: 1.0      # 틱당 리그 갱신 예산 (제안값, '17-3' 9.6 메인 스레드 1.0ms 기준)
+  hitbox_interval: 2       # 부위 판정 상자 위치 갱신 주기 (틱, 제안값)
+  part_budget: 300         # 플레이어 1명 주변 표시 부품 기준 ('16. 플러그인 설계' 7장)
+
+# 항구 평판 (docs 20 5.3·5.4, 모두 제안값 — CBT 지표로 확정)
+reputation:
+  tiers:
+    1: {points: 0, name: 이방인}
+    2: {points: 300, name: 이웃}
+    3: {points: 1000, name: 단골}
+    4: {points: 2000, name: 항구의 일원}
+    5: {points: 3500, name: 항구의 기둥}
+  sources:                 # 출처별 기본값 (Quest 보상 표에 값이 없을 때)
+    main_story: 150
+    region_quest: 40
+    daily_request: 10      # 하루 1회는 의뢰 규칙(Quest)
+    weekly_request: 30     # 주 3회는 의뢰 규칙(Quest)
+    collect_request: 20    # CONTRIBUTION (reputation_gain 보정자 적용)
+    boss_first_kill: 50    # 보스당 시즌 1회 (refId boss1:<보스>)
+    world_boss: 500
+    release: 3             # CONTRIBUTION, 희귀 이상 방류
+  daily_caps:
+    release: 30
+  recent_size: 10          # /평판 최근 내역 줄 수
+
+# NPC (docs 20 5.4, 추가 제안. 수치는 모두 제안값)
+npc:
+  affinity:
+    levels:                # 단계별 필요 호감도·상점 할인 % (npcs.yml affinity_levels가 없을 때)
+      0: {points: 0, name: 낯섦}
+      1: {points: 100, name: 아는 사이}
+      2: {points: 300, name: 친구, discount: 3}
+      3: {points: 600, name: 단짝, discount: 5}
+      4: {points: 1000, name: 신뢰, discount: 8}
+    greet: 2               # 하루 첫 대화
+    gift_default: 1        # gifts 표에 없는 아이템
+    gift_quality_bonus: 0.25   # 어종 선물 × (1 + 0.25 × (★ − 1))
+    gifts_per_day: 1       # NPC당
+    reactions: {love: 15, like: 5}
+  dialog:
+    timeout_seconds: 300
+    option_distance: 6
+    click_cooldown_ticks: 10
+  entity:
+    look_interval_ticks: 4
+    interaction_width: 0.8
+    interaction_height: 2.0
+    name_offset: 2.15
+    marker_offset: 2.5
+  wanderer:
+    slot_hours: 3          # Asia/Seoul 0·3·6…시
+    check_interval_ticks: 1200   # 조건부 후보 확인 (1분)
+    max_delay_seconds: 60  # 대화 중이면 이동을 미루는 최대 시간
+  cutscene:
+    restore_timeout_ms: 1000
+    skip_window_ticks: 10
+    max_entities: 20
+    camera_step_ticks: 40
+
+# Harbor-Season (docs 20 11.4·11.6). 모두 제안값
+season:
+  clock:
+    check_s: 60          # 주차 변경·초기화 시각 확인 주기 (docs 20 11.4: 1분)
+    meta_reload_s: 300   # season_meta(주차 보정·상태) 다시 읽기
+  ranking:
+    check_s: 60          # 집계 서버 선출 주기. 보드별 집계 주기는 season/rankings.yml refresh
+    lock_ttl_s: 50       # harbor:lock:ranking 유지 시간 (check_s보다 짧게)
+  hall_of_fame:
+    announce: true
+    announce_throttle_s: 30
+  gate:
+    notice: true         # 새 시즌 첫 접속 안내 Dialog

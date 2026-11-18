@@ -8,6 +8,14 @@ session:
   unavailable: "<red>서버 이동을 확인할 수 없어 접속을 막았습니다. 잠시 후 다시 시도해 주세요."
   moved: "<yellow>다른 서버로 이동했습니다."
 
+core:
+  handoff:
+    blocked:
+      cutscene: "<yellow>연출이 끝난 뒤에 이동할 수 있습니다."
+      trade: "<yellow>거래가 끝난 뒤에 이동할 수 있습니다."
+      encounter: "<yellow>보스전 중에는 이동할 수 없습니다."
+      busy: "<yellow>진행 중인 작업이 끝난 뒤에 이동할 수 있습니다."
+
 player:
   load_failed: "<red>데이터를 불러오지 못했습니다. 잠시 후 다시 접속해 주세요."
 
@@ -118,6 +126,7 @@ fishing:
   minigame:
     unknown: "???"
     help: "<gray>Shift를 누르고 있으면 감기, 놓으면 풀기 · A/D로 물고기 방향을 따라가세요"
+    phase: "<gold>물고기가 사나워졌다! <gray>(<phase>단계)"
   pattern:
     dash: "<red>돌진! 줄을 풀어요"
     dive: "<aqua>잠수 중…"
@@ -130,6 +139,81 @@ fishing:
     escaped: "<gray>물고기가 도망갔습니다."
   announce:
     legendary: "<gold>[전설]</gold> <white><player></white>님이 <gold><name></gold> <gray>(<size>cm)</gray>를 낚았습니다!"
+    mythic: "<light_purple>[신화]</light_purple> <white><player></white>님이 <light_purple><name></light_purple> <gray>(<size>cm)</gray>를 낚았습니다!"
+  rod_broken: "<red>낚싯대가 망가지기 직전입니다. <gray>낚시용품점이나 /수리로 고치세요"
+  bait_changed: "<gray>미끼가 바뀌어 물고기가 달아났습니다."
+  bait_uses: "<gray>루어 남은 사용 횟수 <white><left>"
+  junk: "<aqua>함께 건졌다! <white><name></white> <gray>×<amount>"
+  present:
+    big_bite: "<dark_red><bold>무언가 거대한 것이 걸렸다!"
+    nearby: "<aqua><player></aqua><gray>님이 <white><name></white> <gray>(<size>cm)를 낚았습니다!"
+    card: "<white><size>cm <yellow><quality>"
+    first_catch: "<green>처음 만난 물고기입니다! 도감에 기록되었습니다."
+  food:
+    applied: "<green><name></green><gray>의 효과가 <white><minutes>분</white> 동안 이어집니다."
+    replaced: "<green><name></green><gray>의 효과로 바뀌었습니다 (요리 효과는 하나만). <white><minutes>분"
+    shared: "<gold>연회 요리!</gold> <green><name></green><gray> 효과를 함께 받습니다. <white><minutes>분"
+  trap:
+    not_zone: "<red>통발은 통발 구역의 부표 자리에만 놓을 수 있습니다."
+    blocked: "<red>부표 자리가 막혀 있습니다."
+    deep_locked: "<red>심해 통발은 생산 계열 캡스톤 '심해 통발'을 배워야 쓸 수 있습니다."
+    limit: "<red>통발은 최대 <max>개까지 놓을 수 있습니다."
+    occupied: "<red>이미 다른 통발이 놓인 부표 자리입니다."
+    failed: "<red>통발 작업을 처리하지 못했습니다. 잠시 뒤 다시 시도하세요."
+    db_down: "<red>지금은 통발을 열 수 없습니다. 잠시 뒤 다시 시도하세요."
+    placed: "<green><name></green><gray>을(를) 놓았습니다. 미끼를 넣어 두면 주기마다 물고기가 들어옵니다."
+    owner: "<gray>통발 주인: <white><player>"
+    produced: "<aqua>통발에 <white><count>마리</white>가 들어왔습니다."
+    cap_reached: "<yellow>오늘 통발 수익 한도에 닿아 남은 칸은 비어 있습니다."
+    full: "<red>가방에 빈칸이 없습니다."
+    harvested: "<green>통발에서 <white><count>마리</white>를 꺼냈습니다."
+    empty: "<gray>통발이 비어 있습니다."
+    bait_full: "<gray>미끼 칸이 가득 찼습니다."
+    no_bait: "<red>넣을 미끼가 없습니다. <gray>(전설의 미끼·루어는 넣을 수 없습니다)"
+    bait_added: "<green>미끼 <white><count>개</white>를 넣었습니다."
+    not_empty: "<red>통발을 비운 뒤에 철거하세요."
+    removed: "<gray>통발을 거두었습니다."
+    break_denied: "<red>통발은 부술 수 없습니다. 통발을 열어 철거하세요."
+    expand_confirm: "<gray>슬롯 1칸을 <gold><price>G</gold>에 늘립니까?"
+    yes: "늘린다"
+    no: "그만둔다"
+    expand:
+      ok: "<green>통발 슬롯을 1칸 늘렸습니다."
+      not_found: "<red>통발을 찾을 수 없습니다."
+      not_owner: "<red>내 통발이 아닙니다."
+      max_reached: "<red>이 통발은 더 늘릴 수 없습니다."
+      no_gold: "<red>골드가 모자랍니다."
+      failed: "<red>슬롯을 늘리지 못했습니다."
+    list_header: "<yellow><player></yellow><gray>의 통발 <white><count>개"
+    list_line: "<gray>#<id> <white><region></white> (<pos>) · 다음 주기 <white><minutes>분</white> · 미끼 <white><bait></white> · 보관 <white><stored></white> · 자동 회수까지 <white><hours>시간"
+    menu:
+      title: "<name>"
+      info: "<yellow>통발 정보"
+      slots: "<gray>슬롯 <white><slots>"
+      bait: "<gray>미끼 <white><bait>"
+      next: "<gray>다음 주기까지 <white><minutes>분"
+      stored: "<gray>보관 중 <white><count>마리"
+      add_bait: "<green>미끼 넣기"
+      harvest_all: "<aqua>모두 꺼내기"
+      expand: "<gold>슬롯 확장"
+      expand_price: "<gray>슬롯당 <gold><price>G</gold> · 확장 <white><extra>/<max>"
+      remove: "<red>통발 철거"
+      entry: "<white><size>cm <yellow><quality>"
+      click: "<dark_gray>눌러서 꺼내기"
+  settings:
+    title: "낚시 설정"
+    body: "바꿀 항목을 누르세요."
+    direction_move: "방향 입력: A·D 이동 키"
+    direction_look: "방향 입력: 시점 회전"
+    direction_tip: "미니게임에서 물고기 방향을 따라가는 방법 (배 위에서는 자동으로 시점 회전)"
+    dialog_on: "포획 결과 화면: 켬"
+    dialog_off: "포획 결과 화면: 끔"
+    dialog_tip: "영웅 이상을 낚으면 결과 화면을 띄웁니다"
+    intensity_0: "연출 강도: 최소"
+    intensity_1: "연출 강도: 보통"
+    intensity_2: "연출 강도: 최대"
+    intensity_tip: "화면 어둡게·흔들림·빛기둥·그림자 같은 연출의 양"
+    close: "닫기"
   macro:
     title: "확인"
     question: "아래에서 물고기를 고르세요."
@@ -147,6 +231,17 @@ fishing:
     session: "<yellow><player></yellow> <gray>상태 <white><state></white> · 어종 <fish> · 텐션 <tension> · 체력 <hp> · 패턴 <pattern>"
     forced: "<yellow><player></yellow><gray>의 다음 판정을 <white><fish></white>(으)로 고정했습니다."
     macro: "<yellow><player></yellow> <gray>의심 점수 <white><score></white> (<reasons>)"
+    stats: "<yellow><grade></yellow> <gray>시도 <white><attempts></white> · 성공률 <white><rate></white> · 평균 <white><seconds>초"
+    stats_empty: "<gray>최근 24시간 미니게임 기록이 없습니다."
+    trap_calc: "<gray>통발 #<id> 계산: <white><count>마리"
+    trap_offline: "<red>통발 #<id>: 주인이 접속해 있지 않거나 없는 통발입니다."
+    trap_removed: "<green>통발 #<id>을(를) 지웠습니다."
+    trap_missing: "<red>통발 #<id>이(가) 없습니다."
+    events: "<gray>진행 중인 해상 이벤트: <white><events>"
+    event_started: "<green>해상 이벤트 <white><event></white>을(를) 시작했습니다."
+    event_stopped: "<gray>해상 이벤트 <white><event></white>을(를) 끝냈습니다."
+    unknown_event: "<red>없는 이벤트 프리셋입니다 (fishing/sea_events.yml)."
+    food: "<yellow><player></yellow> <gray>요리 버프 <white><food>"
 
 collection:
   unknown_fish: "<red>없는 어종입니다."
@@ -239,3 +334,349 @@ economy:
   admin:
     done: "<green>처리했습니다."
     failed: "<red>처리하지 못했습니다."
+
+# 디스플레이 리그 관리 명령 (/harbor rig, Core)
+rig:
+  list: "<yellow>리그 정의 <white><defs></white>개 · 떠 있는 리그 <white><instances></white>개 · 엔티티 <white><entities></white>개"
+  list_line: "<gray> - <white><id></white> 부품 <parts> · 판정 <hitboxes> · 동작별 키 <animations>"
+  unknown: "<red>없는 리그입니다: <id>"
+  unknown_animation: "<red>리그 <id>에 동작 '<animation>'가 없습니다."
+  spawned: "<green>리그 <id>를 띄웠습니다. <gray>부품 <parts> · 동작 <animation> · 동작별 키 <keys>"
+  played: "<green><id>: <animation> 재생"
+  none_near: "<red>16블록 안에 리그가 없습니다."
+  cleared: "<green>리그 <count>개를 지웠습니다."
+  stats: "<yellow>리그 <white><instances></white>개 · 엔티티 <white><entities></white>개 · 지난 틱 <white><ms>ms</white> (미룸 <deferred>) · 내 주변 부품 <white><parts></white>/<budget>"
+  over_budget: "<red>주변 표시 부품이 기준(rig.part_budget)을 넘었습니다."
+  players_only: "<red>플레이어만 쓸 수 있습니다."
+  hit: "<gray>리그 판정: <white><bone></white> (<kind>)"
+
+season:
+  info:
+    header: "<gold><name></gold> <gray>(시즌 <season>)"
+    week: "<gray><white><week></white>/<weeks>주차 · 시작 <white><start></white> · 종료 예정 <white><end>"
+    week_extended: "<gray>연장 주 <white><week></white>주차 <dark_gray>(정규 <weeks>주 종료 <end>)"
+    before_start: "<gray>시즌 시작 전입니다. 시작 <white><start>"
+    resets: "<gray>일일 초기화까지 <white><daily></white> · 주간 초기화까지 <white><weekly>"
+    duration: "<h>시간 <m>분"
+    duration_days: "<d>일 <h>시간 <m>분"
+  menu:
+    previous: "이전"
+    next: "다음"
+  league:
+    tier1: "1차 리그"
+    tier2: "2차 리그"
+    all: "전체 리그"
+  ranking:
+    title: "랭킹 · <board> · <league>"
+    no_boards: "<gray>집계 중인 랭킹이 없습니다."
+    unknown_board: "<red>없는 랭킹 보드입니다."
+    entry: "<yellow><rank>위</yellow> <white><player>"
+    value: "<gray>기록 <white><value>"
+    party: "<gray>파티원 <white><count></white>명과 함께"
+    date: "<dark_gray><date>"
+    mine: "<aqua>내 순위 <white><rank>위</white> <gray>(<value>)"
+    mine_none: "<gray>상위 <size>위 밖입니다"
+    prev_board: "<gray>◀ <board>"
+    next_board: "<gray><board> ▶"
+    updated: "<gray>집계 <white><time>"
+    refresh_hint: "<dark_gray><minutes>분마다 갱신"
+  hof:
+    title: "명예의 전당 · 시즌 <season> · <category>"
+    no_categories: "<gray>명예의 전당 분류가 없습니다."
+    entry: "<gold><rank>위</gold> <white><subject></white> <gray>· <player>"
+    entry_plain: "<gold><rank>위</gold> <white><player>"
+    value: "<gray>기록 <white><value>"
+    date: "<dark_gray><date>"
+    final: "<green>확정 기록"
+    provisional: "<yellow>진행 중 잠정 기록"
+    empty: "<gray>아직 기록이 없습니다."
+    prev_season: "<gray>◀ 시즌 <season>"
+    next_season: "<gray>시즌 <season> ▶"
+    announce: "<gold>[명예의 전당]</gold> <white><player></white>님이 <yellow><category></yellow> <white><subject></white> <rank>위에 올랐습니다! <gray>(<value>)"
+    detail:
+      title: "<category> · <rank>위"
+      record: "<gray>기록 <white><value>"
+      player: "<gray>당시 이름 <white><player>"
+      date: "<gray>날짜 <white><date>"
+      subject: "<gray>대상 <white><subject>"
+      extra: "<dark_gray><key>: <value>"
+  title:
+    granted: "<gold>칭호 획득!</gold> <title> <gray>(/칭호)"
+    equipped: "<green>칭호를 장착했습니다: <title>"
+    unequipped: "<gray>칭호 장착을 풀었습니다."
+    not_owned: "<red>가지고 있지 않은 칭호입니다."
+    list_header: "<yellow>보유 칭호 <white><count></white>개"
+    list_line: "<gray> - <title> <dark_gray>(<id>, 시즌 <season>, <date>)"
+    menu:
+      title: "칭호 · <owned>/<total>"
+      unequip: "<gray>칭호 장착 해제"
+      hint: "<gray>얻는 법: <white><hint>"
+      conditional: "<dark_gray>조건이 끝나면 사라질 수 있는 칭호"
+      equipped: "<green>장착 중"
+      click: "<yellow>눌러서 장착"
+      locked: "<dark_gray>아직 얻지 못했습니다"
+      locked_name: "<dark_gray>??? (<id>)"
+      style:
+        common: "<gray>일반 칭호"
+        rare: "<aqua>희귀 칭호"
+        epic: "<light_purple>영웅 칭호"
+        legendary: "<gold>전설 칭호"
+        special: "<red>특별 칭호"
+  gate:
+    title: "새 시즌이 시작되었습니다"
+    body: "<white><season></white>에 오신 것을 환영합니다! 이번 시즌은 <weeks>주 동안 열립니다. 시즌 성장·재화·시즌 아이템은 초기화되고 도감·기록·칭호·코스메틱은 그대로 남습니다."
+    removed: "<gray>지난 시즌 아이템 <white><count></white>묶음을 정리했습니다."
+  transition:
+    countdown: "<red>[점검]</red> <yellow><minutes>분 뒤 시즌 전환 점검을 시작합니다. 안전한 곳에서 접속을 종료해 주세요."
+    kick: "<yellow>시즌 전환 점검 중입니다. 새 시즌에서 만나요!"
+    closed: "<yellow>시즌 전환 점검 중입니다. 잠시 후 다시 접속해 주세요."
+    step_start: "<gray>[시즌 전환] <white><step></white> 시작"
+    step_done: "<green>[시즌 전환] <white><step></white> 완료 <gray><detail>"
+    failed: "<red>[시즌 전환] <white><step></white> 실패: <error> <gray>(고친 뒤 /harbor season transition resume, RESET 전이면 rollback)"
+    waiting_backup: "<yellow>[시즌 전환] 백업을 만들고 표식 파일(<marker>)을 남긴 뒤, 다른 관리자나 콘솔에서 /harbor season transition confirm-backup"
+    finished: "<green>[시즌 전환] 시즌 <from> → <to> 완료. 모든 서버 harbor-infra.yml의 season.id를 <to>로 바꾸고(next-season.yml 참고) 재시작한 뒤, 점검표 확인 후 Proxy 점검을 푸세요."
+  admin:
+    done: "<green>처리했습니다."
+    failed: "<red>처리하지 못했습니다."
+    error: "<red>오류: <error>"
+    working: "<gray>확인하는 중입니다…"
+    refused: "<red>거부: <reason>"
+    transition_ok: "<green>전환 명령을 받았습니다: <action> <gray>(/harbor season transition status)"
+    info: "<yellow>시즌 <season></yellow> <gray>상태 <white><state></white> · <white><week></white>/<weeks>주차 · 보정 <white><shift></white>시간 · 시작 <white><start></white> · 전환 계획 <white><tables></white>개 테이블"
+    status: "<yellow>전환 <id></yellow> <gray>시즌 <from> → <to> · 단계 <white><step></white> · <white><status></white> <red><error>"
+    status_line: "<gray> - <white><step></white> <state> <dark_gray>(<rows>행) <detail>"
+    shift_ok: "<green>주차 시작을 <hours>시간 늦췄습니다."
+    shift_refused: "<red>주차를 앞당길 수 없습니다 (지금 보정 <current>시간)."
+    ranking_locked: "<yellow>다른 서버가 집계 중입니다. 잠시 후 다시 시도하세요."
+    unknown_title: "<red>칭호 ID 형식이 틀렸습니다."
+    unknown_player: "<red>플레이어를 찾지 못했습니다."
+    title_result: "<green>칭호 처리 결과: <result>"
+    limit_header: "<yellow>이번 주(<week>주차) 주간 횟수"
+    limit_line: "<gray> - <key>: <white><count>"
+    dryrun:
+      header: "<yellow>[dry-run] 시즌 <from> 전환</yellow> <gray>오류 <red><errors></red> · 경고 <yellow><warnings>"
+      error: "<red> ✗ <text>"
+      warning: "<yellow> ! <text>"
+      table: "<gray> - <white><table></white> (<policy>) 아카이브 <white><archive></white> · 삭제 <white><delete>"
+      hook: "<aqua> · <text>"
+      footer: "<gray>SEASON_RESET <white><balances></white>건 · fish_ledger ARCHIVED <white><fish></white>행 · 예상 <white><minutes></white>분 (공지 대기 제외)"
+
+npc:
+  marker:
+    available: "<yellow><bold>!"
+    available_main: "<gold><bold>!"
+    in_progress: "<gray><bold>?"
+    turn_in: "<yellow><bold>?"
+  busy:
+    default: "<yellow>지금은 대화할 수 없습니다."
+    cutscene: "<yellow>연출이 끝난 뒤에 대화할 수 있습니다."
+    minigame: "<yellow>낚시를 마친 뒤에 대화할 수 있습니다."
+    encounter: "<yellow>보스전 중에는 대화할 수 없습니다."
+  dialog:
+    next: "<gray>다음 ▶"
+    close: "<gray>닫기"
+    expired: "<gray>대화가 끝났습니다. 다시 말을 걸어 주세요."
+    too_far: "<gray>너무 멀어져 대화가 끝났습니다."
+    unavailable: "<yellow>지금은 고를 수 없는 선택지입니다."
+    error: "<red>대화를 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."
+    nothing: "<gray>할 말이 없는 것 같다."
+    option:
+      listen: "이야기를 듣는다"
+      quests: "의뢰·이야기"
+      gift: "선물하기"
+      bye: "작별 인사"
+      back: "◀ 돌아가기"
+      shop: "거래하기"
+      donate: "수족관에 기부하기"
+      hint: "어종 소문 듣기"
+      job_line: "계열 바꾸기"
+      job_reset: "스킬 초기화"
+      teaching: "가르침을 청한다"
+      green_light: "초록 불빛에 대해 묻는다"
+      brother: "형님에 대해 묻는다"
+      ritual: "첫 물고기 방류 의식"
+      memory: "그날 밤을 떠올린다"
+      rumor: "소문을 묻는다"
+    hansol:
+      first_meet:
+        1: "…폭풍에 떠밀려 왔다고? 운이 좋았군."
+        2: "여기는 크리퍼 항구다. 밤에 초록 불빛을 보거든 가까이 가지 마라."
+      greet:
+        1: "오늘도 바다가 잔잔하군. 할 일이 있으면 길드의 바위에게 가 보게."
+      greet_friend:
+        1: "<player>, 자네 덕에 항구가 조금은 북적이는군."
+      green_light:
+        1: "초록 불빛… 30년 전 그날 밤, 그 빛이 항구를 무너뜨렸지."
+        2: "내 형님은 그날 등대를 지키다 돌아오지 못했네."
+      brother:
+        1: "형님이 살아 있었다고…? 그 늪지의 노인이…"
+      after_climax:
+        1: "등대가 다시 켜졌네. 형님과 함께 보는 불빛이라니, 꿈만 같군."
+    bawi:
+      first_meet:
+        1: "하하! 새 얼굴이군. 내가 이 항구 어부 길드의 바위다!"
+        2: "낚시는 필요한 만큼만. 이것만 지키면 바다는 늘 너그럽지."
+      greet:
+        1: "또 왔나! 오늘은 무엇을 배워 볼 텐가?"
+      teaching:
+        1: "줄이 팽팽해지면 힘을 빼라. 물고기와 싸우는 게 아니라 같이 춤을 추는 거다."
+        2: "그리고 잊지 마라. 필요한 만큼만이다."
+    iseul:
+      greet:
+        1: "어서 오세요. 항구의 기록을 모으는 이슬이에요. 수족관을 함께 채워 주실래요?"
+      ritual:
+        1: "옛 기록에 '첫 물고기 방류 의식'이라는 게 있어요."
+        2: "수족관이 가득 차면, 그 의식을 다시 열 수 있을지도 몰라요."
+    aquarium_keeper:
+      greet:
+        1: "수족관이 넓어져서 제가 새로 왔어요! 물고기들 밥은 제가 챙길게요."
+    fish_market:
+      greet:
+        1: "싱싱한 놈이면 값을 잘 쳐주지! 오늘 시세는 게시판을 보라고."
+    tackle_keeper:
+      greet:
+        1: "미끼, 낚싯대, 찌! 필요한 건 다 있어요."
+    shipwright:
+      greet:
+        1: "배가 상했으면 고쳐 주고, 더 먼 바다로 가려면 새로 지어 주지."
+    hermit:
+      greet:
+        1: "…초록 빛은 원수가 아니야."
+      green_light:
+        1: "바다에게 물어봐라. 바다는 다 기억하고 있다."
+      riddle:
+        1: "그날 밤 내가 본 것을 아무도 믿지 않았지."
+        2: "해일 앞으로 헤엄쳐 가던 그 녀석들을… 너는 믿겠느냐?"
+      revealed:
+        1: "그래, 내가 한결이다. 이 항구 등대를 지키던."
+        2: "한솔에게는… 아직 말하지 못했다."
+      after_memory:
+        1: "그 녀석들이 우리를 살렸다. 그게 그날 밤의 진실이야."
+    hangyeol:
+      greet:
+        1: "30년 만에 켜진 불빛이다."
+        2: "<player>, 고맙다. 네가 진실을 모아 주지 않았다면 여기까지 오지 못했을 거다."
+    coral:
+      greet:
+        1: "느긋하게 쉬어 가요. 섬에서는 바다가 시간을 정하니까."
+      secret:
+        1: "우리 섬 사람들은 30년 동안 한 번도 약속을 어기지 않았어요."
+        2: "매년 첫 물고기는 바다로 돌려보내죠. 그게 바다와의 약속이니까."
+    seori:
+      greet:
+        1: "…북쪽 바다는 차갑다. 조심해."
+      secret:
+        1: "얼음 속에 지켜 온 것이 있다."
+        2: "녀석들은 그날 밤 너희 항구를 위해 죽었어."
+    morae:
+      greet:
+        1: "해구 바닥에 뭔가 있어요! 분명 사람이 지은 거라니까요!"
+      secret:
+        1: "해저 유적의 문양… 옛 왕궁의 것과 똑같아요."
+        2: "가라앉은 건 왕궁이었던 거예요."
+    peddler:
+      greet:
+        1: "어이 거기! 이번에만 파는 물건이 있다네."
+      rumor:
+        1: "뇌우 치는 밤이면 낡은 배 한 척이 보인다더군. 선장이 혼잣말을 한다나."
+    captain:
+      first_meet:
+        1: "…이 바다도 많이 변했군."
+        2: "왕의 깃발 아래에서 그물을 내리던 시절이 있었지."
+      greet:
+        1: "폭풍이 그치면 나도 사라질 거다."
+  gift:
+    empty_hand: "<gray>선물할 물건을 손에 들어 주세요."
+    already: "<gray>오늘은 이미 선물을 드렸습니다."
+    changed: "<yellow>손에 든 물건이 바뀌어 선물을 취소했습니다."
+    confirm_unique: "<item>은(는) 하나뿐인 기록이 남은 물고기입니다. 정말 선물할까요?"
+    confirm_yes: "선물한다"
+    confirm_no: "그만둔다"
+    result: "<gray>호감도 <white><points>"
+    reaction:
+      love: "이건…! 정말 고마워요, <player>!"
+      like: "오, 좋은 걸 가져왔군요."
+      normal: "고마워요."
+      dislike: "…이건 좀 곤란한데요."
+    hansol:
+      love: "등대 언덕에서 잡히던 갈치로군… 형님이 좋아하던 거였지."
+      dislike: "…그 물고기는 치워 주게."
+  affinity:
+    level_up: "<light_purple><npc></light_purple>와(과)의 사이가 <white><level></white>(이)가 되었습니다."
+    view:
+      title: "호감도"
+      line: "<npc> <gray>· <white><level></white> (<points> / 다음 <next>)"
+      empty: "<gray>아직 친해진 사람이 없습니다."
+  reputation:
+    gained: "<aqua>항구 평판 +<amount>"
+    tier_up: "<aqua>항구 평판 등급이 <white><tier></white>(으)로 올랐습니다!"
+    tier_down: "<gray>항구 평판 등급이 <white><tier></white>(으)로 바뀌었습니다."
+    view:
+      title: "항구 평판"
+      current: "평판 <white><value></white> · 등급 <aqua><tier></aqua> <gray>(최고 <best>)"
+      next: "다음 등급 <aqua><tier></aqua>까지 <white><need></white><newline><gray><benefit>"
+      max: "<gold>최고 등급입니다."
+      recent_header: "<gray>최근 획득"
+      recent_line: "<dark_gray><time></dark_gray> <source> <white><delta>"
+    benefit:
+      2: "지역 NPC와 더 많은 이야기를 나눌 수 있습니다."
+      3: "경매 등록 슬롯 10, 개인 어항 +2"
+      4: "하우징 32 × 32"
+      5: "경매 등록 슬롯 15, 개인 어항 +4"
+    source:
+      main_story: "메인 스토리"
+      region_quest: "지역 퀘스트"
+      daily_request: "일일 의뢰"
+      weekly_request: "주간 의뢰"
+      collect_request: "수집 의뢰"
+      boss_first_kill: "해역 보스 첫 처치"
+      world_boss: "월드 보스"
+      release: "방류"
+      admin: "운영"
+      other: "기타"
+  cutscene:
+    skip_hint: "<gray>웅크리기 두 번: 건너뛰기"
+    subtitle: "<yellow><name></yellow><gray>:</gray> <text>"
+    narration: "<gray><italic><text>"
+    prologue:
+      title: "<white>크리퍼 항구"
+      subtitle: "<gray>프롤로그 · 표류"
+      narration_1: "폭풍이 지나간 새벽, 낡은 나룻배 한 척이 항구에 닿았다."
+      hansol_1: "…살아 있나? 정신 차려 보게."
+      hansol_2: "밤에 초록 불빛을 보거든 가까이 가지 마라."
+    green_night:
+      title: "<green>초록 폭발의 밤"
+      narration_1: "30년 전, 거대한 해일이 항구를 향해 밀려왔다."
+      hangyeol_1: "저 녀석들… 해일 앞으로 헤엄쳐 가고 있어!"
+    job_advance:
+      title: "<gold>전직"
+      subtitle: "<gray>한 단계 더 넓은 바다로"
+      bawi_1: "잘했다! 이제 너도 어엿한 어부다. 필요한 만큼만, 잊지 마라!"
+    climax:
+      title: "<green>등대가 다시 켜지는 날"
+      subtitle: "<gray>바다는 기억하는 이를 용서한다"
+      hangyeol_1: "한솔아, 그날 우릴 살린 건 저 녀석들이었다."
+      hansol_1: "…형님. 함께 불을 켭시다."
+  wanderer:
+    arrived: "<gold>[항구]</gold> <npc><white>이(가) <place>에 나타났습니다!"
+    place:
+      market_square: "어시장 광장"
+      lighthouse_hill: "등대 언덕"
+      swamp_dock: "늪지 나루터"
+      coral_beach: "산호섬 해변"
+  admin:
+    done: "<green>처리했습니다."
+    list_header: "<yellow>NPC <count>명"
+    list_line: "<gray> - <white><id></white> <name> <dark_gray>(<role>)</dark_gray> <where> <state>"
+    unknown_npc: "<red>없는 NPC이거나 지금 위치를 알 수 없습니다."
+    unknown_node: "<red>대화 노드를 열 수 없습니다: <node>"
+    unknown_candidate: "<red>없는 떠돌이 후보입니다: <candidate>"
+    unknown_cutscene: "<red>없는 컷씬입니다."
+    not_wanderer: "<red>떠돌이 NPC가 아닙니다."
+    not_playing: "<gray>재생 중인 컷씬이 없습니다."
+    no_restore: "<gray>복구 정보가 없습니다."
+    affinity: "<yellow><player> · <npc>: <white><points></white> (<level>)"
+    rep: "<yellow><player> 평판 <white><value></white> · 등급 <tier> <gray>(최고 <best>)"
+    rep_result: "<yellow>평판 처리: <white><status></white> → <value>"
+    wanderer: "<yellow><npc></yellow> 후보 <white><candidate></white> · 등장 <visible> · 강제 <forced> · 다음 이동 <next>"
+    cutscene_result: "<yellow>컷씬 결과: <white><result>"

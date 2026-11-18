@@ -1,0 +1,36 @@
+# 8. 신화 어종 (이벤트/시즌 한정). 원본: '2. 어종 목록 (시즌 1)'
+# 신화는 개인 확률 없이 해상 이벤트의 신화 창으로만 나온다 (fishing/sea_events.yml, harbor:event fish_effects).
+# region은 이벤트 해역 기준이며 맵 확정 전이라 모두 항구로 둔다 (제안값). NPC 판매 불가라 base_price 0.
+
+- id: fish/harbor_first_fish
+  no: 143
+  name: 항구의 첫 물고기
+  lore: "크리퍼 항구가 처음 세워진 날 잡혔다는 전설의 물고기. 항구가 다시 번영하자 돌아왔다."
+  grade: mythic
+  region: region/harbor
+  size_cm: [100, 200]
+  base_price: 0
+  model: harbor:fish/harbor_first_fish
+  season: 1
+
+- id: fish/ghost_captain_goldfish
+  no: 144
+  name: 유령선 선장의 금붕어
+  lore: "유령선 선장이 죽어서도 놓지 못한 어항 속 금붕어. 지금도 선장의 휘파람 소리에 반응한다."
+  grade: mythic
+  region: region/harbor
+  size_cm: [20, 40]
+  base_price: 0
+  model: harbor:fish/ghost_captain_goldfish
+  season: 1
+
+- id: fish/migration_leader
+  no: 145
+  name: 대이동의 인도자
+  lore: "물고기 대이동 때 모든 물고기 떼의 맨 앞에서 헤엄친다. 이 녀석을 잡으면 대이동이 끝난다."
+  grade: mythic
+  region: region/harbor
+  size_cm: [300, 600]
+  base_price: 0
+  model: harbor:fish/migration_leader
+  season: 1

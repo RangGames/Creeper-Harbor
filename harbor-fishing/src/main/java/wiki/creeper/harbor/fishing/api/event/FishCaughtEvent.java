@@ -6,6 +6,7 @@ import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.core.api.HarborItem;
+import wiki.creeper.harbor.fishing.api.CatchSource;
 
 /**
  * 포획 처리 후 (아이템 생성 뒤). Collection(도감·최대어), Quest(목표), Season(랭킹)이 듣는다. release_only 어종은 아이템 없이
@@ -21,6 +22,7 @@ public final class FishCaughtEvent extends PlayerEvent {
     private final boolean released;
     private final boolean firstCatch;
     private final boolean capped;
+    private final CatchSource source;
 
     public FishCaughtEvent(
             Player player,
@@ -30,6 +32,18 @@ public final class FishCaughtEvent extends PlayerEvent {
             boolean released,
             boolean firstCatch,
             boolean capped) {
+        this(player, fish, item, region, released, firstCatch, capped, CatchSource.ROD);
+    }
+
+    public FishCaughtEvent(
+            Player player,
+            FishDef fish,
+            HarborItem.Fish item,
+            RegionId region,
+            boolean released,
+            boolean firstCatch,
+            boolean capped,
+            CatchSource source) {
         super(player);
         this.fish = fish;
         this.item = item;
@@ -37,6 +51,12 @@ public final class FishCaughtEvent extends PlayerEvent {
         this.released = released;
         this.firstCatch = firstCatch;
         this.capped = capped;
+        this.source = source;
+    }
+
+    /** 낚싯대 미니게임(ROD) 또는 보스전 확정 포획(BOSS). */
+    public CatchSource source() {
+        return source;
     }
 
     public FishDef fish() {

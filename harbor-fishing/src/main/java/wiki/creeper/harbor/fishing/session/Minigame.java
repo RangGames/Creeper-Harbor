@@ -79,6 +79,7 @@ public final class Minigame {
     private @Nullable Pattern active;
     private int activeLeft;
     private @Nullable MinigameResult result;
+    private boolean endOnCaught = true;
 
     public Minigame(MinigameSpec spec, Gear gear, double lineStrengthStep, RandomGenerator random) {
         this.spec = spec;
@@ -130,7 +131,10 @@ public final class Minigame {
         tension = Math.clamp(tension, 0, 1.2);
 
         updatePhase();
-        if (hp <= 0) {
+        if (hp <= 0 && !endOnCaught) {
+            hp = 0;
+        }
+        if (hp <= 0 && endOnCaught) {
             result = MinigameResult.CAUGHT;
         } else if (tension >= 1) {
             result = MinigameResult.LINE_BROKE;
@@ -255,6 +259,26 @@ public final class Minigame {
 
     public @Nullable MinigameResult result() {
         return result;
+    }
+
+    /** 외부 힘 (보스 패턴): 텐션을 더한다. */
+    public void addTension(double delta) {
+        if (result == null) {
+            tension = Math.clamp(tension + delta, 0, 1.2);
+        }
+    }
+
+    /** 외부 피해 (작살): 최대 체력 대비 비율. */
+    public void damage(double fraction) {
+        if (result == null) {
+            hp = Math.max(0, hp - spec.hp() * fraction);
+            updatePhase();
+        }
+    }
+
+    /** false면 체력이 0이 되어도 끝내지 않는다 (Boss가 직접 끝냄). */
+    public void setEndOnCaught(boolean endOnCaught) {
+        this.endOnCaught = endOnCaught;
     }
 
     /** 외부 중단 (사망·이탈·접속 종료). */

@@ -1,0 +1,13 @@
+# 잡템 (Harbor-Fishing, 추가 제안 형식). 포획에 성공하면 지역 표의 항목마다 따로 굴려 맞은 것을 모두 추가 지급한다.
+# 확률: '13. 제작 · 상점 가격' 4장 (산호 조각 5% · 심해 결정 4%). 지역 키는 맵 확정 전에 미리 적어 둔다 (regions.yml에 없는 지역은 쓰이지 않음).
+
+regions:
+  region/coral_isles:
+    - {item: item/material/coral_fragment, chance: 0.05}
+  region/ash_trench:
+    - {item: item/material/deep_crystal, chance: 0.04}
+
+# 보물 지도: World가 TreasureDropHook을 등록했을 때만 판정. 확률 × (1 + treasure_map_chance, 보물 사냥꾼 +15%·랭크)
+treasure:
+  chance: 0.01          # 제안값
+  regions: []           # 비우면 모든 지역

@@ -12,8 +12,14 @@ import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.economy.content.EconomyContent;
 import wiki.creeper.harbor.economy.content.ShopDef;
+import wiki.creeper.harbor.fishing.content.FishingContent;
 import wiki.creeper.harbor.jobs.content.JobLineDef;
 import wiki.creeper.harbor.jobs.content.JobsContent;
+import wiki.creeper.harbor.npc.content.CutsceneDef;
+import wiki.creeper.harbor.npc.content.DialogDef;
+import wiki.creeper.harbor.npc.content.NpcContent;
+import wiki.creeper.harbor.npc.content.NpcDef;
+import wiki.creeper.harbor.season.content.SeasonContent;
 
 /**
  * 콘텐츠 검증 CLI. 서버와 같은 로더로 content/ YAML을 검사해서, 디자이너가 올린 YAML의 오류를 서버에 넣기 전에 CI에서 거른다.
@@ -38,8 +44,14 @@ public final class HarborTools {
         ContentLoader loader = new ContentLoader();
         CoreContent.register(loader);
         JobsContent.TYPES.forEach(loader::register);
+        FishingContent.TYPES.forEach(loader::register);
         CollectionContent.TYPES.forEach(loader::register);
         EconomyContent.TYPES.forEach(loader::register);
+        SeasonContent.TYPES.forEach(loader::register);
+        NpcContent.TYPES.forEach(loader::register);
+        loader.addCheck(DialogDef.TYPE, NpcContent.DIALOG_MESSAGES);
+        loader.addCheck(CutsceneDef.TYPE, NpcContent.CUTSCENE_MESSAGES);
+        loader.addCheck(NpcDef.TYPE, NpcContent.NPC_MESSAGES);
         loader.addCheck(ShopDef.TYPE, ShopDef.PRICE_CHECK);
         loader.addCheck(Balance.TYPE, JobsContent.CURVE_CHECK);
         loader.addCheck(JobLineDef.TYPE, JobsContent.CAPSTONE_CHECK);

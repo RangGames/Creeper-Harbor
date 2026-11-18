@@ -1,0 +1,24 @@
+# 해상 이벤트의 낚시 효과 (Harbor-Fishing, 추가 제안). World 스케줄러가 harbor:event 메시지의 fish_effects로 보내는 값의 기준표이고,
+# 운영자는 /harbor fishing event start <id>로 시험한다 (실행 ID = id_시각, 신화 마릿수는 실행마다 따로 센다). 일정은 World events.yml.
+# mythic: 이벤트 참가자(해역 안에서 낚시) 캐스팅당 chance(+ 신화의 예감 mythic_chance), 이벤트당 서버 최대 cap마리 (cap은 제안값)
+# species_weight: 어종 단계 배율 (물고기 대이동 ×3, 희귀 이상 +60% 상한과 별개)
+
+events:
+  - id: first_fish_return            # 클라이맥스 다음 날 '첫 물고기의 귀환' (이후 매 시즌 첫 물고기 날)
+    region: region/harbor
+    duration_min: 1440
+    fish_effects:
+      - {type: mythic, fish: fish/harbor_first_fish, chance: 0.01, cap: 5}
+  - id: ghost_ship                   # 유령선 습격
+    region: region/harbor
+    duration_min: 60
+    fish_effects:
+      - {type: mythic, fish: fish/ghost_captain_goldfish, chance: 0.01, cap: 3}
+  - id: great_migration              # 물고기 대이동 (시즌 중반). 대상 어종 ×3 + 대이동의 인도자
+    region: region/harbor
+    duration_min: 180
+    fish_effects:
+      - {type: species_weight, fish: fish/harbor_mackerel, mult: 3}
+      - {type: species_weight, fish: fish/silver_anchovy, mult: 3}
+      - {type: species_weight, fish: fish/storm_sea_bass, mult: 3}
+      - {type: mythic, fish: fish/migration_leader, chance: 0.01, cap: 3}

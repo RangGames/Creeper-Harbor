@@ -1,0 +1,51 @@
+# 요리 ('3. 아이템 목록' 8장). 버프는 fishing/food.yml (Harbor-Fishing, 출처 food:, 1종만 적용). 레시피는 Economy (요리 화로).
+
+- id: item/food/grilled_fish
+  name: 생선구이
+  lore: "소금 한 꼬집이면 충분하다."
+  type: food
+  grade: common
+  base_item: minecraft:cooked_cod
+  model: harbor:food/grilled_fish
+  tradeable: true
+  season_reset: true
+
+- id: item/food/spicy_stew
+  name: 항구식 매운탕
+  lore: "항구 어부들이 새벽 출항 전에 한 그릇씩 비우는 국."
+  type: food
+  grade: uncommon
+  base_item: minecraft:mushroom_stew
+  model: harbor:food/spicy_stew
+  tradeable: true
+  season_reset: true
+
+- id: item/food/sashimi_platter
+  name: 모둠회 한 접시
+  lore: "신선한 회는 운을 부른다는 미신이 있다."
+  type: food
+  grade: rare
+  base_item: minecraft:cooked_salmon
+  model: harbor:food/sashimi_platter
+  tradeable: true
+  season_reset: true
+
+- id: item/food/fjord_soup
+  name: 협만 생선 수프
+  lore: "뜨끈한 수프 한 그릇이면 얼음 바다도 견딜 만하다."
+  type: food
+  grade: uncommon
+  base_item: minecraft:beetroot_soup
+  model: harbor:food/fjord_soup
+  tradeable: true
+  season_reset: true
+
+- id: item/food/lucky_tea
+  name: 행운의 차
+  lore: "은은한 빛이 감도는 차. 마시면 손끝 감각이 예민해진다."
+  type: food
+  grade: rare
+  base_item: minecraft:honey_bottle
+  model: harbor:food/lucky_tea
+  tradeable: true
+  season_reset: true

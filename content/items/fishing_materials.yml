@@ -1,0 +1,21 @@
+# 낚시 잡템 재료 ('13. 제작 · 상점 가격' 4장). 확률은 fishing/junk.yml.
+
+- id: item/material/coral_fragment
+  name: 산호 조각
+  lore: "파도에 깎여 반들반들해진 산호. 낚싯대와 통발 재료로 쓴다."
+  type: material
+  grade: uncommon
+  base_item: minecraft:prismarine_shard
+  model: harbor:material/coral_fragment
+  tradeable: true
+  season_reset: true
+
+- id: item/material/deep_crystal
+  name: 심해 결정
+  lore: "빛이 닿지 않는 해구 바닥에서 저절로 자란 결정. 손에 쥐면 차갑다."
+  type: material
+  grade: rare
+  base_item: minecraft:amethyst_shard
+  model: harbor:material/deep_crystal
+  tradeable: true
+  season_reset: true

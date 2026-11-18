@@ -1,0 +1,48 @@
+# 통발 ('3. 아이템 목록' 4장, '13. 제작 · 상점 가격' 2·3장). Harbor-Fishing이 읽는 stats:
+#   slots 기본 슬롯 · max_grade 산출 최고 등급(1 일반 ~ 4 영웅) · cycle_mult 주기 배율 · tier 통발 단계(슬롯 확장 가격) · deep 심해(생산 캡스톤 필요)
+# 제작 레시피는 Economy (철 통발 = 나무 통발 + 철 주괴 8 + 1,500G …).
+
+- id: item/trap/wood
+  name: 나무 통발
+  lore: "할아버지 때부터 써온 나무 통발. 아직 쓸 만하다."
+  type: trap
+  grade: common
+  base_item: minecraft:barrel
+  model: harbor:trap/wood
+  stats: {slots: 3, max_grade: 1, cycle_mult: 1.0, tier: 1}
+  buy_price: 500
+  tradeable: true
+  season_reset: true
+
+- id: item/trap/iron
+  name: 철 통발
+  lore: "녹슬지 않게 기름칠을 잊지 말 것."
+  type: trap
+  grade: uncommon
+  base_item: minecraft:barrel
+  model: harbor:trap/iron
+  stats: {slots: 6, max_grade: 2, cycle_mult: 1.0, tier: 2}
+  tradeable: true
+  season_reset: true
+
+- id: item/trap/coral
+  name: 산호 통발
+  lore: "물고기들이 산호인 줄 알고 들어온다."
+  type: trap
+  grade: rare
+  base_item: minecraft:barrel
+  model: harbor:trap/coral
+  stats: {slots: 9, max_grade: 3, cycle_mult: 0.9, tier: 3}
+  tradeable: true
+  season_reset: true
+
+- id: item/trap/deep
+  name: 심해 통발
+  lore: "해구 바닥까지 내려가는 통발. 무엇이 들어 있을지 매번 설렌다."
+  type: trap
+  grade: epic
+  base_item: minecraft:barrel
+  model: harbor:trap/deep
+  stats: {slots: 12, max_grade: 4, cycle_mult: 1.0, tier: 4, deep: 1}
+  tradeable: true
+  season_reset: true

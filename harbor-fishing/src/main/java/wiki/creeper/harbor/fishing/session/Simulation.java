@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.SplittableRandom;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.FishId;
@@ -30,7 +29,17 @@ final class Simulation {
         SplittableRandom random = new SplittableRandom();
         RollContext ctx =
                 new RollContext(
-                        region, "day", "clear", "", null, 3, flag -> true, fish -> false, Set.of());
+                        region,
+                        "day",
+                        "clear",
+                        "",
+                        null,
+                        3,
+                        flag -> true,
+                        fish -> false,
+                        List.of(),
+                        false,
+                        List.of());
         Map<Grade, Integer> grades = new EnumMap<>(Grade.class);
         Map<FishId, Integer> species = new HashMap<>();
         Map<FishId, Integer> pity = new HashMap<>();

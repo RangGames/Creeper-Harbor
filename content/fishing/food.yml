@@ -1,0 +1,22 @@
+# 요리 버프 (Harbor-Fishing, docs 20 0.1). 요리(items의 type: food)를 다 먹으면 효과를 출처 food:<이름>으로 건다.
+# 요리 버프는 1종만 적용된다: 다른 요리를 먹으면 앞 버프가 사라진다 ('7. 밸런스 기획' 4.2).
+# 지속 시간 × (1 + food_buff_duration, 요리사 +25%·랭크). shareable이면 연회 요리(feast_share)로 근처 파티원에게도 건다.
+# 효과·시간은 '3. 아이템 목록' 8장. 생선구이는 허기 회복뿐이라 버프가 없다.
+
+buffs:
+  - item: item/food/spicy_stew
+    duration_s: 600
+    effects:
+      - {modifier: bite_wait, value: -0.05}
+  - item: item/food/sashimi_platter
+    duration_s: 600
+    effects:
+      - {modifier: rare_weight, value: 0.03}
+  - item: item/food/fjord_soup
+    duration_s: 600                       # 제안값 (문서에 시간 없음)
+    effects:
+      - {modifier: cold_debuff_time, value: -0.5}   # 혹한 디버프 시간 -50% (World가 읽는 키, 제안)
+  - item: item/food/lucky_tea
+    duration_s: 1800
+    effects:
+      - {modifier: size_luck, value: 0.1}

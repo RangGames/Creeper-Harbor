@@ -13,3 +13,7 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    Harbor-Season:
+      load: BEFORE
+      required: false
+      join-classpath: true

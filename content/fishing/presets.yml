@@ -1,0 +1,54 @@
+# 등급별 낚시 연출 프리셋 (docs 20 3.3 FishingPreset, '4. 낚시 연출 & 보스전' 1장).
+# shadow_rig: 어종 리그(rig/fish/<어종 이름>)가 없을 때 쓰는 그림자 리그. 리그가 없으면 shadow_model 아이템 하나로 그린다
+# shadow_scale: 그림자 크기 (전설은 배보다 크게) · glow: 그림자 감별(feature_shadow_grade) 테두리 색
+# bite·catch.flags: darkness title shake pillar firework dialog nearby
+# 효과음·파티클 키는 리소스팩 사운드가 준비되면 harbor:fishing/... 로 바꾼다.
+
+grades:
+  common:
+    shadow_rig: rig/fish/shadow_small
+    shadow_model: harbor:rig/shadow/small
+    shadow_scale: 0.6
+    bite: {sound: "minecraft:entity.fishing_bobber.splash", particle: splash, count: 8}
+    catch: {sound: "minecraft:entity.player.splash", particle: splash, count: 10}
+  uncommon:
+    shadow_rig: rig/fish/shadow_small
+    shadow_model: harbor:rig/shadow/small
+    shadow_scale: 0.8
+    glow: "#55ff55"
+    bite: {sound: "minecraft:entity.fishing_bobber.splash", particle: splash, count: 12}
+    catch: {sound: "minecraft:entity.player.splash", particle: splash, count: 14}
+  rare:
+    shadow_rig: rig/fish/shadow_small
+    shadow_model: harbor:rig/shadow/small
+    shadow_scale: 1.0
+    glow: "#3b82f6"
+    bite: {sound: "minecraft:entity.fishing_bobber.splash", particle: bubble_pop, count: 20, flags: [shake]}
+    catch: {sound: "minecraft:entity.player.levelup", particle: end_rod, count: 20, flags: [pillar, nearby]}
+  epic:
+    shadow_rig: rig/fish/shadow_small
+    shadow_model: harbor:rig/shadow/small
+    shadow_scale: 1.4
+    glow: "#a855f7"
+    bite: {sound: "minecraft:block.bell.use", particle: bubble_pop, count: 30, flags: [shake]}
+    catch: {sound: "minecraft:ui.toast.challenge_complete", particle: end_rod, count: 30, flags: [pillar, nearby, dialog]}
+  legendary:
+    shadow_rig: rig/fish/shadow_small
+    shadow_model: harbor:rig/shadow/small
+    shadow_scale: 3.0
+    glow: "#f5c542"
+    bite: {sound: "minecraft:entity.lightning_bolt.thunder", particle: bubble_column_up, count: 40, flags: [darkness, title, shake]}
+    catch: {sound: "minecraft:ui.toast.challenge_complete", particle: totem_of_undying, count: 60, flags: [pillar, firework, nearby, dialog]}
+  mythic:
+    shadow_rig: rig/fish/shadow_small
+    shadow_model: harbor:rig/shadow/small
+    shadow_scale: 3.5
+    glow: "#ff4fd8"
+    bite: {sound: "minecraft:entity.lightning_bolt.thunder", particle: bubble_column_up, count: 50, flags: [darkness, title, shake]}
+    catch: {sound: "minecraft:ui.toast.challenge_complete", particle: totem_of_undying, count: 80, flags: [pillar, firework, nearby, dialog]}
+
+# 연출 강도(/낚시 설정)별로 생략할 항목: 0 최소 · 1 보통 · 2 최대
+intensity:
+  0: [darkness, shake, pillar, firework, dialog, jump_viewers, shadow]
+  1: [darkness, firework, jump_viewers]
+  2: []

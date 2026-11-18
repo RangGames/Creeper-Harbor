@@ -1,0 +1,27 @@
+# 낚시 규칙이 걸린 미끼 ('3. 아이템 목록' 3장). Harbor-Fishing이 읽는 stats:
+#   legend_only: 1 → 전설의 미끼 (D8: 전설 어종을 실제로 낚았을 때만 1개 소모, 통발에는 못 넣음)
+#   uses: N → 차감 대신 남은 횟수를 줄임 (반짝이 루어 100회)
+#   rare_weight · epic_weight · bite_wait → 판정 보정 (미끼·장비 범주)
+
+- id: item/bait/legendary
+  name: 전설의 미끼
+  lore: "바다가 한 번만 허락하는 미끼. 무엇을 낚을지 신중히 고를 것."
+  type: bait
+  grade: legendary
+  base_item: minecraft:glow_berries
+  model: harbor:bait/legendary
+  stats: {legend_only: 1}
+  tradeable: true
+  season_reset: true
+
+- id: item/bait/shiny_lure
+  name: 반짝이 루어
+  lore: "햇빛에 반짝이며 작은 물고기 흉내를 낸다."
+  type: bait
+  grade: uncommon
+  base_item: minecraft:tripwire_hook
+  model: harbor:bait/shiny_lure
+  stats: {uses: 100}
+  buy_price: 1200
+  tradeable: true
+  season_reset: true
