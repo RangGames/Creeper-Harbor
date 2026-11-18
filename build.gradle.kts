@@ -1,7 +1,7 @@
 // 서버에 넣을 jar만 한 폴더로 모은다.
 //   ./gradlew dist   (./gradlew shadowJar, ./gradlew build도 마지막에 dist를 실행)
 // 결과:
-//   build/dist/purpur/plugins/    Harbor-Core(Common 포함) + 게임 모듈 11개 + Harbor/content/
+//   build/dist/purpur/plugins/    Harbor-Core(Common·기본 콘텐츠 포함) + 게임 모듈 11개
 //   build/dist/velocity/plugins/  Harbor-Proxy(Common·Lettuce 등 포함)
 // harbor-common은 Core·Proxy jar 안에 들어 있으므로 따로 넣지 않는다. harbor-tools는 CI용 CLI라 제외한다.
 // 게임 모듈은 Core가 런타임을 제공해서 품을 라이브러리가 없으므로 shadowJar가 없고 일반 jar가 곧 플러그인이다.
@@ -52,9 +52,6 @@ val dist by tasks.registering(Sync::class) {
     into("purpur/plugins") {
         from(shadedPurpurPlugins, modulePlugins)
         rename { it.replace(versionSuffix, ".jar") }
-    }
-    into("purpur/plugins/Harbor/content") {
-        from(layout.projectDirectory.dir("content"))
     }
     into("velocity/plugins") {
         from(shadedVelocityPlugins)

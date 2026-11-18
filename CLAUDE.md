@@ -74,7 +74,7 @@ content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regi
 - 남은 것: 해저 유적 던전과 Phase 3 보스 4종(콘텐츠), 메인 4~7장 퀘스트(클라이맥스 조건), 리소스팩 모델·구조물(.nbt)·해도 이미지, 패킷 전용 표시 방식, Tebex 서명 형식 확인(법률 검토 항목), Core가 시즌 번호를 season_meta에서 읽기·프록시 점검 전환 API, 채팅에 이름 색·칭호 싣기.
 - 미니게임 조작은 Shift 감기 + A/D 방향 (consumable 방식은 Phase 1 검증 뒤). 모듈 콘텐츠 형식은 서버 API 없는 `XxxContent`로 모아 플러그인과 harbor-tools가 같이 등록한다. season 열이 있는 새 테이블은 content/season/reset_plan.yml에 넣어야 Season이 로드를 허용한다.
 
-로컬 실행: `plugins/Harbor/harbor-infra.yml`(처음 실행 때 기본값 생성)에 DB·Redis 접속 정보를 넣고 `./gradlew :harbor-core:runServer`.
+로컬 실행: `plugins/Harbor/harbor-infra.yml`(처음 실행 때 기본값 생성)에 DB·Redis 접속 정보를 넣고 `./gradlew :harbor-core:runServer`. 콘텐츠는 Core jar에 기본값으로 들어 있어 `plugins/Harbor/content`에 없는 파일만 시작 때 만들어진다 (있는 파일은 덮어쓰지 않으므로 콘텐츠 갱신은 직접 복사한다. runServer는 저장소 content/를 동기화).
 
 ## 작업 규칙
 

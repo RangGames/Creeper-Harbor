@@ -32,8 +32,27 @@ val generateLibraryList by tasks.registering {
     }
 }
 
+// 저장소의 content/를 기본 콘텐츠로 jar에 넣는다 (harbor-content/ + 파일 목록 harbor-content.txt).
+// Core가 처음 시작할 때 plugins/Harbor/content에 없는 파일만 풀어 놓는다 (DefaultContent)
+val bundleDefaultContent by tasks.registering(Sync::class) {
+    val outputRoot = layout.buildDirectory.dir("generated/harbor-default-content")
+    from(rootProject.layout.projectDirectory.dir("content")) { into("harbor-content") }
+    into(outputRoot)
+    doLast {
+        val root = outputRoot.get().dir("harbor-content").asFile
+        val files = root.walkTopDown()
+            .filter { it.isFile }
+            .map { it.relativeTo(root).invariantSeparatorsPath }
+            .sorted()
+            .toList()
+        outputRoot.get().file("harbor-content.txt").asFile
+            .writeText(files.joinToString("\n", postfix = "\n"))
+    }
+}
+
 sourceSets.main {
     resources.srcDir(generateLibraryList)
+    resources.srcDir(bundleDefaultContent)
 }
 
 tasks.shadowJar {

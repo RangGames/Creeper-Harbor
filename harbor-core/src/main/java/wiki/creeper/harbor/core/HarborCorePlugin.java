@@ -34,6 +34,7 @@ import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.border.WorldBorderManager;
 import wiki.creeper.harbor.core.chat.ChatBridge;
 import wiki.creeper.harbor.core.command.HarborCommand;
+import wiki.creeper.harbor.core.content.DefaultContent;
 import wiki.creeper.harbor.core.content.HarborContent;
 import wiki.creeper.harbor.core.currency.CurrencyManager;
 import wiki.creeper.harbor.core.currency.SeasonBalanceStore;
@@ -63,7 +64,7 @@ import wiki.creeper.harbor.core.task.Tasks;
  *   <li>onDisable: 새 접속 차단 → 접속자 데이터 저장 → 지연 쓰기 큐 비우기 → 연결 종료
  * </ol>
  *
- * 공유 폴더는 plugins/Harbor/ (harbor-infra.yml, content/).
+ * 공유 폴더는 plugins/Harbor/ (harbor-infra.yml, content/). 둘 다 없으면 jar에 든 기본값으로 만든다.
  */
 public final class HarborCorePlugin extends JavaPlugin implements Listener {
 
@@ -133,6 +134,13 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         Path configuredContent = infra.contentDir();
         Path contentRoot =
                 configuredContent != null ? configuredContent : harborDir.resolve("content");
+        if (configuredContent == null) {
+            // 기본 폴더면 jar에 든 기본 콘텐츠 중 없는 파일만 채운다 (따로 지정한 폴더는 건드리지 않는다)
+            int created = DefaultContent.extractMissing(this::getResource, contentRoot);
+            if (created > 0) {
+                log.info("기본 콘텐츠 파일 {}개를 만들었습니다: {}", created, contentRoot);
+            }
+        }
         HarborContent content = new HarborContent(contentRoot, tasks, log);
         Result<ContentSnapshot, ValidationErrors> contentResult = content.loadBlocking();
         if (contentResult
