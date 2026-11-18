@@ -139,10 +139,24 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         Path contentRoot =
                 configuredContent != null ? configuredContent : harborDir.resolve("content");
         if (configuredContent == null) {
-            // 기본 폴더면 jar에 든 기본 콘텐츠 중 없는 파일만 채운다 (따로 지정한 폴더는 건드리지 않는다)
-            int created = DefaultContent.extractMissing(this::getResource, contentRoot);
-            if (created > 0) {
-                log.info("기본 콘텐츠 파일 {}개를 만들었습니다: {}", created, contentRoot);
+            // 기본 폴더면 jar의 기본 콘텐츠에 맞춘다: 없는 파일 생성, 고치지 않은 파일 갱신, 고친 파일은 유지 (따로 지정한 폴더는 건드리지 않는다)
+            DefaultContent.SyncResult synced = DefaultContent.sync(this::getResource, contentRoot);
+            if (synced.created() + synced.updated() + synced.removed() > 0) {
+                log.info(
+                        "기본 콘텐츠 맞춤: 새로 {}개, 갱신 {}개, 삭제 {}개 ({})",
+                        synced.created(),
+                        synced.updated(),
+                        synced.removed(),
+                        contentRoot);
+            }
+            if (synced.backup() != null) {
+                log.warn("기록이 없는 옛 콘텐츠 폴더라 바뀐 파일의 원본을 {}에 옮겨 두었습니다", synced.backup());
+            }
+            if (!synced.keptModified().isEmpty()) {
+                log.warn(
+                        "서버에서 고친 콘텐츠 파일 {}개는 새 기본값으로 바꾸지 않았습니다: {}",
+                        synced.keptModified().size(),
+                        synced.keptModified());
             }
         }
         HarborContent content = new HarborContent(contentRoot, tasks, log);
