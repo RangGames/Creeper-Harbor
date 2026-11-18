@@ -1,0 +1,198 @@
+# 선박 장식 리그 (docs 20 8.4 '장식'). 선체·돛·깃발을 Display 묶음으로 만들어 보트의 두 번째 승객 자리에 태운다.
+# BM 선박 스킨은 decor 리그만 바꾼다 (world/ships.yml decor, 선단 후원자는 decor_donor). item_model 키는 리소스팩 자리 (예시).
+# 동작: sail (깃발·돛 펄럭임, 기본), storm (폭풍 중 크게 흔들림)
+
+- id: rig/ship/rowboat
+  length: 0.9
+  forward: -z
+  view_range: 3.0
+  default_animation: sail
+  bones:
+    - name: hull
+      part: {item_model: "harbor:rig/ship/rowboat/hull"}
+    - name: flag
+      parent: hull
+      pivot: [0, 0.5, 0.5]
+      part: {item_model: "harbor:rig/ship/rowboat/flag", scale: 0.4}
+  animations:
+    sail:
+      length: 40
+      mode: loop
+      bones:
+        flag:
+          rotation:
+            - {t: 0, v: [0, -12, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 12, 0], ease: ease_in_out}
+            - {t: 40, v: [0, -12, 0]}
+    storm:
+      length: 20
+      mode: loop
+      bones:
+        hull:
+          rotation:
+            - {t: 0, v: [0, 0, -6], ease: ease_in_out}
+            - {t: 10, v: [0, 0, 6], ease: ease_in_out}
+            - {t: 20, v: [0, 0, -6]}
+        flag:
+          rotation:
+            - {t: 0, v: [0, -30, 0]}
+            - {t: 5, v: [0, 30, 0]}
+            - {t: 10, v: [0, -30, 0]}
+            - {t: 15, v: [0, 30, 0]}
+            - {t: 20, v: [0, -30, 0]}
+
+- id: rig/ship/harbor_trawler
+  length: 1.1
+  forward: -z
+  view_range: 3.0
+  default_animation: sail
+  bones:
+    - name: hull
+      part: {item_model: "harbor:rig/ship/harbor_trawler/hull"}
+    - name: mast
+      parent: hull
+      pivot: [0, 0.4, -0.2]
+      part: {item_model: "harbor:rig/ship/harbor_trawler/mast"}
+    - name: sail
+      parent: mast
+      pivot: [0, 1.0, 0]
+      part: {item_model: "harbor:rig/ship/harbor_trawler/sail"}
+    - name: flag
+      parent: mast
+      pivot: [0, 1.9, 0]
+      part: {item_model: "harbor:rig/ship/harbor_trawler/flag", scale: 0.6}
+  animations:
+    sail:
+      length: 40
+      mode: loop
+      bones:
+        flag:
+          rotation:
+            - {t: 0, v: [0, -12, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 12, 0], ease: ease_in_out}
+            - {t: 40, v: [0, -12, 0]}
+        sail:
+          scale:
+            - {t: 0, v: [1, 1, 1], ease: ease_in_out}
+            - {t: 20, v: [1, 1, 1.06], ease: ease_in_out}
+            - {t: 40, v: [1, 1, 1]}
+    storm:
+      length: 20
+      mode: loop
+      bones:
+        hull:
+          rotation:
+            - {t: 0, v: [0, 0, -6], ease: ease_in_out}
+            - {t: 10, v: [0, 0, 6], ease: ease_in_out}
+            - {t: 20, v: [0, 0, -6]}
+        flag:
+          rotation:
+            - {t: 0, v: [0, -30, 0]}
+            - {t: 5, v: [0, 30, 0]}
+            - {t: 10, v: [0, -30, 0]}
+            - {t: 15, v: [0, 30, 0]}
+            - {t: 20, v: [0, -30, 0]}
+
+- id: rig/ship/icebreaker
+  length: 1.3
+  forward: -z
+  view_range: 3.0
+  default_animation: sail
+  bones:
+    - name: hull
+      part: {item_model: "harbor:rig/ship/icebreaker/hull"}
+    - name: mast
+      parent: hull
+      pivot: [0, 0.4, -0.2]
+      part: {item_model: "harbor:rig/ship/icebreaker/mast"}
+    - name: sail
+      parent: mast
+      pivot: [0, 1.0, 0]
+      part: {item_model: "harbor:rig/ship/icebreaker/sail"}
+    - name: flag
+      parent: mast
+      pivot: [0, 1.9, 0]
+      part: {item_model: "harbor:rig/ship/icebreaker/flag", scale: 0.6}
+  animations:
+    sail:
+      length: 40
+      mode: loop
+      bones:
+        flag:
+          rotation:
+            - {t: 0, v: [0, -12, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 12, 0], ease: ease_in_out}
+            - {t: 40, v: [0, -12, 0]}
+        sail:
+          scale:
+            - {t: 0, v: [1, 1, 1], ease: ease_in_out}
+            - {t: 20, v: [1, 1, 1.06], ease: ease_in_out}
+            - {t: 40, v: [1, 1, 1]}
+    storm:
+      length: 20
+      mode: loop
+      bones:
+        hull:
+          rotation:
+            - {t: 0, v: [0, 0, -6], ease: ease_in_out}
+            - {t: 10, v: [0, 0, 6], ease: ease_in_out}
+            - {t: 20, v: [0, 0, -6]}
+        flag:
+          rotation:
+            - {t: 0, v: [0, -30, 0]}
+            - {t: 5, v: [0, 30, 0]}
+            - {t: 10, v: [0, -30, 0]}
+            - {t: 15, v: [0, 30, 0]}
+            - {t: 20, v: [0, -30, 0]}
+
+- id: rig/ship/ocean_explorer
+  length: 1.6
+  forward: -z
+  view_range: 3.0
+  default_animation: sail
+  bones:
+    - name: hull
+      part: {item_model: "harbor:rig/ship/ocean_explorer/hull"}
+    - name: mast
+      parent: hull
+      pivot: [0, 0.4, -0.2]
+      part: {item_model: "harbor:rig/ship/ocean_explorer/mast"}
+    - name: sail
+      parent: mast
+      pivot: [0, 1.0, 0]
+      part: {item_model: "harbor:rig/ship/ocean_explorer/sail"}
+    - name: flag
+      parent: mast
+      pivot: [0, 1.9, 0]
+      part: {item_model: "harbor:rig/ship/ocean_explorer/flag", scale: 0.6}
+  animations:
+    sail:
+      length: 40
+      mode: loop
+      bones:
+        flag:
+          rotation:
+            - {t: 0, v: [0, -12, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 12, 0], ease: ease_in_out}
+            - {t: 40, v: [0, -12, 0]}
+        sail:
+          scale:
+            - {t: 0, v: [1, 1, 1], ease: ease_in_out}
+            - {t: 20, v: [1, 1, 1.06], ease: ease_in_out}
+            - {t: 40, v: [1, 1, 1]}
+    storm:
+      length: 20
+      mode: loop
+      bones:
+        hull:
+          rotation:
+            - {t: 0, v: [0, 0, -6], ease: ease_in_out}
+            - {t: 10, v: [0, 0, 6], ease: ease_in_out}
+            - {t: 20, v: [0, 0, -6]}
+        flag:
+          rotation:
+            - {t: 0, v: [0, -30, 0]}
+            - {t: 5, v: [0, 30, 0]}
+            - {t: 10, v: [0, -30, 0]}
+            - {t: 15, v: [0, 30, 0]}
+            - {t: 20, v: [0, -30, 0]}

@@ -15,6 +15,7 @@ import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.content.type.CoreContent;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.content.type.ItemDef;
+import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.core.api.ContentService;
@@ -39,6 +40,7 @@ public final class HarborContent implements ContentService {
         loader.addCheck(ItemDef.TYPE, (item, ctx) -> checkMaterial(item.baseItem(), ctx));
         loader.addCheck(ItemDef.TYPE, (item, ctx) -> checkModel(item.model(), ctx));
         loader.addCheck(FishDef.TYPE, (fish, ctx) -> checkModel(fish.model(), ctx));
+        loader.addCheck(RigDef.TYPE, HarborContent::checkRigParts);
     }
 
     /** 모듈의 콘텐츠 형식 등록. 등록 후 {@link #loadBlocking()} 또는 reload로 다시 읽어야 반영된다. */
@@ -106,6 +108,31 @@ public final class HarborContent implements ContentService {
         Material material = Material.matchMaterial(baseItem);
         if (material == null || !material.isItem()) {
             ctx.error("base_item '" + baseItem + "'는 바닐라 아이템이 아닙니다");
+        }
+    }
+
+    /** 리그 부품의 item_model 키와 블록 상태가 서버에서 읽히는지. */
+    private static void checkRigParts(RigDef rig, ContentCheck.Context ctx) {
+        for (RigDef.Bone bone : rig.bones()) {
+            RigDef.Part part = bone.part();
+            if (part == null) {
+                continue;
+            }
+            switch (part.kind()) {
+                case ITEM -> checkModel(part.model(), ctx);
+                case BLOCK -> {
+                    try {
+                        var _ = Bukkit.createBlockData(part.model());
+                    } catch (IllegalArgumentException e) {
+                        ctx.error(
+                                "뼈 '"
+                                        + bone.name()
+                                        + "'의 block '"
+                                        + part.model()
+                                        + "'는 블록 상태가 아닙니다 (예: minecraft:kelp_plant)");
+                    }
+                }
+            }
         }
     }
 

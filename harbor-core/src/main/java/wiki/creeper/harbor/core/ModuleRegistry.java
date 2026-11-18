@@ -15,6 +15,7 @@ import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.db.Migrations;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
+import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborModule;
 import wiki.creeper.harbor.core.api.ModuleContext;
@@ -62,6 +63,7 @@ final class ModuleRegistry implements ModuleHost {
         private final HarborModule module;
         private final Tasks tasks;
         private final List<ContentType<?>> addedTypes = new ArrayList<>();
+        private final List<Runnable> cleanups = new ArrayList<>();
 
         ModuleHandle(HarborModule module) {
             this.module = module;
@@ -98,6 +100,8 @@ final class ModuleRegistry implements ModuleHost {
         @Override
         public void detach() {
             tasks.cancelAll();
+            cleanups.forEach(Runnable::run);
+            cleanups.clear();
             modules.remove(module.moduleId(), module);
         }
 
@@ -154,6 +158,11 @@ final class ModuleRegistry implements ModuleHost {
         @Override
         public void listen(Listener listener) {
             Bukkit.getPluginManager().registerEvents(listener, module);
+        }
+
+        @Override
+        public void handoffBlocker(HandoffBlocker blocker) {
+            cleanups.add(players.addHandoffBlocker(blocker));
         }
     }
 }

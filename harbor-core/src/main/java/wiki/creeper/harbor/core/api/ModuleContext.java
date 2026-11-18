@@ -31,4 +31,7 @@ public interface ModuleContext {
     void migrate();
 
     void listen(Listener listener);
+
+    /** 서버 이동 전 훅. 모듈이 꺼지면 자동 해제한다. */
+    void handoffBlocker(HandoffBlocker blocker);
 }

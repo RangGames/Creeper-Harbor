@@ -12,7 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +43,7 @@ import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.common.session.ClaimResult;
 import wiki.creeper.harbor.common.session.SessionAudit;
 import wiki.creeper.harbor.common.session.SessionLocks;
+import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.PlayerComponent;
@@ -88,6 +91,8 @@ public final class PlayerManager implements PlayerService, Listener {
     private final Logger log;
     private final boolean readOnly;
     private volatile boolean acceptingLogins = true;
+
+    private final List<HandoffBlocker> handoffBlockers = new CopyOnWriteArrayList<>();
 
     public PlayerManager(
             InfraConfig infra,
@@ -262,6 +267,12 @@ public final class PlayerManager implements PlayerService, Listener {
 
     // ------------------------------------------------------------------ 서버 이동 (출발 서버)
 
+    /** 이동 전 훅 등록 (docs 20 0.2 HandoffBlocker). 돌려준 Runnable을 부르면 해제한다. */
+    public Runnable addHandoffBlocker(HandoffBlocker blocker) {
+        handoffBlockers.add(blocker);
+        return () -> handoffBlockers.remove(blocker);
+    }
+
     private void prepareTransfer(TransferPrepare request) {
         UUID uuid = request.player();
         PlayerState state = online.get(uuid);
@@ -272,7 +283,53 @@ public final class PlayerManager implements PlayerService, Listener {
                     new TransferReady(request.requestId(), uuid, false, reason));
             return;
         }
+        // 모듈 훅: 거부(컷씬 중 등)면 바로 취소, 지연(거래·기부 진행 중)이면 최대 4초 기다린다
+        Player player = Bukkit.getPlayer(uuid);
+        List<CompletableFuture<?>> delays = new ArrayList<>();
+        if (player != null) {
+            for (HandoffBlocker blocker : handoffBlockers) {
+                HandoffBlocker.Verdict verdict;
+                try {
+                    verdict = blocker.check(player, request.destination());
+                } catch (RuntimeException e) {
+                    log.error("이동 전 훅 오류 (무시하고 진행): {}", uuid, e);
+                    continue;
+                }
+                switch (verdict) {
+                    case HandoffBlocker.Deny(String reason) -> {
+                        messages.send(player, "core.handoff.blocked." + reason);
+                        bus.publish(
+                                ProxyMessages.toProxy(TransferReady.class),
+                                new TransferReady(
+                                        request.requestId(), uuid, false, "blocked:" + reason));
+                        return;
+                    }
+                    case HandoffBlocker.Delay(CompletableFuture<?> until) -> delays.add(until);
+                    case HandoffBlocker.Allow() -> {}
+                }
+            }
+        }
         state.setHandoffRequest(request.requestId());
+        if (delays.isEmpty()) {
+            beginTransfer(request, state);
+            return;
+        }
+        var _ =
+                CompletableFuture.allOf(delays.toArray(CompletableFuture[]::new))
+                        .orTimeout(HandoffBlocker.MAX_DELAY_MILLIS, TimeUnit.MILLISECONDS)
+                        .handle((ok, error) -> null)
+                        .thenRunAsync(
+                                () -> {
+                                    if (request.requestId().equals(state.handoffRequest())
+                                            && online.get(uuid) == state) {
+                                        beginTransfer(request, state);
+                                    }
+                                },
+                                tasks.main());
+    }
+
+    private void beginTransfer(TransferPrepare request, PlayerState state) {
+        UUID uuid = request.player();
         Sequence.cancelAll(uuid);
         enqueueSave(state, false);
         var _ =

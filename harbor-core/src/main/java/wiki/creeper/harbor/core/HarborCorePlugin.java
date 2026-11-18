@@ -31,6 +31,7 @@ import wiki.creeper.harbor.core.admin.AdminLog;
 import wiki.creeper.harbor.core.api.Harbor;
 import wiki.creeper.harbor.core.api.ModuleHost;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
+import wiki.creeper.harbor.core.border.WorldBorderManager;
 import wiki.creeper.harbor.core.chat.ChatBridge;
 import wiki.creeper.harbor.core.command.HarborCommand;
 import wiki.creeper.harbor.core.content.HarborContent;
@@ -47,6 +48,8 @@ import wiki.creeper.harbor.core.modifier.ModifierManager;
 import wiki.creeper.harbor.core.pack.ResourcePacks;
 import wiki.creeper.harbor.core.player.PlayerManager;
 import wiki.creeper.harbor.core.proxy.ProxyLink;
+import wiki.creeper.harbor.core.rig.RigCommand;
+import wiki.creeper.harbor.core.rig.RigManager;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
@@ -70,6 +73,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
     private @Nullable WriteBehindQueue queue;
     private @Nullable PlayerManager players;
     private @Nullable MessageManager messages;
+    private @Nullable RigManager rigs;
 
     @Override
     public void onEnable() {
@@ -171,6 +175,9 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                 new ItemManager(
                         content::snapshot, msg, database, infra.season(), infra.zone(), log);
         ProxyLink proxy = new ProxyLink(infra, messageBus, tasks, playerManager::acceptingLogins);
+        WorldBorderManager borders = new WorldBorderManager();
+        RigManager rigManager = new RigManager(this, content::snapshot, tasks, log);
+        rigs = rigManager;
         AdminLog adminLog = new AdminLog(database, log);
         HarborCommand command =
                 new HarborCommand(
@@ -196,18 +203,24 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         ui,
                         dialogs,
                         proxy,
+                        borders,
+                        rigManager,
                         infra,
                         time,
                         database,
                         writeBehind,
                         messageBus,
-                        locks);
+                        locks,
+                        r);
         Harbor.install(api);
         ModuleHost.install(new ModuleRegistry(api, content, playerManager, command, log));
 
         var pm = Bukkit.getPluginManager();
         pm.registerEvents(playerManager, this);
         pm.registerEvents(modifiers, this);
+        pm.registerEvents(borders, this);
+        pm.registerEvents(rigManager, this);
+        command.addModuleCommand(new RigCommand(rigManager, msg, adminLog).build());
         pm.registerEvents(new MenuListener(), this);
         pm.registerEvents(new ChatBridge(infra, r, messageBus), this);
         pm.registerEvents(this, this);
@@ -222,6 +235,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
 
         playerManager.start();
         proxy.start();
+        rigManager.start();
         new LedgerAuditJob(database, balanceStore, locks, time, msg, tasks, log).schedule();
         log.info("Harbor-Core 준비 완료: 콘텐츠 {}", content.snapshot().counts());
     }
@@ -237,7 +251,14 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         Logger log = getSLF4JLogger();
-        // 새 접속 차단 → 접속자 저장 → 큐 비우기 → 연결 종료
+        // 리그 엔티티 정리 → 새 접속 차단 → 접속자 저장 → 큐 비우기 → 연결 종료
+        if (rigs != null) {
+            try {
+                rigs.shutdown();
+            } catch (RuntimeException e) {
+                log.error("리그 정리 중 오류", e);
+            }
+        }
         try {
             if (players != null) {
                 players.shutdown();

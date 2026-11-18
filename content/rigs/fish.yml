@@ -1,0 +1,135 @@
+# 어종 리그 ('16. 플러그인 설계' 5.10). 형식은 추가 제안 (rigs/*.yml).
+# 어종 모델 작업의 리그 JSON(harbor_rig_v1)은 harbor-tools 변환기로 이 형식에 넣는다 (변환기는 추가 제안, 아직 없음).
+# 단위: 블록 · 도 · 틱. 회전은 [x, y, z] 오일러 각이고 X → Y → Z 순서로 돈다.
+# 시제품 모델은 머리가 −Z라서 forward: -z (진행 방향을 줄 때 Core가 yaw + 180°, pitch 부호 반대로 보정).
+# item 부품은 item_display의 Y축 180° 뒤집힘을 Core가 오른쪽 회전으로 되돌린다 (flip 기본 true).
+# 동작 이름은 시제품과 같다: swim(1초)·idle(2초)·flop + 고유 동작 하나 ('17-3' 9.3).
+# item_model 키는 리소스팩 모델 자리 (리소스팩 준비 전 예시).
+
+- id: rig/fish/harbor_mackerel
+  length: 0.45
+  forward: -z
+  default_animation: swim
+  bones:
+    - name: body
+      part: {item_model: "harbor:rig/fish/harbor_mackerel/body"}
+    - name: head
+      parent: body
+      pivot: [0, 0, -0.16]
+      part: {item_model: "harbor:rig/fish/harbor_mackerel/head", offset: [0, 0, -0.06]}
+    - name: tail
+      parent: body
+      pivot: [0, 0, 0.16]
+      part: {item_model: "harbor:rig/fish/harbor_mackerel/tail", offset: [0, 0, 0.08]}
+    - name: fin_l
+      parent: body
+      pivot: [0.06, -0.02, -0.04]
+      part: {item_model: "harbor:rig/fish/harbor_mackerel/fin", scale: 0.6}
+    - name: fin_r
+      parent: body
+      pivot: [-0.06, -0.02, -0.04]
+      part: {item_model: "harbor:rig/fish/harbor_mackerel/fin", scale: [-0.6, 0.6, 0.6]}
+  animations:
+    swim:
+      length: 20
+      mode: loop
+      bones:
+        body:
+          rotation:
+            - {t: 0, v: [0, 6, 0], ease: ease_in_out}
+            - {t: 10, v: [0, -6, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 6, 0]}
+        tail:
+          rotation:
+            - {t: 0, v: [0, -28, 0], ease: ease_in_out}
+            - {t: 10, v: [0, 28, 0], ease: ease_in_out}
+            - {t: 20, v: [0, -28, 0]}
+        fin_l:
+          rotation:
+            - {t: 0, v: [0, 0, 10], ease: catmullrom}
+            - {t: 5, v: [0, 0, 30], ease: catmullrom}
+            - {t: 10, v: [0, 0, 10], ease: catmullrom}
+            - {t: 15, v: [0, 0, 30], ease: catmullrom}
+            - {t: 20, v: [0, 0, 10]}
+        fin_r:
+          rotation:
+            - {t: 0, v: [0, 0, -10], ease: catmullrom}
+            - {t: 5, v: [0, 0, -30], ease: catmullrom}
+            - {t: 10, v: [0, 0, -10], ease: catmullrom}
+            - {t: 15, v: [0, 0, -30], ease: catmullrom}
+            - {t: 20, v: [0, 0, -10]}
+    idle:
+      length: 40
+      mode: loop
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 0.03, 0], ease: ease_in_out}
+            - {t: 40, v: [0, 0, 0]}
+        tail:
+          rotation:
+            - {t: 0, v: [0, -8, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 8, 0], ease: ease_in_out}
+            - {t: 40, v: [0, -8, 0]}
+    flop:                  # 물 밖에서 퍼덕임 (포획 직후 손 위 연출)
+      length: 12
+      mode: loop
+      bones:
+        body:
+          rotation:
+            - {t: 0, v: [0, 0, 0]}
+            - {t: 3, v: [0, 0, 70], ease: ease_out}
+            - {t: 6, v: [0, 0, 0]}
+            - {t: 9, v: [0, 0, -70], ease: ease_out}
+            - {t: 12, v: [0, 0, 0]}
+        tail:
+          rotation:
+            - {t: 0, v: [0, -40, 0]}
+            - {t: 6, v: [0, 40, 0]}
+            - {t: 12, v: [0, -40, 0]}
+    leap:                  # 고유 동작: 수면 위로 튀어 오르기 (한 번 재생 후 swim)
+      length: 16
+      mode: once
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_out}
+            - {t: 8, v: [0, 0.65, 0], ease: ease_in}
+            - {t: 16, v: [0, 0, 0]}
+          rotation:
+            - {t: 0, v: [-30, 0, 0]}
+            - {t: 8, v: [0, 0, 0]}
+            - {t: 16, v: [35, 0, 0]}
+        tail:
+          rotation:
+            - {t: 0, v: [0, -35, 0]}
+            - {t: 4, v: [0, 35, 0]}
+            - {t: 8, v: [0, -35, 0]}
+            - {t: 12, v: [0, 35, 0]}
+            - {t: 16, v: [0, -35, 0]}
+
+# 낚시 대기 중 그림자 (Fishing 3.1: 등급에 맞는 그림자를 캐스터에게만). 부품 하나짜리 단순 리그
+- id: rig/fish/shadow_small
+  forward: -z
+  default_animation: swim
+  bones:
+    - name: body
+      part: {item_model: "harbor:rig/shadow/small", rotation: [90, 0, 0], brightness: [0, 0]}
+  animations:
+    swim:
+      length: 20
+      bones:
+        body:
+          rotation:
+            - {t: 0, v: [0, 8, 0], ease: ease_in_out}
+            - {t: 10, v: [0, -8, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 8, 0]}
+    bite:
+      length: 8
+      mode: hold
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in}
+            - {t: 8, v: [0, -0.4, 0]}

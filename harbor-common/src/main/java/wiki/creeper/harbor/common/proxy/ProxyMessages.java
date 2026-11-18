@@ -87,8 +87,12 @@ public final class ProxyMessages {
             String message,
             List<UUID> recipients) {}
 
-    /** Boss·World → 프록시: 파티를 인스턴스로 보내 달라. kind: dungeon · raid. */
-    public record InstanceRequest(String requestId, List<UUID> party, String kind, String origin) {}
+    /**
+     * Boss → 프록시: 파티를 인스턴스 서버로 보내 달라 ('17-4' 10.4). server는 Boss가 harbor:instance로 배정한 서버 ID다. 프록시는
+     * 서버를 고르지 않고 이동만 시킨다.
+     */
+    public record InstanceRequest(
+            String requestId, List<UUID> party, String server, String origin) {}
 
     /** 백엔드 → 프록시, 5초마다. */
     public record ServerHeartbeat(

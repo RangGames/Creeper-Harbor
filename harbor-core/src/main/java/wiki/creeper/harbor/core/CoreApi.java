@@ -5,6 +5,7 @@ import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.db.WriteBehindQueue;
 import wiki.creeper.harbor.common.redis.DistributedLock;
 import wiki.creeper.harbor.common.redis.MessageBus;
+import wiki.creeper.harbor.common.redis.Redis;
 import wiki.creeper.harbor.common.time.HarborTime;
 import wiki.creeper.harbor.core.api.ContentService;
 import wiki.creeper.harbor.core.api.CurrencyService;
@@ -16,7 +17,9 @@ import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.ModifierService;
 import wiki.creeper.harbor.core.api.PlayerService;
 import wiki.creeper.harbor.core.api.ProxyBridge;
+import wiki.creeper.harbor.core.api.RigService;
 import wiki.creeper.harbor.core.api.Ui;
+import wiki.creeper.harbor.core.api.WorldBorderService;
 
 /** HarborApi 구현: 서비스 묶음. */
 record CoreApi(
@@ -30,10 +33,13 @@ record CoreApi(
         Ui ui,
         Dialogs dialogs,
         ProxyBridge proxy,
+        WorldBorderService worldBorders,
+        RigService rigs,
         InfraConfig infra,
         HarborTime time,
         Database database,
         WriteBehindQueue writeBehind,
         MessageBus bus,
-        DistributedLock locks)
+        DistributedLock locks,
+        Redis redis)
         implements HarborApi {}

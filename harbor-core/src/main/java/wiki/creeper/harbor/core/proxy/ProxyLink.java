@@ -64,15 +64,19 @@ public final class ProxyLink implements ProxyBridge {
     }
 
     @Override
-    public CompletableFuture<MoveResult> requestInstance(List<UUID> party, String kind) {
+    public CompletableFuture<MoveResult> requestInstance(
+            List<UUID> party, String assignedServer, String requestId) {
         if (party.isEmpty()) {
             throw new IllegalArgumentException("파티가 비었습니다");
         }
-        String requestId = UUID.randomUUID().toString();
+        if (requestId.isBlank()) {
+            requestId = UUID.randomUUID().toString();
+        }
         CompletableFuture<MoveResult> future = track(requestId, party.getFirst());
         bus.publish(
                 ProxyMessages.toProxy(InstanceRequest.class),
-                new InstanceRequest(requestId, List.copyOf(party), kind, infra.serverId()));
+                new InstanceRequest(
+                        requestId, List.copyOf(party), assignedServer, infra.serverId()));
         return future;
     }
 

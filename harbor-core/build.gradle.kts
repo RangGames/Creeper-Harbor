@@ -5,6 +5,11 @@ plugins {
     id("harbor.run-paper")
 }
 
+// 리그 재생이 Display 변환(JOML)을 쓰는데, JOML jar의 옛 class 형식 경고(classfile)가 -Werror에 걸린다. 그 경고만 끈다
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-Xlint:-classfile")
+}
+
 dependencies {
     api(project(":harbor-common"))
     testImplementation(libs.snakeyaml)

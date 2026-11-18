@@ -16,6 +16,12 @@ public interface ProxyBridge {
      */
     CompletableFuture<MoveResult> requestMove(UUID player, String destination, String reason);
 
-    /** 파티를 인스턴스 서버로 보낸다. kind: dungeon · raid. 부분 실패면 ok=false와 사유. */
-    CompletableFuture<MoveResult> requestInstance(List<UUID> party, String kind);
+    /**
+     * 파티를 인스턴스 서버로 보낸다 ('17-4' 10.4 3단계). 서버 배정은 Boss가 harbor:instance로 먼저 끝내고, 여기에는 배정된 서버 ID를
+     * 넘긴다. 부분 실패면 ok=false, reason = {@code partial:<성공>/<전체>:<uuid>=<사유>;…}.
+     *
+     * @param requestId 배정 ID와 같게 주면 기록을 맞추기 쉽다. 비우면 새로 만든다
+     */
+    CompletableFuture<MoveResult> requestInstance(
+            List<UUID> party, String assignedServer, String requestId);
 }

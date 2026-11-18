@@ -39,9 +39,17 @@ public enum LedgerReason {
     BIG_DEAL_SELL,
     MAIL_GOLD,
 
+    // Fishing: 통발 슬롯 확장 (슬롯당 2,000 × 통발 단계, '7. 밸런스 기획' 6.3)
+    TRAP_SLOT_EXPAND,
+
     // World
     TREASURE,
     HOUSING_DECOR,
+    // (추가 제안) 조선소 선박 구매·업그레이드, 해도 단계 보상, 주간 낚시 대회 순위 보상. 선박 수리는 Economy와 같은 REPAIR
+    SHIP_PURCHASE,
+    SHIP_UPGRADE,
+    CHART_REWARD,
+    TOURNAMENT_REWARD,
 
     // Boss
     BOSS_REWARD,

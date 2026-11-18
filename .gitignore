@@ -5,6 +5,7 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 .kotlin/
+.claude/
 
 ### 로컬 테스트 서버 (run-paper / run-velocity) ###
 run/

@@ -24,6 +24,8 @@ public final class FishLedger {
         SOLD,
         /** 경매에 등록됨 (Economy). */
         IN_AUCTION,
+        /** NPC에게 선물함 (NPC 호감도). */
+        GIFTED,
         DESTROYED
     }
 
