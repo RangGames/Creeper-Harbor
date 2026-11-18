@@ -13,6 +13,10 @@ dependencies {
 tasks.shadowJar {
     archiveClassifier = ""
     mergeServiceFiles()
+    // Shadow 9는 중복 파일을 기본으로 버려서 mergeServiceFiles가 첫 jar의 서비스 파일만 본다.
+    // Flyway는 flyway-core와 flyway-mysql이 같은 Plugin 서비스 파일을 갖고 있어 둘 다 합쳐야 한다
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    filesNotMatching(listOf("META-INF/services/**", "META-INF/*.kotlin_module")) { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
     dependencies {
         exclude(dependency("io.netty:.*"))
         exclude(dependency("org.slf4j:.*"))
