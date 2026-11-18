@@ -8,10 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 설계 문서 (코드보다 먼저 확인)
 
-기획·설계는 CreeperWiki 문서(`docs/`)에 있다. 경로를 모르면 사용자에게 묻는다.
+기획·설계는 저장소 밖에 있다 (CreeperWiki `docs/`, 같은 내용이 Google Docs "크리퍼 항구 (낚시서버) 기획"의 탭으로도 있다: 탭 16/17/11/7 = docs 19/20/14/10). 위치를 모르면 사용자에게 묻는다.
 
 - `19-plugin-common-core.md`: Common·Core 설계 (패키지, DB 계층, 원장, Redis, 세션 프로토콜, 시작 순서)
-- `20-plugin-modules.md`: 게임 모듈 12개 상세 설계. 0장 "모듈 간 조정 사항"에 소유권과 Core 추가 API(FlagService, CurrencyService.atomic, 사유 코드)가 있다
+- `20-plugin-modules.md`: 모듈별 상세 설계. 0장 "모듈 간 조정 사항"에 소유권, 0.2 Core 추가 API, 0.3 의존 방향, 결정 사항 D1~D14가 있다
 - `14-data-design.md`: ID 규칙, 콘텐츠 YAML 필드, DB 테이블, Redis 채널
 - `10-balance.md`: 수치. 코드에 수치를 박지 않고 `content/balance.yml`로 뺀다
 - 문서에 없는 테이블·필드·수치를 만들면 주석에 "(추가 제안)" 또는 "제안값"으로 표시한다 (docs 20의 관례)
@@ -49,6 +49,13 @@ build-logic     컨벤션 플러그인: harbor.java / harbor.paper-plugin / harb
 content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regions.yml, balance.yml, messages_ko.yml)
 ```
 
+- 게임 모듈 간 의존 (paper-plugin.yml 기준, `?`는 선택 의존. 모두 Core 필수). 새 의존을 넣을 때 이 방향을 거스르면 Gradle 순환이 생긴다:
+  - Npc, Season → Core만
+  - Jobs → Npc? / Fishing → Jobs, Season?
+  - Economy → Jobs, Fishing, Npc, Season / World → Jobs, Fishing, Economy?, Npc?, Season?
+  - Collection → Fishing, Season, Npc?, World?, Shop? / Boss → Fishing, Season, Npc?, Shop?
+  - Quest → Npc, Jobs, Fishing, Collection, Season, World?, Boss? / Shop → Fishing, Collection, Season, Quest?, World?, Boss? / Wildlife → Fishing, World
+- 배포 jar: Core·Proxy만 shadowJar(Common 포함)이고 게임 모듈은 일반 jar가 곧 플러그인이다 (런타임은 Core가 제공). harbor-common jar는 서버에 넣지 않는다. Core jar에는 content/가 기본 콘텐츠로 들어간다 (`DefaultContent`).
 - 모듈은 다른 모듈의 내부 클래스를 쓰지 않고 각 모듈의 `api` 패키지(인터페이스·이벤트·레코드)만 쓴다. Core의 공개 API는 `wiki.creeper.harbor.core.api`이고 진입점은 `Harbor.api()`.
 - 게임 모듈 메인 클래스는 `HarborModule`(JavaPlugin 상속)을 상속하고 `enable(ModuleContext)`에서 콘텐츠 형식·플레이어 컴포넌트·`/harbor` 하위 명령·마이그레이션을 등록한다. `onEnable/onDisable`은 final이다.
 - 테이블 소유권: players·sessions·admin_log·ledger·pearl_ledger = Common, player_season·fish_ledger·player_flags·server_flags = Core, 나머지는 각 모듈. 마이그레이션은 `src/main/resources/db/migration/<모듈ID>/`, 이력 테이블은 `flyway_<모듈ID>`. 운영 중 스키마는 열 추가만 한다.
@@ -67,7 +74,7 @@ content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regi
 
 ## 현재 진행 상태
 
-게임 모듈 12개와 Common·Core·Proxy·tools가 모두 있고 전체 빌드·단위 테스트·콘텐츠 검사를 통과한다. 실제 서버(26.3)에서는 아직 돌려 보지 않았다 (Phase 1 검증 항목: Mannequin NPC, 보트 속도·해피 가스트 조종, 관전 카메라, Interaction 히트박스 크기, 리소스팩 모델).
+Purpur 게임 모듈 11개와 Common·Core·Proxy·tools가 모두 있고 전체 빌드·단위 테스트·콘텐츠 검사를 통과한다. 실제 서버(26.3)에서는 아직 돌려 보지 않았다 (Phase 1 검증 항목: Mannequin NPC, 보트 속도·해피 가스트 조종, 관전 카메라, Interaction 히트박스 크기, 리소스팩 모델).
 
 - Core: 0.2의 추가 API(MailService·PartyService 인터페이스, WorldBorderService 우선순위 중재, HandoffBlocker, `service()`·`redis()`, `PlayerService.saveNow`)와 디스플레이 리그 재생(5.10, `rigs()` → RigService/RigInstance, content/rigs/*.yml)이 있다. Common에 DonorTier, AccountLinkReader, 리그 수학(common.rig)이 있다.
 - 모듈 간 연결은 각 모듈 `api` 패키지 + Bukkit ServicesManager로 한다. 선택 의존 모듈의 클래스는 그 모듈이 켜져 있을 때만 불러오는 bridge 클래스에 둔다. 의존 방향은 docs 20 0.3을 따른다 (World는 Quest·Collection·Shop에 의존하지 않고, 그쪽이 World api에 구현을 등록한다. Shop은 일부 이벤트를 클래스 이름으로 반사 구독한다).
