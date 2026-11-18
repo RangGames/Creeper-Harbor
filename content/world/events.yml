@@ -10,10 +10,13 @@
 #   requires_flag 서버 플래그 조건 (예: climax_done), max_per_season: 시즌당 최대 실행 수 (0 = 제한 없음)
 #   modifiers     이벤트 중 전역 보정자 [{stat, op: add · multiply, value}] (출처 event:<id>, 만료 = 종료 시각)
 #   fish_effects  Fishing 판정 효과 (harbor:event, '17-1' 3.2 형식, fishing/sea_events.yml과 같은 값)
+#   sounds        {start: 시작 때 해역 플레이어에게 낼 소리, loop: 폭풍 해역 안에 있는 동안 반복할 소리} ('15. 사운드' 4.7, 추가 제안).
+#                 비우면 형식 기본값 (ghost_ship 시작 harbor:event.ghost_ship, migration 시작 harbor:event.migration, storm 반복 harbor:event.storm_loop), ""면 없음
 
 - id: event/storm
   name: "<dark_gray>폭풍"
   type: storm
+  sounds: {loop: "harbor:event.storm_loop"}
   regions: [region/coral_isles, region/ash_trench]
   area: open_sea
   window: {days: [mon, tue, wed, thu, fri, sat, sun], start: "18:00", end: "23:30"}
@@ -33,6 +36,7 @@
 - id: event/ghost_ship
   name: "<dark_aqua>유령선 습격"
   type: ghost_ship
+  sounds: {start: "harbor:event.ghost_ship"}
   regions: [region/harbor, region/coral_isles]
   window: {days: [fri, sat], start: "21:00", end: "23:00"}
   chance: 0.6
@@ -56,6 +60,7 @@
 - id: event/great_migration
   name: "<aqua>물고기 대이동"
   type: migration
+  sounds: {start: "harbor:event.migration"}
   regions: [region/harbor]
   window: {days: [wed, sun], start: "19:00", end: "22:00"}
   chance: 0.5

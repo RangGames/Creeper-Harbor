@@ -8,6 +8,8 @@
 #   requires   구매 조건 {level, job_tier, flags}
 #   upgrades   속도·적재·선체 3갈래 × 3단계 (단계별 누적값, 비용 = 가격 × world.ship.upgrade_cost, 제안값. 개발은 Phase 3)
 #   decor      장식 리그 (rigs/ships.yml), decor_donor: 선단 후원자 깃발·돛 문양 (DonorTier FLEET)
+#   engine_sound · engine_pitch  운전 중 항해 반복 소리와 피치 ('15. 사운드' 4.4, 추가 제안). 기본: 쇄빙(ice_break)은 harbor:ship.icebreaker_loop,
+#              나머지 harbor:ship.engine_loop, 피치 1.0 (제안값). 원양 탐사선·나룻배는 같은 소리를 피치만 바꾼다. ""면 소리 없음
 
 - id: ship/rowboat
   name: 나룻배
@@ -20,6 +22,7 @@
   durability: 60
   starter: true          # 시즌 첫 접속 때 지급 (튜토리얼)
   decor: rig/ship/rowboat
+  engine_pitch: 1.25       # 작은 배 (제안값)
 
 - id: ship/harbor_trawler
   name: 항구 어선
@@ -65,6 +68,7 @@
   flags: [storm, ocean]
   requires: {level: 50, job_tier: 2}        # D3: 2차 전직 후 계열 무관
   decor: rig/ship/ocean_explorer
+  engine_pitch: 0.8        # 큰 배 (제안값)
   upgrades:
     speed: [0.05, 0.10, 0.15]
     cargo: [9, 18, 27]

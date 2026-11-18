@@ -74,6 +74,7 @@
   presentation:
     intro: rise
     music: "harbor:boss.trench_lord"
+    roar: "harbor:boss.trench_lord.roar"  # '15. 사운드' 4.3 (추가 제안)
     announce: true
 
 # 6장 해구의 군주 진정 전투 (스토리, 혼자 진행 가능, 필드 경기장, 전리품·기록 없음)
@@ -127,4 +128,5 @@
   presentation:
     intro: rise
     music: "harbor:boss.trench_lord"
+    roar: "harbor:boss.trench_lord.roar"  # '15. 사운드' 4.3 (추가 제안)
     announce: false

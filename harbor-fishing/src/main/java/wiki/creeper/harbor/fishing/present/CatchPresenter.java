@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
@@ -17,10 +18,12 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.FishDef;
-import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RigId;
 import wiki.creeper.harbor.common.model.Quality;
+import wiki.creeper.harbor.common.rig.FishRigs;
+import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
 import wiki.creeper.harbor.core.api.RigService;
@@ -42,6 +45,10 @@ public final class CatchPresenter {
     private static final int FLOP_TICKS = 30;
     private static final double FLOP_VIEW_RADIUS = 16;
 
+    /** 표(sounds.yml)에 없는 바닐라 소리는 플레이어 분류로 낸다. */
+    public static final HarborSounds.Options SOUND =
+            HarborSounds.Options.DEFAULT.withSource(Sound.Source.PLAYER);
+
     private final HarborApi api;
     private final Tasks tasks;
 
@@ -58,7 +65,8 @@ public final class CatchPresenter {
     public void bite(Player player, FishDef fish, Location hook, int intensity) {
         FishingPresets presets = presets();
         FishingPresets.Stage stage = presets.of(fish.grade()).bite();
-        sound(player, stage.sound());
+        // 입질은 찌 위치에서 (근처 플레이어도 듣는다. 전설 입질은 sounds.yml 음량이 커서 멀리까지)
+        HarborSounds.playAt(hook, stage.sound(), options(stage));
         particle(hook, stage.particle(), stage.particleCount());
         if (stage.has("darkness") && presets.shows(intensity, "darkness")) {
             player.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 50, 0, true, false));
@@ -107,8 +115,13 @@ public final class CatchPresenter {
                                 player,
                                 new CatchPresentationOverride.CatchPresentation(
                                         fish, sizeCm, quality, firstCatch, at, intensity));
+        // 낚아 올림(위치) + 등급 포획음(본인 2D). 코스메틱이 연출을 바꿔도 등급 소리는 낸다 ('4. 낚시 연출' 연출 원칙 1)
+        step(at, "reel_in");
+        HarborSounds.play(player, stage.sound(), options(stage));
+        if (stage.has("flop") && presets.shows(intensity, "flop")) {
+            step(at, "flop");
+        }
         if (!replaced) {
-            sound(player, stage.sound());
             particle(at.clone().add(0, 1, 0), stage.particle(), stage.particleCount());
             if (stage.has("pillar") && presets.shows(intensity, "pillar")) {
                 pillar(at, stage.particle());
@@ -117,7 +130,7 @@ public final class CatchPresenter {
                 particle(at.clone().add(0, 2.5, 0), "firework", 80);
             }
             if (stage.has("flop") && presets.shows(intensity, "flop")) {
-                flop(player, fish);
+                flop(player, fish, sizeCm);
             }
         }
         String size = String.format(Locale.ROOT, "%.1f", sizeCm);
@@ -162,17 +175,19 @@ public final class CatchPresenter {
      * 손 위 퍼덕임 ('4. 낚시 연출 & 보스전' 1장 일반~고급 '물고기가 손 위로 튀어 오름'). 어종 리그 rig/fish/<이름>에 flop 동작이 있으면 플레이어
      * 앞(손 높이)에 띄워 FLOP_TICKS 동안 재생하고 지운다. 리그·동작이 없으면 생략한다. 본인과 근처 플레이어에게만 보인다.
      */
-    private void flop(Player player, FishDef fish) {
-        RigId rig =
-                new RigId(
-                        new HarborId(
-                                fish.id().id().namespace(), "rig/fish/" + fish.id().id().name()));
+    private void flop(Player player, FishDef fish, double sizeCm) {
         RigService rigs = api.rigs();
-        boolean hasFlop =
-                rigs.definition(rig).map(d -> d.animation(FLOP).isPresent()).orElse(false);
-        if (!hasFlop) {
+        // 어종 리그는 모델 이름(FishDef.model)을 따른다. 없으면 예전 규칙(어종 ID 이름)
+        RigId rig = FishRigs.rigOf(fish);
+        if (rigs.definition(rig).isEmpty()) {
+            rig = FishRigs.byId(fish);
+        }
+        Optional<RigDef> def = rigs.definition(rig);
+        if (def.isEmpty() || def.get().animation(FLOP).isEmpty()) {
             return;
         }
+        // 잡은 크기에 맞춘 배율 (리소스팩 안내: 배율 = 크기(m) ÷ 모델 길이)
+        double scale = FishRigs.fitScale(def.get(), sizeCm / 100.0);
         Location eye = player.getEyeLocation();
         Vector dir = eye.getDirection().setY(0);
         if (dir.lengthSquared() < 1e-6) {
@@ -195,7 +210,10 @@ public final class CatchPresenter {
                     rigs.spawn(
                             rig,
                             at,
-                            RigOptions.privateTo(viewers).withAnimation(FLOP).withMoveTicks(0));
+                            RigOptions.privateTo(viewers)
+                                    .withAnimation(FLOP)
+                                    .withScale(scale)
+                                    .withMoveTicks(0));
             var _ = tasks.later(FLOP_TICKS, instance::remove);
         } catch (IllegalArgumentException | IllegalStateException e) {
             // 리그를 띄우지 못하면 생략
@@ -228,15 +246,18 @@ public final class CatchPresenter {
         var _ = tasks.later(PILLAR_TICKS, task::cancel);
     }
 
-    private static void sound(Player player, @Nullable String key) {
-        if (key == null || key.isBlank()) {
-            return;
-        }
-        try {
-            player.playSound(Sound.sound(Key.key(key), Sound.Source.PLAYER, 1f, 1f));
-        } catch (IllegalArgumentException e) {
-            // 키 형식이 틀리면 생략
-        }
+    /** 낚시 단계 소리 (presets.yml sounds, '15. 사운드' 4.1)를 그 위치에서 낸다. */
+    public void step(Location at, String step) {
+        HarborSounds.playAt(at, presets().sound(step), SOUND);
+    }
+
+    /** 단계 소리 키 (반복 소리 등 직접 다룰 때). */
+    public @Nullable String stepSound(String step) {
+        return presets().sound(step);
+    }
+
+    private static HarborSounds.Options options(FishingPresets.Stage stage) {
+        return SOUND.withFallback(stage.soundFallback());
     }
 
     private static void particle(Location at, @Nullable String name, int count) {

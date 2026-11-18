@@ -547,3 +547,8 @@ wildlife:
     chunks_per_tick: 4
   light:
     lava: 15                     # 용암 속 어종이 어둡지 않게 밝기 고정
+
+sounds:
+  # 리소스팩 소리(harbor:…) 사용 ('15. 사운드'). true여도 resource_pack.yml(팩의 소리 목록)에 있는 소리만 내고,
+  # 나머지는 sounds.yml의 바닐라 대체 소리(fallback)를 낸다. 키가 없으면 items.custom_models를 따른다 (추가 제안)
+  custom: true

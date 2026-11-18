@@ -15,7 +15,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -43,6 +42,7 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.fishing.api.RegionKeyResolver;
 import wiki.creeper.harbor.world.WorldKit;
@@ -484,10 +484,11 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
                             Duration.ofMillis(300),
                             Duration.ofSeconds(2),
                             Duration.ofMillis(600));
-            String music = next.def().music();
-            if (music != null && Key.parseable(music)) {
-                player.playSound(Sound.sound(Key.key(music), Sound.Source.MUSIC, 1f, 1f));
-            }
+            // 지역 배경음·환경음은 데이터팩 바이옴(Environment Attributes)이 바꾼다. music은 진입 때 한 번 내는 추가 연출
+            HarborSounds.play(
+                    player,
+                    next.def().music(),
+                    HarborSounds.Options.DEFAULT.withSource(Sound.Source.MUSIC));
         }
         firstVisit(player, next);
     }

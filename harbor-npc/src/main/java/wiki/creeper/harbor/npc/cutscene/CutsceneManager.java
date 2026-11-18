@@ -13,8 +13,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import net.kyori.adventure.key.Key;
-import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -47,6 +45,7 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.task.Sequence;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.npc.NpcKeys;
@@ -460,9 +459,11 @@ public final class CutsceneManager implements CutsceneService, HandoffBlocker, L
         // 사운드
         while (pb.soundIndex < def.sounds().size() && def.sounds().get(pb.soundIndex).t() <= t) {
             CutsceneDef.SoundCue cue = def.sounds().get(pb.soundIndex++);
-            player.playSound(
-                    Sound.sound(
-                            Key.key(cue.sound()), Sound.Source.MASTER, cue.volume(), cue.pitch()));
+            // harbor: 소리는 팩 사용 여부에 따라 대체 소리로 (Core HarborSounds, '15. 사운드')
+            HarborSounds.play(
+                    player,
+                    cue.sound(),
+                    HarborSounds.Options.DEFAULT.withVolume(cue.volume()).withPitch(cue.pitch()));
         }
     }
 

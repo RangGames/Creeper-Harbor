@@ -1,14 +1,15 @@
 package wiki.creeper.harbor.shop.cosmetic;
 
 import java.util.Optional;
+import net.kyori.adventure.sound.Sound;
 import org.bukkit.Location;
-import org.bukkit.SoundCategory;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import wiki.creeper.harbor.common.id.HarborId;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.fishing.api.CatchPresentationOverride;
 import wiki.creeper.harbor.shop.ShopRuntime;
 import wiki.creeper.harbor.shop.content.CatchFxPreset;
@@ -52,14 +53,9 @@ public final class CatchFxPresenter implements CatchPresentationOverride, Listen
         ShopSettings.FxStrength strength = rt.settings().fx(info.fish().grade());
         Location at = info.at();
         Fx.spawn(fx.splashParticle(), fx.pillarColors().getFirst(), at, 12, 0.4, VIEW_RADIUS);
-        String sound = fx.sound();
-        at.getWorld()
-                .playSound(
-                        at,
-                        sound != null ? sound : "minecraft:entity.player.splash",
-                        SoundCategory.PLAYERS,
-                        1f,
-                        1f);
+        // 낚아 올림·등급 포획음은 Fishing이 낸다. 코스메틱 소리(harbor: 또는 바닐라)는 있을 때만 덧붙인다
+        HarborSounds.playAt(
+                at, fx.sound(), HarborSounds.Options.DEFAULT.withSource(Sound.Source.PLAYER));
         if (info.intensity() >= 1 && strength.pillarHeight() > 0) {
             for (int i = 0; i < strength.pillarHeight() * 2; i++) {
                 String color = fx.pillarColors().get(i % fx.pillarColors().size());

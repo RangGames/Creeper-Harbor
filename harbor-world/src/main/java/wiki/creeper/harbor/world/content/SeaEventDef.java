@@ -9,10 +9,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.content.ParseContext;
+import wiki.creeper.harbor.common.content.type.SoundTable;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RegionId;
@@ -31,6 +33,8 @@ import wiki.creeper.harbor.world.api.SeaEventType;
  * @param requiresFlag 서버 플래그 조건
  * @param maxPerSeason 시즌당 최대 실행 수 (0 = 제한 없음)
  * @param wildlifeBoost Wildlife 밀도 배율 (물고기 대이동, 1 = 없음)
+ * @param startSound 시작 때 해역 플레이어에게 낼 소리 ('15. 사운드' 4.7, 추가 제안. null = 없음)
+ * @param loopSound 폭풍 해역 안에 있는 동안 반복할 소리 (null = 없음)
  */
 public record SeaEventDef(
         HarborId id,
@@ -50,7 +54,9 @@ public record SeaEventDef(
         double wildlifeBoost,
         @Nullable Storm storm,
         @Nullable Ghost ghost,
-        @Nullable Tournament tournament) {
+        @Nullable Tournament tournament,
+        @Nullable String startSound,
+        @Nullable String loopSound) {
 
     /** 시간대. end가 start보다 이르면 자정을 넘는다. */
     public record Window(Set<DayOfWeek> days, LocalTime start, LocalTime end) {
@@ -125,6 +131,8 @@ public record SeaEventDef(
                     SeaEventDef::parse,
                     SeaEventDef::id);
 
+    public static final String STORM_LOOP = "harbor:event.storm_loop";
+
     private static final Set<String> FIELDS =
             Set.of(
                     "id",
@@ -144,7 +152,8 @@ public record SeaEventDef(
                     "wildlife_boost",
                     "storm",
                     "ghost",
-                    "tournament");
+                    "tournament",
+                    "sounds");
 
     /** 이벤트 ID의 마지막 마디 (실행 ID·보정자 출처에 쓴다). */
     public String key() {
@@ -361,7 +370,39 @@ public record SeaEventDef(
                 node.number("wildlife_boost", 1),
                 storm,
                 ghost,
-                tournament);
+                tournament,
+                sound(node, "start", defaultStartSound(type)),
+                sound(node, "loop", type == SeaEventType.STORM ? STORM_LOOP : null));
+    }
+
+    private static @Nullable String defaultStartSound(SeaEventType type) {
+        return switch (type) {
+            case GHOST_SHIP -> "harbor:event.ghost_ship";
+            case MIGRATION -> "harbor:event.migration";
+            default -> null;
+        };
+    }
+
+    /** sounds.start / sounds.loop: 소리 키, 빈 문자열이면 없음, 키가 없으면 형식별 기본값. */
+    private static @Nullable String sound(YamlNode node, String key, @Nullable String fallback) {
+        Optional<YamlNode> sounds = node.get("sounds");
+        if (sounds.isEmpty()) {
+            return fallback;
+        }
+        sounds.get().allowOnly(Set.of("start", "loop"));
+        Optional<YamlNode> value = sounds.get().get(key);
+        if (value.isEmpty()) {
+            return fallback;
+        }
+        String text = value.get().isNull() ? "" : value.get().asString();
+        if (text.isEmpty()) {
+            return null;
+        }
+        if (!SoundTable.KEY.matcher(text).matches()) {
+            value.get().error("소리 키 형식이 아닙니다 (예: harbor:event.storm_loop): " + text);
+            return fallback;
+        }
+        return text;
     }
 
     private static Window window(YamlNode node) {

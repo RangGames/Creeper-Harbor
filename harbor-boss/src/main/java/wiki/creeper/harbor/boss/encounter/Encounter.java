@@ -13,7 +13,6 @@ import java.util.Optional;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -50,6 +49,7 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.core.api.Dialogs;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.RigHit;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
@@ -70,6 +70,11 @@ public final class Encounter {
 
     /** 입력 판정 여유 ±2틱 ('8. 시스템 상세 기획' 3.3). */
     private static final int INPUT_TOLERANCE = 2;
+
+    // 공용 보스전 소리 ('15. 사운드' 4.3·4.4)
+    private static final String HARPOON_HIT = "harbor:boss.harpoon_hit";
+    private static final String HULL_HIT = "harbor:ship.hull_hit";
+    private static final String REPAIR_SOUND = "harbor:ship.repair";
 
     /** 클릭 대상 (조타륜·파손 지점). */
     enum ClickKind {
@@ -627,6 +632,7 @@ public final class Encounter {
                 } else {
                     titleAll("boss.phase.counter.title", "boss.phase.counter.subtitle");
                 }
+                roar();
                 weakTimer = 0;
                 scheduler.delay(mgr.now() + 40);
                 RigInstance r = rig;
@@ -639,6 +645,7 @@ public final class Encounter {
                     broadcast("boss.qte.retry");
                 } else {
                     titleAll("boss.phase.tug.title", "boss.phase.tug.subtitle");
+                    roar();
                 }
                 clearTelegraphs();
                 setWeak(false);
@@ -681,18 +688,28 @@ public final class Encounter {
             mgr.log().warn("보스 리그를 띄우지 못했습니다 {}: {}", def.rig(), String.valueOf(e.getMessage()));
         }
         spawnDeckInteractions();
-        String music = def.presentation().music();
-        for (Player p : onlinePlayers()) {
-            if (music != null) {
-                try {
-                    p.playSound(Sound.sound(Key.key(music), Sound.Source.RECORD, 1f, 1f));
-                } catch (RuntimeException e) {
-                    // 잘못된 사운드 키는 연출만 생략
-                }
-            }
-        }
+        // 보스 테마: 팩에 없는 키면 Core HarborSounds가 건너뛴다 (대체 소리 없음)
+        HarborSounds.play(
+                onlinePlayers(),
+                def.presentation().music(),
+                HarborSounds.Options.DEFAULT.withSource(Sound.Source.RECORD));
+        roar();
         titleAll("boss.phase.intro.title", "boss.phase.intro.subtitle");
         mgr.chunkHold(this, true);
+    }
+
+    /**
+     * 포효 ('15. 사운드' 4.3): 보스 위치에서 sounds.yml 음량(3 이상)으로 내고, 들리는 범위 밖 참가자에게는 직접 보낸다.
+     * presentation.roar가 없으면 생략.
+     */
+    private void roar() {
+        RigInstance r = rig;
+        Location at = r != null ? r.location() : bossLocation();
+        HarborSounds.playAt(
+                at,
+                def.presentation().roar(),
+                HarborSounds.Options.DEFAULT.withSource(Sound.Source.HOSTILE),
+                onlinePlayers());
     }
 
     private void rigRemoved() {
@@ -1005,6 +1022,10 @@ public final class Encounter {
             fx = r.location();
         }
         world.spawnParticle(weak ? Particle.CRIT : Particle.SPLASH, fx, 12, 0.6, 0.6, 0.6, 0.1);
+        if (weak) {
+            // 약점 적중 (공용): 맞은 자리에서, 멀리서 던진 작살수에게도 들리게
+            HarborSounds.playAt(fx, HARPOON_HIT, HarborSounds.Options.DEFAULT, List.of(p));
+        }
         handle(out);
     }
 
@@ -1208,6 +1229,7 @@ public final class Encounter {
             int lost = fight.hullDamage(effect.hullDamage(), out);
             if (lost > 0) {
                 damageRepairPoint();
+                HarborSounds.playAt(spawn, HULL_HIT, HarborSounds.Options.DEFAULT, onlinePlayers());
                 broadcastBar(
                         "boss.hull.hit",
                         Placeholder.unparsed("lost", String.valueOf(lost)),
@@ -1299,6 +1321,7 @@ public final class Encounter {
         hand.setAmount(hand.getAmount() - 1);
         p.getInventory().setItemInMainHand(hand.getAmount() <= 0 ? null : hand);
         int restored = fight.repair(def.hull().repairPerAction());
+        HarborSounds.playAt(BossItems.loc(p), REPAIR_SOUND);
         m.repair += restored;
         m.activity(mgr.now());
         if (index >= 0 && index < repairPoints.size()) {

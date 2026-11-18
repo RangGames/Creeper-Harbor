@@ -3,7 +3,6 @@ package wiki.creeper.harbor.npc.dialog;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.World;
@@ -14,6 +13,7 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.npc.affinity.AffinityManager;
 import wiki.creeper.harbor.npc.api.ActionResult;
 import wiki.creeper.harbor.npc.api.AffinitySource;
@@ -181,16 +181,14 @@ public final class BuiltinKeys {
                 "sound",
                 new ValidatedAction(
                         (ctx, args) -> {
-                            ctx.player()
-                                    .playSound(
-                                            Sound.sound(
-                                                    Key.key(
-                                                            args.string("sound")
-                                                                    .or(args::value)
-                                                                    .orElseThrow()),
-                                                    Sound.Source.NEUTRAL,
-                                                    (float) args.number("volume", 1),
-                                                    (float) args.number("pitch", 1)));
+                            // harbor: 소리는 팩 사용 여부에 따라 대체 소리로 (Core HarborSounds)
+                            HarborSounds.play(
+                                    ctx.player(),
+                                    args.string("sound").or(args::value).orElseThrow(),
+                                    HarborSounds.Options.DEFAULT
+                                            .withSource(Sound.Source.NEUTRAL)
+                                            .withVolume((float) args.number("volume", 1))
+                                            .withPitch((float) args.number("pitch", 1)));
                             return ActionResult.CONTINUE;
                         },
                         (args, check) -> {

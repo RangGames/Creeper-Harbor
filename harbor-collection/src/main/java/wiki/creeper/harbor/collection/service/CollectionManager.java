@@ -17,7 +17,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -53,6 +52,7 @@ import wiki.creeper.harbor.common.redis.Channel;
 import wiki.creeper.harbor.common.redis.Channels;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.StatKey;
@@ -295,6 +295,7 @@ public final class CollectionManager
                                 Duration.ofMillis(200),
                                 Duration.ofSeconds(2),
                                 Duration.ofMillis(500));
+                HarborSounds.play(player, "harbor:catch.new_record"); // '15. 사운드' 4.2 신기록
             }
             Bukkit.getPluginManager()
                     .callEvent(
@@ -328,7 +329,7 @@ public final class CollectionManager
                             Duration.ofMillis(200),
                             Duration.ofSeconds(2),
                             Duration.ofMillis(500));
-            player.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.6f, 1.2f);
+            HarborSounds.play(player, "harbor:ui.codex_register"); // '15. 사운드' 4.5 도감 등록
         }
         Bukkit.getPluginManager()
                 .callEvent(

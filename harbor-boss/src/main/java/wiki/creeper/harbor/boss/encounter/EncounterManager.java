@@ -66,6 +66,7 @@ import wiki.creeper.harbor.common.id.BossId;
 import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
@@ -848,6 +849,8 @@ public final class EncounterManager implements BossService, Listener {
                         harpoon.get(),
                         trident.getItemStack().clone(),
                         BossItems.loc(trident)));
+        // 작살 투척 (공용, '15. 사운드' 4.3). 팩이 없으면 바닐라 삼지창 소리만
+        HarborSounds.playAt(BossItems.loc(player), "harbor:boss.harpoon_throw");
     }
 
     private @Nullable Encounter worldEncounterAt(Location loc) {

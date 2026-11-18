@@ -8,6 +8,7 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.content.ParseContext;
+import wiki.creeper.harbor.common.content.type.SoundTable;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.yaml.YamlNode;
@@ -19,8 +20,44 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * <p>생략 항목 이름: darkness(전설 입질 어둠), title(입질 타이틀), shake(화면 흔들림 대신 짧은 흔들림 사운드), pillar(빛기둥),
  * firework(폭죽), dialog(포획 결과 Dialog), nearby(근처 플레이어 알림), jump_viewers(근처 플레이어에게 점프 장면),
  * shadow(그림자), flop(포획 때 손 위에서 퍼덕이는 어종 리그).
+ *
+ * <p>{@code sounds}: 등급과 상관없는 낚시 단계 소리 ('15. 사운드' 4.1, 추가 제안). 키는 {@link #SOUND_STEPS}, 값은 소리 키
+ * (harbor:… 또는 바닐라). 비운 단계는 {@link #DEFAULT_SOUNDS}를 쓰고, 빈 문자열이면 소리를 내지 않는다.
  */
-public record FishingPresets(Map<Grade, GradePreset> grades, Map<Integer, Set<String>> skip) {
+public record FishingPresets(
+        Map<Grade, GradePreset> grades,
+        Map<Integer, Set<String>> skip,
+        Map<String, String> sounds) {
+
+    /** 단계 소리 기본값 ('15. 사운드' 4.1). 대체 바닐라 소리는 sounds.yml에 있다. */
+    public static final Map<String, String> DEFAULT_SOUNDS =
+            Map.ofEntries(
+                    Map.entry("cast", "harbor:fishing.cast"),
+                    Map.entry("land", "harbor:fishing.bobber_land"),
+                    Map.entry("land_lava", "harbor:fishing.lava_cast"),
+                    Map.entry("land_ice", "harbor:fishing.ice_hole"),
+                    Map.entry("hook", "harbor:fishing.hook"),
+                    Map.entry("reel_loop", "harbor:fishing.reel_loop"),
+                    Map.entry("tension_warn", "harbor:fishing.tension_warn"),
+                    Map.entry("line_snap", "harbor:fishing.line_snap"),
+                    Map.entry("reel_in", "harbor:fishing.reel_in"),
+                    Map.entry("flop", "harbor:fishing.flop"),
+                    Map.entry("escape", ""),
+                    Map.entry("escape_big", "harbor:fishing.miss_big"));
+
+    public static final Set<String> SOUND_STEPS = DEFAULT_SOUNDS.keySet();
+
+    public FishingPresets {
+        grades = Map.copyOf(grades);
+        skip = Map.copyOf(skip);
+        sounds = Map.copyOf(sounds);
+    }
+
+    /** 단계 소리 키. 없으면 null (소리 없음). */
+    public @Nullable String sound(String step) {
+        String key = sounds.getOrDefault(step, DEFAULT_SOUNDS.get(step));
+        return key == null || key.isBlank() ? null : key;
+    }
 
     /**
      * 한 등급의 연출.
@@ -42,18 +79,21 @@ public record FishingPresets(Map<Grade, GradePreset> grades, Map<Integer, Set<St
     /**
      * 입질·포획 단계 연출.
      *
-     * @param sound 효과음 키 (예: minecraft:entity.fishing_bobber.splash, 비우면 없음)
+     * @param sound 효과음 키 (예: harbor:fishing.bite, 비우면 없음). harbor 소리는 Core HarborSounds가 팩 사용 여부에
+     *     따라 고른다
+     * @param soundFallback 팩 소리를 못 쓸 때 낼 바닐라 소리 (비우면 sounds.yml의 fallback, 추가 제안)
      * @param particle 파티클 이름 (org.bukkit.Particle, 예: splash)
      * @param particleCount 파티클 수
      * @param flags darkness · title · shake · pillar · firework · dialog · nearby
      */
     public record Stage(
             @Nullable String sound,
+            @Nullable String soundFallback,
             @Nullable String particle,
             int particleCount,
             Set<String> flags) {
 
-        public static final Stage NONE = new Stage(null, null, 0, Set.of());
+        public static final Stage NONE = new Stage(null, null, null, 0, Set.of());
 
         public boolean has(String flag) {
             return flags.contains(flag);
@@ -63,7 +103,7 @@ public record FishingPresets(Map<Grade, GradePreset> grades, Map<Integer, Set<St
     public static final GradePreset NONE =
             new GradePreset(null, "minecraft:cod", 1.0, null, Stage.NONE, Stage.NONE);
 
-    public static final FishingPresets EMPTY = new FishingPresets(Map.of(), Map.of());
+    public static final FishingPresets EMPTY = new FishingPresets(Map.of(), Map.of(), Map.of());
 
     public static final ContentType.Single<FishingPresets> TYPE =
             new ContentType.Single<>(
@@ -92,7 +132,7 @@ public record FishingPresets(Map<Grade, GradePreset> grades, Map<Integer, Set<St
     }
 
     static FishingPresets parse(YamlNode node, ParseContext ctx) {
-        node.allowOnly(Set.of("grades", "intensity"));
+        node.allowOnly(Set.of("grades", "intensity", "sounds"));
         Map<Grade, GradePreset> grades = new EnumMap<>(Grade.class);
         node.get("grades")
                 .ifPresent(
@@ -123,7 +163,29 @@ public record FishingPresets(Map<Grade, GradePreset> grades, Map<Integer, Set<St
                                                     }
                                                     skip.put(level, flags(value.asList()));
                                                 }));
-        return new FishingPresets(Map.copyOf(grades), Map.copyOf(skip));
+        Map<String, String> sounds = new HashMap<>();
+        node.get("sounds")
+                .ifPresent(
+                        m ->
+                                m.entries()
+                                        .forEach(
+                                                (key, value) -> {
+                                                    if (!SOUND_STEPS.contains(key)) {
+                                                        value.error(
+                                                                "알 수 없는 낚시 단계 '"
+                                                                        + key
+                                                                        + "' ("
+                                                                        + String.join(
+                                                                                ", ",
+                                                                                new java.util
+                                                                                        .TreeSet<>(
+                                                                                        SOUND_STEPS))
+                                                                        + ")");
+                                                    } else {
+                                                        sounds.put(key, soundKey(value));
+                                                    }
+                                                }));
+        return new FishingPresets(grades, skip, sounds);
     }
 
     private static GradePreset preset(YamlNode node, ParseContext ctx) {
@@ -151,12 +213,29 @@ public record FishingPresets(Map<Grade, GradePreset> grades, Map<Integer, Set<St
     }
 
     private static Stage stage(YamlNode node) {
-        node.allowOnly(Set.of("sound", "particle", "count", "flags"));
+        node.allowOnly(Set.of("sound", "sound_fallback", "particle", "count", "flags"));
         return new Stage(
-                node.optString("sound").orElse(null),
+                node.get("sound")
+                        .map(FishingPresets::soundKey)
+                        .filter(k -> !k.isEmpty())
+                        .orElse(null),
+                node.get("sound_fallback")
+                        .map(FishingPresets::soundKey)
+                        .filter(k -> !k.isEmpty())
+                        .orElse(null),
                 node.optString("particle").orElse(null),
                 node.integer("count", 12, 0, 500),
                 flags(node.list("flags")));
+    }
+
+    /** 소리 키 (빈 문자열 = 소리 없음). 형식이 틀리면 오류를 기록하고 빈 문자열. */
+    private static String soundKey(YamlNode node) {
+        String key = node.isNull() ? "" : node.asString();
+        if (!key.isEmpty() && !SoundTable.KEY.matcher(key).matches()) {
+            node.error("소리 키 형식이 아닙니다 (예: harbor:fishing.bite): " + key);
+            return "";
+        }
+        return key;
     }
 
     private static Set<String> flags(List<YamlNode> nodes) {

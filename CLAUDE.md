@@ -28,7 +28,9 @@ Gradle 9.9.1 wrapper, JDK 25 toolchain. (Windows에서는 `gradlew.bat`)
 ./gradlew :harbor-core:shadowJar        # Core jar (Common 포함)
 ./gradlew :harbor-core:runServer        # 모든 Purpur 모듈을 넣은 로컬 테스트 서버 (run-paper, Paper 26.3)
 ./gradlew validateContent               # content/ YAML을 서버와 같은 로더로 검사 (harbor-tools)
+./gradlew resourcePack -PpackDir=<팩 폴더> [-PpackMeta=<pack.mcmeta가 든 zip>]   # 클라이언트 팩 zip + SHA-1 (build/resourcepack, dist -PpackDir=도 가능)
 ./gradlew packIndex -Ppack=<팩 zip>     # 리소스팩의 item_model·소리 목록 → content/resource_pack.yml (ItemModels가 이 목록에 있는 모델만 씀)
+./gradlew rigImport -Prigs=<팩 assets/harbor/rigs/fish>   # 팩의 어종 리그(harbor_rig_v1) → content/rigs/fish/*.yml
 ```
 
 - 컴파일러는 `-Werror` + ErrorProne + NullAway(ERROR, 테스트 제외)다. 경고 하나도 빌드 실패이므로: 버리는 Future는 `var _ = ...`, `e.getMessage()`처럼 널일 수 있는 값은 `String.valueOf`로 감싸고, 중첩 타입에는 `Outer.@Nullable Inner`, 널 가능 값은 JSpecify `@Nullable`, 레코드 접근자 결과는 지역 변수에 담은 뒤 널 검사한다.

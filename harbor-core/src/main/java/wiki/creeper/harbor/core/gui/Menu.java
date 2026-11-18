@@ -11,6 +11,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.core.api.HarborSounds;
 
 /**
  * 상자 GUI. 칸마다 아이템과 클릭 동작을 둔다. 플레이어가 아이템을 꺼내거나 넣는 것은 {@link MenuListener}가 모두 막는다. 메인 스레드 전용.
@@ -18,6 +19,9 @@ import org.jspecify.annotations.Nullable;
  * <p>도감의 미등록 어종처럼 "실루엣 슬롯"은 실루엣 모델을 쓴 아이템을 버튼으로 넣으면 된다.
  */
 public class Menu implements InventoryHolder {
+
+    /** 버튼을 누를 때 내는 소리. */
+    public static final String CLICK_SOUND = "harbor:ui.click";
 
     /** 버튼 클릭. */
     @FunctionalInterface
@@ -72,6 +76,10 @@ public class Menu implements InventoryHolder {
     void handleClick(InventoryClickEvent event) {
         ClickHandler handler = handlers.get(event.getRawSlot());
         if (handler != null) {
+            if (event.getWhoClicked() instanceof Player player) {
+                // 버튼 클릭음 ('15. 사운드' 4.5 ui.click). 표시만 하는 칸은 소리 없음
+                HarborSounds.play(player, CLICK_SOUND);
+            }
             handler.accept(event);
         }
     }

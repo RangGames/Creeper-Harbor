@@ -70,4 +70,5 @@
   summon: {item: item/boss/summon_swamp_catfish, cooldown: 300}
   presentation:
     music: "harbor:boss.swamp_catfish"
+    roar: "harbor:boss.gnome.roar"        # 등장·반격·최후의 줄다리기 포효 ('15. 사운드' 4.3, 추가 제안)
     announce: true

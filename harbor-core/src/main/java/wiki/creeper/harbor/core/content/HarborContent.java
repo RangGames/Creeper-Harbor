@@ -1,5 +1,7 @@
 package wiki.creeper.harbor.core.content;
 
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
@@ -7,6 +9,8 @@ import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Registry;
+import org.bukkit.Sound;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.ContentCheck;
@@ -16,6 +20,7 @@ import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.content.type.CoreContent;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.content.type.ItemDef;
+import wiki.creeper.harbor.common.content.type.SoundTable;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
@@ -48,6 +53,7 @@ public final class HarborContent implements ContentService {
         loader.addCheck(ItemDef.TYPE, (item, ctx) -> checkModel(item.model(), ctx));
         loader.addCheck(FishDef.TYPE, (fish, ctx) -> checkModel(fish.model(), ctx));
         loader.addCheck(RigDef.TYPE, HarborContent::checkRigParts);
+        loader.addCheck(SoundTable.TYPE, HarborContent::checkSoundFallbacks);
     }
 
     /**
@@ -160,6 +166,25 @@ public final class HarborContent implements ContentService {
         snapshot = loaded;
         log.info("콘텐츠 적용: {}", loaded.counts());
         Bukkit.getPluginManager().callEvent(new ContentReloadedEvent(loaded, reloaded));
+    }
+
+    /** sounds.yml의 바닐라 대체 소리가 서버 소리 목록에 있는지 (minecraft: 키만, '15. 사운드'). */
+    private static void checkSoundFallbacks(SoundTable table, ContentCheck.Context ctx) {
+        Registry<Sound> sounds =
+                RegistryAccess.registryAccess().getRegistry(RegistryKey.SOUND_EVENT);
+        table.events()
+                .forEach(
+                        (name, event) -> {
+                            String fallback = event.fallback();
+                            if (fallback == null || !Key.parseable(fallback)) {
+                                return;
+                            }
+                            Key key = Key.key(fallback);
+                            if (key.namespace().equals(Key.MINECRAFT_NAMESPACE)
+                                    && sounds.get(key) == null) {
+                                ctx.error(name + ": 대체 소리 '" + fallback + "'는 바닐라 소리가 아닙니다");
+                            }
+                        });
     }
 
     private static void checkMaterial(String baseItem, ContentCheck.Context ctx) {

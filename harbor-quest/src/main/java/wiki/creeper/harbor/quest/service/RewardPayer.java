@@ -12,7 +12,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -32,6 +31,7 @@ import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.item.FishLedger;
 import wiki.creeper.harbor.jobs.api.AdvanceResult;
 import wiki.creeper.harbor.jobs.api.ExpGrant;
@@ -698,7 +698,7 @@ public final class RewardPayer {
                             Placeholder.unparsed("money", String.valueOf(summary.gold())),
                             Placeholder.unparsed("mulbineul", String.valueOf(summary.mulbineul())),
                             Placeholder.unparsed("exp", String.valueOf(summary.exp())));
-            player.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1f);
+            HarborSounds.play(player, "harbor:ui.quest_complete"); // '15. 사운드' 4.5 의뢰 완료
             HarborId cutscene = def.cutscene();
             if (cutscene != null && def.cutsceneAt().kind() == CutsceneAt.Kind.COMPLETE) {
                 engine.playCutscene(player, cutscene);

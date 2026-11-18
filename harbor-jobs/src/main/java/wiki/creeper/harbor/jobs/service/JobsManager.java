@@ -41,6 +41,7 @@ import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.StatKey;
@@ -231,6 +232,7 @@ public final class JobsManager implements JobsService, Listener {
                             Duration.ofMillis(250),
                             Duration.ofSeconds(2),
                             Duration.ofMillis(500));
+            HarborSounds.play(player, "harbor:ui.level_up"); // '15. 사운드' 4.5 레벨업
         }
         if (catchUp != null) {
             catchUp.apply(hp.uuid());
@@ -421,6 +423,7 @@ public final class JobsManager implements JobsService, Listener {
                 api.messages().send(player, "jobs.advance.done", Placeholder.unparsed("job", name));
                 return;
             }
+            HarborSounds.play(player, "harbor:ui.job_change"); // '15. 사운드' 4.5 전직
             Sequence.of(plugin, player)
                     .run(
                             p ->

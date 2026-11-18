@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -55,6 +56,7 @@ import wiki.creeper.harbor.common.id.RigId;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
 import wiki.creeper.harbor.world.WorldKit;
@@ -93,6 +95,14 @@ public final class ShipManager implements ShipService, Listener {
     private static final Set<Material> ICE =
             Set.of(Material.ICE, Material.PACKED_ICE, Material.BLUE_ICE, Material.FROSTED_ICE);
 
+    // 선박 소리 ('15. 사운드' 4.4)
+    private static final String BELL = "harbor:ship.bell";
+    private static final String HULL_HIT = "harbor:ship.hull_hit";
+    private static final String REPAIR = "harbor:ship.repair";
+
+    /** 이 속도(블록/틱) 이상으로 움직일 때만 항해 소리를 낸다 (제안값). */
+    private static final double ENGINE_MIN_SPEED = 0.05;
+
     /** 띄운 배. */
     private static final class Afloat {
         ShipRepository.Row row;
@@ -101,6 +111,9 @@ public final class ShipManager implements ShipService, Listener {
         final boolean follow;
         double damage;
         int ticks;
+
+        /** 항해 반복 소리 (운전 중 움직일 때만, '15. 사운드' 4.4). */
+        HarborSounds.Loop engine = HarborSounds.Loop.NONE;
 
         Afloat(ShipRepository.Row row, Boat boat, @Nullable RigInstance rig, boolean follow) {
             this.row = row;
@@ -480,6 +493,7 @@ public final class ShipManager implements ShipService, Listener {
                                 c ->
                                         ShipRepository.updateState(
                                                 c, id, durability, ShipState.AFLOAT));
+        HarborSounds.playAt(WorldKit.loc(boat), BELL); // 출항 종
         kit.send(player, "world.ship.summoned", Placeholder.unparsed("name", def.get().name()));
         return true;
     }
@@ -555,6 +569,7 @@ public final class ShipManager implements ShipService, Listener {
 
     /** 회수: 승객을 내리고 엔티티를 지운 뒤 내구도·상태를 저장한다. */
     private CompletableFuture<Void> recall(Afloat a, ShipState state) {
+        a.engine.stop();
         afloat.remove(a.row.shipId());
         byBoat.remove(a.boat.getUniqueId());
         RigInstance rig = a.rig;
@@ -623,8 +638,11 @@ public final class ShipManager implements ShipService, Listener {
             }
             List<Entity> passengers = a.boat.getPassengers();
             if (passengers.isEmpty() || !(passengers.getFirst() instanceof Player driver)) {
+                engineSound(a, false);
                 continue;
             }
+            Vector velocity = a.boat.getVelocity();
+            engineSound(a, Math.hypot(velocity.getX(), velocity.getZ()) >= ENGINE_MIN_SPEED);
             if (driver.getCurrentInput().isForward()) {
                 double mult = speed(driver, a);
                 double impulse = ShipMath.impulse(accel, mult);
@@ -651,6 +669,26 @@ public final class ShipManager implements ShipService, Listener {
             } else {
                 melted.add(new Melt(m.at(), m.type(), now + 5_000));
             }
+        }
+    }
+
+    /** 항해 반복 소리를 켜고 끈다. 배를 따라가며 근처 플레이어에게 들린다. */
+    private void engineSound(Afloat a, boolean on) {
+        if (on && !a.engine.active()) {
+            Optional<ShipDef> def = def(a.row.type());
+            String key = def.map(ShipDef::engineSound).orElse(ShipDef.ENGINE_LOOP);
+            float pitch = (float) def.map(ShipDef::enginePitch).orElse(1.0).doubleValue();
+            a.engine =
+                    HarborSounds.loopFrom(
+                            kit.tasks(),
+                            a.boat,
+                            key,
+                            HarborSounds.Options.DEFAULT
+                                    .withSource(Sound.Source.NEUTRAL)
+                                    .withPitch(pitch));
+        } else if (!on && a.engine.active()) {
+            a.engine.stop();
+            a.engine = HarborSounds.Loop.NONE;
         }
     }
 
@@ -724,6 +762,7 @@ public final class ShipManager implements ShipService, Listener {
                 continue;
             }
             a.damage -= whole;
+            HarborSounds.playAt(WorldKit.loc(a.boat), HULL_HIT);
             int next = Math.max(0, a.row.durability() - whole);
             a.row = a.row.withDurability(next, ShipState.AFLOAT);
             replace(a.row);
@@ -1023,6 +1062,7 @@ public final class ShipManager implements ShipService, Listener {
                                         kit.send(player, "world.ship.kit_cancel");
                                         return;
                                     }
+                                    HarborSounds.playAt(WorldKit.loc(player), REPAIR);
                                     int next = done + 20;
                                     if (next < total) {
                                         repairing.put(uuid, next);

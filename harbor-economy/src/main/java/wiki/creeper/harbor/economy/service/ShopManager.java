@@ -34,6 +34,7 @@ import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.gui.PagedMenu;
 import wiki.creeper.harbor.core.task.Tasks;
@@ -350,6 +351,8 @@ public final class ShopManager implements ShopService {
                                                                         "economy.shop.limit";
                                                                 default -> "economy.shop.failed";
                                                             });
+                                            // 불가 알림음 ('15. 사운드' 4.5 ui.error). future는 메인 스레드에서 끝난다
+                                            HarborSounds.play(player, "harbor:ui.error");
                                         }
                                         return;
                                     }

@@ -6,6 +6,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import net.kyori.adventure.bossbar.BossBar;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.fishing.api.MinigameResult;
 import wiki.creeper.harbor.fishing.api.TensionSession;
 import wiki.creeper.harbor.fishing.api.TensionSpec;
@@ -21,6 +22,10 @@ final class TensionSessionImpl implements TensionSession {
     @Nullable BossBar bar;
     boolean borderWarn;
     float baseYaw;
+
+    /** 릴 감기 반복 소리 (Shift 감는 동안). */
+    HarborSounds.Loop reel = HarborSounds.Loop.NONE;
+
     private @Nullable MinigameResult finished;
 
     TensionSessionImpl(UUID player, Minigame game, TensionSpec spec, Runnable onClosed) {
@@ -101,6 +106,7 @@ final class TensionSessionImpl implements TensionSession {
             return;
         }
         finished = result;
+        reel.stop();
         onClosed.run();
         for (Consumer<MinigameResult> l : List.copyOf(listeners)) {
             l.accept(result);

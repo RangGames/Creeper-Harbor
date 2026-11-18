@@ -8,6 +8,7 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.content.ParseContext;
+import wiki.creeper.harbor.common.content.type.SoundTable;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RigId;
@@ -23,6 +24,9 @@ import wiki.creeper.harbor.world.api.UpgradePath;
  * @param cargo 화물 칸 (9의 배수)
  * @param starter 시즌 첫 접속 때 지급 (나룻배)
  * @param upgrades 갈래별 단계 누적값 (speed: 속도 보정 더하기, cargo: 칸 더하기, hull: 내구도 배율 더하기)
+ * @param engineSound 항해 반복 소리 (기본: 쇄빙선 harbor:ship.icebreaker_loop, 나머지 harbor:ship.engine_loop,
+ *     '15. 사운드' 4.4, 추가 제안). 빈 문자열이면 소리 없음
+ * @param enginePitch 항해 소리 피치 (원양 탐사선·나룻배는 같은 소리를 피치만 바꿔 쓴다)
  */
 public record ShipDef(
         HarborId id,
@@ -39,7 +43,12 @@ public record ShipDef(
         boolean starter,
         @Nullable RigId decor,
         @Nullable RigId decorDonor,
-        Map<UpgradePath, List<Double>> upgrades) {
+        Map<UpgradePath, List<Double>> upgrades,
+        String engineSound,
+        double enginePitch) {
+
+    public static final String ENGINE_LOOP = "harbor:ship.engine_loop";
+    public static final String ICEBREAKER_LOOP = "harbor:ship.icebreaker_loop";
 
     /** 구매 조건. */
     public record Requires(int level, int jobTier, List<String> flags) {
@@ -83,7 +92,9 @@ public record ShipDef(
                     "starter",
                     "decor",
                     "decor_donor",
-                    "upgrades");
+                    "upgrades",
+                    "engine_sound",
+                    "engine_pitch");
 
     public boolean has(ShipFlag flag) {
         return flags.contains(flag);
@@ -189,7 +200,32 @@ public record ShipDef(
                 node.bool("starter", false),
                 rig(node, "decor", ctx),
                 rig(node, "decor_donor", ctx),
-                Map.copyOf(upgrades));
+                Map.copyOf(upgrades),
+                engineSound(node, flags),
+                enginePitch(node));
+    }
+
+    private static String engineSound(YamlNode node, Set<ShipFlag> flags) {
+        String fallback = flags.contains(ShipFlag.ICE_BREAK) ? ICEBREAKER_LOOP : ENGINE_LOOP;
+        if (!node.has("engine_sound")) {
+            return fallback;
+        }
+        YamlNode n = node.get("engine_sound").orElseThrow();
+        String key = n.isNull() ? "" : n.asString();
+        if (!key.isEmpty() && !SoundTable.KEY.matcher(key).matches()) {
+            n.error("소리 키 형식이 아닙니다 (예: harbor:ship.engine_loop): " + key);
+            return fallback;
+        }
+        return key;
+    }
+
+    private static double enginePitch(YamlNode node) {
+        double pitch = node.number("engine_pitch", 1.0);
+        if (pitch < 0.5 || pitch > 2.0) {
+            node.get("engine_pitch").orElse(node).error("engine_pitch는 0.5~2.0이어야 합니다");
+            return 1.0;
+        }
+        return pitch;
     }
 
     private static @Nullable RigId rig(YamlNode node, String key, ParseContext ctx) {

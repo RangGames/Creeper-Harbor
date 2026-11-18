@@ -70,4 +70,5 @@
   presentation:
     intro: hide
     music: "harbor:boss.wreck_moray"
+    roar: "harbor:boss.moray.roar"        # '15. 사운드' 4.3 (추가 제안)
     announce: true

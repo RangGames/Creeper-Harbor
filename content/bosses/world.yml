@@ -57,4 +57,5 @@
   presentation:
     outro: cutscene/climax_lighthouse
     music: "harbor:boss.green_thunder_fish"
+    roar: "harbor:boss.verdant_bolt.roar" # '15. 사운드' 4.3 (추가 제안)
     announce: true

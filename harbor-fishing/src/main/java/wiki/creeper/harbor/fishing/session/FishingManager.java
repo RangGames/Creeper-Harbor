@@ -22,13 +22,16 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.Sound;
+import org.bukkit.Tag;
 import org.bukkit.WeatherType;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FishHook;
 import org.bukkit.entity.Item;
@@ -66,6 +69,7 @@ import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.StatKey;
@@ -727,11 +731,13 @@ public final class FishingManager implements FishingService, Listener {
         s.bait = bait;
         s.waitTicks = waitTicks;
         macro.recordCast(player);
+        presenter.step(loc(player), "cast");
     }
 
     /** 찌 착수: 출현 판정과 대기 연출 (docs 20 3.4 CAST → WAITING). */
     private void land(Player player, FishingSession s, FishHook hook) {
         Location at = loc(hook);
+        presenter.step(at, landStep(at));
         Optional<RegionKeyResolver.RegionKey> key = regionKey(at);
         if (key.isEmpty()) {
             hook.remove();
@@ -978,6 +984,7 @@ public final class FishingManager implements FishingService, Listener {
                         b.lineStrengthStep(),
                         random);
         s.state = SessionState.MINIGAME;
+        presenter.step(hookLoc != null ? hookLoc : loc(player), "hook");
         s.inputSneak = false;
         s.baseYaw = loc(player).getYaw();
         s.lastPhase = 1;
@@ -1239,6 +1246,7 @@ public final class FishingManager implements FishingService, Listener {
             phaseSky(player, game.phase(), s.settings.intensity(), fish);
         }
         warnBorder(player, game.tension(), s.borderWarn, w -> s.borderWarn = w);
+        s.reel = reelSound(player, s.inputSneak, s.reel);
         if (game.ticks() % 2 == 0) {
             api.ui().actionBar(player, gauge(game));
             BossBar bar = s.bar;
@@ -1271,6 +1279,7 @@ public final class FishingManager implements FishingService, Listener {
                                 FishingSettings.of(api.flags(), player.getUniqueId()).lookMode(),
                                 t.baseYaw));
         warnBorder(player, game.tension(), t.borderWarn, w -> t.borderWarn = w);
+        t.reel = reelSound(player, inputSneak(player), t.reel);
         if (game.ticks() % 2 == 0) {
             api.ui().actionBar(player, gauge(game));
             BossBar bar = t.bar;
@@ -1298,6 +1307,42 @@ public final class FishingManager implements FishingService, Listener {
         return s != null && s.inputRight;
     }
 
+    /**
+     * 릴 감기 반복 소리: Shift를 누르고 있는 동안 켜고, 떼면 끊는다 ('15. 사운드' 2장 fishing.reel_loop). 플레이어를 따라가며 근처에도
+     * 들린다.
+     */
+    private HarborSounds.Loop reelSound(Player player, boolean reeling, HarborSounds.Loop current) {
+        if (reeling && !current.active()) {
+            return HarborSounds.loopFrom(
+                    tasks, player, presenter.stepSound("reel_loop"), CatchPresenter.SOUND);
+        }
+        if (!reeling && current.active()) {
+            current.stop();
+            return HarborSounds.Loop.NONE;
+        }
+        return current;
+    }
+
+    /** 찌가 떨어진 곳: 용암이면 용암 착수, 얼음 구멍(옆이나 위가 얼음)이면 얼음 구멍 착수, 아니면 일반 착수 ('15. 사운드' 4.1). */
+    private static String landStep(Location at) {
+        Block block = at.getBlock();
+        if (block.getType() == Material.LAVA) {
+            return "land_lava";
+        }
+        for (BlockFace face :
+                List.of(
+                        BlockFace.UP,
+                        BlockFace.NORTH,
+                        BlockFace.SOUTH,
+                        BlockFace.EAST,
+                        BlockFace.WEST)) {
+            if (Tag.ICE.isTagged(block.getRelative(face).getType())) {
+                return "land_ice";
+            }
+        }
+        return "land";
+    }
+
     /** 텐션 0.85 이상이면 Core WorldBorderService에 경고를 요청해 화면 가장자리를 붉게 한다. */
     private void warnBorder(
             Player player,
@@ -1306,6 +1351,7 @@ public final class FishingManager implements FishingService, Listener {
             java.util.function.Consumer<Boolean> set) {
         boolean warn = tension >= balance().tensionWarn();
         if (warn && !active) {
+            presenter.step(loc(player), "tension_warn");
             api.worldBorders()
                     .request(
                             player,
@@ -1407,6 +1453,8 @@ public final class FishingManager implements FishingService, Listener {
             api.ui().hideBossBar(player, bar);
         }
         s.bar = null;
+        s.reel.stop();
+        s.reel = HarborSounds.Loop.NONE;
         lockMovement(player, false);
         if (s.borderWarn) {
             api.worldBorders().clear(player, WorldBorderService.Priority.FISHING_TENSION);
@@ -1454,10 +1502,14 @@ public final class FishingManager implements FishingService, Listener {
             }
             case LINE_BROKE -> {
                 damageRod(player);
+                presenter.step(hookLoc != null ? hookLoc : loc(player), "line_snap");
                 api.messages().send(player, "fishing.result.line_broke");
             }
             case ESCAPED -> {
                 damageRod(player);
+                presenter.step(
+                        hookLoc != null ? hookLoc : loc(player),
+                        fish.grade().isAtLeast(Grade.RARE) ? "escape_big" : "escape");
                 api.messages().send(player, "fishing.result.escaped");
             }
             case ABORTED -> {
@@ -1641,7 +1693,7 @@ public final class FishingManager implements FishingService, Listener {
                             Duration.ofMillis(300),
                             Duration.ofSeconds(3),
                             Duration.ofSeconds(1));
-            player.playSound(loc(player), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+            // 소리는 presets.yml 등급 포획음(catch.*)이 낸다
         }
         presenter.caught(
                 player,

@@ -312,12 +312,14 @@ public record BossDef(
      * @param intro 등장 때 리그 한 번 재생 동작
      * @param outro 클리어 뒤 컷씬 ID (NPC 모듈이 있을 때만)
      * @param music 시작 때 재생할 사운드 키
+     * @param roar 포효 소리 키 (등장·반격·최후의 줄다리기 때 보스 위치에서, '15. 사운드' 4.3, 추가 제안)
      * @param announce 처치·신기록 서버 공지
      */
     public record Presentation(
             @Nullable String intro,
             @Nullable HarborId outro,
             @Nullable String music,
+            @Nullable String roar,
             boolean announce) {}
 
     public static final ContentType.Entries<BossDef> TYPE =
@@ -860,10 +862,10 @@ public record BossDef(
     private static Presentation parsePresentation(YamlNode node, ParseContext ctx) {
         Optional<YamlNode> p = node.get("presentation");
         if (p.isEmpty()) {
-            return new Presentation(null, null, null, true);
+            return new Presentation(null, null, null, null, true);
         }
         YamlNode pres = p.get();
-        pres.allowOnly(Set.of("intro", "outro", "music", "announce"));
+        pres.allowOnly(Set.of("intro", "outro", "music", "roar", "announce"));
         HarborId outro = null;
         Optional<YamlNode> o = pres.get("outro");
         if (o.isPresent()) {
@@ -877,6 +879,7 @@ public record BossDef(
                 pres.optString("intro").orElse(null),
                 outro,
                 pres.optString("music").orElse(null),
+                pres.optString("roar").orElse(null),
                 pres.bool("announce", true));
     }
 

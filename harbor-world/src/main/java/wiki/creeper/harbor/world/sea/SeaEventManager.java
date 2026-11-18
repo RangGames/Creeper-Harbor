@@ -23,6 +23,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RegionId;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.world.WorldKit;
@@ -55,6 +56,10 @@ public final class SeaEventManager implements SeaEventService, Listener {
     private final Map<String, ActiveSeaEvent> events = new LinkedHashMap<>();
     private final Map<String, Set<UUID>> warned = new HashMap<>();
     private final Set<UUID> stormy = new HashSet<>();
+
+    /** 폭풍 해역에 있는 동안의 반복 소리 (event.storm_loop, '15. 사운드' 2장). */
+    private final Map<UUID, HarborSounds.Loop> stormLoops = new HashMap<>();
+
     private final Map<String, Integer> stormTicks = new HashMap<>();
     private @Nullable GhostShipController ghosts;
     private @Nullable TournamentManager tournaments;
@@ -117,6 +122,8 @@ public final class SeaEventManager implements SeaEventService, Listener {
         for (ActiveSeaEvent e : List.copyOf(events.values())) {
             cleanup(e);
         }
+        stormLoops.values().forEach(HarborSounds.Loop::stop);
+        stormLoops.clear();
         events.clear();
     }
 
@@ -200,13 +207,16 @@ public final class SeaEventManager implements SeaEventService, Listener {
             kit.api().modifiers().addGlobal(mod.until(e.endsAt()));
         }
         if (announce) {
-            for (Player p : affected(e)) {
+            List<Player> players = affected(e);
+            for (Player p : players) {
                 kit.send(
                         p,
                         "world.event.start",
                         Placeholder.parsed("name", def.name()),
                         Placeholder.unparsed("minutes", String.valueOf(def.durationMinutes())));
             }
+            // 시작 소리 (유령선 등장·물고기 대이동, '15. 사운드' 4.7)
+            HarborSounds.play(players, def.startSound(), HarborSounds.Options.DEFAULT);
         }
         GhostShipController g = ghosts;
         if (g != null && e.type() == SeaEventType.GHOST_SHIP) {
@@ -247,6 +257,7 @@ public final class SeaEventManager implements SeaEventService, Listener {
                                 .isEmpty()) {
                     p.resetPlayerWeather();
                     stormy.remove(uuid);
+                    stopStormLoop(uuid);
                 }
             }
         }
@@ -349,11 +360,23 @@ public final class SeaEventManager implements SeaEventService, Listener {
             if (stormy.add(p.getUniqueId())) {
                 p.setPlayerWeather(WeatherType.DOWNFALL);
                 kit.actionBar(p, "world.event.storm_enter");
+                String loop =
+                        kit.api()
+                                .content()
+                                .snapshot()
+                                .get(SeaEventDef.TYPE, storm.get().eventId())
+                                .map(SeaEventDef::loopSound)
+                                .orElse(null);
+                stopStormLoop(p.getUniqueId());
+                stormLoops.put(
+                        p.getUniqueId(),
+                        HarborSounds.loop(kit.tasks(), p, loop, HarborSounds.Options.DEFAULT));
             }
         }
         for (UUID uuid : List.copyOf(stormy)) {
             if (!inStorm.contains(uuid)) {
                 stormy.remove(uuid);
+                stopStormLoop(uuid);
                 Player p = Bukkit.getPlayer(uuid);
                 if (p != null) {
                     p.resetPlayerWeather();
@@ -412,9 +435,17 @@ public final class SeaEventManager implements SeaEventService, Listener {
         stormTicks.keySet().removeIf(run -> !events.containsKey(run));
     }
 
+    private void stopStormLoop(UUID uuid) {
+        HarborSounds.Loop loop = stormLoops.remove(uuid);
+        if (loop != null) {
+            loop.stop();
+        }
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         stormy.remove(event.getPlayer().getUniqueId());
+        stopStormLoop(event.getPlayer().getUniqueId());
     }
 
     // ------------------------------------------------------------------ SeaEventService

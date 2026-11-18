@@ -1,6 +1,6 @@
 # 리소스팩에 들어 있는 item_model·소리 목록 (Core ItemModels가 이 목록에 있는 모델만 쓴다).
 # 손으로 고치지 않는다. 팩을 바꾸면 다시 만든다: ./gradlew packIndex -Ppack=<리소스팩 폴더 또는 zip>
-# 만든 팩: Creeperharbor-Fish-RP.zip
+# 만든 팩: Creeper-Harbor-RP.zip
 models:
   - harbor:fish/abyss_lanternfish
   - harbor:fish/abyss_lanternfish/body_1
@@ -1623,3 +1623,56 @@ models:
   - harbor:fish/yellow_butterflyfish/jaw
   - harbor:fish/yellow_butterflyfish/tail
 sounds:
+  - harbor:ambient.coral
+  - harbor:ambient.fjord
+  - harbor:ambient.harbor
+  - harbor:ambient.lava_lake
+  - harbor:ambient.swamp
+  - harbor:ambient.trench
+  - harbor:ambient.void_sea
+  - harbor:boss.fire_carp.roar
+  - harbor:boss.gnome.roar
+  - harbor:boss.harpoon_hit
+  - harbor:boss.harpoon_throw
+  - harbor:boss.moray.roar
+  - harbor:boss.trench_lord.roar
+  - harbor:boss.trench_squid.roar
+  - harbor:boss.verdant_bolt.roar
+  - harbor:boss.void_nebula.roar
+  - harbor:boss.white_sturgeon.roar
+  - harbor:catch.common
+  - harbor:catch.legendary
+  - harbor:catch.legendary_bite
+  - harbor:catch.mythic
+  - harbor:catch.new_record
+  - harbor:catch.rare
+  - harbor:event.announce
+  - harbor:event.ghost_ship
+  - harbor:event.migration
+  - harbor:event.storm_loop
+  - harbor:fishing.bite
+  - harbor:fishing.bobber_land
+  - harbor:fishing.cast
+  - harbor:fishing.flop
+  - harbor:fishing.hook
+  - harbor:fishing.ice_hole
+  - harbor:fishing.lava_cast
+  - harbor:fishing.line_snap
+  - harbor:fishing.miss_big
+  - harbor:fishing.reel_in
+  - harbor:fishing.reel_loop
+  - harbor:fishing.tension_warn
+  - harbor:ship.bell
+  - harbor:ship.engine_loop
+  - harbor:ship.hull_hit
+  - harbor:ship.icebreaker_loop
+  - harbor:ship.repair
+  - harbor:travel.airship
+  - harbor:ui.click
+  - harbor:ui.codex_register
+  - harbor:ui.coin
+  - harbor:ui.error
+  - harbor:ui.job_change
+  - harbor:ui.level_up
+  - harbor:ui.mulbineul
+  - harbor:ui.quest_complete

@@ -12,5 +12,5 @@
   titles:
     - {t: 40, title: npc.cutscene.job_advance.title, subtitle: npc.cutscene.job_advance.subtitle, stay: 40}
   sounds:
-    - {t: 40, sound: "minecraft:ui.toast.challenge_complete"}
+    - {t: 40, sound: "harbor:ui.job_change"}   # 팩이 없으면 sounds.yml 대체 소리 (ui.toast.challenge_complete)
   end: {return: origin}

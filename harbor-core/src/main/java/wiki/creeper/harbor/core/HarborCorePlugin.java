@@ -48,6 +48,7 @@ import wiki.creeper.harbor.core.message.MessageManager;
 import wiki.creeper.harbor.core.message.UiManager;
 import wiki.creeper.harbor.core.modifier.ModifierManager;
 import wiki.creeper.harbor.core.pack.ResourcePacks;
+import wiki.creeper.harbor.core.pack.SoundCues;
 import wiki.creeper.harbor.core.player.PlayerManager;
 import wiki.creeper.harbor.core.proxy.ProxyLink;
 import wiki.creeper.harbor.core.rig.RigCommand;
@@ -232,6 +233,9 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         pm.registerEvents(new ItemModelSync(items), this);
         command.addModuleCommand(new RigCommand(rigManager, msg, adminLog).build());
         pm.registerEvents(new MenuListener(), this);
+        SoundCues soundCues = new SoundCues(api.content());
+        pm.registerEvents(soundCues, this);
+        soundCues.subscribe(messageBus, tasks);
         pm.registerEvents(new ChatBridge(infra, r, messageBus), this);
         pm.registerEvents(this, this);
         if (infra.role() == ServerRole.LOBBY) {

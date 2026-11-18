@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -33,6 +34,7 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.world.WorldKit;
 import wiki.creeper.harbor.world.content.RegionExt;
 import wiki.creeper.harbor.world.content.WorldBalance;
@@ -54,6 +56,8 @@ import wiki.creeper.harbor.world.region.WorldIndex;
  */
 public final class RideManager implements Listener {
 
+    private static final String AIRSHIP_SOUND = "harbor:travel.airship";
+
     private record Stop(WorldIndex.Entry region, RegionExt.Dock dock) {
 
         String key() {
@@ -67,6 +71,9 @@ public final class RideManager implements Listener {
         final Location arrival;
         int segment;
         final Set<Long> tickets = new java.util.HashSet<>();
+
+        /** 비행 반복 소리 (travel.airship, '15. 사운드' 4.4). */
+        HarborSounds.Loop sound = HarborSounds.Loop.NONE;
 
         Flight(HappyGhast ghast, List<Location> path, Location arrival) {
             this.ghast = ghast;
@@ -307,7 +314,14 @@ public final class RideManager implements Listener {
                     "world.airship.departed",
                     Placeholder.parsed("name", dest.region().def().name()));
         }
-        flights.add(new Flight(ghast, path, arrival));
+        Flight flight = new Flight(ghast, path, arrival);
+        flight.sound =
+                HarborSounds.loopFrom(
+                        kit.tasks(),
+                        ghast,
+                        AIRSHIP_SOUND,
+                        HarborSounds.Options.DEFAULT.withSource(Sound.Source.NEUTRAL));
+        flights.add(flight);
     }
 
     /** 매 틱: 경로를 따라 옮긴다 (텔레포트, 승객은 함께 간다). */
@@ -316,6 +330,7 @@ public final class RideManager implements Listener {
         for (Flight f : List.copyOf(flights)) {
             if (!f.ghast.isValid()) {
                 flights.remove(f);
+                f.sound.stop();
                 releaseTickets(f);
                 continue;
             }
@@ -385,6 +400,7 @@ public final class RideManager implements Listener {
 
     private void land(Flight f) {
         flights.remove(f);
+        f.sound.stop();
         List<Entity> passengers = List.copyOf(f.ghast.getPassengers());
         f.ghast.eject();
         f.ghast.remove();

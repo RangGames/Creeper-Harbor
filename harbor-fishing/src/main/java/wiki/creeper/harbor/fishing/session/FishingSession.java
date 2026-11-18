@@ -10,6 +10,7 @@ import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.Quality;
+import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.fishing.api.SessionState;
 
 /** 플레이어 한 명의 낚시 세션 (메인 스레드 전용). */
@@ -63,6 +64,10 @@ final class FishingSession {
     float baseYaw;
     int lastPhase = 1;
     boolean borderWarn;
+
+    /** 릴 감기 반복 소리 (Shift 감는 동안, '15. 사운드' fishing.reel_loop). */
+    HarborSounds.Loop reel = HarborSounds.Loop.NONE;
+
     Minigame.@Nullable Pattern lastActive;
     FishingSettings settings = FishingSettings.DEFAULT;
 

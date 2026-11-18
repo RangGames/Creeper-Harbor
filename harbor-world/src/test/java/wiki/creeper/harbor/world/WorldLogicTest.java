@@ -197,7 +197,9 @@ class WorldLogicTest {
                 1,
                 new SeaEventDef.Storm(1, 5, 0.7, 12, 4),
                 null,
-                null);
+                null,
+                null,
+                SeaEventDef.STORM_LOOP);
     }
 
     @Test
@@ -334,7 +336,9 @@ class WorldLogicTest {
                                 UpgradePath.CARGO,
                                 List.of(9.0, 18.0, 27.0),
                                 UpgradePath.HULL,
-                                List.of(0.15, 0.30, 0.50)));
+                                List.of(0.15, 0.30, 0.50)),
+                        ShipDef.ENGINE_LOOP,
+                        1.0);
         Map<UpgradePath, Integer> none = Map.of();
         Map<UpgradePath, Integer> maxed =
                 Map.of(UpgradePath.SPEED, 3, UpgradePath.CARGO, 3, UpgradePath.HULL, 2);
