@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -53,6 +54,7 @@ final class CoreRig implements RigInstance {
     private final double scale;
     private final @Nullable Consumer<RigHit> onHit;
     private final List<Consumer<RemoveReason>> removeListeners = new ArrayList<>();
+    private final List<BiConsumer<String, String>> eventListeners = new ArrayList<>();
     private @Nullable Set<UUID> viewers;
     private float yaw;
     private float pitch;
@@ -491,10 +493,27 @@ final class CoreRig implements RigInstance {
         RigManager.requireMain();
         for (int i = 0; i < parts.length; i++) {
             BakedRig.PartRef ref = baked.parts().get(i);
-            if (ref.name().equals(bone)) {
+            if (bone.equals(ALL_PARTS) || ref.name().equals(bone)) {
                 parts[i].setGlowColorOverride(glow ? Color.fromRGB(ref.part().glowColor()) : null);
                 parts[i].setGlowing(glow);
             }
+        }
+    }
+
+    @Override
+    public void onEvent(BiConsumer<String, String> listener) {
+        if (!valid) {
+            return;
+        }
+        if (eventListeners.isEmpty()) {
+            playback.setEventSink(this::fireEvent);
+        }
+        eventListeners.add(listener);
+    }
+
+    private void fireEvent(String animation, String event) {
+        for (BiConsumer<String, String> listener : List.copyOf(eventListeners)) {
+            listener.accept(animation, event);
         }
     }
 
@@ -532,5 +551,7 @@ final class CoreRig implements RigInstance {
             }
         }
         removeListeners.clear();
+        eventListeners.clear();
+        playback.setEventSink(null);
     }
 }

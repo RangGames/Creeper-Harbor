@@ -6,8 +6,8 @@ import java.util.Optional;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.common.content.type.FishDef;
-import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RigId;
+import wiki.creeper.harbor.common.rig.FishRigs;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
 import wiki.creeper.harbor.core.api.RigService;
@@ -15,10 +15,10 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
 
 /**
- * Core RigInstance로 그리는 그림자 (docs 20 3.4, '16. 플러그인 설계' 5.10). 어종 리그 {@code rig/fish/<어종 이름>}이 있으면
- * 그것, 없으면 등급 프리셋의 shadow_rig(예: rig/fish/shadow_small)를 캐스터에게만 띄운다. 크기는 프리셋 shadow_scale(전설은 배보다
- * 크게). 동작은 대기 swim, 입질 bite, 점프 leap(한 번 재생 후 swim)이고 리그에 없는 동작은 건너뛴다. 둘 다 없으면 {@link
- * DisplayShadowPresenter}로 대신한다. 그림자 감별(feature_shadow_grade)은 body 부위 발광으로 표시한다 (색은 리그
+ * Core RigInstance로 그리는 그림자 (docs 20 3.4, '16. 플러그인 설계' 5.10). 어종 리그 {@code rig/fish/<모델
+ * 이름>}(FishRigs)이 있으면 그것, 없으면 등급 프리셋의 shadow_rig(예: rig/fish/shadow_small)를 캐스터에게만 띄운다. 크기는 프리셋
+ * shadow_scale(전설은 배보다 크게). 동작은 대기 swim, 입질 bite, 점프 leap(한 번 재생 후 swim)이고 리그에 없는 동작은 건너뛴다. 둘 다 없으면
+ * {@link DisplayShadowPresenter}로 대신한다. 그림자 감별(feature_shadow_grade)은 모든 부품 발광으로 표시한다 (색은 리그
  * glow_color).
  */
 public final class RigShadowPresenter implements ShadowPresenter {
@@ -26,7 +26,6 @@ public final class RigShadowPresenter implements ShadowPresenter {
     private static final String SWIM = "swim";
     private static final String BITE = "bite";
     private static final String LEAP = "leap";
-    private static final String GLOW_BONE = "body";
     private static final int JUMP_TICKS = 16;
     private static final double JUMP_HEIGHT = 1.8;
 
@@ -42,12 +41,14 @@ public final class RigShadowPresenter implements ShadowPresenter {
 
     /** 이 어종의 그림자 리그 (어종 리그 → 등급 기본). */
     Optional<RigId> rigFor(FishDef fish, FishingPresets.GradePreset preset) {
-        RigId own =
-                new RigId(
-                        new HarborId(
-                                fish.id().id().namespace(), "rig/fish/" + fish.id().id().name()));
+        // 어종 리그는 모델 이름(FishDef.model)을 따른다. 없으면 예전 규칙(어종 ID 이름)
+        RigId own = FishRigs.rigOf(fish);
         if (rigs.ids().contains(own)) {
             return Optional.of(own);
+        }
+        RigId byId = FishRigs.byId(fish);
+        if (rigs.ids().contains(byId)) {
+            return Optional.of(byId);
         }
         String shadow = preset.shadowRig();
         if (shadow == null) {
@@ -72,16 +73,23 @@ public final class RigShadowPresenter implements ShadowPresenter {
         if (rig.isEmpty()) {
             return fallback.spawn(viewer, at, fish, preset, gradeGlow);
         }
+        // shadow_scale은 그림자 몸길이(블록)로 본다. 몸길이(length)가 있는 리그(어종 리그)는 그 길이에 맞추고, 없으면 배율 그대로
+        double size = Math.max(0.1, preset.shadowScale());
+        double scale =
+                rigs.definition(rig.get())
+                        .filter(d -> d.length() > 0)
+                        .map(d -> FishRigs.fitScale(d, size))
+                        .orElse(size);
         RigInstance instance =
                 rigs.spawn(
                         rig.get(),
                         at,
                         RigOptions.privateTo(viewer)
-                                .withScale(Math.max(0.1, preset.shadowScale()))
+                                .withScale(scale)
                                 .withAnimation(SWIM)
                                 .withPhase(-1));
         if (gradeGlow) {
-            instance.setPartGlow(GLOW_BONE, true);
+            instance.setPartGlow(RigInstance.ALL_PARTS, true);
         }
         return new RigShadow(instance, viewer);
     }

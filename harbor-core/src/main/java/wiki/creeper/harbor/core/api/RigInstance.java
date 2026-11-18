@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
@@ -128,8 +129,17 @@ public interface RigInstance {
     /** 모두에게 보이게 한다. */
     void showToAll();
 
-    /** 부위 발광 (보스 약점). 색은 rigs/*.yml의 glow_color. */
+    /** {@link #setPartGlow}에서 모든 부품을 가리키는 이름 (어종 그림자 감별 등 뼈 이름을 모를 때). */
+    String ALL_PARTS = "*";
+
+    /** 부위 발광 (보스 약점). 색은 rigs/*.yml의 glow_color. bone이 {@link #ALL_PARTS}면 모든 부품. */
     void setPartGlow(String bone, boolean glow);
+
+    /**
+     * 동작 이벤트 (rigs/*.yml 동작의 {@code events}, 예: 먹물 {@code ink}·부풀기 {@code hiss}). listener는 (동작 이름,
+     * 이벤트 이름)을 메인 스레드에서 받는다. 아무도 안 보거나 LOD 거리 밖이라 갱신을 건너뛴 동안의 이벤트는 내지 않는다.
+     */
+    default void onEvent(BiConsumer<String, String> listener) {}
 
     // ------------------------------------------------------------------ 수명
 

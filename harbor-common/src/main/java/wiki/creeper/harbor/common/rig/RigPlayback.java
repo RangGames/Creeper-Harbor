@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.common.rig;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -23,6 +24,15 @@ public final class RigPlayback {
         void send(int part, Xform target, int duration);
     }
 
+    /** 동작 이벤트 받는 쪽 (RigDef events). */
+    @FunctionalInterface
+    public interface EventSink {
+        void fire(String animation, String event);
+    }
+
+    /** 이보다 오래 갱신이 끊겼다가 돌아오면(LOD·시청자 없음) 그사이 이벤트는 버린다 (틱). */
+    private static final double MAX_EVENT_GAP = 20;
+
     private static final long UNSET = Long.MIN_VALUE;
     private static final long BLEND = Long.MIN_VALUE + 1;
     private static final long FROZEN = Long.MIN_VALUE + 2;
@@ -35,6 +45,9 @@ public final class RigPlayback {
     private long baseTick;
     private double baseTime;
     private double speed = 1;
+    private List<RigDef.Event> events = List.of();
+    private double eventTime = Double.NaN;
+    private @Nullable EventSink eventSink;
 
     public RigPlayback(BakedRig rig) {
         this.rig = rig;
@@ -45,6 +58,11 @@ public final class RigPlayback {
 
     public BakedRig rig() {
         return rig;
+    }
+
+    /** 동작 이벤트를 받을 곳. {@link #update}에서 부른다. */
+    public void setEventSink(@Nullable EventSink sink) {
+        this.eventSink = sink;
     }
 
     /** 지금 동작. 기본 자세면 null. */
@@ -95,7 +113,41 @@ public final class RigPlayback {
         returnTo = next;
         baseTick = now + Math.max(0, blendTicks);
         baseTime = Math.min(animation.length(), startFrame * (double) animation.ticksPerFrame());
+        resetEvents();
         resync();
+    }
+
+    /** 지금 동작의 이벤트 목록을 다시 잡고, 시작 위치의 이벤트부터 내도록 한다. */
+    private void resetEvents() {
+        RigDef.Animation def =
+                current == rig.rest() ? null : rig.def().animations().get(current.name());
+        events = def == null ? List.of() : def.events();
+        eventTime = baseTime - 1e-6;
+    }
+
+    /** (이전 갱신 시각, t]에 든 이벤트를 낸다. t는 {@link #time} 기준. */
+    private void fireEvents(double t) {
+        double prev = eventTime;
+        eventTime = t;
+        EventSink sink = eventSink;
+        if (sink == null || events.isEmpty() || Double.isNaN(prev) || t <= prev) {
+            return;
+        }
+        if (t - prev > MAX_EVENT_GAP) {
+            return;
+        }
+        int length = current.length();
+        for (RigDef.Event e : events) {
+            double at;
+            if (loops() && length > 0) {
+                at = (Math.floor((prev - e.tick()) / length) + 1) * length + e.tick();
+            } else {
+                at = e.tick();
+            }
+            if (at > prev && at <= t && at >= 0) {
+                sink.fire(current.name(), e.name());
+            }
+        }
     }
 
     /** 재생 위치를 프레임으로 맞춘다. */
@@ -111,6 +163,7 @@ public final class RigPlayback {
         }
         baseTick = now;
         baseTime = Math.min(current.length(), f * (double) current.ticksPerFrame());
+        eventTime = baseTime - 1e-6;
         resync();
     }
 
@@ -182,6 +235,7 @@ public final class RigPlayback {
     public void update(long now, Sink sink) {
         finishIfDone(now);
         double t = time(now);
+        fireEvents(t);
         int length = current.length();
         for (int p = 0; p < lastSegment.length; p++) {
             BakedRig.KeyTrack keys = current.part(p);
@@ -235,6 +289,7 @@ public final class RigPlayback {
         if (t < current.length()) {
             return;
         }
+        fireEvents(current.length()); // 끝나기 직전 이벤트를 빠뜨리지 않게
         boolean returns = once || current.mode() == RigDef.LoopMode.ONCE;
         if (!returns) {
             return; // hold: 마지막 자세 유지
@@ -251,6 +306,8 @@ public final class RigPlayback {
         returnTo = null;
         baseTick = now;
         baseTime = Math.min(current.length(), overshoot);
+        resetEvents();
+        eventTime = -1e-6;
         resync();
     }
 }

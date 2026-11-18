@@ -37,6 +37,7 @@ import wiki.creeper.harbor.world.content.WorldContent;
  * <pre>
  * harbor-tools validate &lt;콘텐츠 폴더&gt;
  * harbor-tools pack-index &lt;리소스팩 폴더 또는 zip&gt; &lt;콘텐츠 폴더&gt;   (resource_pack.yml 생성)
+ * harbor-tools rig-import &lt;리그 JSON 폴더&gt; &lt;콘텐츠 폴더&gt; [샘플 간격 틱]   (rigs/fish/*.yml 생성)
  * </pre>
  *
  * 서버 API가 필요한 검사(바닐라 아이템 ID 등)는 서버에서만 한다. 모듈을 추가하면 그 모듈의 XxxContent도 여기에 등록한다.
@@ -47,6 +48,10 @@ public final class HarborTools {
 
     public static void main(String[] args) {
         PrintStream out = new PrintStream(System.out, true, StandardCharsets.UTF_8);
+        if ((args.length == 3 || args.length == 4) && args[0].equals("rig-import")) {
+            rigImport(args, out);
+            return;
+        }
         if (args.length == 3 && args[0].equals("pack-index")) {
             packIndex(Path.of(args[1]), Path.of(args[2]), out);
             return;
@@ -54,6 +59,7 @@ public final class HarborTools {
         if (args.length != 2 || !args[0].equals("validate")) {
             out.println("사용법: harbor-tools validate <콘텐츠 폴더>");
             out.println("        harbor-tools pack-index <리소스팩 폴더 또는 zip> <콘텐츠 폴더>");
+            out.println("        harbor-tools rig-import <리그 JSON 폴더> <콘텐츠 폴더> [샘플 간격 틱]");
             System.exit(2);
             return;
         }
@@ -94,6 +100,56 @@ public final class HarborTools {
                 System.exit(1);
             }
         }
+    }
+
+    /** 리소스팩 어종 리그 JSON → content/rigs/fish/*.yml. 간격이 없으면 balance.yml rig.fps에서 (20 / fps틱). */
+    private static void rigImport(String[] args, PrintStream out) {
+        Path contentDir = Path.of(args[2]);
+        try {
+            int step =
+                    args.length == 4
+                            ? Integer.parseInt(args[3])
+                            : 20 / Math.max(1, rigFps(contentDir));
+            var converted = RigImporter.run(Path.of(args[1]), contentDir, step);
+            long bytes = 0;
+            for (var c : converted) {
+                bytes += c.yaml().getBytes(StandardCharsets.UTF_8).length;
+                if (!c.events().isEmpty()) {
+                    out.println("  " + c.name() + " 이벤트: " + c.events());
+                }
+            }
+            out.println(
+                    "rigs/fish: 리그 "
+                            + converted.size()
+                            + "개 ("
+                            + bytes / 1024
+                            + " KiB, 샘플 간격 "
+                            + step
+                            + "틱)");
+            System.exit(0);
+        } catch (IOException | NumberFormatException e) {
+            out.println("리그를 변환하지 못했습니다: " + e.getMessage());
+            System.exit(1);
+        }
+    }
+
+    /** balance.yml rig.fps (없으면 10). */
+    private static int rigFps(Path contentDir) throws IOException {
+        Path balance = contentDir.resolve("balance.yml");
+        if (!Files.isRegularFile(balance)) {
+            return 10;
+        }
+        Object root =
+                new org.yaml.snakeyaml.Yaml()
+                        .load(Files.readString(balance, StandardCharsets.UTF_8));
+        if (root instanceof java.util.Map<?, ?> map
+                && map.get("rig") instanceof java.util.Map<?, ?> rig
+                && rig.get("fps") instanceof Number fps
+                && fps.intValue() > 0
+                && 20 % fps.intValue() == 0) {
+            return fps.intValue();
+        }
+        return 10;
     }
 
     private static void packIndex(Path pack, Path contentDir, PrintStream out) {

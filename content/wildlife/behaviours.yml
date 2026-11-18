@@ -30,3 +30,24 @@ actions:
   spin:     {group: normal, speed_delta: 0.2, reps: 2}
   glide:    {group: lazy, speed_delta: -0.4, reps: 1}
   pulse:    {group: lazy, speed_delta: 0.6, reps: 2, impulse: [0, 0.2, 0]}
+  # 리소스팩 어종 리그의 고유 동작 (rig-import로 들어온 이름, 모두 제안값). 설명은 어종 모델 작업 목록
+  bite:      {group: active, speed_delta: 1.0, reps: 1, particle: bubble}            # 먹이를 덮쳐 물기
+  flash:     {group: normal, speed_delta: 0.2, reps: 1}                              # 몸을 뒤집어 은빛 번쩍
+  coil:      {group: lazy, speed_delta: -0.7, reps: 1}                               # 몸을 똬리처럼 감았다 풀기
+  flare:     {group: normal, speed_delta: -0.5, reps: 1, threat: true}               # 지느러미를 활짝 펴 위협
+  lure:      {group: lazy, speed_delta: -0.8, reps: 1}                               # 초롱을 흔들어 꾀어낸 뒤 덥석
+  jump:      {group: active, speed_delta: 0.3, reps: 1, impulse: [0, 0.65, 0], particle: splash}  # 수면 위로 점프
+  gape:      {group: lazy, speed_delta: -0.5, reps: 1}                               # 입을 크게 벌려 삼키기
+  whisker:   {group: lazy, speed_delta: -0.85, reps: 2}                              # 수염으로 바닥 더듬기
+  bow:       {group: lazy, speed_delta: -0.85, reps: 1}                              # 왕관을 보이며 고개 숙이기
+  moongaze:  {group: lazy, speed_delta: -0.85, reps: 1}                              # 고개 들어 달빛 바라보기
+  celebrate: {group: active, speed_delta: 0.3, reps: 1, impulse: [0, 0.5, 0], particle: splash}   # 회전하며 축하 점프
+  rise:      {group: lazy, speed_delta: -0.7, reps: 1, impulse: [0, 0.2, 0]}         # 꼿꼿이 선 채 떠오르기
+  weep:      {group: lazy, speed_delta: -0.85, reps: 1}                              # 고개 숙여 눈물 결정 흘리기
+  curl:      {group: lazy, speed_delta: -0.6, reps: 1}                               # 꼬리를 동그랗게 말기
+  jaw_shoot: {group: active, speed_delta: 0.8, reps: 1, particle: bubble}            # 턱을 튀어나오게 하며 낚아채기
+  spine:     {group: normal, speed_delta: -0.4, reps: 1, threat: true}               # 등가시 접었다 세우기
+  levitate:  {group: lazy, speed_delta: -0.5, reps: 1, impulse: [0, 0.25, 0]}        # 둥실 떠올랐다 내려오기
+  shoot:     {group: active, speed_delta: 2.0, reps: 1, particle: bubble}            # 껍데기를 열고 탄환처럼 튀어나오기
+  headshake: {group: active, speed_delta: 0.3, reps: 1, impulse: [0, 0.5, 0], particle: splash}   # 점프하며 머리 흔들기
+  surprise:  {group: normal, speed_delta: -0.3, reps: 1, threat: true}               # 깜짝 놀란 표정

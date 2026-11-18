@@ -38,6 +38,8 @@ import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RigId;
+import wiki.creeper.harbor.common.rig.FishRigs;
+import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
@@ -191,7 +193,8 @@ public final class AquariumTanks {
                                         at,
                                         RigOptions.privateTo(List.<Player>of())
                                                 .withAnimation("swim")
-                                                .withPhase(-1));
+                                                .withPhase(-1)
+                                                .withScale(tankScale(e.getKey(), rig.get(), tank)));
                 instance.setViewers(watching);
                 swimmers.put(e.getKey(), new Swimmer(instance, tank));
             } catch (IllegalArgumentException ex) {
@@ -201,11 +204,38 @@ public final class AquariumTanks {
         drawLabels(world, open, layout);
     }
 
-    /** 어종 리그 rig/fish/<이름> → 없으면 fallback_rig. */
+    /**
+     * 어종 리그를 어종 크기(size_cm 가운데 값)로 그리되, 수조 가로 폭의 절반을 넘지 않게 줄인다 (리소스팩 어종 모델은 실제 크기보다 크다). 리그에 몸길이가
+     * 없으면 1.
+     */
+    private double tankScale(FishId fish, RigId rig, AquariumRules.Tank tank) {
+        Optional<RigDef> def = api.rigs().definition(rig);
+        if (def.isEmpty() || def.get().length() <= 0) {
+            return 1.0;
+        }
+        Box box = tank.box();
+        double room = Math.min(box.maxX() - box.minX(), box.maxZ() - box.minZ()) / 2;
+        double length =
+                api.content()
+                        .snapshot()
+                        .get(FishDef.TYPE, fish.id())
+                        .map(FishRigs::naturalLength)
+                        .orElse(def.get().length() * def.get().scale());
+        return FishRigs.fitScale(def.get(), room > 0 ? Math.min(length, room) : length);
+    }
+
+    /** 어종 리그 rig/fish/&lt;모델 이름&gt;(FishRigs, 없으면 어종 ID 이름) → 없으면 fallback_rig. */
     private Optional<RigId> rigFor(FishId fish, AquariumRules.Display d) {
-        RigId own = new RigId(new HarborId(fish.id().namespace(), "rig/fish/" + fish.id().name()));
-        if (api.rigs().ids().contains(own)) {
-            return Optional.of(own);
+        Optional<FishDef> def = api.content().snapshot().get(FishDef.TYPE, fish.id());
+        if (def.isPresent()) {
+            RigId own = FishRigs.rigOf(def.get());
+            if (api.rigs().ids().contains(own)) {
+                return Optional.of(own);
+            }
+        }
+        RigId byId = new RigId(new HarborId(fish.id().namespace(), "rig/fish/" + fish.id().name()));
+        if (api.rigs().ids().contains(byId)) {
+            return Optional.of(byId);
         }
         RigId fallback = d.fallbackRig();
         return fallback != null && api.rigs().ids().contains(fallback)

@@ -132,7 +132,7 @@ class RigDefTest {
         assertVec(new Vec3(0, 0, 0.25), baked.rest().hitbox(0, 0), 1e-9);
     }
 
-    /** 저장소의 샘플 리그(content/rigs)가 모두 읽히고, 구운 키가 원래 자세와 허용 오차 안에서 맞는지. */
+    /** 저장소의 리그(content/rigs, 변환한 rigs/fish 포함)가 모두 읽히고, 구운 키가 원래 자세와 허용 오차 안에서 맞는지. */
     @Test
     void sampleContentRigsBakeWithinTolerance() throws java.io.IOException {
         java.nio.file.Path dir = java.nio.file.Path.of("..", "content", "rigs");
@@ -140,8 +140,9 @@ class RigDefTest {
         Xform.Tolerance tol = new Xform.Tolerance(0.005, 1.2, 0.005);
         RigBaker.Settings settings = new RigBaker.Settings(10, tol, 8);
         int rigs = 0;
-        try (var files = java.nio.file.Files.list(dir)) {
-            for (java.nio.file.Path file : files.toList()) {
+        try (var files = java.nio.file.Files.walk(dir)) {
+            for (java.nio.file.Path file :
+                    files.filter(f -> f.getFileName().toString().endsWith(".yml")).toList()) {
                 ValidationErrors errors = new ValidationErrors();
                 YamlNode root =
                         YamlNode.read(file, file.getFileName().toString(), errors).orElseThrow();

@@ -48,3 +48,18 @@ val packIndex by tasks.registering(JavaExec::class) {
         listOf("pack-index", pack.orNull ?: throw GradleException("-Ppack=<리소스팩 폴더 또는 zip>이 필요합니다"), contentDir)
     })
 }
+
+// ./gradlew rigImport -Prigs=<리소스팩 assets/harbor/rigs/fish 폴더> [-PrigStep=<틱>] → content/rigs/fish/<이름>.yml (어종 리그 변환)
+val rigImport by tasks.registering(JavaExec::class) {
+    group = "content"
+    description = "리소스팩 어종 리그 JSON(harbor_rig_v1)을 content/rigs/fish/*.yml로 바꾼다 (-Prigs=<폴더>)"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = application.mainClass
+    val rigs = providers.gradleProperty("rigs")
+    val step = providers.gradleProperty("rigStep")
+    val contentDir = rootProject.layout.projectDirectory.dir("content").asFile.absolutePath
+    argumentProviders.add(CommandLineArgumentProvider {
+        listOf("rig-import", rigs.orNull ?: throw GradleException("-Prigs=<리그 JSON 폴더>가 필요합니다"), contentDir) +
+            listOfNotNull(step.orNull)
+    })
+}

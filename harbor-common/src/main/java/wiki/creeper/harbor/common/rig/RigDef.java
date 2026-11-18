@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.common.rig;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,7 +20,12 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * 디스플레이 리그 정의 (rigs/*.yml, 추가 제안 형식). '16. 플러그인 설계' 5.10의 리그: 뼈 계층, 뼈마다 붙는 표시 부품(ItemDisplay의
  * item_model 또는 BlockDisplay의 블록), 키프레임 애니메이션.
  *
- * <p>어종 모델 작업의 리그 JSON(harbor_rig_v1)은 harbor-tools 변환기가 이 형식으로 바꿔 넣는다 (변환기는 추가 제안). 단위는 블록·도·틱이다.
+ * <p>어종 모델 작업의 리그 JSON(harbor_rig_v1)은 {@code harbor-tools rig-import}가 이 형식으로 바꿔
+ * rigs/fish/&lt;이름&gt;.yml에 넣는다 (추가 제안). 단위는 블록·도·틱이다.
+ *
+ * <p>채널은 키프레임 목록 말고 고른 간격 샘플({@code {step: 2, v: [x0, y0, z0, x1, y1, z1, …]}}, 0틱부터 step틱마다 한 값,
+ * 마지막 값이 length틱)로도 적을 수 있다. 샘플 사이는 선형 보간이다. 변환기가 리소스팩의 베이크 프레임을 그대로 옮길 때 쓴다. 동작의 {@code events}는
+ * 정해진 틱에 이름 붙은 신호를 낸다 (예: 먹물·쉬익 소리, Core {@code RigInstance.onEvent}).
  *
  * <pre>
  * - id: rig/fish/harbor_mackerel
@@ -144,16 +150,37 @@ public record RigDef(
         }
     }
 
-    /** 동작 하나. length는 틱, tracks는 뼈 번호 → 채널. */
+    /** 동작 하나. length는 틱, tracks는 뼈 번호 → 채널, events는 틱 순서. */
     public record Animation(
-            String name, int length, LoopMode mode, Map<Integer, BoneTracks> tracks) {}
+            String name,
+            int length,
+            LoopMode mode,
+            Map<Integer, BoneTracks> tracks,
+            List<Event> events) {
+
+        public Animation {
+            tracks = Map.copyOf(tracks);
+            events = List.copyOf(events);
+        }
+
+        public Animation(String name, int length, LoopMode mode, Map<Integer, BoneTracks> tracks) {
+            this(name, length, mode, tracks, List.of());
+        }
+    }
+
+    /** 동작 중 tick(동작 시작부터의 틱)에 내는 신호 (추가 제안). 예: {@code ink}, {@code hiss}. */
+    public record Event(int tick, String name) {}
 
     /** 뼈 하나의 채널. position은 pivot에 더하고, rotation은 기본 회전(오일러)에 더하고, scale은 기본 크기에 곱한다. */
     public record BoneTracks(Track position, Track rotation, Track scale) {}
 
     public static final ContentType.Entries<RigDef> TYPE =
             new ContentType.Entries<>(
-                    "rig", List.of("rigs/*.yml"), RigId.PREFIX, RigDef::parse, r -> r.id().id());
+                    "rig",
+                    List.of("rigs/*.yml", "rigs/fish/*.yml"),
+                    RigId.PREFIX,
+                    RigDef::parse,
+                    r -> r.id().id());
 
     private static final HarborId PLACEHOLDER = HarborId.parse("rig/invalid");
     private static final Set<String> FIELDS =
@@ -179,7 +206,9 @@ public record RigDef(
                     "flip",
                     "brightness",
                     "glow_color");
-    private static final Set<String> ANIM_FIELDS = Set.of("length", "mode", "bones");
+    private static final Set<String> ANIM_FIELDS = Set.of("length", "mode", "bones", "events");
+    private static final Set<String> SAMPLED_FIELDS = Set.of("step", "v");
+    private static final Set<String> EVENT_FIELDS = Set.of("t", "name");
     private static final Set<String> CHANNELS = Set.of("position", "rotation", "scale");
     private static final Set<String> KEY_FIELDS = Set.of("t", "v", "ease");
 
@@ -411,10 +440,24 @@ public record RigDef(
                                                                             channels, "scale",
                                                                             length)));
                                                 }));
-        return new Animation(name, length, mode, Map.copyOf(tracks));
+        List<Event> events = new ArrayList<>();
+        for (YamlNode e : a.list("events")) {
+            e.allowOnly(EVENT_FIELDS);
+            int t = e.integer("t");
+            if (t < 0 || t > length) {
+                e.error("이벤트 시각 t는 0~" + length + " 사이여야 합니다: " + t);
+            }
+            events.add(new Event(t, e.string("name")));
+        }
+        events.sort(Comparator.comparingInt(Event::tick));
+        return new Animation(name, length, mode, tracks, events);
     }
 
     private static Track track(YamlNode channels, String key, int length) {
+        Optional<YamlNode> sampled = channels.get(key).filter(YamlNode::isMap);
+        if (sampled.isPresent()) {
+            return sampledTrack(sampled.get(), length);
+        }
         List<YamlNode> keyNodes = channels.list(key);
         if (keyNodes.isEmpty()) {
             return Track.EMPTY;
@@ -437,6 +480,38 @@ public record RigDef(
                             : k.get("v").map(RigDef::vec3).orElseGet(() -> missing(k, "v"));
             Easing ease = k.get("ease").flatMap(e -> e.asEnum(Easing.class)).orElse(Easing.LINEAR);
             keys.add(new Track.Keyframe(t, value, ease));
+        }
+        return new Track(keys);
+    }
+
+    /** 고른 간격 샘플 채널: {@code {step: n, v: [x0, y0, z0, …]}}. 값 수는 (length / step + 1) × 3. */
+    private static Track sampledTrack(YamlNode node, int length) {
+        node.allowOnly(SAMPLED_FIELDS);
+        int step = node.integer("step", 1);
+        if (step < 1 || length % step != 0) {
+            node.error("step은 1 이상이고 length(" + length + ")의 약수여야 합니다: " + step);
+            return Track.EMPTY;
+        }
+        List<YamlNode> values = node.list("v");
+        int samples = length / step + 1;
+        if (values.size() != samples * 3) {
+            node.error(
+                    "v에는 "
+                            + samples
+                            + "개 샘플 × 3 = "
+                            + samples * 3
+                            + "개 값이 있어야 합니다: "
+                            + values.size());
+            return Track.EMPTY;
+        }
+        List<Track.Keyframe> keys = new ArrayList<>(samples);
+        for (int i = 0; i < samples; i++) {
+            Vec3 v =
+                    new Vec3(
+                            values.get(i * 3).asDouble(),
+                            values.get(i * 3 + 1).asDouble(),
+                            values.get(i * 3 + 2).asDouble());
+            keys.add(new Track.Keyframe(i * (double) step, v, Easing.LINEAR));
         }
         return new Track(keys);
     }

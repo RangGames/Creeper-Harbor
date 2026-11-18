@@ -9,6 +9,7 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RigId;
+import wiki.creeper.harbor.common.rig.FishRigs;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.wildlife.api.Medium;
 import wiki.creeper.harbor.wildlife.content.BehaviourBook;
@@ -104,10 +105,14 @@ public record SpeciesProfile(
                         : special.map(ActionDef::group).orElse(WildGroup.NORMAL);
         GroupDef groupDef = book.group(group);
 
+        // 어종 리그(rig/fish/…, 리소스팩 변환)는 모델 길이가 실제 크기와 달라서 어종 크기(가운데 값)에 맞춰 그린다.
+        // 템플릿 리그(rig/wild/…)는 리그 length가 곧 몸길이다
+        boolean fishRig = rigDef.id().id().path().startsWith(FISH_RIG_PATH);
+        double fit = fishRig ? FishRigs.fitScale(rigDef, sizeLength(fish)) : 1.0;
         double length =
-                rigDef.length() > 0
-                        ? rigDef.length() * rigDef.scale() * s.scale()
-                        : sizeLength(fish) * s.scale();
+                fishRig || rigDef.length() <= 0
+                        ? sizeLength(fish) * s.scale()
+                        : rigDef.length() * rigDef.scale() * s.scale();
         double cruise =
                 s.cruiseSpeed() > 0
                         ? s.cruiseSpeed()
@@ -185,30 +190,34 @@ public record SpeciesProfile(
                 rigDef.partCount(),
                 length,
                 Math.max(0.25, length / 2),
-                s.scale(),
+                s.scale() * fit,
                 bal.fixedLight(s.medium()),
                 s.enabled());
     }
 
-    /** 리그가 몸길이를 모를 때 어종 크기(cm) 가운데 값을 블록(1m)으로. */
+    /** 어종 크기(cm) 가운데 값을 블록(1m)으로. */
     static double sizeLength(FishDef fish) {
-        double cm = (fish.sizeMin() + fish.sizeMax()) / 2;
-        return cm > 0 ? cm / 100.0 : 0.4;
+        return FishRigs.naturalLength(fish);
     }
 
+    private static final String FISH_RIG_PATH = "rig/fish/";
+
     /**
-     * 그릴 리그를 고른다: species.yml rig → rig/fish/&lt;어종 이름&gt; (Fishing 그림자와 같은 규칙) →
-     * rig/wild/&lt;템플릿&gt;.
+     * 그릴 리그를 고른다: species.yml rig → 어종 리그 rig/fish/&lt;모델 이름&gt; (FishDef.model,
+     * Fishing·Collection과 같은 규칙, 없으면 rig/fish/&lt;어종 이름&gt;) → rig/wild/&lt;템플릿&gt;.
      */
     public static Optional<RigId> rigFor(WildSpecies s, FishDef fish, Set<RigId> known) {
         RigId explicit = s.rig();
         if (explicit != null) {
             return known.contains(explicit) ? Optional.of(explicit) : Optional.empty();
         }
-        HarborId fid = fish.id().id();
-        RigId own = new RigId(new HarborId(fid.namespace(), "rig/fish/" + fid.name()));
+        RigId own = FishRigs.rigOf(fish);
         if (known.contains(own)) {
             return Optional.of(own);
+        }
+        RigId byId = FishRigs.byId(fish);
+        if (known.contains(byId)) {
+            return Optional.of(byId);
         }
         RigId template =
                 new RigId(

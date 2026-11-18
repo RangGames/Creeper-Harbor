@@ -24,6 +24,8 @@ class RigPlaybackTest {
             animations:
               swim:
                 length: 20
+                events:
+                  - {t: 0, name: stroke}
                 bones:
                   body:
                     position:
@@ -33,6 +35,8 @@ class RigPlaybackTest {
               leap:
                 length: 10
                 mode: once
+                events:
+                  - {t: 4, name: splash}
                 bones:
                   body:
                     position:
@@ -183,5 +187,24 @@ class RigPlaybackTest {
         assertEquals(0, playback.hitbox(0, now).y(), 1e-9);
         assertEquals(0.5, playback.hitbox(0, now + 10).y(), 1e-9);
         assertEquals(0.25, playback.hitbox(0, now + 25).y(), 1e-9);
+    }
+
+    @Test
+    void firesEventsOncePerCrossingAndPerLoop() {
+        List<String> fired = new ArrayList<>();
+        playback.setEventSink((anim, event) -> fired.add(anim + ":" + event + "@" + (now - 1000)));
+        playback.play("swim", 0, 0, now);
+        tick(41); // 0·20·40틱에 stroke
+        assertEquals(List.of("swim:stroke@0", "swim:stroke@20", "swim:stroke@40"), fired);
+        fired.clear();
+        playback.playOnce("leap", null, 0, now);
+        long start = now - 1000;
+        tick(12); // leap 4틱에 splash, 끝나면 swim으로 돌아가 0틱 stroke
+        assertEquals(List.of("leap:splash@" + (start + 4), "swim:stroke@" + (start + 10)), fired);
+        fired.clear();
+        // 오래 갱신이 끊겼다가 돌아오면 그사이 이벤트는 버린다
+        now += 100;
+        tick(1);
+        assertTrue(fired.isEmpty(), fired::toString);
     }
 }

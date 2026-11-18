@@ -62,6 +62,7 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RigId;
 import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.common.model.SeasonId;
+import wiki.creeper.harbor.common.rig.FishRigs;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
@@ -400,7 +401,12 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
             if (rig.isEmpty()) {
                 continue;
             }
-            double length = api.rigs().definition(rig.get()).map(RigDef::length).orElse(0.5);
+            double length =
+                    api.rigs()
+                            .definition(rig.get())
+                            .map(r -> r.length() * r.scale())
+                            .filter(l -> l > 0)
+                            .orElse(0.5);
             double scale = Math.clamp(0.7 / Math.max(0.1, length), 0.2, 1.0);
             try {
                 RigInstance instance =
@@ -419,9 +425,17 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         }
     }
 
+    /** 어종 리그 rig/fish/&lt;모델 이름&gt;(FishRigs, FishDef.model). 없으면 예전 규칙(어종 ID 이름). */
     private Optional<RigId> rigFor(FishId fish) {
-        RigId own = new RigId(new HarborId(fish.id().namespace(), "rig/fish/" + fish.id().name()));
-        return api.rigs().ids().contains(own) ? Optional.of(own) : Optional.empty();
+        Optional<FishDef> def = api.content().snapshot().get(FishDef.TYPE, fish.id());
+        if (def.isPresent()) {
+            RigId own = FishRigs.rigOf(def.get());
+            if (api.rigs().ids().contains(own)) {
+                return Optional.of(own);
+            }
+        }
+        RigId byId = new RigId(new HarborId(fish.id().namespace(), "rig/fish/" + fish.id().name()));
+        return api.rigs().ids().contains(byId) ? Optional.of(byId) : Optional.empty();
     }
 
     private @Nullable BlockDisplay floor(

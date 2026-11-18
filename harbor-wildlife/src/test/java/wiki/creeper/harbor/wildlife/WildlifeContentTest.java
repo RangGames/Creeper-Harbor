@@ -89,12 +89,13 @@ class WildlifeContentTest {
         assertNotNull(mackerel);
         assertEquals(
                 "harbor:rig/fish/harbor_mackerel", mackerel.rig().toString(), "어종 리그가 템플릿보다 우선");
-        assertEquals(WildGroup.ACTIVE, mackerel.group(), "leap → active");
+        assertEquals(WildGroup.ACTIVE, mackerel.group(), "dart → active");
         assertEquals(4, mackerel.schoolMin());
 
         SpeciesProfile squid = index.byFish().get(FishId.parse("fish/little_squid"));
         assertNotNull(squid);
-        assertEquals("harbor:rig/wild/ceph", squid.rig().toString());
+        // 어종 ID(little_squid)와 모델 이름(baby_squid)이 달라도 FishDef.model로 어종 리그를 찾는다
+        assertEquals("harbor:rig/fish/baby_squid", squid.rig().toString());
         assertNotNull(squid.threatAction());
         assertEquals("ink", squid.threatAction().name());
 

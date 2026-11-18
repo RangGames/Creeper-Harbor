@@ -46,6 +46,53 @@ public record Quat(double x, double y, double z, double w) {
     }
 
     /**
+     * {@link #euler}의 역: 이 회전을 만드는 오일러 각 (도, X → Y → Z 순서). y는 −90~90이고, y가 ±90°에 가까우면(짐벌 잠금) x를
+     * 0으로 둔다. 같은 회전을 만드는 다른 해({@code [x+180, 180−y, z+180]})는 {@link #eulerNear}로 고른다.
+     */
+    public Vec3 toEuler() {
+        Quat q = normalize();
+        double r20 = 2 * (q.x * q.z - q.w * q.y);
+        double sinY = Math.max(-1, Math.min(1, -r20));
+        double ey = Math.toDegrees(Math.asin(sinY));
+        double ex;
+        double ez;
+        if (Math.abs(sinY) > 0.999999) {
+            ex = 0;
+            double r01 = 2 * (q.x * q.y - q.w * q.z);
+            double r11 = 1 - 2 * (q.x * q.x + q.z * q.z);
+            ez = Math.toDegrees(Math.atan2(-r01, r11));
+        } else {
+            double r21 = 2 * (q.y * q.z + q.w * q.x);
+            double r22 = 1 - 2 * (q.x * q.x + q.y * q.y);
+            double r10 = 2 * (q.x * q.y + q.w * q.z);
+            double r00 = 1 - 2 * (q.y * q.y + q.z * q.z);
+            ex = Math.toDegrees(Math.atan2(r21, r22));
+            ez = Math.toDegrees(Math.atan2(r10, r00));
+        }
+        return new Vec3(ex, ey, ez);
+    }
+
+    /**
+     * 이 회전을 만드는 오일러 각 중 previous에 가장 가까운 것 (도). 두 해와 성분별 ±360°를 모두 따져 고른다. 프레임마다 뽑은 각을 이어 붙일 때 (선형
+     * 보간이 반대쪽으로 돌지 않게) 쓴다.
+     */
+    public Vec3 eulerNear(Vec3 previous) {
+        Vec3 a = toEuler();
+        Vec3 b = new Vec3(a.x() + 180, 180 - a.y(), a.z() + 180);
+        Vec3 na = unwrap(a, previous);
+        Vec3 nb = unwrap(b, previous);
+        return na.distance(previous) <= nb.distance(previous) ? na : nb;
+    }
+
+    private static Vec3 unwrap(Vec3 v, Vec3 near) {
+        return new Vec3(unwrap(v.x(), near.x()), unwrap(v.y(), near.y()), unwrap(v.z(), near.z()));
+    }
+
+    private static double unwrap(double angle, double near) {
+        return angle + 360 * Math.round((near - angle) / 360);
+    }
+
+    /**
      * 엔티티 방향 (마인크래프트 yaw·pitch, 도). Display 엔티티가 그릴 때 쓰는 회전과 같다 (rotationYXZ(−yaw, pitch, 0)). 모델의
      * +Z가 yaw 방향을 향하고, pitch가 양수면 아래를 본다.
      */
