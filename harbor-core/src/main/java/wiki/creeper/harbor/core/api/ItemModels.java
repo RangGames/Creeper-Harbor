@@ -16,7 +16,8 @@ import wiki.creeper.harbor.common.content.type.ResourcePackIndex;
  *
  * <ul>
  *   <li>balance.yml {@value #SETTING}이 true (리소스팩을 배포 중). 키가 없으면 false
- *   <li>resource_pack.yml({@link ResourcePackIndex})에 그 모델이 있다. 목록이 없으면 이 검사는 건너뛴다
+ *   <li>배포 중인 리소스팩({@link ActivePack}: 자동 빌드 팩, 없으면 resource_pack.yml {@link ResourcePackIndex})에 그
+ *       모델이 있다
  * </ul>
  */
 public final class ItemModels {
@@ -35,8 +36,7 @@ public final class ItemModels {
         if (model == null || !Key.parseable(model) || !enabled(snapshot.single(Balance.TYPE))) {
             return false;
         }
-        return !snapshot.typeNames().contains(ResourcePackIndex.TYPE.name())
-                || snapshot.single(ResourcePackIndex.TYPE).hasModel(model);
+        return ActivePack.hasModel(snapshot, model);
     }
 
     /**

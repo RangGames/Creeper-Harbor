@@ -1,10 +1,6 @@
 package wiki.creeper.harbor.tools;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
 import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -13,6 +9,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.common.pack.PackBuilder;
 
 /**
  * 리소스팩(폴더 또는 zip)에서 item_model·소리 목록을 뽑아 content/resource_pack.yml을 만든다 ({@code harbor-tools
@@ -43,33 +40,9 @@ final class PackIndexer {
         if (assets == null) {
             throw new IOException("assets 폴더를 찾지 못했습니다 (리소스팩 폴더나 zip을 주세요)");
         }
-        Set<String> models = new TreeSet<>();
-        Set<String> sounds = new TreeSet<>();
-        try (Stream<Path> namespaces = Files.list(assets)) {
-            for (Path ns : namespaces.filter(Files::isDirectory).toList()) {
-                String namespace = name(ns);
-                Path items = ns.resolve("items");
-                if (Files.isDirectory(items)) {
-                    try (Stream<Path> files = Files.walk(items)) {
-                        files.filter(f -> Files.isRegularFile(f) && name(f).endsWith(".json"))
-                                .forEach(f -> models.add(namespace + ":" + key(items, f)));
-                    }
-                }
-                Path soundsJson = ns.resolve("sounds.json");
-                if (Files.isRegularFile(soundsJson)) {
-                    try (Reader reader =
-                            Files.newBufferedReader(soundsJson, StandardCharsets.UTF_8)) {
-                        JsonElement json = JsonParser.parseReader(reader);
-                        if (json.isJsonObject()) {
-                            json.getAsJsonObject()
-                                    .keySet()
-                                    .forEach(k -> sounds.add(namespace + ":" + k));
-                        }
-                    }
-                }
-            }
-        }
-        return new Index(models, sounds);
+        Path packRoot = assets.getParent();
+        PackBuilder.PackIndex index = PackBuilder.scan(packRoot == null ? root : packRoot);
+        return new Index(new TreeSet<>(index.models()), new TreeSet<>(index.sounds()));
     }
 
     /** 팩 루트의 assets, 없으면 한 단계 아래 폴더(예: resourcepack/assets)에서 찾는다. */
@@ -87,16 +60,6 @@ final class PackIndexer {
             }
         }
         return null;
-    }
-
-    private static String key(Path items, Path file) {
-        String relative = items.relativize(file).toString().replace('\\', '/');
-        return relative.substring(0, relative.length() - ".json".length());
-    }
-
-    private static String name(Path path) {
-        Path file = path.getFileName();
-        return file == null ? "" : file.toString().replace("/", "");
     }
 
     /** resource_pack.yml 내용. 팩의 위치(로컬 경로)는 적지 않는다. */

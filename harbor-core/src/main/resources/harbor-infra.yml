@@ -35,3 +35,17 @@ resource_packs: []
 #  - id: base
 #    url: https://cdn.example.com/harbor-base.zip
 #    sha1: 0000000000000000000000000000000000000000
+
+# 리소스팩 자동 빌드 (lobby 한 대에서만 켠다, 추가 제안).
+# plugins/Harbor/pack/ 에 assets/<ns>/... (선택 pack.mcmeta·pack.png)를 넣으면, 서버 시작 때와 /harbor pack build 때
+# 압축 → 바뀌었으면 CDN 업로드 → 모든 서버에 주소·SHA-1·모델/소리 목록을 알린다. lobby는 그 팩을 접속자에게 보낸다.
+# pack:
+#   build: true
+#   # source: /path/to/assets-folder      # 비우면 plugins/Harbor/pack
+#   format: "97.1"                          # pack.mcmeta가 없을 때 쓸 팩 형식
+#   description: 크리퍼 항구
+#   cdn:
+#     url: https://cdn.creeper.wiki
+#     api_key: ""                           # CDN에서 발급한 키. 이 파일은 커밋하지 않는다
+#     namespace: creeper-harbor
+#     version: "1.0"

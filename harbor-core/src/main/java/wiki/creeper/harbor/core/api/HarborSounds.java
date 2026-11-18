@@ -31,7 +31,8 @@ import wiki.creeper.harbor.core.task.Tasks;
  *
  * <ul>
  *   <li>balance.yml {@value #SETTING}이 true (리소스팩을 배포 중). 키가 없으면 {@link ItemModels#SETTING}을 따른다
- *   <li>resource_pack.yml({@link ResourcePackIndex})에 그 소리가 있다. 목록이 비면 이 검사는 건너뛴다
+ *   <li>배포 중인 리소스팩({@link ActivePack}: 자동 빌드 팩, 없으면 resource_pack.yml {@link ResourcePackIndex})에 그
+ *       소리가 있다
  * </ul>
  *
  * <p>분류(source)·음량·피치·반복 간격은 sounds.yml({@link SoundTable})의 이벤트 설정을 쓴다. {@code minecraft:} 같은 다른
@@ -118,8 +119,7 @@ public final class HarborSounds {
         if (!enabled(snapshot.single(Balance.TYPE))) {
             return false;
         }
-        return !snapshot.typeNames().contains(ResourcePackIndex.TYPE.name())
-                || snapshot.single(ResourcePackIndex.TYPE).hasSound(key);
+        return ActivePack.hasSound(snapshot, key);
     }
 
     /** 소리 키 → 실제로 낼 소리. 팩 소리를 못 쓰고 대체 소리도 없으면 빈 값. */

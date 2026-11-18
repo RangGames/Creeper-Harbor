@@ -80,6 +80,7 @@ content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regi
 Purpur 게임 모듈 11개와 Common·Core·Proxy·tools가 모두 있고 전체 빌드·단위 테스트·콘텐츠 검사를 통과한다. 실제 서버(26.3)에서는 아직 돌려 보지 않았다 (Phase 1 검증 항목: Mannequin NPC, 보트 속도·해피 가스트 조종, 관전 카메라, Interaction 히트박스 크기, 리소스팩 모델).
 
 - Core: 0.2의 추가 API(MailService·PartyService 인터페이스, WorldBorderService 우선순위 중재, HandoffBlocker, `service()`·`redis()`, `PlayerService.saveNow`)와 디스플레이 리그 재생(5.10, `rigs()` → RigService/RigInstance, content/rigs/*.yml)이 있다. Common에 DonorTier, AccountLinkReader, 리그 수학(common.rig)이 있다.
+- 리소스팩: 빌드 서버(harbor-infra.yml `pack.build`, lobby 한 대)가 `plugins/Harbor/pack/`의 에셋을 압축(Common `pack/PackBuilder`) → SHA-1이 바뀌었으면 CDN 업로드(`CdnClient`, API 키는 서버 설정에만) → Redis `harbor:pack`에 저장·발행. 모든 서버가 `ActivePack`으로 모델·소리 목록을 받고, lobby `ResourcePacks`가 그 팩을 보낸다. 팩이 없으면 content/resource_pack.yml로 판정. 커스텀 모델·소리는 `ItemModels`·`HarborSounds`로만 쓴다.
 - 모듈 간 연결은 각 모듈 `api` 패키지 + Bukkit ServicesManager로 한다. 선택 의존 모듈의 클래스는 그 모듈이 켜져 있을 때만 불러오는 bridge 클래스에 둔다. 의존 방향은 docs 20 0.3을 따른다 (World는 Quest·Collection·Shop에 의존하지 않고, 그쪽이 World api에 구현을 등록한다. Shop은 일부 이벤트를 클래스 이름으로 반사 구독한다).
 - 남은 것: 해저 유적 던전과 Phase 3 보스 4종(콘텐츠), 메인 4~7장 퀘스트(클라이맥스 조건), 리소스팩 모델·구조물(.nbt)·해도 이미지, 패킷 전용 표시 방식, Tebex 서명 형식 확인(법률 검토 항목), Core가 시즌 번호를 season_meta에서 읽기·프록시 점검 전환 API, 채팅에 이름 색·칭호 싣기.
 - 미니게임 조작은 Shift 감기 + A/D 방향 (consumable 방식은 Phase 1 검증 뒤). 모듈 콘텐츠 형식은 서버 API 없는 `XxxContent`로 모아 플러그인과 harbor-tools가 같이 등록한다. season 열이 있는 새 테이블은 content/season/reset_plan.yml에 넣어야 Season이 로드를 허용한다.

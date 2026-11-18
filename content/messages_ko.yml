@@ -1653,3 +1653,14 @@ wildlife:
     stats_player: "<gray> - <white><player></white> 야생 부품 <aqua><parts></aqua>/<budget> <dark_gray>(다른 리그 <other>)"
     budget_header: "<gold><player></gold> <gray>표시 <white><count></white>/<max_count>마리 · 부품 <white><parts></white>/<max_parts> <dark_gray>(다른 리그 <other>)"
     budget_line: "<gray> - <white><species></white> <state> 부품 <parts> · <dist>m"
+
+# 리소스팩 자동 빌드 (/harbor pack)
+pack:
+  status: "<yellow>리소스팩</yellow> <white><url></white><newline><gray>SHA-1 <sha1> · <size>MB · 모델 <models>개 · 소리 <sounds>개"
+  none: "<gray>자동 빌드로 배포 중인 리소스팩이 없습니다."
+  builder: "<gray>이 서버가 빌드 서버입니다. 에셋 폴더: <white><source>"
+  building: "<yellow>리소스팩을 압축하는 중..."
+  uploaded: "<green>리소스팩을 올렸습니다 (파일 <files>개).<newline><gray>SHA-1 <sha1><newline><white><url>"
+  unchanged: "<gray>리소스팩이 바뀌지 않았습니다 (SHA-1 <sha1>)."
+  no_assets: "<red>에셋이 없습니다. <white><source>/assets</white>에 리소스팩 내용을 넣으세요."
+  failed: "<red>리소스팩 빌드 실패: <reason>"

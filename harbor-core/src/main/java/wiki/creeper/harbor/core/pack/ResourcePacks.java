@@ -2,6 +2,7 @@ package wiki.creeper.harbor.core.pack;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.resource.ResourcePackInfo;
 import net.kyori.adventure.resource.ResourcePackRequest;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -26,18 +28,28 @@ import wiki.creeper.harbor.core.api.MessageService;
 /**
  * 리소스팩 적용 ('16. 플러그인 설계' 5.11). 로비 서버에서만 동작한다: 접속하면 기본 팩 + 시즌 팩을 필수 팩으로 보내고, 결과를 프록시에 PackStatus로
  * 알린다 (LOADED만 대기열에 들어간다). 거절·실패면 로비에 머물고 Dialog로 설치 방법을 안내한다. 팩이 바뀌면 SHA-1이 바뀌므로 다음 접속 때 다시 받는다.
+ *
+ * <p>보내는 팩 = harbor-infra.yml resource_packs + 자동 빌드 팩({@link PackManager}, 있으면). 자동 빌드 팩이 바뀌면 로비에
+ * 있는 사람에게도 바로 다시 보낸다.
  */
 public final class ResourcePacks implements Listener {
 
-    private final List<ResourcePackInfo> packs;
+    private final List<ResourcePackInfo> configured;
+    private final PackManager packManager;
     private final MessageBus bus;
     private final MessageService messages;
     private final Dialogs dialogs;
     private final Map<UUID, Set<UUID>> loaded = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<UUID>> requested = new ConcurrentHashMap<>();
 
     public ResourcePacks(
-            InfraConfig infra, MessageBus bus, MessageService messages, Dialogs dialogs) {
-        this.packs =
+            InfraConfig infra,
+            PackManager packManager,
+            MessageBus bus,
+            MessageService messages,
+            Dialogs dialogs) {
+        this.packManager = packManager;
+        this.configured =
                 infra.resourcePacks().stream()
                         .map(
                                 p ->
@@ -51,15 +63,40 @@ public final class ResourcePacks implements Listener {
         this.bus = bus;
         this.messages = messages;
         this.dialogs = dialogs;
+        packManager.onChange(pack -> Bukkit.getOnlinePlayers().forEach(this::send));
+    }
+
+    /** 지금 보낼 팩 목록. */
+    private List<ResourcePackInfo> packs() {
+        List<ResourcePackInfo> all = new ArrayList<>(configured);
+        packManager
+                .current()
+                .ifPresent(
+                        p ->
+                                all.add(
+                                        ResourcePackInfo.resourcePackInfo(
+                                                UUID.nameUUIDFromBytes(
+                                                        "harbor-pack:auto"
+                                                                .getBytes(StandardCharsets.UTF_8)),
+                                                URI.create(p.url()),
+                                                p.sha1())));
+        return all;
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
+        send(event.getPlayer());
+    }
+
+    private void send(Player player) {
+        List<ResourcePackInfo> packs = packs();
         if (packs.isEmpty()) {
             report(player, PackStatus.Status.LOADED);
             return;
         }
+        Set<UUID> ids = new HashSet<>();
+        packs.forEach(p -> ids.add(p.id()));
+        requested.put(player.getUniqueId(), ids);
         loaded.put(player.getUniqueId(), ConcurrentHashMap.newKeySet());
         player.sendResourcePacks(
                 ResourcePackRequest.resourcePackRequest()
@@ -79,7 +116,7 @@ public final class ResourcePacks implements Listener {
                         loaded.computeIfAbsent(
                                 player.getUniqueId(), k -> ConcurrentHashMap.newKeySet());
                 done.add(event.getID());
-                if (done.containsAll(packIds())) {
+                if (done.containsAll(requested.getOrDefault(player.getUniqueId(), Set.of()))) {
                     report(player, PackStatus.Status.LOADED);
                 }
             }
@@ -95,6 +132,7 @@ public final class ResourcePacks implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         loaded.remove(event.getPlayer().getUniqueId());
+        requested.remove(event.getPlayer().getUniqueId());
     }
 
     private void fail(Player player, PackStatus.Status status) {
@@ -109,11 +147,5 @@ public final class ResourcePacks implements Listener {
         bus.publish(
                 ProxyMessages.toProxy(PackStatus.class),
                 new PackStatus(player.getUniqueId(), status));
-    }
-
-    private Set<UUID> packIds() {
-        Set<UUID> ids = new HashSet<>();
-        packs.forEach(p -> ids.add(p.id()));
-        return ids;
     }
 }

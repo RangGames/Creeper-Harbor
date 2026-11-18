@@ -47,6 +47,8 @@ import wiki.creeper.harbor.core.message.DialogManager;
 import wiki.creeper.harbor.core.message.MessageManager;
 import wiki.creeper.harbor.core.message.UiManager;
 import wiki.creeper.harbor.core.modifier.ModifierManager;
+import wiki.creeper.harbor.core.pack.PackCommand;
+import wiki.creeper.harbor.core.pack.PackManager;
 import wiki.creeper.harbor.core.pack.ResourcePacks;
 import wiki.creeper.harbor.core.pack.SoundCues;
 import wiki.creeper.harbor.core.player.PlayerManager;
@@ -238,8 +240,11 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         soundCues.subscribe(messageBus, tasks);
         pm.registerEvents(new ChatBridge(infra, r, messageBus), this);
         pm.registerEvents(this, this);
+        PackManager packManager = new PackManager(infra, harborDir, r, messageBus, tasks, log);
+        command.addModuleCommand(new PackCommand(packManager, msg, adminLog).build());
         if (infra.role() == ServerRole.LOBBY) {
-            pm.registerEvents(new ResourcePacks(infra, messageBus, msg, dialogs), this);
+            pm.registerEvents(
+                    new ResourcePacks(infra, packManager, messageBus, msg, dialogs), this);
         }
 
         // 6. 명령어 (모든 모듈이 켜진 뒤 발생하므로 모듈 하위 명령도 들어간다)
@@ -250,6 +255,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         playerManager.start();
         proxy.start();
         rigManager.start();
+        packManager.start();
         new LedgerAuditJob(database, balanceStore, locks, time, msg, tasks, log).schedule();
         log.info("Harbor-Core 준비 완료: 콘텐츠 {}", content.snapshot().counts());
     }

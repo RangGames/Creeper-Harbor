@@ -29,6 +29,7 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * @param dev 개발 모드: 메인 스레드 입출력 감지 경고 등
  * @param contentDir 콘텐츠 폴더 (null이면 plugins/Harbor/content)
  * @param lobbyServer 리소스팩 거절·세션 대기 때 보낼 로비 서버 이름
+ * @param packBuild 이 서버가 에셋 폴더로 리소스팩을 만들어 CDN에 올릴지 (null이면 만들지 않음, 추가 제안)
  */
 public record InfraConfig(
         String serverId,
@@ -43,10 +44,44 @@ public record InfraConfig(
         DayOfWeek weeklyReset,
         @Nullable Path contentDir,
         String lobbyServer,
-        List<ResourcePack> resourcePacks) {
+        List<ResourcePack> resourcePacks,
+        @Nullable PackBuild packBuild) {
 
     /** 접속 때 보내는 필수 리소스팩. sha1은 40자리 16진수. */
     public record ResourcePack(String id, String url, String sha1) {}
+
+    /**
+     * 리소스팩 자동 빌드·업로드 (harbor-infra.yml pack:).
+     *
+     * @param source 에셋 폴더 (null이면 plugins/Harbor/pack)
+     * @param cdnUrl CDN 주소 (예: https://cdn.creeper.wiki)
+     * @param apiKey CDN API 키 (로그에 남기지 않는다)
+     * @param namespace CDN 네임스페이스 (소문자·숫자·-)
+     * @param version CDN 버전 칸 (예: 1.0). 주소는 내용 해시로 바뀌므로 팩을 바꿔도 그대로 둬도 된다
+     * @param format pack.mcmeta가 없을 때 쓸 팩 형식 (예: 97.1)
+     * @param fileName 올릴 파일 이름 (확장자 포함)
+     */
+    public record PackBuild(
+            @Nullable Path source,
+            String cdnUrl,
+            String apiKey,
+            String namespace,
+            String version,
+            String format,
+            String description,
+            String fileName) {
+
+        @Override
+        public String toString() {
+            return "PackBuild[cdn="
+                    + cdnUrl
+                    + ", namespace="
+                    + namespace
+                    + ", version="
+                    + version
+                    + "]";
+        }
+    }
 
     private static final Pattern SHA1 = Pattern.compile("[0-9a-f]{40}");
 
@@ -75,7 +110,8 @@ public record InfraConfig(
                         "time",
                         "content_dir",
                         "lobby_server",
-                        "resource_packs"));
+                        "resource_packs",
+                        "pack"));
 
         YamlNode server = root.require("server").orElse(root);
         String serverId = server.string("id");
@@ -141,6 +177,36 @@ public record InfraConfig(
             packs.add(new ResourcePack(pack.string("id"), pack.string("url"), sha1));
         }
 
+        PackBuild packBuild = null;
+        Optional<YamlNode> packNode = root.get("pack");
+        if (packNode.isPresent() && packNode.get().bool("build", false)) {
+            YamlNode p = packNode.get();
+            YamlNode cdn = p.require("cdn").orElse(p);
+            String namespace = cdn.string("namespace", "creeper-harbor");
+            if (!namespace.matches("[a-z][a-z0-9-]*")) {
+                cdn.error("namespace는 소문자로 시작하고 소문자·숫자·-만 쓴다: " + namespace);
+            }
+            String version = cdn.string("version", "1.0");
+            if (!version.matches("[0-9]+\\.[0-9]+(\\.[0-9]+)?")) {
+                cdn.error("version은 1.0 같은 형식이어야 합니다: " + version);
+            }
+            String apiKey = cdn.string("api_key");
+            String format = p.string("format", "97.1");
+            if (!format.matches("[0-9]+(\\.[0-9]+)?")) {
+                p.error("format은 97.1 같은 형식이어야 합니다: " + format);
+            }
+            packBuild =
+                    new PackBuild(
+                            p.optString("source").map(Path::of).orElse(null),
+                            cdn.string("url", "https://cdn.creeper.wiki"),
+                            apiKey,
+                            namespace,
+                            version,
+                            format,
+                            p.string("description", "크리퍼 항구"),
+                            p.string("file_name", "Creeper-Harbor-RP.zip"));
+        }
+
         return new InfraConfig(
                 serverId,
                 role,
@@ -154,6 +220,7 @@ public record InfraConfig(
                 weeklyReset,
                 root.optString("content_dir").map(Path::of).orElse(null),
                 root.string("lobby_server", "lobby"),
-                List.copyOf(packs));
+                List.copyOf(packs),
+                packBuild);
     }
 }
