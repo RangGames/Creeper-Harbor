@@ -19,7 +19,8 @@ public final class CoreContent {
                     FishDef.TYPE,
                     Balance.TYPE,
                     Messages.TYPE,
-                    RigDef.TYPE);
+                    RigDef.TYPE,
+                    ResourcePackIndex.TYPE);
 
     private CoreContent() {}
 

@@ -20,7 +20,7 @@
   region: region/harbor
   size_cm: [15, 30]
   base_price: 5
-  model: harbor:fish/calm_bay_gizzard_shad
+  model: harbor:fish/calm_bay_shad
   season: 1
 
 - id: fish/silver_anchovy
@@ -66,7 +66,7 @@
   time: [night]
   size_cm: [20, 45]
   base_price: 5
-  model: harbor:fish/harbor_rockfish
+  model: harbor:fish/harbor_black_rockfish
   season: 1
 
 - id: fish/sand_flounder
@@ -113,7 +113,7 @@
   time: [night]
   size_cm: [10, 25]
   base_price: 5
-  model: harbor:fish/little_squid
+  model: harbor:fish/baby_squid
   season: 1
 
 - id: fish/celebration_red_snapper
@@ -125,7 +125,7 @@
   time: [dawn]
   size_cm: [35, 70]
   base_price: 15
-  model: harbor:fish/celebration_red_snapper
+  model: harbor:fish/feast_red_seabream
   season: 1
 
 - id: fish/storm_sea_bass
@@ -186,5 +186,5 @@
   time: [night]
   size_cm: [80, 150]
   base_price: 15
-  model: harbor:fish/lighthouse_hairtail
+  model: harbor:fish/lighthouse_cutlassfish
   season: 1

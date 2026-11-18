@@ -13,7 +13,7 @@
   size_cm: [150, 300]
   base_price: 80             # 제안값
   weight: 20                 # 제안값 (보스 어종이라 같은 등급보다 드물게)
-  model: harbor:fish/swamp_catfish
+  model: harbor:fish/swamp_lord_catfish
   season: 1
 
 - id: fish/wreck_moray
@@ -26,7 +26,7 @@
   size_cm: [150, 250]
   base_price: 250            # 제안값
   weight: 20                 # 제안값
-  model: harbor:fish/wreck_moray
+  model: harbor:fish/wreck_guardian_moray
   season: 1
 
 - id: fish/trench_lord
@@ -55,5 +55,5 @@
   size_cm: [150, 300]
   base_price: 0              # release_only: 판매 불가
   release_only: true
-  model: harbor:fish/green_thunder_fish
+  model: harbor:fish/green_thunder_blastfish
   season: 1

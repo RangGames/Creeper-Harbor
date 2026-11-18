@@ -35,3 +35,16 @@ val validateContent by tasks.registering(JavaExec::class) {
     mainClass = application.mainClass
     args("validate", rootProject.layout.projectDirectory.dir("content").asFile.absolutePath)
 }
+
+// ./gradlew packIndex -Ppack=<리소스팩 폴더 또는 zip> → content/resource_pack.yml (팩에 있는 item_model·소리 목록)
+val packIndex by tasks.registering(JavaExec::class) {
+    group = "content"
+    description = "리소스팩에서 content/resource_pack.yml을 만든다 (-Ppack=<폴더 또는 zip>)"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = application.mainClass
+    val pack = providers.gradleProperty("pack")
+    val contentDir = rootProject.layout.projectDirectory.dir("content").asFile.absolutePath
+    argumentProviders.add(CommandLineArgumentProvider {
+        listOf("pack-index", pack.orNull ?: throw GradleException("-Ppack=<리소스팩 폴더 또는 zip>이 필요합니다"), contentDir)
+    })
+}

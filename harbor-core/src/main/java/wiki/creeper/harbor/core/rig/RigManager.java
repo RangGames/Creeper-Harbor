@@ -377,8 +377,7 @@ public final class RigManager implements RigService, Listener {
                                 common.accept(d);
                                 // 커스텀 모델을 못 쓰면 (리소스팩 준비 전) 종이 대신 빈 표시로 둔다
                                 ItemStack stack = ItemStack.of(Material.PAPER);
-                                if (ItemModels.apply(
-                                        stack, part.model(), content.get().single(Balance.TYPE))) {
+                                if (ItemModels.apply(stack, part.model(), content.get())) {
                                     d.setItemStack(stack);
                                 }
                                 d.setItemDisplayTransform(

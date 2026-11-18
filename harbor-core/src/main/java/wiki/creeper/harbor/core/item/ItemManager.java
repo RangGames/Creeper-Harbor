@@ -213,15 +213,13 @@ public final class ItemManager implements ItemService {
     }
 
     /**
-     * 인벤토리의 Harbor 아이템 모델을 지금 설정({@link ItemModels})에 맞춘다 (접속할 때). 꺼져 있으면 harbor: 모델을 떼고, 켜져 있으면
-     * 모델이 없는 아이템에 정의의 모델을 붙인다 (스킨 등 이미 붙은 모델은 그대로).
+     * 인벤토리의 Harbor 아이템 모델을 지금 설정({@link ItemModels})에 맞춘다 (접속할 때). 붙어 있는 harbor: 모델을 지금 쓸 수 없으면
+     * (꺼졌거나 리소스팩에 없음) 떼고, 모델이 없는 아이템에 쓸 수 있는 정의 모델이 있으면 붙인다. 쓸 수 있는 모델(스킨 등)은 그대로 둔다.
      *
      * @return 고친 칸 수
      */
     public int syncModels(Inventory inventory) {
         ContentSnapshot snapshot = content.get();
-        Balance balance = snapshot.single(Balance.TYPE);
-        boolean on = ItemModels.enabled(balance);
         int changed = 0;
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             ItemStack stack = inventory.getItem(slot);
@@ -232,18 +230,17 @@ public final class ItemManager implements ItemService {
             if (item.isEmpty()) {
                 continue;
             }
-            boolean overridden = stack.isDataOverridden(DataComponentTypes.ITEM_MODEL);
-            boolean fixed;
-            if (!on) {
+            boolean fixed = false;
+            if (stack.isDataOverridden(DataComponentTypes.ITEM_MODEL)) {
                 Key current = stack.getData(DataComponentTypes.ITEM_MODEL);
-                fixed = overridden && current != null && current.namespace().equals("harbor");
-                if (fixed) {
+                if (current != null
+                        && current.namespace().equals("harbor")
+                        && !ItemModels.available(snapshot, current.asString())) {
                     stack.resetData(DataComponentTypes.ITEM_MODEL);
+                    fixed = true;
                 }
             } else {
-                fixed =
-                        !overridden
-                                && ItemModels.apply(stack, modelOf(snapshot, item.get()), balance);
+                fixed = ItemModels.apply(stack, modelOf(snapshot, item.get()), snapshot);
             }
             if (fixed) {
                 inventory.setItem(slot, stack);
@@ -271,8 +268,9 @@ public final class ItemManager implements ItemService {
         stack.setData(
                 DataComponentTypes.ITEM_NAME,
                 messages.get("item.name." + grade.key(), Placeholder.unparsed("name", name)));
-        Balance balance = content.get().single(Balance.TYPE);
-        ItemModels.apply(stack, model, balance);
+        ContentSnapshot snapshot = content.get();
+        Balance balance = snapshot.single(Balance.TYPE);
+        ItemModels.apply(stack, model, snapshot);
         stack.setData(DataComponentTypes.LORE, ItemLore.lore(lore));
         balance.string("items.tooltip_style." + grade.key())
                 .ifPresent(

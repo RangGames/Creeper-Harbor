@@ -1,5 +1,5 @@
 // 서버에 넣을 jar만 한 폴더로 모은다.
-//   ./gradlew dist   (./gradlew shadowJar, ./gradlew build도 마지막에 dist를 실행)
+//   ./gradlew dist [-Ppack=<리소스팩 zip>]   (./gradlew shadowJar, ./gradlew build도 마지막에 dist를 실행)
 // 결과:
 //   build/dist/purpur/plugins/    Harbor-Core(Common·기본 콘텐츠 포함) + 게임 모듈 11개
 //   build/dist/velocity/plugins/  Harbor-Proxy(Common·Lettuce 등 포함)
@@ -56,6 +56,23 @@ val dist by tasks.registering(Sync::class) {
     into("velocity/plugins") {
         from(shadedVelocityPlugins)
         rename { it.replace(versionSuffix, ".jar") }
+    }
+}
+
+// -Ppack=<리소스팩 zip>을 주면 build/dist/resourcepack/에 팩과 SHA-1을 같이 둔다 (lobby harbor-infra.yml resource_packs에 넣을 값)
+val packFile = providers.gradleProperty("pack").map { file(it) }
+dist {
+    if (packFile.isPresent && packFile.get().isFile) {
+        into("resourcepack") { from(packFile) }
+        doLast {
+            val zip = packFile.get()
+            val sha1 = java.security.MessageDigest.getInstance("SHA-1")
+                .digest(zip.readBytes())
+                .joinToString("") { "%02x".format(it) }
+            val out = destinationDir.resolve("resourcepack/${zip.name}.sha1")
+            out.writeText(sha1 + "\n")
+            logger.lifecycle("리소스팩 ${zip.name} SHA-1: $sha1")
+        }
     }
 }
 

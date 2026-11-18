@@ -1,7 +1,9 @@
 package wiki.creeper.harbor.tools;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import wiki.creeper.harbor.boss.content.BossContent;
 import wiki.creeper.harbor.boss.content.BossDef;
@@ -34,6 +36,7 @@ import wiki.creeper.harbor.world.content.WorldContent;
  *
  * <pre>
  * harbor-tools validate &lt;콘텐츠 폴더&gt;
+ * harbor-tools pack-index &lt;리소스팩 폴더 또는 zip&gt; &lt;콘텐츠 폴더&gt;   (resource_pack.yml 생성)
  * </pre>
  *
  * 서버 API가 필요한 검사(바닐라 아이템 ID 등)는 서버에서만 한다. 모듈을 추가하면 그 모듈의 XxxContent도 여기에 등록한다.
@@ -44,8 +47,13 @@ public final class HarborTools {
 
     public static void main(String[] args) {
         PrintStream out = new PrintStream(System.out, true, StandardCharsets.UTF_8);
+        if (args.length == 3 && args[0].equals("pack-index")) {
+            packIndex(Path.of(args[1]), Path.of(args[2]), out);
+            return;
+        }
         if (args.length != 2 || !args[0].equals("validate")) {
             out.println("사용법: harbor-tools validate <콘텐츠 폴더>");
+            out.println("        harbor-tools pack-index <리소스팩 폴더 또는 zip> <콘텐츠 폴더>");
             System.exit(2);
             return;
         }
@@ -85,6 +93,28 @@ public final class HarborTools {
                 out.println(errors.format());
                 System.exit(1);
             }
+        }
+    }
+
+    private static void packIndex(Path pack, Path contentDir, PrintStream out) {
+        try {
+            PackIndexer.Index index = PackIndexer.read(pack);
+            Path file = contentDir.resolve("resource_pack.yml");
+            Path name = pack.toAbsolutePath().getFileName();
+            Files.writeString(
+                    file,
+                    PackIndexer.yaml(index, name == null ? "?" : name.toString()),
+                    StandardCharsets.UTF_8);
+            out.println(
+                    "resource_pack.yml: 모델 "
+                            + index.models().size()
+                            + "개, 소리 "
+                            + index.sounds().size()
+                            + "개");
+            System.exit(0);
+        } catch (IOException e) {
+            out.println("리소스팩을 읽지 못했습니다: " + e.getMessage());
+            System.exit(1);
         }
     }
 }
