@@ -1,0 +1,32 @@
+# 야생 물고기 성향·동작 ('17-3' 9.3, 추가 제안 형식). 데이터팩 시제품의 GROUPS·BEHAVE 표를 옮긴 것.
+# (harbor-tools 변환기 BEHAVE·GROUPS → behaviours.yml은 아직 없음. 시제품 build_pack.py 값을 손으로 옮김)
+#
+# groups: 1초 주사위에서 고유 동작 / 쉬기가 나올 확률(%), 쉬기 길이(초), 기본 속도 배율 증감,
+#         위협 감지 반경(블록, 제안값 9.4), 찌가 떨어졌을 때 다가올 확률(%, 제안값 9.4)
+# actions: group(이 동작을 고유 동작으로 가진 어종의 기본 성향), speed_delta(속도 ×(1 + 값)), reps(반복),
+#          impulse[오른쪽, 위, 앞](블록/초, 동작 시작 때 더함), particle(바닐라 파티클 키),
+#          teleport[최소, 최대](순간 이동 거리, 추가 제안), threat(위협 때 먼저 재생하는 놀람 동작, 추가 제안)
+# 리그에 같은 이름의 동작이 있으면 재생하고, 없으면 속도·순간 이동·파티클만 적용한다.
+
+groups:
+  active: {special_pct: 9, idle_pct: 2, idle_sec: 2, speed_base: 0.25, threat_radius: 10, bait_chance: 60}
+  normal: {special_pct: 6, idle_pct: 4, idle_sec: 3.5, speed_base: 0.0, threat_radius: 8, bait_chance: 40}
+  lazy:   {special_pct: 5, idle_pct: 8, idle_sec: 6, speed_base: -0.30, threat_radius: 6, bait_chance: 20}
+
+actions:
+  # 문서 값 ('17-3' 9.3 동작 예)
+  dart:     {group: active, speed_delta: 1.6, reps: 1, particle: bubble, threat: true}
+  charge:   {group: active, speed_delta: 1.6, reps: 1, particle: bubble}
+  ink:      {group: active, speed_delta: 1.4, reps: 1, particle: squid_ink, threat: true}
+  leap:     {group: active, speed_delta: 0.3, reps: 1, impulse: [0, 0.65, 0], particle: splash}
+  teleport: {group: active, speed_delta: 2.0, reps: 1, particle: portal, teleport: [4, 6]}
+  bask:     {group: lazy, speed_delta: -0.85, reps: 2}
+  stare:    {group: lazy, speed_delta: -0.85, reps: 2}
+  burrow:   {group: lazy, speed_delta: -0.6, reps: 1, impulse: [0, -0.3, 0], particle: bubble_pop}
+  # 제안값 (시제품 34가지 중 문서에 수치가 없는 동작)
+  turn:     {group: normal, speed_delta: -0.3, reps: 1}
+  startle:  {group: active, speed_delta: 1.4, reps: 1, particle: bubble, threat: true}
+  puff:     {group: lazy, speed_delta: -0.7, reps: 1, particle: bubble_pop}
+  spin:     {group: normal, speed_delta: 0.2, reps: 2}
+  glide:    {group: lazy, speed_delta: -0.4, reps: 1}
+  pulse:    {group: lazy, speed_delta: 0.6, reps: 2, impulse: [0, 0.2, 0]}

@@ -454,3 +454,93 @@ world:
     stale_s: 180
   event:
     check_s: 60
+
+# 야생 물고기 ('17-3' 9.3·9.4). 예산·LOD·위협 감지 값은 문서의 제안값, 나머지는 제안값 (CBT 뒤 Phase 3 부하 테스트로 조정)
+wildlife:
+  budget:
+    target_per_player: 12        # 혼자 있을 때 주변이 비어 보이지 않는 수
+    max_shown: 24                # 플레이어당 표시 상한 (마릿수)
+    max_parts: 180               # 플레이어당 표시 상한 (부품). Core rig.part_budget 300 중 그림자·수족관·보스 몫을 남김
+    global_max: 2000             # 서버 전체 상한
+    schools_per_player_s: 2      # 플레이어당 초당 무리 2개
+    spawn_per_tick: 20           # 서버 전체 틱당 20마리
+    intensity: {0: 0.5, 1: 0.75, 2: 1.0}   # 연출 강도(최소·보통·최대)별 부품 예산 배율
+  spawn:
+    ring_min: 16                 # 플레이어 기준 16~40블록 고리
+    ring_max: 40
+    school_gap: 8                # 다른 무리 중심과 8블록 이상
+    min_depth: 2                 # 물·용암 2칸 이상
+    air_clearance: 3             # 공중 여유 3칸
+    despawn: 56                  # 모든 플레이어에게서 56블록 넘게 멀어지면 제거
+    small_length: 1.0            # 몸길이 1블록 미만은 작은 무리
+    small_school: {min: 3, max: 6}
+    large_school: {min: 1, max: 2}
+    floor_per_chunk: 2           # 조개류 청크당 2개 이하
+    floor_blocks: "sand,gravel,suspicious_sand,suspicious_gravel,mud,clay"
+    boost: 2.0                   # 물고기 대이동 밀도 (World events.yml wildlife_boost가 우선)
+    # grade_weight: fishing.grade_weight를 그대로 쓴다 (일반 60 · 고급 25 · 희귀 10 · 영웅 4, 전설·신화는 자연 스폰 없음)
+  lod:
+    near: 16                     # 16블록 이하: 2틱마다 전송
+    show: 40                     # 40블록 초과: 숨김 (시제품 LOD 40)
+    keep: 44                     # 이미 보이는 개체는 44블록까지 유지
+    near_ticks: 2
+    mid_ticks: 4
+    mid_ticks_slow: 6            # 자동 감속 1단계
+    far_hz: 2
+    hidden_grace_s: 5            # 시청자가 없어진 뒤 리그 엔티티를 지우기까지
+    other_parts_refresh_s: 5
+  sim:
+    period_ms: 100               # 계산 주기 (10Hz)
+    apply_budget_ms: 1.0         # 메인 스레드 반영 예산 (틱당)
+    lag_cycles: 2                # 반영이 2주기 넘게 밀리면 자동 감속
+    lag_shown_scale: 0.75        # 자동 감속 2단계 표시 상한 배율
+  move:
+    home_radius: 24              # CRUISE 목표점 반경
+    retarget_s: {min: 3, max: 6}
+    dice_s: 1.0                  # 1초 ± 0.3초 주사위
+    dice_jitter_s: 0.3
+    idle_speed: 0.15             # 쉬기 속도 ×(1 − 0.85)
+    surface_gap: 0.5             # 수면 아래 0.5블록 유지
+    probe_ahead_s: 1.5           # 앞 탐침 = 속도 × 1.5초
+    cruise_per_length: 2.0       # 순항 속도 = 몸길이 × 2 (블록/초)
+    cruise_min: 0.6
+    cruise_max: 2.2
+    turn_rate: {fish: 180, ceph: 120, ray: 90, seahorse: 60, jelly: 30, clam: 0}   # 도/초
+    pitch_limit: {fish: 45, ceph: 45, ray: 45, seahorse: 20, jelly: 45, clam: 0}
+  school:
+    radius: 4
+    separation_lengths: 1.5
+    separation: 1.6
+    alignment: 0.8
+    cohesion: 0.6
+    leader: 1.0
+  threat:
+    sneak: 0.5                   # 웅크리면 감지 반경 ×0.5
+    boat: 1.3                    # 보트에 타면 ×1.3
+    closing_speed: 2.5           # 초당 2.5블록 이상 다가오면 발동
+    inner_ratio: 0.35            # 반경의 35% 안이면 발동
+    flee_s: {min: 3, max: 5}
+    flee_speed: 1.4              # 도주 속도 ×(1 + 1.4)
+    spread: 4                    # 무리 안 4블록 이내 전파
+    habituate_s: 30              # 30초 안에 같은 플레이어에게 다시 놀라면
+    habituate: 0.7               # 감지 반경 ×0.7
+    line_break_radius: 8
+  bait:
+    radius: 10                   # 찌 반경 10블록
+    max: 2                       # 최대 2마리
+    orbit: 1.5                   # 찌 주변 1.5블록 궤도
+    orbit_speed: 40              # 도/초
+  air:
+    band_below: 10               # 섬 높이 −10 ~ +20
+    band_above: 20
+    base_y: {default: 64, void_sea: 64}
+    bob_speed: 0.35
+    bob_period_s: 4
+  grid:
+    default: {min_y: 0, max_y: 96}
+    harbor_main: {min_y: 20, max_y: 80}
+    harbor_nether: {min_y: 10, max_y: 60}
+    harbor_end: {min_y: 30, max_y: 120}
+    chunks_per_tick: 4
+  light:
+    lava: 15                     # 용암 속 어종이 어둡지 않게 밝기 고정

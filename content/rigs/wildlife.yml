@@ -1,0 +1,325 @@
+# 야생 물고기 템플릿 리그 ('17-3' 9.3·9.4, 추가 제안). 어종 리그(rig/fish/<이름>)가 아직 없는 어종을 템플릿 모양으로 그린다.
+# 어종 모델 작업의 리그 JSON이 harbor-tools 변환기로 들어오면 rig/fish/<이름>이 우선한다 (species.yml rig 생략 시).
+# 단위: 블록 · 도 · 틱. 머리 −Z (forward: -z). length = 몸길이 (무리 크기·순항 속도 기본값 계산).
+# item_model 키는 리소스팩 모델 자리 (리소스팩 준비 전 예시).
+
+- id: rig/wild/fish
+  length: 0.35
+  forward: -z
+  default_animation: swim
+  bones:
+    - name: body
+      part: {item_model: "harbor:rig/wild/fish/body"}
+    - name: tail
+      parent: body
+      pivot: [0, 0, 0.13]
+      part: {item_model: "harbor:rig/wild/fish/tail", offset: [0, 0, 0.07]}
+  animations:
+    swim:
+      length: 20
+      bones:
+        body:
+          rotation:
+            - {t: 0, v: [0, 6, 0], ease: ease_in_out}
+            - {t: 10, v: [0, -6, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 6, 0]}
+        tail:
+          rotation:
+            - {t: 0, v: [0, -28, 0], ease: ease_in_out}
+            - {t: 10, v: [0, 28, 0], ease: ease_in_out}
+            - {t: 20, v: [0, -28, 0]}
+    idle:
+      length: 40
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 0.03, 0], ease: ease_in_out}
+            - {t: 40, v: [0, 0, 0]}
+        tail:
+          rotation:
+            - {t: 0, v: [0, -8, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 8, 0], ease: ease_in_out}
+            - {t: 40, v: [0, -8, 0]}
+    bite:
+      length: 10
+      mode: once
+      bones:
+        body:
+          rotation:
+            - {t: 0, v: [0, 0, 0], ease: ease_out}
+            - {t: 4, v: [25, 0, 0], ease: ease_in}
+            - {t: 10, v: [0, 0, 0]}
+    dart:
+      length: 10
+      mode: once
+      bones:
+        tail:
+          rotation:
+            - {t: 0, v: [0, -40, 0]}
+            - {t: 2, v: [0, 40, 0]}
+            - {t: 4, v: [0, -40, 0]}
+            - {t: 6, v: [0, 40, 0]}
+            - {t: 10, v: [0, 0, 0]}
+    leap:
+      length: 16
+      mode: once
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_out}
+            - {t: 8, v: [0, 0.65, 0], ease: ease_in}
+            - {t: 16, v: [0, 0, 0]}
+          rotation:
+            - {t: 0, v: [-30, 0, 0]}
+            - {t: 8, v: [0, 0, 0]}
+            - {t: 16, v: [35, 0, 0]}
+    turn:
+      length: 16
+      mode: once
+      bones:
+        body:
+          rotation:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 8, v: [0, 90, 0], ease: ease_in_out}
+            - {t: 16, v: [0, 0, 0]}
+    stare:
+      length: 30
+      mode: once
+      bones:
+        body:
+          rotation:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 15, v: [-10, 0, 0], ease: ease_in_out}
+            - {t: 30, v: [0, 0, 0]}
+    puff:
+      length: 30
+      mode: once
+      bones:
+        body:
+          scale:
+            - {t: 0, v: [1, 1, 1], ease: ease_out}
+            - {t: 8, v: [1.6, 1.6, 1.4], ease: ease_in_out}
+            - {t: 22, v: [1.6, 1.6, 1.4], ease: ease_in}
+            - {t: 30, v: [1, 1, 1]}
+
+- id: rig/wild/ceph
+  length: 0.3
+  forward: -z
+  default_animation: swim
+  bones:
+    - name: mantle
+      part: {item_model: "harbor:rig/wild/ceph/mantle"}
+    - name: arms
+      parent: mantle
+      pivot: [0, 0, 0.12]
+      part: {item_model: "harbor:rig/wild/ceph/arms", offset: [0, 0, 0.08]}
+  animations:
+    swim:
+      length: 24
+      bones:
+        arms:
+          scale:
+            - {t: 0, v: [1, 1, 1], ease: ease_in_out}
+            - {t: 12, v: [0.7, 0.7, 1.3], ease: ease_in_out}
+            - {t: 24, v: [1, 1, 1]}
+    idle:
+      length: 40
+      bones:
+        mantle:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 0.04, 0], ease: ease_in_out}
+            - {t: 40, v: [0, 0, 0]}
+    ink:
+      length: 12
+      mode: once
+      bones:
+        mantle:
+          scale:
+            - {t: 0, v: [1, 1, 1], ease: ease_out}
+            - {t: 4, v: [0.8, 0.8, 1.2], ease: ease_in}
+            - {t: 12, v: [1, 1, 1]}
+    dart:
+      length: 8
+      mode: once
+      bones:
+        arms:
+          scale:
+            - {t: 0, v: [1, 1, 1]}
+            - {t: 3, v: [0.5, 0.5, 1.6]}
+            - {t: 8, v: [1, 1, 1]}
+
+- id: rig/wild/ray
+  length: 0.5
+  forward: -z
+  default_animation: swim
+  bones:
+    - name: body
+      part: {item_model: "harbor:rig/wild/ray/body"}
+    - name: fin_l
+      parent: body
+      pivot: [0.12, 0, 0]
+      part: {item_model: "harbor:rig/wild/ray/fin", offset: [0.1, 0, 0]}
+    - name: fin_r
+      parent: body
+      pivot: [-0.12, 0, 0]
+      part: {item_model: "harbor:rig/wild/ray/fin", offset: [-0.1, 0, 0], scale: [-1, 1, 1]}
+  animations:
+    swim:
+      length: 30
+      bones:
+        fin_l:
+          rotation:
+            - {t: 0, v: [0, 0, 18], ease: ease_in_out}
+            - {t: 15, v: [0, 0, -18], ease: ease_in_out}
+            - {t: 30, v: [0, 0, 18]}
+        fin_r:
+          rotation:
+            - {t: 0, v: [0, 0, -18], ease: ease_in_out}
+            - {t: 15, v: [0, 0, 18], ease: ease_in_out}
+            - {t: 30, v: [0, 0, -18]}
+    idle:
+      length: 60
+      bones:
+        fin_l:
+          rotation:
+            - {t: 0, v: [0, 0, 4], ease: ease_in_out}
+            - {t: 30, v: [0, 0, -4], ease: ease_in_out}
+            - {t: 60, v: [0, 0, 4]}
+    burrow:
+      length: 20
+      mode: hold
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in}
+            - {t: 20, v: [0, -0.15, 0]}
+
+- id: rig/wild/eel
+  length: 1.1
+  forward: -z
+  default_animation: swim
+  bones:
+    - name: head
+      part: {item_model: "harbor:rig/wild/eel/head"}
+    - name: mid
+      parent: head
+      pivot: [0, 0, 0.35]
+      part: {item_model: "harbor:rig/wild/eel/mid", offset: [0, 0, 0.18]}
+    - name: tail
+      parent: mid
+      pivot: [0, 0, 0.35]
+      part: {item_model: "harbor:rig/wild/eel/tail", offset: [0, 0, 0.18]}
+  animations:
+    swim:
+      length: 24
+      bones:
+        mid:
+          rotation:
+            - {t: 0, v: [0, 18, 0], ease: ease_in_out}
+            - {t: 12, v: [0, -18, 0], ease: ease_in_out}
+            - {t: 24, v: [0, 18, 0]}
+        tail:
+          rotation:
+            - {t: 0, v: [0, -25, 0], ease: ease_in_out}
+            - {t: 12, v: [0, 25, 0], ease: ease_in_out}
+            - {t: 24, v: [0, -25, 0]}
+    idle:
+      length: 40
+      bones:
+        tail:
+          rotation:
+            - {t: 0, v: [0, -8, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 8, 0], ease: ease_in_out}
+            - {t: 40, v: [0, -8, 0]}
+    dart:
+      length: 10
+      mode: once
+      bones:
+        mid:
+          rotation:
+            - {t: 0, v: [0, 30, 0]}
+            - {t: 5, v: [0, -30, 0]}
+            - {t: 10, v: [0, 0, 0]}
+
+- id: rig/wild/seahorse
+  length: 0.15
+  forward: -z
+  default_animation: swim
+  bones:
+    - name: body
+      part: {item_model: "harbor:rig/wild/seahorse/body"}
+  animations:
+    swim:
+      length: 30
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 15, v: [0, 0.04, 0], ease: ease_in_out}
+            - {t: 30, v: [0, 0, 0]}
+    stare:
+      length: 30
+      mode: once
+      bones:
+        body:
+          rotation:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 15, v: [0, 30, 0], ease: ease_in_out}
+            - {t: 30, v: [0, 0, 0]}
+
+- id: rig/wild/jelly
+  length: 0.4
+  forward: -z
+  default_animation: swim
+  bones:
+    - name: bell
+      part: {item_model: "harbor:rig/wild/jelly/bell", rotation: [-90, 0, 0]}
+  animations:
+    swim:
+      length: 40
+      bones:
+        bell:
+          scale:
+            - {t: 0, v: [1, 1, 1], ease: ease_in_out}
+            - {t: 10, v: [0.8, 0.8, 1.15], ease: ease_in_out}
+            - {t: 40, v: [1, 1, 1]}
+    pulse:
+      length: 20
+      mode: once
+      bones:
+        bell:
+          scale:
+            - {t: 0, v: [1, 1, 1]}
+            - {t: 5, v: [0.7, 0.7, 1.25]}
+            - {t: 20, v: [1, 1, 1]}
+
+- id: rig/wild/clam
+  length: 0.25
+  forward: -z
+  default_animation: idle
+  bones:
+    - name: bottom
+      part: {item_model: "harbor:rig/wild/clam/bottom"}
+    - name: top
+      parent: bottom
+      pivot: [0, 0.03, 0.1]
+      part: {item_model: "harbor:rig/wild/clam/top", offset: [0, 0, -0.1]}
+  animations:
+    idle:
+      length: 60
+      bones:
+        top:
+          rotation:
+            - {t: 0, v: [-12, 0, 0], ease: ease_in_out}
+            - {t: 30, v: [-20, 0, 0], ease: ease_in_out}
+            - {t: 60, v: [-12, 0, 0]}
+    burrow:
+      length: 8
+      mode: hold
+      bones:
+        top:
+          rotation:
+            - {t: 0, v: [-20, 0, 0], ease: ease_in}
+            - {t: 8, v: [0, 0, 0]}

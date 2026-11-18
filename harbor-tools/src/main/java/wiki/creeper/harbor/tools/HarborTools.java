@@ -25,6 +25,8 @@ import wiki.creeper.harbor.npc.content.NpcDef;
 import wiki.creeper.harbor.quest.content.QuestContent;
 import wiki.creeper.harbor.season.content.SeasonContent;
 import wiki.creeper.harbor.shop.content.ShopContent;
+import wiki.creeper.harbor.wildlife.content.WildSpecies;
+import wiki.creeper.harbor.wildlife.content.WildlifeContent;
 import wiki.creeper.harbor.world.content.WorldContent;
 
 /**
@@ -59,6 +61,9 @@ public final class HarborTools {
         ShopContent.TYPES.forEach(loader::register);
         BossContent.TYPES.forEach(loader::register);
         WorldContent.TYPES.forEach(loader::register);
+        WildlifeContent.TYPES.forEach(loader::register);
+        loader.addCheck(WildSpecies.TYPE, WildlifeContent.SPECIAL_CHECK);
+        loader.addCheck(WildSpecies.TYPE, WildlifeContent.FISH_UNIQUE);
         loader.addCheck(BossDef.TYPE, BossContent.RIG_CHECK);
         loader.addCheck(BossDef.TYPE, BossContent.FISH_CHECK);
         ShopContent.registerChecks(loader::addCheck);

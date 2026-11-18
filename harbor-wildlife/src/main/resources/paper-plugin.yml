@@ -9,3 +9,15 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    Harbor-Fishing:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-World:
+      load: BEFORE
+      required: true
+      join-classpath: true
+permissions:
+  harbor.admin.wildlife.wild:
+    description: '/harbor wildlife spawn · clear · debug · stats · budget'
+    default: op
