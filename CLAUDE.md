@@ -24,6 +24,7 @@ Gradle 9.9.1 wrapper, JDK 25 toolchain. (Windows에서는 `gradlew.bat`)
 ./gradlew build                         # 전체 빌드 + 테스트 + spotlessCheck
 ./gradlew spotlessApply                 # 서식 자동 수정 (google-java-format AOSP, 4칸). build 전에 실행
 ./gradlew :harbor-common:test --tests "wiki.creeper.harbor.common.ContentLoaderTest"   # 테스트 하나
+./gradlew dist                          # 서버에 넣을 jar만 build/dist/{purpur,velocity}/plugins에 모음 (shadowJar·build도 마지막에 실행)
 ./gradlew :harbor-core:shadowJar        # Core jar (Common 포함)
 ./gradlew :harbor-core:runServer        # 모든 Purpur 모듈을 넣은 로컬 테스트 서버 (run-paper, Paper 26.3)
 ./gradlew validateContent               # content/ YAML을 서버와 같은 로더로 검사 (harbor-tools)
