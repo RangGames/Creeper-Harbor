@@ -1,0 +1,25 @@
+# 경매 기준가 (추가 제안: items/*.yml auction_ref 필드가 Common ItemDef에 들어가기 전까지 여기에 둔다, docs 20 7.3).
+# 등록가 범위 = 기준가 × [economy.auction.min_ratio, max_ratio]. sell_price · buy_price가 있는 아이템은 그 값을 먼저 쓴다.
+# 값은 제작 비용·재료 가치를 보고 정한 제안값. 신화 어종 기준가는 balance.yml economy.auction.mythic_ref (D12, 6,000G).
+refs:
+  item/rod/coral_carbon: 8000
+  item/line/steel_wire: 1000
+  item/float/glow: 600
+  item/tool/fish_finder: 4000
+  item/tool/line_tape: 100
+  item/bait/glow: 5
+  item/bait/gunpowder_paste: 12
+  item/bait/magma_cream: 35
+  item/bait/chorus: 45
+  item/bait/legendary: 20000
+  item/material/coral_fragment: 150
+  item/material/deep_crystal: 600
+  item/material/glow_ink_sac: 60
+  item/trap/iron: 2000
+  item/trap/coral: 5000
+  item/trap/deep: 30000
+  item/food/grilled_fish: 10
+  item/food/spicy_stew: 40
+  item/food/sashimi_platter: 150
+  item/food/fjord_soup: 60
+  item/food/lucky_tea: 120

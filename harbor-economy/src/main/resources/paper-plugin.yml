@@ -2,7 +2,7 @@ name: Harbor-Economy
 version: '${version}'
 main: wiki.creeper.harbor.economy.HarborEconomyPlugin
 api-version: '${apiVersion}'
-description: '상점·경매·시세'
+description: '상점·경매·시세·제작'
 dependencies:
   server:
     Harbor-Core:
@@ -13,3 +13,40 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    Harbor-Fishing:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Npc:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Season:
+      load: BEFORE
+      required: true
+      join-classpath: true
+permissions:
+  harbor.economy.sell:
+    description: '/판매'
+    default: true
+  harbor.economy.mail:
+    description: '/우편함'
+    default: true
+  harbor.economy.repair:
+    description: '/수리'
+    default: true
+  harbor.economy.market:
+    description: '/시세'
+    default: true
+  harbor.economy.auction:
+    description: '/경매 (등록·취소는 경매 게시판 반경 안)'
+    default: true
+  harbor.economy.craft:
+    description: '/제작 (근처 제작 스테이션)'
+    default: true
+  harbor.economy.big_deal:
+    description: '/큰손 (경제 계열 캡스톤)'
+    default: true
+  harbor.admin.economy.alert:
+    description: '부정 거래·시세 중단 알림 받기'
+    default: op

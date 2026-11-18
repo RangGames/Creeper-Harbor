@@ -11,6 +11,7 @@ import wiki.creeper.harbor.common.content.type.CoreContent;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.economy.content.EconomyContent;
+import wiki.creeper.harbor.economy.content.RecipeDef;
 import wiki.creeper.harbor.economy.content.ShopDef;
 import wiki.creeper.harbor.fishing.content.FishingContent;
 import wiki.creeper.harbor.jobs.content.JobLineDef;
@@ -53,6 +54,7 @@ public final class HarborTools {
         loader.addCheck(CutsceneDef.TYPE, NpcContent.CUTSCENE_MESSAGES);
         loader.addCheck(NpcDef.TYPE, NpcContent.NPC_MESSAGES);
         loader.addCheck(ShopDef.TYPE, ShopDef.PRICE_CHECK);
+        loader.addCheck(RecipeDef.TYPE, EconomyContent.RECIPE_CHECK);
         loader.addCheck(Balance.TYPE, JobsContent.CURVE_CHECK);
         loader.addCheck(JobLineDef.TYPE, JobsContent.CAPSTONE_CHECK);
         Result<ContentSnapshot, ValidationErrors> result = loader.load(Path.of(args[1]));

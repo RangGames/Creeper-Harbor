@@ -1,7 +1,46 @@
 # NPC 상점 (추가 제안, docs 20 7.3). price가 없으면 아이템 buy_price ('13. 제작 · 상점 가격' 2장).
+# npc: 대화 액션 shop:open이 이 NPC의 상점을 연다 (npcs.yml의 shop 필드가 먼저). 가격 × shop_buy_price × (1 − 호감도 할인).
+# vanilla: 바닐라 재료 고정가 ('13. 제작 · 상점 가격' 4장, 제안값), 1인 하루 64개 한도 (제안값).
+# requires: {job_tier, line, visited: <지역 ID>, quest: <퀘스트 ID>} — visited·quest는 플레이어 플래그로 판정 (추가 제안).
 
 - id: shop/tackle
+  npc: npc/tackle_keeper
   title: 낚시용품점
   entries:
     - {item: item/bait/earthworm}
+    - {item: item/bait/flour_paste}
+    - {item: item/bait/shrimp}
+    - {item: item/bait/shiny_lure}
     - {item: item/rod/harbor_standard}
+    - {item: item/line/cotton}
+    - {item: item/float/feather}
+    - {item: item/reel/brass}
+
+- id: shop/fish_market
+  npc: npc/fish_market
+  title: 어시장 상인
+  entries:
+    - {vanilla: minecraft:iron_ingot, price: 20, daily_limit: 64}
+    - {vanilla: minecraft:gold_ingot, price: 60, daily_limit: 64}
+    - {vanilla: minecraft:gunpowder, price: 8, daily_limit: 64}
+    - {vanilla: minecraft:redstone, price: 6, daily_limit: 64}
+    - {vanilla: minecraft:string, price: 3, daily_limit: 64}
+    - {vanilla: minecraft:slime_ball, price: 15, daily_limit: 64}
+    - {vanilla: minecraft:sugar, price: 2, daily_limit: 64}
+    - {vanilla: minecraft:brown_mushroom, price: 3, daily_limit: 64}
+    - {vanilla: minecraft:potato, price: 2, daily_limit: 64}
+    - {vanilla: minecraft:glass_bottle, price: 1, daily_limit: 64}
+
+- id: shop/shipyard
+  npc: npc/shipwright
+  title: 조선소
+  entries:
+    - {item: item/trap/wood}
+    - {item: item/boat/repair_kit}
+
+- id: shop/peddler
+  npc: npc/peddler
+  title: 떠돌이 행상
+  entries:
+    - {vanilla: minecraft:magma_cream, price: 30, daily_limit: 16}
+    - {vanilla: minecraft:chorus_fruit, price: 25, daily_limit: 16}

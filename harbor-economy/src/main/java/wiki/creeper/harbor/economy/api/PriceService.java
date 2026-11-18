@@ -1,5 +1,6 @@
 package wiki.creeper.harbor.economy.api;
 
+import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.UUID;
 import wiki.creeper.harbor.common.id.FishId;
@@ -19,4 +20,7 @@ public interface PriceService {
 
     /** 현재 시세 계수 (기본 1.0). */
     double coefficient(FishId fish);
+
+    /** 다음 시간 예측 계수 (경제 계열 '시세 예측'). 아직 계산된 적이 없으면 빈 값. */
+    OptionalDouble nextCoefficient(FishId fish);
 }

@@ -42,4 +42,37 @@ public final class MarketMath {
                 gradeTotal <= 0 ? 0 : gradeWeights.getOrDefault(fish.grade(), 0.0) / gradeTotal;
         return sameGradeWeight <= 0 ? 0 : gradeShare * fish.weight() / sameGradeWeight;
     }
+
+    /**
+     * 다음 시간 예측값 next_coef (docs 20 7.4 5단계): 다음 시간에 창 밖으로 빠질 판매량을 빼고, 최근 1시간 판매 속도가 이어진다고 본다.
+     *
+     * @param leaving 다음 정각에 24시간 창에서 빠지는 시간의 판매량
+     * @param lastHour 최근 1시간 판매량
+     */
+    public static double forecast(
+            long sales, long leaving, long lastHour, double s0, EconomyBalance balance) {
+        return coefficient(Math.max(0, sales - leaving + lastHour), s0, balance);
+    }
+
+    /**
+     * 일괄 판매 미끄러짐 (docs 20 7.4, 제안): 같은 어종을 기준 수보다 많이 팔면 M 대신 "이 판매가 반영됐을 때의 M"과 현재 M의 평균을 쓴다. 경제 계열
+     * '대량 거래'(bulk_sell_slip −0.15/랭크)는 하락폭을 줄인다.
+     *
+     * @param sales 지금 24시간 판매량 S
+     * @param count 이번 묶음 마릿수
+     * @param slip bulk_sell_slip 보정 합 (기본 0, 음수일수록 하락폭이 작음)
+     */
+    public static double bulkCoefficient(
+            double current, long sales, int count, double s0, double slip, EconomyBalance balance) {
+        if (count <= balance.bulkThreshold() || s0 <= 0) {
+            return current;
+        }
+        double after = coefficient(sales + count, s0, balance);
+        if (after >= current) {
+            return current;
+        }
+        double average = (current + after) / 2;
+        double factor = Math.clamp(1 + slip, 0.0, 1.0);
+        return current - (current - average) * factor;
+    }
 }

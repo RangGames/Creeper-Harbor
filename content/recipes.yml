@@ -1,0 +1,178 @@
+# 제작 레시피 ('11. 데이터 설계' 2.3·2.9, '13. 제작 · 상점 가격' 3장, docs 20 7.3·7.4). Harbor-Economy.
+# station: workshop(어부 길드 작업대) · cooking(요리 화로) · shipyard(조선소), category: gear · bait · food · trap · boat
+# ingredients: {item: <아이템 ID>} · {vanilla: <바닐라 키>}(추가 제안) · {match: {grade_min, fish_any, region}} + count
+# unlock: job_tier · level · visited(플레이어 플래그 visited/<지역>, World가 세움) · quest(quest/<경로>, Quest가 세움) ·
+#         feature(스킬이 올리는 보정자 키) · flags (모두 추가 제안 규칙: 해금 판정은 플래그·보정자로만 한다)
+# weekly_limit: Season weekly_counter 키 craft:<레시피 이름>
+# 보스 비늘(보스 보상 재료)이 들어가는 레시피(심해 수압 낚싯대·심해 기어 릴·심해 통발·고래잡이 작살·보스 소환 미끼)와
+# 전설의 미끼의 보스 비늘 5개는 Harbor-Boss가 보스 비늘 아이템을 만든 뒤 추가한다.
+
+# ---------------------------------------------------------------- 어부 길드 작업대 (장비)
+- id: recipe/coral_carbon_rod
+  result: item/rod/coral_carbon
+  station: workshop
+  category: gear
+  gold: 6000
+  ingredients:
+    - {item: item/rod/harbor_standard, count: 1}
+    - {item: item/material/coral_fragment, count: 8}
+  unlock: {visited: region/coral_isles}
+
+- id: recipe/steel_wire_line
+  result: item/line/steel_wire
+  station: workshop
+  category: gear
+  gold: 800
+  ingredients:
+    - {item: item/line/cotton, count: 1}
+    - {vanilla: minecraft:iron_ingot, count: 4}
+
+- id: recipe/glow_float
+  result: item/float/glow
+  station: workshop
+  category: gear
+  gold: 400
+  ingredients:
+    - {item: item/float/feather, count: 1}
+    - {item: item/material/glow_ink_sac, count: 2}
+
+- id: recipe/fish_finder
+  result: item/tool/fish_finder
+  station: workshop
+  category: gear
+  gold: 3000
+  ingredients:
+    - {vanilla: minecraft:iron_ingot, count: 6}
+    - {vanilla: minecraft:redstone, count: 8}
+    - {item: item/material/glow_ink_sac, count: 2}
+  unlock: {level: 20}           # 1차 마스터 (Lv20)
+
+- id: recipe/line_tape
+  result: item/tool/line_tape
+  amount: 3
+  station: workshop
+  category: gear
+  gold: 200
+  ingredients:
+    - {vanilla: minecraft:string, count: 6}
+    - {vanilla: minecraft:slime_ball, count: 1}
+
+# ---------------------------------------------------------------- 미끼
+- id: recipe/glow_bait
+  result: item/bait/glow
+  amount: 10
+  station: workshop
+  category: bait
+  gold: 30
+  ingredients:
+    - {item: item/bait/earthworm, count: 10}
+    - {item: item/material/glow_ink_sac, count: 1}
+
+- id: recipe/gunpowder_paste
+  result: item/bait/gunpowder_paste
+  amount: 5
+  station: workshop
+  category: bait
+  gold: 50
+  ingredients:
+    - {item: item/bait/flour_paste, count: 5}
+    - {vanilla: minecraft:gunpowder, count: 2}
+
+- id: recipe/magma_cream_bait
+  result: item/bait/magma_cream
+  amount: 5
+  station: workshop
+  category: bait
+  gold: 150
+  ingredients:
+    - {item: item/bait/shrimp, count: 5}
+    - {vanilla: minecraft:magma_cream, count: 2}
+  unlock: {visited: region/lava_lake}
+
+- id: recipe/chorus_bait
+  result: item/bait/chorus
+  amount: 5
+  station: workshop
+  category: bait
+  gold: 200
+  ingredients:
+    - {item: item/bait/shrimp, count: 5}
+    - {vanilla: minecraft:chorus_fruit, count: 3}
+  unlock: {visited: region/void_sea}
+
+- id: recipe/legendary_bait
+  result: item/bait/legendary
+  station: workshop
+  category: bait
+  gold: 20000
+  ingredients:
+    - {item: item/material/deep_crystal, count: 5}
+    # 보스 비늘 5 — Harbor-Boss 아이템이 생기면 추가
+  unlock: {feature: feature_legend_bait_recipe}   # 생산 계열 '미끼 연구'
+  weekly_limit: 1
+
+# ---------------------------------------------------------------- 조선소 (통발)
+- id: recipe/iron_trap
+  result: item/trap/iron
+  station: shipyard
+  category: trap
+  gold: 1500
+  ingredients:
+    - {item: item/trap/wood, count: 1}
+    - {vanilla: minecraft:iron_ingot, count: 8}
+
+- id: recipe/coral_trap
+  result: item/trap/coral
+  station: shipyard
+  category: trap
+  gold: 4000
+  ingredients:
+    - {item: item/trap/iron, count: 1}
+    - {item: item/material/coral_fragment, count: 12}
+  unlock: {visited: region/coral_isles}
+
+- id: recipe/deep_trap
+  result: item/trap/deep
+  station: shipyard
+  category: trap
+  gold: 25000
+  ingredients:
+    - {item: item/trap/coral, count: 1}
+    - {item: item/material/deep_crystal, count: 15}
+    # 보스 비늘 3 — Harbor-Boss 아이템이 생기면 추가
+  unlock: {feature: feature_deep_trap}            # 생산 계열 캡스톤
+
+# ---------------------------------------------------------------- 요리 화로 (결과는 Fishing 요리, 버프는 fishing/food.yml)
+- id: recipe/grilled_fish
+  result: item/food/grilled_fish
+  station: cooking
+  category: food
+  ingredients:
+    - {match: {grade_min: common}, count: 1}       # 일반 어종 1 (아무 어종)
+
+- id: recipe/spicy_stew
+  result: item/food/spicy_stew
+  station: cooking
+  category: food
+  ingredients:
+    - {match: {fish_any: [fish/harbor_rockfish, fish/breakwater_rockfish]}, count: 1}   # 우럭·메기 중 1 (메기는 늪지 어종이 생기면 추가)
+    - {vanilla: minecraft:brown_mushroom, count: 1}
+    - {vanilla: minecraft:potion, count: 1}        # 물병
+
+- id: recipe/sashimi_platter
+  result: item/food/sashimi_platter
+  station: cooking
+  category: food
+  ingredients:
+    - {match: {grade_min: rare}, count: 1}         # 희귀 이상 어종 1
+    - {match: {grade_min: common}, count: 2}       # 일반 어종 2
+
+- id: recipe/fjord_soup
+  result: item/food/fjord_soup
+  station: cooking
+  category: food
+  ingredients:
+    - {match: {region: region/frost_fjord}, count: 2}   # 서리 협만 어종 2
+    - {vanilla: minecraft:potato, count: 1}
+
+# 행운의 차 (반딧불 은어 1, 설탕 1, 물병 1)는 늪지 어종 '반딧불 은어'가 콘텐츠에 생기면 추가한다.

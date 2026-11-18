@@ -1,0 +1,153 @@
+# Harbor-Economy 상점·제작 아이템 ('3. 아이템 목록', '13. 제작 · 상점 가격' 2·3장). 레시피는 recipes.yml.
+# 부품(낚싯줄·찌·릴)의 stats는 Fishing이 읽는 키를 따른다. 문서에 수치가 없는 값은 제안값.
+
+- id: item/rod/coral_carbon
+  name: 산호 카본 낚싯대
+  lore: "산호 조각을 겹겹이 붙여 만든 가볍고 질긴 낚싯대."
+  type: rod
+  grade: rare
+  base_item: minecraft:fishing_rod
+  model: harbor:rod/coral_carbon
+  stats:
+    bite_wait: -0.15        # 제안값
+    line_strength: 2        # 제안값
+  tradeable: true
+  season_reset: true
+
+- id: item/line/cotton
+  name: 무명 낚싯줄
+  lore: "평범한 무명실. 큰 고기가 걸리면 조마조마하다."
+  type: line
+  grade: common
+  base_item: minecraft:string
+  model: harbor:line/cotton
+  stats: {line_strength: 1}   # 제안값
+  buy_price: 200
+  tradeable: true
+  season_reset: true
+
+- id: item/line/steel_wire
+  name: 강철 와이어 줄
+  lore: "철사를 꼬아 만든 줄. 이빨 날카로운 물고기도 끊지 못한다."
+  type: line
+  grade: uncommon
+  base_item: minecraft:string
+  model: harbor:line/steel_wire
+  stats: {line_strength: 3}   # 제안값
+  tradeable: true
+  season_reset: true
+
+- id: item/float/feather
+  name: 깃털 찌
+  lore: "갈매기 깃털로 만든 찌. 작은 입질도 놓치지 않는다."
+  type: float
+  grade: common
+  base_item: minecraft:feather
+  model: harbor:float/feather
+  buy_price: 100
+  tradeable: true
+  season_reset: true
+
+- id: item/float/glow
+  name: 야광 찌
+  lore: "발광 먹물을 바른 찌. 밤바다에서도 또렷하다."
+  type: float
+  grade: uncommon
+  base_item: minecraft:glow_ink_sac
+  model: harbor:float/glow
+  tradeable: true
+  season_reset: true
+
+- id: item/reel/brass
+  name: 황동 릴
+  lore: "묵직한 황동 릴. 감는 손맛이 좋다."
+  type: reel
+  grade: uncommon
+  base_item: minecraft:copper_ingot
+  model: harbor:reel/brass
+  stats: {reel_speed: 0.15}   # 제안값
+  buy_price: 1500
+  tradeable: true
+  season_reset: true
+
+- id: item/bait/flour_paste
+  name: 밀가루 떡밥
+  lore: "물에 개어 동글동글 빚은 떡밥. 민물고기가 좋아한다."
+  type: bait
+  grade: common
+  base_item: minecraft:wheat
+  model: harbor:bait/flour_paste
+  buy_price: 1
+  tradeable: true
+  season_reset: true
+
+- id: item/bait/shrimp
+  name: 새우 미끼
+  lore: "살아 있는 작은 새우. 바다 고기라면 마다하지 않는다."
+  type: bait
+  grade: common
+  base_item: minecraft:salmon
+  model: harbor:bait/shrimp
+  buy_price: 1
+  tradeable: true
+  season_reset: true
+
+- id: item/bait/glow
+  name: 야광 미끼
+  lore: "발광 먹물에 담갔다 뺀 지렁이. 어두운 물속에서 빛난다."
+  type: bait
+  grade: uncommon
+  base_item: minecraft:glow_berries
+  model: harbor:bait/glow
+  tradeable: true
+  season_reset: true
+
+- id: item/bait/magma_cream
+  name: 마그마 크림 미끼
+  lore: "뜨거운 물에 사는 고기만 견디는 미끼."
+  type: bait
+  grade: rare
+  base_item: minecraft:magma_cream
+  model: harbor:bait/magma_cream
+  tradeable: true
+  season_reset: true
+
+- id: item/bait/chorus
+  name: 코러스 미끼
+  lore: "공허의 바다 고기가 이끌리는 보랏빛 미끼."
+  type: bait
+  grade: rare
+  base_item: minecraft:chorus_fruit
+  model: harbor:bait/chorus
+  tradeable: true
+  season_reset: true
+
+- id: item/material/glow_ink_sac
+  name: 발광 먹물 주머니
+  lore: "오징어를 손질하면 나오는 빛나는 먹물. 찌와 미끼 재료."
+  type: material
+  grade: uncommon
+  base_item: minecraft:glow_ink_sac
+  model: harbor:material/glow_ink_sac
+  tradeable: true
+  season_reset: true
+
+- id: item/tool/fish_finder
+  name: 어군 탐지기
+  lore: "물속 무리를 소리로 찾아내는 기계. 물고기 떼 위치를 알려준다."
+  type: tool
+  grade: rare
+  base_item: minecraft:compass
+  model: harbor:tool/fish_finder
+  tradeable: true
+  season_reset: true
+
+- id: item/tool/line_tape
+  name: 줄 보강 테이프
+  lore: "끊어지려는 낚싯줄을 감아 버티게 한다."
+  type: tool
+  grade: common
+  base_item: minecraft:paper
+  model: harbor:tool/line_tape
+  tradeable: true
+  season_reset: true
