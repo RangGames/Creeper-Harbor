@@ -14,7 +14,11 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.PreparedStatement;
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.config.InfraConfig;
@@ -22,12 +26,13 @@ import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.db.Migrations;
 import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.common.redis.Redis;
+import wiki.creeper.harbor.common.session.SessionLocks;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 
 /**
- * Harbor-Proxy (docs 20 1장): 접속 진입점, 서버 이동 지휘, 서버 간 채팅·공지 중계. Common을 품고 (DB 풀 5개, Redis 연결 1개)
- * Paper API는 쓰지 않는다.
+ * Harbor-Proxy (docs 20 1장): 접속 진입점(점검·제재·후원 등급·세션 잠금), 본 서버 대기열, 서버·인스턴스 이동 지휘, 서버 간 채팅·공지 중계, 접속
+ * 기록·다계정 탐지, MOTD·서버 링크. Common을 품고 (DB 풀 5개, Redis 연결 1개) Paper API는 쓰지 않는다.
  */
 @Plugin(
         id = "harbor-proxy",
@@ -96,19 +101,31 @@ public final class HarborProxyPlugin {
         MessageBus messageBus = new MessageBus(r, infra.serverId());
         bus = messageBus;
 
-        ProxyText text = new ProxyText(config.messages());
+        ProxyText text = new ProxyText(config.messages(), bundledMessages());
         ServerDirectory directory = new ServerDirectory();
+        SeatReservations seats = new SeatReservations();
+        SessionLocks locks = new SessionLocks(r);
+        Executor io = database.executor();
         MoveCoordinator mover =
-                new MoveCoordinator(proxy, config, directory, messageBus, database, log);
-        QueueManager queue = new QueueManager(proxy, config, directory, mover, text);
+                new MoveCoordinator(
+                        proxy, config, directory, messageBus, database, seats, r::isConnected, log);
+        QueueManager queue =
+                new QueueManager(proxy, config, directory, mover, seats, text, r::isConnected);
+        InstanceRouter instances =
+                new InstanceRouter(proxy, config, directory, mover, seats, messageBus, r, io, log);
+        StaleLockWatcher lockWatcher =
+                new StaleLockWatcher(proxy, locks, queue, config.lobby(), log);
         MaintenanceService maintenance =
                 new MaintenanceService(this, proxy, config, r, messageBus, text, log);
-        ChatRelay chat = new ChatRelay(proxy, config, text);
         JoinLog joinLog = new JoinLog(database, config.ipHashSecret(), log);
+        SanctionService sanctions = new SanctionService(proxy, database, text, joinLog, log);
+        AltDetector alts = new AltDetector(proxy, database, config.alt(), text, log);
+        ChatRelay chat = new ChatRelay(proxy, config, text, sanctions);
 
         directory.start(messageBus);
         mover.start();
-        queue.start(messageBus);
+        queue.start(messageBus, instances::tryRejoin);
+        instances.start();
         chat.start(messageBus);
         maintenance.refresh();
 
@@ -116,7 +133,23 @@ public final class HarborProxyPlugin {
                 .register(
                         this,
                         new ConnectionListener(
-                                proxy, config, text, maintenance, mover, queue, chat, joinLog));
+                                proxy,
+                                config,
+                                text,
+                                maintenance,
+                                mover,
+                                queue,
+                                chat,
+                                joinLog,
+                                sanctions,
+                                alts,
+                                lockWatcher,
+                                seats,
+                                r,
+                                io,
+                                log));
+        proxy.getEventManager()
+                .register(this, new ServerListPing(proxy, config, text, maintenance, queue));
         new ProxyCommands(
                         this,
                         proxy,
@@ -128,7 +161,17 @@ public final class HarborProxyPlugin {
                         directory,
                         chat,
                         messageBus,
-                        this::adminLog)
+                        this::adminLog,
+                        new SanctionCommands(
+                                proxy,
+                                config,
+                                text,
+                                sanctions,
+                                alts,
+                                joinLog,
+                                r,
+                                io,
+                                this::adminLog))
                 .register();
 
         var _ =
@@ -138,18 +181,54 @@ public final class HarborProxyPlugin {
                                 () -> {
                                     queue.tick();
                                     maintenance.tick();
+                                    lockWatcher.tick();
                                 })
                         .repeat(1, TimeUnit.SECONDS)
                         .schedule();
         var _ =
                 proxy.getScheduler()
-                        .buildTask(this, maintenance::refresh)
+                        .buildTask(
+                                this,
+                                () -> {
+                                    maintenance.refresh();
+                                    directory.checkStale(
+                                            Duration.ofSeconds(config.heartbeatAlertSeconds()),
+                                            (server, seconds) -> {
+                                                log.warn("하트비트 끊김: {} ({}초)", server, seconds);
+                                                text.notifyStaff(
+                                                        proxy,
+                                                        ProxyPerms.SERVERS,
+                                                        text.get(
+                                                                "server.stale",
+                                                                Placeholder.unparsed(
+                                                                        "server", server),
+                                                                Placeholder.unparsed(
+                                                                        "seconds",
+                                                                        String.valueOf(seconds))));
+                                            });
+                                })
                         .repeat(10, TimeUnit.SECONDS)
+                        .schedule();
+        var _ =
+                proxy.getScheduler()
+                        .buildTask(this, () -> joinLog.purge(config.joinLogRetentionDays()))
+                        .delay(1, TimeUnit.MINUTES)
+                        .repeat(1, TimeUnit.DAYS)
                         .schedule();
         log.info(
                 "Harbor-Proxy 준비 완료 (로비 {}, 본 서버 {})",
                 config.lobby(),
                 config.mainServers().keySet());
+    }
+
+    /** jar에 든 기본 harbor-proxy.yml의 문구 (서버 설정에 빠진 새 키를 채운다). */
+    private Map<String, String> bundledMessages() throws IOException {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream("harbor-proxy.yml")) {
+            if (in == null) {
+                return Map.of();
+            }
+            return ProxyConfig.defaultMessages(in);
+        }
     }
 
     private Path saveDefault(String name) throws IOException {

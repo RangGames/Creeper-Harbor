@@ -13,6 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.db.Database;
@@ -46,6 +47,8 @@ final class MoveCoordinator {
     private final ServerDirectory directory;
     private final MessageBus bus;
     private final Database db;
+    private final SeatReservations seats;
+    private final BooleanSupplier redisUp;
     private final Logger log;
     private final Set<UUID> inProgress = ConcurrentHashMap.newKeySet();
     private final Map<UUID, String> approved = new ConcurrentHashMap<>();
@@ -58,12 +61,16 @@ final class MoveCoordinator {
             ServerDirectory directory,
             MessageBus bus,
             Database db,
+            SeatReservations seats,
+            BooleanSupplier redisUp,
             Logger log) {
         this.proxy = proxy;
         this.config = config;
         this.directory = directory;
         this.bus = bus;
         this.db = db;
+        this.seats = seats;
+        this.redisUp = redisUp;
         this.log = log;
     }
 
@@ -127,7 +134,11 @@ final class MoveCoordinator {
         if (destination.equals(origin)) {
             return done(requestId, uuid, false, "already_there");
         }
-        if (!destination.equals(config.lobby()) && !directory.canAccept(destination, 1)) {
+        // Redis 장애 시 이동 중단 (docs 20 1.6: 핸드오프 잠금을 못 다루면 복제 방지가 깨진다)
+        if (!redisUp.getAsBoolean()) {
+            return done(requestId, uuid, false, "redis_down");
+        }
+        if (!destination.equals(config.lobby()) && !destinationOpen(uuid, destination)) {
             return done(requestId, uuid, false, "destination_unavailable");
         }
         if (!inProgress.add(uuid)) {
@@ -180,6 +191,13 @@ final class MoveCoordinator {
                             return new MoveResult(requestId, uuid, false, "error");
                         })
                 .whenComplete((r, e) -> inProgress.remove(uuid));
+    }
+
+    /** 예약 자리로의 귀환은 수용 한도를 넘어도 받는다 (하트비트·입장 허용만 확인). */
+    private boolean destinationOpen(UUID player, String destination) {
+        return seats.holds(player, destination)
+                ? directory.isAlive(destination)
+                : directory.canAccept(destination, 1);
     }
 
     /** 로비는 잠금을 잡지 않으므로 로비에서 나갈 때는 핸드오프가 필요 없다. */

@@ -16,7 +16,35 @@ queue:
   tps_freeze: 18.0           # TPS가 이 아래면 한도 동결
   tps_resume: 19.5           # 이 이상 1분 유지되면 해제
 
-priority: []                 # 우선 줄 UUID (CBT 운영진·테스터. 후원 등급은 Shop 연동 후)
+priority: []                 # 우선 줄 UUID (CBT 운영진·테스터). 후원 등급은 Redis harbor:donor로 자동 (Common DonorTier)
+
+login:
+  lookup_timeout_ms: 1000    # 후원 등급·세션 잠금 조회 제한. 넘기면 기본값(후원 없음)으로 진행
+  sanction_timeout_ms: 3000  # 제재 확인 제한. 넘기거나 DB 오류면 접속 거부 (제안값)
+
+sanction:
+  default_ban: perm          # 기간을 생략한 BAN (예: 30m, 12h, 7d, 2w, perm)
+  default_mute: 1h           # 기간을 생략한 MUTE (제안값)
+
+alt:
+  window_days: 30            # 같은 IP 계정을 찾는 기간 (제안값)
+  alert_accounts: 3          # 같은 IP 계정이 이 수 이상이면 운영진 알림 (제안값, 자동 차단 없음)
+
+join_log:
+  retention_days: 90         # 접속 기록 보관 기간 (제안값)
+
+heartbeat:
+  alert_seconds: 60          # 하트비트가 이만큼 끊기면 운영진 알림
+
+links:                       # 일시정지 메뉴 서버 링크 (type: 바닐라 기본 이름, 또는 label: MiniMessage)
+  - type: website
+    url: https://creeper.wiki
+  # - label: "<aqua>디스코드"
+  #   url: https://discord.gg/...
+  # - label: "<gold>후원 상점"
+  #   url: https://...
+  # - type: bug_report
+  #   url: https://...
 
 maintenance:
   bypass: []                 # 점검 중에도 들어올 수 있는 UUID
@@ -31,6 +59,40 @@ chat:
   banned_words: []
 
 messages:
+  common:
+    permanent: "영구"
+    none: "-"
+  motd:
+    normal: "<gold><bold>크리퍼 항구</bold></gold> <gray>· 접속 <online>명 · 대기 <queue>명<newline><aqua>오늘도 바다로 나갈 시간입니다"
+    maintenance: "<gold><bold>크리퍼 항구</bold></gold> <yellow>점검 중<newline><gray><reason> · 예상 종료 <until>"
+  login:
+    unavailable: "<red>접속 확인 중 문제가 생겼습니다. 잠시 뒤 다시 접속해 주세요."
+  sanction:
+    ban_kick: "<red>접속이 제한되었습니다.<newline><gray>사유: <reason><newline>만료: <until>"
+    muted: "<red>채팅이 제한되었습니다. <gray>사유: <reason> · 만료 <until>"
+    unmuted: "<green>채팅 제한이 풀렸습니다."
+    kick: "<yellow>운영진에 의해 연결이 끊겼습니다.<newline><gray><reason>"
+    issued: "<green><name> <type> 처리 · <term> · <reason>"
+    revoked: "<green><name> <type> 해제 (<count>건)"
+    none: "<gray><name>에게 해제할 <type> 제재가 없습니다."
+    bad_term: "<red>기간 형식이 잘못되었습니다: <term> <gray>(예: 30m, 12h, 7d, 2w, perm)"
+    default_reason: "운영 정책 위반"
+    failed: "<red>제재를 기록하지 못했습니다: <reason>"
+  lookup:
+    not_found: "<red>플레이어를 찾을 수 없습니다: <name>"
+    header: "<yellow><name> <gray>(<uuid>) · 접속 <online> · 후원 <tier>"
+    join_line: "<gray><time> · <server> · 프로토콜 <protocol> · <brand> · IP <ip><kick>"
+    sanction_line: "<red><type></red> <gray>· <reason> · 만료 <until> · 처리 <by>"
+    alts_header: "<yellow><name>의 연결 계정 <count>줄"
+    alt_line: "<gray><name> · IP <ip> · <hits>회 · 마지막 <last><shared>"
+    alt_shared: " <dark_gray>(공유 IP)"
+    shared_added: "<green><name>의 최근 IP를 공유 IP로 등록했습니다 (<ip>)."
+    shared_removed: "<green><name>의 최근 IP를 공유 IP에서 뺐습니다 (<count>건)."
+    no_ip: "<red><name>의 접속 기록이 없습니다."
+  alt:
+    alert: "<gold>[다계정]</gold> <white><name></white> <gray>· 같은 IP 계정 <count>개 (/hp alts <name>)"
+  server:
+    stale: "<red>[서버]</red> <white><server></white> <gray>하트비트 <seconds>초 무응답"
   maintenance:
     kick: "<yellow>점검 중입니다: <reason><newline><gray>예상 종료 <until>"
     countdown: "<yellow>[점검] <seconds>초 뒤 점검을 시작합니다: <reason>"
@@ -47,12 +109,15 @@ messages:
     not_queued: "<gray>대기열에 없습니다."
     list: "<yellow>대기 <count>명"
     paused: "<yellow>대기열이 잠시 멈췄습니다."
+    cleaning: "이전 접속 정리 중 · 잠시만 기다려 주세요"
+    moved: "<green><name>을(를) 대기 <position>번으로 옮겼습니다."
   chat:
     format: "<gray>[<server>]</gray> <white><name></white>: <message>"
     whisper_to: "<light_purple>[귓 → <name>]</light_purple> <message>"
     whisper_from: "<light_purple>[귓 ← <name>]</light_purple> <message>"
     no_target: "<red>대상을 찾을 수 없습니다."
     blocked: "<red>도배 방지로 잠시 채팅이 막혔습니다."
+    party_format: "<aqua>[파티]</aqua> <white><name></white>: <message>"
   admin:
     done: "<green>처리했습니다."
     servers_line: "<gray><server> · <role> · <online>/<capacity> · TPS <tps> · <age>초 전 · <state>"

@@ -1,13 +1,19 @@
 package wiki.creeper.harbor.proxy;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.common.yaml.YamlNode;
@@ -23,6 +29,12 @@ record ProxyConfig(
         boolean maintenanceFallback,
         String ipHashSecret,
         Chat chat,
+        Login login,
+        Alt alt,
+        SanctionDefaults sanctions,
+        int joinLogRetentionDays,
+        int heartbeatAlertSeconds,
+        List<Link> links,
         Map<String, String> messages) {
 
     /** 대기열 설정. */
@@ -31,6 +43,35 @@ record ProxyConfig(
 
     /** 채팅 도배 방지 설정. */
     record Chat(int repeatLimit, int linesPerSecond, int blockSeconds, List<String> bannedWords) {}
+
+    /** 로그인 검사 제한 시간 (docs 20 1.4 2단계: 1초 안에 끝나지 않으면 기본값). */
+    record Login(int lookupTimeoutMs, int sanctionTimeoutMs) {}
+
+    /** 다계정 탐지 (제안값: 30일, 계정 3개). */
+    record Alt(int windowDays, int alertAccounts) {}
+
+    /** 기간을 생략한 제재의 기본 기간. */
+    record SanctionDefaults(SanctionTerm ban, SanctionTerm mute) {}
+
+    /**
+     * 일시정지 메뉴 서버 링크 ('8. 시스템 상세 기획' 11장). type이 있으면 바닐라 기본 이름, 없으면 label(MiniMessage).
+     *
+     * @param type ServerLink.Type 이름 (WEBSITE, COMMUNITY, BUG_REPORT …)
+     */
+    record Link(@Nullable String type, String label, URI url) {}
+
+    /** jar에 든 기본 설정의 문구 (서버 설정에 빠진 키를 채운다). */
+    static Map<String, String> defaultMessages(InputStream in) {
+        ValidationErrors errors = new ValidationErrors();
+        Map<String, String> messages = new LinkedHashMap<>();
+        YamlNode.parse(
+                        "harbor-proxy.yml (기본값)",
+                        new InputStreamReader(in, StandardCharsets.UTF_8),
+                        errors)
+                .flatMap(root -> root.get("messages"))
+                .ifPresent(n -> flatten("", n, messages));
+        return Map.copyOf(messages);
+    }
 
     static Result<ProxyConfig, ValidationErrors> load(Path file) {
         ValidationErrors errors = new ValidationErrors();
@@ -80,6 +121,44 @@ record ProxyConfig(
                         c.integer("block_seconds", 3, 0, 3600),
                         c.strings("banned_words"));
 
+        YamlNode l = root.get("login").orElse(root);
+        Login login =
+                new Login(
+                        l.integer("lookup_timeout_ms", 1000, 50, 10_000),
+                        l.integer("sanction_timeout_ms", 3000, 100, 30_000));
+        YamlNode a = root.get("alt").orElse(root);
+        Alt alt =
+                new Alt(
+                        a.integer("window_days", 30, 1, 365),
+                        a.integer("alert_accounts", 3, 2, 100));
+        YamlNode sn = root.get("sanction").orElse(root);
+        SanctionDefaults sanctions =
+                new SanctionDefaults(
+                        term(sn, "default_ban", "perm"), term(sn, "default_mute", "1h"));
+
+        List<Link> links = new ArrayList<>();
+        for (YamlNode n : root.list("links")) {
+            String url = n.string("url");
+            URI uri;
+            try {
+                uri = URI.create(url);
+            } catch (IllegalArgumentException e) {
+                n.error("링크 URL 형식이 아닙니다: " + url);
+                continue;
+            }
+            if (!"https".equals(uri.getScheme()) && !"http".equals(uri.getScheme())) {
+                n.error("링크는 http(s)만 됩니다: " + url);
+                continue;
+            }
+            String type = n.optString("type").map(t -> t.toUpperCase(Locale.ROOT)).orElse(null);
+            String label = n.string("label", "");
+            if (type == null && label.isEmpty()) {
+                n.error("링크에는 type 또는 label이 있어야 합니다");
+                continue;
+            }
+            links.add(new Link(type, label, uri));
+        }
+
         Map<String, String> messages = new LinkedHashMap<>();
         root.get("messages").ifPresent(n -> flatten("", n, messages));
 
@@ -94,7 +173,23 @@ record ProxyConfig(
                 m.bool("fallback", false),
                 secret,
                 chat,
+                login,
+                alt,
+                sanctions,
+                root.get("join_log").orElse(root).integer("retention_days", 90, 1, 3650),
+                root.get("heartbeat").orElse(root).integer("alert_seconds", 60, 15, 3600),
+                List.copyOf(links),
                 Map.copyOf(messages));
+    }
+
+    private static SanctionTerm term(YamlNode node, String key, String fallback) {
+        String raw = node.string(key, fallback);
+        Optional<SanctionTerm> term = SanctionTerm.parse(raw);
+        if (term.isEmpty()) {
+            node.error("'" + key + "' 기간 형식이 잘못되었습니다 (예: 30m, 12h, 7d, perm): " + raw);
+            return SanctionTerm.PERMANENT;
+        }
+        return term.get();
     }
 
     private static Set<UUID> uuids(List<YamlNode> nodes) {

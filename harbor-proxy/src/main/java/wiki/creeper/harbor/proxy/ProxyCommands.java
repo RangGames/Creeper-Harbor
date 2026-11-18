@@ -5,6 +5,8 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandSource;
@@ -18,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.MoveResult;
@@ -26,7 +29,7 @@ import wiki.creeper.harbor.common.redis.MessageBus;
 
 /**
  * 프록시 명령 (docs 20 1.5). Velocity 기본 /server는 등록 해제한다 (모든 이동은 MoveCoordinator를 거쳐야 함). 모든 /hp 명령은
- * admin_log에 남긴다.
+ * admin_log에 남긴다. 권한은 harbor.admin.proxy.&lt;명령&gt; (0.4). 제재·조회 명령은 {@link SanctionCommands}.
  */
 final class ProxyCommands {
 
@@ -47,6 +50,7 @@ final class ProxyCommands {
     private final ChatRelay chat;
     private final MessageBus bus;
     private final AdminLogger adminLog;
+    private final SanctionCommands sanctionCommands;
 
     ProxyCommands(
             Object plugin,
@@ -59,7 +63,8 @@ final class ProxyCommands {
             ServerDirectory directory,
             ChatRelay chat,
             MessageBus bus,
-            AdminLogger adminLog) {
+            AdminLogger adminLog,
+            SanctionCommands sanctionCommands) {
         this.plugin = plugin;
         this.proxy = proxy;
         this.config = config;
@@ -71,6 +76,7 @@ final class ProxyCommands {
         this.chat = chat;
         this.bus = bus;
         this.adminLog = adminLog;
+        this.sanctionCommands = sanctionCommands;
     }
 
     void register() {
@@ -210,11 +216,17 @@ final class ProxyCommands {
     // ------------------------------------------------------------------ /hp 관리 명령
 
     private LiteralArgumentBuilder<CommandSource> admin() {
+        LiteralArgumentBuilder<CommandSource> root = baseAdmin();
+        sanctionCommands.nodes().forEach(root::then);
+        return root;
+    }
+
+    private LiteralArgumentBuilder<CommandSource> baseAdmin() {
         return BrigadierCommand.literalArgumentBuilder("hp")
-                .requires(src -> src.hasPermission("harbor.proxy"))
+                .requires(ProxyPerms::anyAdmin)
                 .then(
                         BrigadierCommand.literalArgumentBuilder("maintenance")
-                                .requires(src -> src.hasPermission("harbor.proxy.maintenance"))
+                                .requires(src -> src.hasPermission(ProxyPerms.MAINTENANCE))
                                 .then(
                                         BrigadierCommand.literalArgumentBuilder("on")
                                                 .executes(ctx -> maintenanceOn(ctx, 10, "점검"))
@@ -303,7 +315,7 @@ final class ProxyCommands {
                                                         })))
                 .then(
                         BrigadierCommand.literalArgumentBuilder("send")
-                                .requires(src -> src.hasPermission("harbor.proxy.send"))
+                                .requires(src -> src.hasPermission(ProxyPerms.SEND))
                                 .then(
                                         BrigadierCommand.requiredArgumentBuilder(
                                                         "target", StringArgumentType.word())
@@ -326,7 +338,7 @@ final class ProxyCommands {
                                                                 .executes(this::send))))
                 .then(
                         BrigadierCommand.literalArgumentBuilder("queue")
-                                .requires(src -> src.hasPermission("harbor.proxy.queue"))
+                                .requires(src -> src.hasPermission(ProxyPerms.QUEUE))
                                 .then(
                                         BrigadierCommand.literalArgumentBuilder("list")
                                                 .executes(
@@ -345,6 +357,23 @@ final class ProxyCommands {
                                                                                                                             .size()))));
                                                             return Command.SINGLE_SUCCESS;
                                                         }))
+                                .then(
+                                        BrigadierCommand.literalArgumentBuilder("move")
+                                                .then(
+                                                        BrigadierCommand.requiredArgumentBuilder(
+                                                                        "target",
+                                                                        StringArgumentType.word())
+                                                                .suggests(this::suggestQueued)
+                                                                .then(
+                                                                        BrigadierCommand
+                                                                                .requiredArgumentBuilder(
+                                                                                        "position",
+                                                                                        IntegerArgumentType
+                                                                                                .integer(
+                                                                                                        1))
+                                                                                .executes(
+                                                                                        this
+                                                                                                ::queueMove))))
                                 .then(
                                         BrigadierCommand.literalArgumentBuilder("pause")
                                                 .executes(ctx -> queuePause(ctx, true)))
@@ -382,11 +411,11 @@ final class ProxyCommands {
                                                                         }))))
                 .then(
                         BrigadierCommand.literalArgumentBuilder("servers")
-                                .requires(src -> src.hasPermission("harbor.proxy.servers"))
+                                .requires(src -> src.hasPermission(ProxyPerms.SERVERS))
                                 .executes(this::servers))
                 .then(
                         BrigadierCommand.literalArgumentBuilder("announce")
-                                .requires(src -> src.hasPermission("harbor.proxy.announce"))
+                                .requires(src -> src.hasPermission(ProxyPerms.ANNOUNCE))
                                 .then(
                                         BrigadierCommand.requiredArgumentBuilder(
                                                         "message",
@@ -417,6 +446,37 @@ final class ProxyCommands {
         maintenance.turnOn(minutes, reason);
         adminLog.record(ctx.getSource(), "maintenance.on", "", minutes + "분 " + reason);
         ctx.getSource().sendMessage(text.get("admin.done"));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private CompletableFuture<Suggestions> suggestQueued(
+            CommandContext<CommandSource> ctx, SuggestionsBuilder builder) {
+        for (UUID uuid : queue.snapshot()) {
+            proxy.getPlayer(uuid).ifPresent(p -> builder.suggest(p.getUsername()));
+        }
+        return builder.buildFuture();
+    }
+
+    /** /hp queue move <플레이어> <순번>. */
+    private int queueMove(CommandContext<CommandSource> ctx) {
+        String target = StringArgumentType.getString(ctx, "target");
+        int position = IntegerArgumentType.getInteger(ctx, "position");
+        Optional<Player> player = proxy.getPlayer(target);
+        if (player.isEmpty() || !queue.moveTo(player.get().getUniqueId(), position)) {
+            ctx.getSource().sendMessage(text.get("queue.not_queued"));
+            return 0;
+        }
+        adminLog.record(
+                ctx.getSource(),
+                "queue.move",
+                player.get().getUniqueId().toString(),
+                String.valueOf(position));
+        ctx.getSource()
+                .sendMessage(
+                        text.get(
+                                "queue.moved",
+                                Placeholder.unparsed("name", player.get().getUsername()),
+                                Placeholder.unparsed("position", String.valueOf(position))));
         return Command.SINGLE_SUCCESS;
     }
 
