@@ -2,10 +2,74 @@ name: Harbor-World
 version: '${version}'
 main: wiki.creeper.harbor.world.HarborWorldPlugin
 api-version: '${apiVersion}'
-description: '지역·해도·선박·하우징'
+description: '지역·해도·선박·하우징·해상 이벤트'
 dependencies:
   server:
     Harbor-Core:
       load: BEFORE
       required: true
       join-classpath: true
+    Harbor-Jobs:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Fishing:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Economy:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    Harbor-NPC:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    Harbor-Season:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    # Quest는 World 뒤에 켜진다 (Quest가 World 이벤트를 이름으로 듣는다). 클래스만 같이 본다
+    Harbor-Quest:
+      load: AFTER
+      required: false
+      join-classpath: true
+    # Shop도 World 뒤에 켜진다 (선박 스킨 장착 여부만 읽는다)
+    Harbor-Shop:
+      load: AFTER
+      required: false
+      join-classpath: true
+permissions:
+  harbor.world.chart:
+    description: '/해도'
+    default: true
+  harbor.world.housing:
+    description: '/부두'
+    default: true
+  harbor.world.ship:
+    description: '/선박 · /조선소'
+    default: true
+  harbor.world.travel:
+    description: '/비행선 · /노틸러스'
+    default: true
+  harbor.world.bypass:
+    description: '지역 진입 조건·하우징 보호 우회'
+    default: op
+  harbor.admin.world.region:
+    description: '/harbor world region …'
+    default: op
+  harbor.admin.world.chart:
+    description: '/harbor world chart set'
+    default: op
+  harbor.admin.world.ship:
+    description: '/harbor world ship give · repair · recall'
+    default: op
+  harbor.admin.world.event:
+    description: '/harbor world event start · stop · list'
+    default: op
+  harbor.admin.world.spot:
+    description: '/harbor world spot list · move'
+    default: op
+  harbor.admin.world.plot:
+    description: '/harbor world plot info · tp · reset · transfer'
+    default: op

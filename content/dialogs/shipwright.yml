@@ -6,6 +6,7 @@
     greet:
       pages: [npc.dialog.shipwright.greet.1]
       options:
+        - {label: npc.dialog.option.shipyard, actions: [world:shipyard]}
         - {label: npc.dialog.option.shop, actions: [shop:open]}
         - {label: npc.dialog.option.gift, actions: [gift:open]}
         - {label: npc.dialog.option.bye, actions: [close]}

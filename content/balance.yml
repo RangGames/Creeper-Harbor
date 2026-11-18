@@ -68,12 +68,43 @@ economy:
     max: 1.2
     window_h: 24
     s0_floor: 20           # 제안값
+    stale_h: 3             # 이 시간 넘게 갱신이 없으면 관리자 알림
     catches_per_hour: 80
     sell_ratio: 0.85
-  quality_mult: {1: 1.0, 2: 1.2, 3: 1.5, 4: 2.5, 5: 5.0}   # ★4·★5는 제안값 (docs 20 7.4)
+  quality_mult: {1: 1.0, 2: 1.2, 3: 1.5, 4: 2.5, 5: 5.0}   # D2 확정값 (docs 20 0.6, 7.4)
   region_factor: {void_sea: 0.65}
   legend_cap: 3000
   repair: {rate: 0.03, broken_rate: 0.10}
+  bulk: {threshold: 32}                 # 일괄 판매 미끄러짐 기준 마릿수 (제안값, docs 20 7.4)
+  big_deal: {max: 64, coef: 1.0}        # 큰손 거래 (경제 계열 캡스톤, 주 1회)
+  auction:              # '7. 밸런스 기획' 6.3·6.5
+    list_fee: 0.01      # 등록비 1% (환불 없음, 경매 감각 −0.5%/랭크)
+    sale_fee: 0.05      # 판매 수수료 5% (경제 계열 2차 4%, 3차 3% — jobs.yml auction_fee)
+    min_ratio: 0.5
+    max_ratio: 10
+    duration_h: 48
+    slots: {1: 5, 2: 5, 3: 10, 4: 10, 5: 15}   # 항구 평판 등급별 5 / 10 / 15 (등급 대응은 제안값), 경매 좌판 +2/랭크
+    new_account_h: 5
+    mythic_ref: 6000    # D12 신화 어종 기준가 → 등록가 3,000~60,000G
+    board_radius: 8     # 등록·취소 가능 반경 (docs 20 7.5)
+    cache_s: 30
+  craft: {station_radius: 6, max_save: 0.5}   # 제안값
+  fraud:                # 부정 거래 감시 (docs 20 7.4, 모두 제안값)
+    linked_score: 60    # 같은 IP(공유 IP 제외)로 연결된 계정 사이
+    pair_window_d: 7
+    pair_count: 3       # 같은 두 사람 사이 7일에 3회 이상 (이번 거래 포함)
+    pair_score: 40
+    outlier_ratio: 5    # 기준가의 5배 이상 낙찰
+    outlier_score: 30
+    wash_ratio: 0.6     # 연결 계정끼리 기준가 0.6배 이하 (헐값 넘기기)
+    wash_score: 20
+    trap_alt_score: 30  # 연결 계정끼리 통발 어종 거래
+    flag_score: 30      # 이 점수 이상이면 trade_flag 기록 + 관리자 알림
+    hold_score: 70      # 이 점수 이상이면 판매 대금 보류 (우편함 HELD)
+    hold_h: 24
+    auto_release: true  # 보류 시간이 지나면 자동 해제 (false면 관리자 해제, docs 20 7.8 열린 질문)
+    index_min: 0.8      # 경매 희귀 시세 지수 경고 범위 ('7. 밸런스 기획' 11장)
+    index_max: 2.0
 
 # 보정자 스탯: 기본값·하한·상한 (/harbor stat에서 확인)
 stats:
@@ -124,6 +155,35 @@ stats:
     base: 1.0
     min: 0
   market_info:
+    base: 0
+  # Harbor-World (docs 20 8.4, 제안값). 탐험 계열 패시브·스킬은 ADD로 더한다
+  boat_speed:              # 선박 속도 배율 (자동 패시브 +10% · 순풍 +5%/랭크)
+    base: 1.0
+    min: 0.2
+  boat_damage:             # 폭풍 선체 피해 배율 (자동 패시브 −10% · 튼튼한 선체 −8%/랭크)
+    base: 1.0
+    min: 0
+  debuff_damage:           # 환경 피해 배율 (환경 적응 −15%/랭크)
+    base: 1.0
+    min: 0
+  debuff_duration:         # 혹한·산소 게이지 변화 배율 (탐험 3차 −20%)
+    base: 1.0
+    min: 0.1
+  env_rate:                # 환경 게이지 상승 배율 (추가 제안)
+    base: 1.0
+    min: 0
+  cold_debuff_time:        # 혹한 게이지 상승 배율 (협만 생선 수프 −50%)
+    base: 1.0
+    min: 0.1
+  chart_reward_gold:       # 해도 보상 골드 추가 (해도 장인 +25%/랭크)
+    base: 0
+  event_forewarn_s:        # 해상 이벤트 예고를 먼저 받는 초 (물때 읽기 30)
+    base: 0
+  feature_storm_sailing:   # 폭풍 항해 랭크 (1: 속도 감소 없음, 2: 낙뢰 피해 −50%)
+    base: 0
+  feature_hidden_spot:     # 숨은 낚시터 감지
+    base: 0
+  feature_school_radar:    # 바다 읽기 (물고기 떼 64블록)
     base: 0
 
 # 개발 서버의 월드 이름을 지역 월드(harbor_main 등)에 대응시킨다 (운영 서버는 비움)
@@ -239,3 +299,158 @@ season:
     announce_throttle_s: 30
   gate:
     notice: true         # 새 시즌 첫 접속 안내 Dialog
+
+# Harbor-Quest (docs 20 6.4·6.6). 모두 제안값. 의뢰 보상은 board.yml, 연대기 회상은 chronicle.yml, 클라이맥스는 progress.yml
+quest:
+  active_limit: 20                 # 진행 중 퀘스트 상한 (의뢰 제외)
+  abandon_cooldown_minutes: 10     # 포기 후 같은 cycle 재수락 대기
+  tracker:
+    waypoint_actionbar: true       # 추적 목표 방향·거리 액션바 (위치 표시 막대 waypoint는 Phase 1 검증 뒤)
+
+# Harbor-Boss (docs 20 10.4, '7. 밸런스 기획' 9장). 유형 표는 문서 값, 나머지는 제안값
+boss:
+  types:
+    # per_player_rate: 인원당 체력 증가, time_limit: 초, weekly: 주간 보상 횟수, gold: 클리어 골드(제안값),
+    # telegraph_ticks: 예고 시간(제안값), pattern_gap_ticks: 패턴 간격(제안값), anchors_min: 시작에 필요한 앵커 수
+    intro:     {per_player_rate: 0.60, time_limit: 360,  weekly: 5, gold: 300,  telegraph_ticks: 30, pattern_gap_ticks: 100, anchors_min: 1, tension_mult: 0.8}
+    sea:       {per_player_rate: 0.50, time_limit: 480,  weekly: 3, gold: 800,  telegraph_ticks: 24, pattern_gap_ticks: 80,  anchors_min: 1, tension_mult: 1.0}
+    dimension: {per_player_rate: 0.45, time_limit: 720,  weekly: 2, gold: 1500, telegraph_ticks: 20, pattern_gap_ticks: 70,  anchors_min: 1, tension_mult: 1.1}
+    raid:      {per_player_rate: 0.40, time_limit: 1200, weekly: 1, gold: 3000, telegraph_ticks: 18, pattern_gap_ticks: 60,  anchors_min: 2, tension_mult: 1.2}
+    world:     {per_player_rate: 0,    time_limit: 1800, weekly: 1, gold: 2000, telegraph_ticks: 30, pattern_gap_ticks: 60,  anchors_min: 0, tension_mult: 1.0}
+  latency: {ping_ms: 150, extra_ticks: 4}       # 핑 150ms 이상 파티원이 있으면 예고 +0.2초 ('7. 밸런스 기획' 5장)
+  prepare_seconds: 30                           # 파티 대기 (역할 선택)
+  intro_seconds: 5                              # 등장 연출
+  hook:
+    seconds: 20                                 # 걸기 게이지 0 → 100% (안전 구간 유지)
+    line_break_cap: 0.5                         # 줄 끊김 → 게이지 50%로
+    decay_per_second: 0.05                      # 앵커 후보가 없으면 초당 5%
+    reopen_ticks: 40
+    anchor_grace_seconds: 5                     # 앵커 교대 유예 (텐션 고정)
+  anchor:
+    safe_min: 0.2                               # 텐션 안전 구간
+    safe_max: 0.85
+    reel_damage_per_second: 0.003               # 안전 구간 유지 중 초당 최대 체력의 0.3%
+  counter:
+    weak_interval_seconds: 12                   # 약점 노출 주기
+    weak_seconds: 4
+    safe_speedup: 1.5                           # 앵커 안전 구간 유지 시 약점 노출 간격 단축
+  damage:
+    weak: 3.0                                   # 부위 배율 (약점 노출 3.0, 일반 1.0, armor 0.2)
+    normal: 1.0
+    armor: 0.2
+    stab: 0.5                                   # 작살 근접 찌르기 배율 (추가 제안)
+    stab_cooldown_ticks: 10
+    harpoon_base: 20                            # 아이템 stats에 harpoon_damage가 없을 때
+    harpoon_track_ticks: 60
+  qte:
+    rounds: 3
+    inputs: 4
+    window_seconds: 1.0
+    pass: 0.6
+    win: 2
+    lose: 2
+    recover: 0.2                                # 실패 2회 → 체력 20% 회복 후 반격 (1회까지)
+    gap_ticks: 30
+  contribution:
+    damage: 0.3                                 # 가중치
+    tension: 0.3
+    repair: 0.2
+    evasion: 0.2
+    top_ratio: 0.2                              # 상위 20%(올림)에 재료 1개 추가
+    min_score_ratio: 0.05                       # 점수 최고점의 5% 미만이고
+    min_active_ratio: 0.3                       # 활동 시간이 전투 시간의 30% 미만이면 보상 없음
+    active_window_seconds: 5
+    supply_seconds: 60                          # 보급관 버프 요리 1회 = 근처 파티원 × 60
+  loot:
+    over_limit_gold_ratio: 0.2                  # 주간 횟수 초과 클리어 = 클리어 골드의 20%
+    quartermaster_bonus: 0.1                    # 보급관 전리품 보너스 (드롭 확률 +, 추가 제안)
+    capture_luck: 0.3                           # 보스 어종 품질 보너스 (행운 +0.3)
+    capture_quality_stars: 1
+  leave:
+    slot_hold_seconds: 60                       # 퇴장 뒤 슬롯 유지
+    all_absent_fail_seconds: 60                 # 전원 이탈 60초 → 실패
+    fall_seconds: 5                             # 낙수 뒤 갑판 복귀
+  limits: {field: 6, instance: 4}               # 동시 조우 상한
+  party: {invite_seconds: 60}
+  items:
+    repair_kit: item/boat/repair_kit            # 정비사 수리 키트 (World 아이템)
+  world:
+    min_participants: 10                        # 유효 참여 최소 인원 (확정, D13)
+    active_seconds: 60                          # 유효 참여 = 최근 60초 기여
+    rescale_seconds: 10
+    broadcast_seconds: 2                        # harbor:worldboss 방송
+    save_seconds: 10                            # harbor:worldboss:state·DB 저장
+    resume_minutes: 10
+    radius: 64
+    max_anchors: 20
+    climax_boss: boss/green_thunder_fish        # Quest 서버 플래그 climax_start로 시작할 월드 보스
+  instance:
+    slots: 4                                    # 경기장 칸 수
+    spacing: 1000                               # 칸 간격 (블록, X축)
+    reply_seconds: 10                           # 배정 응답 대기 → "자리 없음"
+    confirm_seconds: 15
+    arrive_seconds: 60                          # 파티원 도착 대기
+    rejoin_ttl_seconds: 120                     # harbor:boss:rejoin 만료
+
+# Harbor-World (docs 20 8.4 · '12. 월드 · 하우징 · 통발'). 문서에 없는 값은 모두 제안값
+world:
+  region:
+    safe_distance: 3          # 경계에서 이만큼 떨어져 있을 때 안전 위치 저장 (블록)
+    push_speed: 0.6           # 밀어내기 속도
+    dialog_cooldown_s: 30     # 해금 조건 Dialog 간격
+  chart:
+    step_count: 4
+    steps: {1: 0.25, 2: 0.50, 3: 0.75, 4: 0.95}   # 95%를 완성으로 본다 (제안값)
+    step_gold_ratio: 0.25     # 단계 골드 = 지역 시간당 골드 × 25% (제안값, 7장 6.4 '해도' 약 13,200G)
+    complete_mulbineul: 2     # '7. 밸런스 기획' 7장 해도 완성 지역당 2
+  treasure:
+    fuzz: 48                  # 지도가 처음 보여 주는 어긋난 거리 (블록)
+    exact_within: 64          # 이 안에 오면 정확한 위치
+    claim_radius: 3
+    dig_seconds: 3
+  ship:
+    starter: harbor:ship/rowboat
+    summon_water_radius: 3
+    summon_cooldown_s: 10
+    upgrade_cost: {1: 0.10, 2: 0.20, 3: 0.30}   # 선박 가격의 10 · 20 · 30% ('13' 5.1)
+    repair_kit_ratio: 0.30
+    repair_kit_seconds: 5
+    ice_restore_s: 60
+    vanilla_accel: 0.04       # 바닐라 보트 물 위 가속 (속도 보정 기준, Phase 1 검증)
+  env:
+    cold: {outdoor: 1, water: 3, warm: -2, heat_radius: 4, slow_at: 60, max: 100, damage: 1, damage_interval_s: 3}
+    oxygen: {max_s: 120, no_helmet_mult: 2, nautilus_mult: 0.5, recover: 5, warn_ratio: 0.2, damage: 2, pocket_radius: 3}
+    heat: {boots_mult: 0.5}
+  spot:
+    radius: 6
+    move_min_s: 600
+    move_max_s: 1200
+    particle_radius: 32
+    radar_radius: 64
+    bite_wait: 0.8            # 물고기 떼 캐스팅 입질 대기 −20%
+    rare_weight: 0.10         # 희귀 가중치 +10% (상한 +60% 안에서)
+    modifier_s: 45
+  airship:
+    interval_s: 180
+    capacity: 4
+    speed: 1.2                # 블록/틱
+    altitude: 110
+    board_radius: 6
+  nautilus:
+    return_after_s: 30
+  housing:
+    world: harbor_homes
+    # server: main-1          # 하우징 월드가 다른 서버에 있으면 그 서버 ID
+    cell: 40                  # 32 최대 크기 + 길 8
+    base_size: 24
+    large_size: 32
+    large_tier: 4             # 항구의 일원
+    floor_y: 64
+    entity_limit: 30
+    redstone_limit: 20
+    anchor_limit: 12          # 플롯당 수조 자리 (Collection 전시 칸 수와 별개)
+  occupancy:
+    publish_s: 60
+    stale_s: 180
+  event:
+    check_s: 60

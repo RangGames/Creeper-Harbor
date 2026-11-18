@@ -1,0 +1,22 @@
+# 하우징 장식 상점 (docs 20 8.4 '장식 상점', '12. 월드 · 하우징 · 통발' 4장, 추가 제안 형식). 시즌이 바뀌어도 남는 후반 골드 소모처.
+# 산 장식은 인벤토리가 아니라 housing_decor_owned에 개수로 쌓이고, 플롯 안 팔레트(/부두 장식)에서 꺼내 설치한다.
+#   kind       block (블록 하나) · furniture (ItemDisplay 가구, model) · tank (개인 어항 수조 = Collection 전시 칸 자리)
+#   amount     한 번 살 때 받는 개수 (기본 1)
+#   price      골드 (원장 HOUSING_DECOR)
+#   reputation_min  시즌 간 최고 평판 등급 조건 (players.best_rep_tier, D11)
+
+- {id: decor/oak_planks, name: 참나무 판자, kind: block, material: minecraft:oak_planks, amount: 64, price: 160, category: wood}
+- {id: decor/spruce_planks, name: 가문비나무 판자, kind: block, material: minecraft:spruce_planks, amount: 64, price: 160, category: wood}
+- {id: decor/stripped_oak_log, name: 껍질 벗긴 참나무, kind: block, material: minecraft:stripped_oak_log, amount: 32, price: 160, category: wood}
+- {id: decor/bricks, name: 벽돌, kind: block, material: minecraft:bricks, amount: 64, price: 320, category: stone}
+- {id: decor/white_wool, name: 흰 양털, kind: block, material: minecraft:white_wool, amount: 32, price: 120, category: fabric}
+- {id: decor/lantern, name: 등불, kind: block, material: minecraft:lantern, amount: 8, price: 240, category: light}
+- {id: decor/sea_lantern, name: 바다 랜턴, kind: block, material: minecraft:sea_lantern, amount: 8, price: 480, category: light}
+- {id: decor/barrel, name: 통, kind: block, material: minecraft:barrel, amount: 4, price: 200, category: furniture}
+- {id: decor/chiseled_bookshelf, name: 조각된 책장, kind: block, material: minecraft:chiseled_bookshelf, amount: 2, price: 600, category: furniture}
+- {id: decor/fishing_chair, name: 낚시 의자, kind: furniture, model: "harbor:decor/fishing_chair", price: 1500, category: furniture}
+- {id: decor/net_wall, name: 벽걸이 그물, kind: furniture, model: "harbor:decor/net_wall", price: 2000, category: furniture}
+- {id: decor/anchor_statue, name: 닻 조각상, kind: furniture, model: "harbor:decor/anchor_statue", price: 8000, reputation_min: 3, category: statue}
+- {id: decor/lighthouse_model, name: 등대 모형, kind: furniture, model: "harbor:decor/lighthouse_model", price: 15000, reputation_min: 4, category: statue}
+- {id: decor/glass_tank, name: 유리 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/glass_tank", price: 3000, category: aquarium}
+- {id: decor/coral_tank, name: 산호 수조, kind: tank, material: minecraft:tinted_glass, model: "harbor:decor/coral_tank", price: 9000, reputation_min: 3, category: aquarium}

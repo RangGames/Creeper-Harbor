@@ -1,0 +1,137 @@
+# Harbor-World 아이템 ('3. 아이템 목록' 5장 선박, '13. 제작 · 상점 가격' 2장). 가격은 밸런스 6.3·'13' 2장.
+# 선박 증서: 조선소에서 사면 ships 행이 생기고 증서(custom_data에 ship_id)를 준다. 물가 3블록 안에서 쓰면 그 배를 띄운다.
+# 진입 장비(방한 외투·잠수 헬멧·내열 장화)와 진입용 낚싯대는 regions.yml unlock.items가 참조한다.
+
+- id: item/boat/rowboat
+  name: 나룻배 증서
+  lore: "항구에 처음 온 어부에게 빌려주는 작은 나룻배."
+  type: boat
+  grade: common
+  base_item: minecraft:oak_boat
+  model: harbor:boat/rowboat
+  tradeable: false
+  season_reset: true
+
+- id: item/boat/harbor_trawler
+  name: 항구 어선 증서
+  lore: "갑판이 넓어 그물과 상자를 싣기 좋다. 산호 군도까지는 거뜬하다."
+  type: boat
+  grade: uncommon
+  base_item: minecraft:spruce_chest_boat
+  model: harbor:boat/harbor_trawler
+  buy_price: 8000
+  tradeable: false
+  season_reset: true
+
+- id: item/boat/icebreaker
+  name: 쇄빙선 증서
+  lore: "뱃머리에 강철을 덧댄 배. 서리 협만의 얼음을 가르고 나아간다."
+  type: boat
+  grade: rare
+  base_item: minecraft:dark_oak_chest_boat
+  model: harbor:boat/icebreaker
+  buy_price: 25000
+  tradeable: false
+  season_reset: true
+
+- id: item/boat/ocean_explorer
+  name: 원양 탐사선 증서
+  lore: "폭풍 해역도 버티는 큰 배. 잿빛 해구로 가는 유일한 길."
+  type: boat
+  grade: epic
+  base_item: minecraft:mangrove_chest_boat
+  model: harbor:boat/ocean_explorer
+  buy_price: 60000
+  tradeable: false
+  season_reset: true
+
+- id: item/boat/repair_kit
+  name: 선박 수리 키트
+  lore: "배 위에서 5초 동안 쓰면 선체 내구도를 30% 되살린다."
+  type: tool
+  grade: common
+  base_item: minecraft:paper
+  model: harbor:boat/repair_kit
+  buy_price: 200
+  tradeable: true
+  season_reset: true
+
+- id: item/tool/treasure_map
+  name: 보물 지도
+  lore: "바닷물에 젖은 낡은 지도. 표시된 곳 근처에서 펼쳐 보자."
+  type: tool
+  grade: rare
+  base_item: minecraft:paper
+  model: harbor:tool/treasure_map
+  tradeable: false
+  season_reset: true
+
+- id: item/tool/sea_chart
+  name: 해도
+  lore: "지나온 바다만 그려지는 해도. 지역마다 한 장씩."
+  type: tool
+  grade: common
+  base_item: minecraft:filled_map
+  model: harbor:tool/sea_chart
+  tradeable: false
+  season_reset: true
+
+- id: item/gear/cold_coat
+  name: 방한 외투
+  lore: "서리 협만의 혹한을 막아 주는 두툼한 외투."
+  type: gear
+  grade: uncommon
+  base_item: minecraft:leather_chestplate
+  model: harbor:gear/cold_coat
+  buy_price: 1500
+  tradeable: true
+  season_reset: true
+
+- id: item/gear/diving_helmet
+  name: 잠수 헬멧
+  lore: "유리창 너머로 깊은 바다가 보인다. 잿빛 해구 필수품."
+  type: gear
+  grade: rare
+  base_item: minecraft:leather_helmet
+  model: harbor:gear/diving_helmet
+  buy_price: 3000
+  tradeable: true
+  season_reset: true
+
+- id: item/gear/heat_boots
+  name: 내열 장화
+  lore: "용암 호수의 뜨거운 바위 위에서도 버티는 장화. 화염 피해 -50%."
+  type: gear
+  grade: rare
+  base_item: minecraft:leather_boots
+  model: harbor:gear/heat_boots
+  buy_price: 3000          # 제안값 ('13' 2장에 없음)
+  tradeable: true
+  season_reset: true
+
+- id: item/rod/heatproof
+  name: 용암 내열 낚싯대
+  lore: "용암에 담가도 휘지 않는 낚싯대. 용암 호수 진입에 필요하다."
+  type: rod
+  grade: rare
+  base_item: minecraft:fishing_rod
+  model: harbor:rod/heatproof
+  stats:
+    line_strength: 2
+  buy_price: 12000         # 제안값 ('13' 2장에 없음)
+  tradeable: true
+  season_reset: true
+
+- id: item/rod/void
+  name: 공허 낚싯대
+  lore: "끝이 보이지 않는 바다에 드리우는 낚싯대. 공허의 바다 진입에 필요하다."
+  type: rod
+  grade: epic
+  base_item: minecraft:fishing_rod
+  model: harbor:rod/void
+  stats:
+    line_strength: 3
+    bite_wait: -0.10
+  buy_price: 40000         # 제안값 ('13' 2장에 없음)
+  tradeable: true
+  season_reset: true

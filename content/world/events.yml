@@ -1,0 +1,102 @@
+# 해상 이벤트·주간 낚시 대회 일정 (docs 20 8.4 '해상 이벤트 스케줄러', '11. 데이터 설계' 2.8, 추가 제안 형식).
+# harbor:lock:event를 가진 서버 하나가 1분마다 확인한다. 시각은 Asia/Seoul.
+#   type          storm · ghost_ship · migration · tournament · special
+#   regions       후보 지역 (실행마다 하나를 고른다). 비우면 서버 전체
+#   area          지역 안 세부 구역 (폭풍 해역 등). 비우면 지역 전체
+#   window        {days: [mon … sun], start: "HH:MM", end: "HH:MM"} 이 시간대에 한 번 발동할지 chance로 정한다
+#                 (날짜·이벤트 ID로 정한 난수라 모든 서버가 같은 결과를 낸다). 시작 시각도 창 안에서 같은 방식으로 고른다
+#   min_gap_h     같은 이벤트의 앞 실행 시작으로부터 최소 간격
+#   warn_min      WARN(예고) ~ START 사이 (제안값 5분, 탐험 3차 '물때 읽기'는 30초 먼저 알림)
+#   requires_flag 서버 플래그 조건 (예: climax_done), max_per_season: 시즌당 최대 실행 수 (0 = 제한 없음)
+#   modifiers     이벤트 중 전역 보정자 [{stat, op: add · multiply, value}] (출처 event:<id>, 만료 = 종료 시각)
+#   fish_effects  Fishing 판정 효과 (harbor:event, '17-1' 3.2 형식, fishing/sea_events.yml과 같은 값)
+
+- id: event/storm
+  name: "<dark_gray>폭풍"
+  type: storm
+  regions: [region/coral_isles, region/ash_trench]
+  area: open_sea
+  window: {days: [mon, tue, wed, thu, fri, sat, sun], start: "18:00", end: "23:30"}
+  chance: 0.35
+  min_gap_h: 20
+  duration_min: 30
+  warn_min: 5
+  modifiers:
+    - {stat: bite_wait, op: multiply, value: 0.9}
+  storm:
+    damage: 1              # 5초마다 선박 내구도 -1 (제안값) × boat_damage
+    interval_s: 5
+    speed_mult: 0.7        # 속도 -30% (폭풍 항해 1랭크면 없음)
+    lightning_interval_s: 12
+    lightning_damage: 4    # 폭풍 항해 2랭크 -50%
+
+- id: event/ghost_ship
+  name: "<dark_aqua>유령선 습격"
+  type: ghost_ship
+  regions: [region/harbor, region/coral_isles]
+  window: {days: [fri, sat], start: "21:00", end: "23:00"}
+  chance: 0.6
+  min_gap_h: 48
+  duration_min: 60
+  warn_min: 5
+  fish_effects:
+    - {type: mythic, fish: fish/ghost_captain_goldfish, chance: 0.01, cap: 3}
+  ghost:
+    wave_interval_s: 90
+    per_player: 2          # 웨이브마다 해역 안 플레이어 1명당 해골 해적 수
+    max_alive: 40
+    radius: [10, 22]
+    treasure_tier: ghost   # 선장 처치 보상 (treasure.yml)
+    mobs:
+      - {id: deckhand, entity: skeleton, name: "<gray>해골 갑판원", health: 20, weapon: minecraft:iron_sword, helmet: minecraft:leather_helmet, weight: 60}
+      - {id: gunner, entity: skeleton, name: "<gray>해골 포수", health: 24, weapon: minecraft:bow, weight: 30}
+      - {id: drowned_mate, entity: stray, name: "<aqua>물에 젖은 항해사", health: 28, weapon: minecraft:stone_axe, weight: 10}
+    captain: {id: captain, entity: wither_skeleton, name: "<dark_aqua>유령선 선장", health: 80, weapon: minecraft:iron_sword, helmet: minecraft:golden_helmet}
+
+- id: event/great_migration
+  name: "<aqua>물고기 대이동"
+  type: migration
+  regions: [region/harbor]
+  window: {days: [wed, sun], start: "19:00", end: "22:00"}
+  chance: 0.5
+  min_gap_h: 72
+  duration_min: 180
+  warn_min: 5
+  wildlife_boost: 2.0      # Wildlife 대상 어종 밀도 배율 (제안값)
+  fish_effects:
+    - {type: species_weight, fish: fish/harbor_mackerel, mult: 3}
+    - {type: species_weight, fish: fish/silver_anchovy, mult: 3}
+    - {type: species_weight, fish: fish/storm_sea_bass, mult: 3}
+    - {type: mythic, fish: fish/migration_leader, chance: 0.01, cap: 3}
+
+- id: event/first_fish_return
+  name: "<gold>첫 물고기의 귀환"
+  type: special
+  regions: [region/harbor]
+  window: {days: [mon, tue, wed, thu, fri, sat, sun], start: "12:00", end: "12:30"}
+  chance: 1.0
+  min_gap_h: 24
+  duration_min: 1440
+  warn_min: 10
+  requires_flag: climax_done   # 클라이맥스 다음 날 (그 뒤 시즌마다 한 번)
+  max_per_season: 1
+  fish_effects:
+    - {type: mythic, fish: fish/harbor_first_fish, chance: 0.01, cap: 5}
+
+- id: event/weekly_tournament
+  name: "<yellow>주간 낚시 대회"
+  type: tournament
+  window: {days: [sat], start: "20:00", end: "21:00"}
+  chance: 1.0
+  min_gap_h: 144
+  duration_min: 60
+  warn_min: 10
+  tournament:
+    points: {common: 1, uncommon: 3, rare: 10, epic: 40, legendary: 200, mythic: 500}   # 제안값
+    quality_bonus: 0.25    # 점수 × (1 + 0.25 × (★ − 1))
+    board: tournament      # season/rankings.yml 보드 (source: tournament)
+    rewards:               # 순위 보상 골드 (제안값, 원장 TOURNAMENT_REWARD)
+      - {from: 1, to: 1, gold: 5000}
+      - {from: 2, to: 3, gold: 3000}
+      - {from: 4, to: 10, gold: 1500}
+      - {from: 11, to: 30, gold: 500}

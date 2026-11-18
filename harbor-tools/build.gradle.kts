@@ -17,6 +17,7 @@ dependencies {
     implementation(project(":harbor-quest"))
     implementation(project(":harbor-shop"))
     implementation(project(":harbor-boss"))
+    implementation(project(":harbor-world"))
     implementation(libs.snakeyaml)
     implementation(libs.gson)
 }

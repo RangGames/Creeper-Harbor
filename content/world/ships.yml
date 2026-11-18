@@ -1,0 +1,71 @@
+# 선박 (docs 20 8.4, '3. 아이템 목록' 5장, 추가 제안 형식). 가격·속도·적재는 밸런스 6.3과 '13. 제작 · 상점 가격' 2장, 내구도는 제안값.
+#   item       선박 증서 아이템 (items/world.yml)
+#   base       바닐라 보트 종류 boat · chest_boat, wood: oak · spruce · birch · jungle · acacia · dark_oak · mangrove · cherry · pale_oak
+#   price      조선소 가격 (0 = 팔지 않음, 튜토리얼 지급)
+#   speed      속도 보정 (+0.30 = +30%, boat_speed 스탯에 곱함)
+#   cargo      화물 칸 (9의 배수, 최대 54)
+#   flags      ice_break (쇄빙) · storm (폭풍 해역 진입) · ocean (원양)
+#   requires   구매 조건 {level, job_tier, flags}
+#   upgrades   속도·적재·선체 3갈래 × 3단계 (단계별 누적값, 비용 = 가격 × world.ship.upgrade_cost, 제안값. 개발은 Phase 3)
+#   decor      장식 리그 (rigs/ships.yml), decor_donor: 선단 후원자 깃발·돛 문양 (DonorTier FLEET)
+
+- id: ship/rowboat
+  name: 나룻배
+  item: item/boat/rowboat
+  base: boat
+  wood: oak
+  price: 0
+  speed: 0
+  cargo: 0
+  durability: 60
+  starter: true          # 시즌 첫 접속 때 지급 (튜토리얼)
+  decor: rig/ship/rowboat
+
+- id: ship/harbor_trawler
+  name: 항구 어선
+  item: item/boat/harbor_trawler
+  base: chest_boat
+  wood: spruce
+  price: 8000
+  speed: 0.30
+  cargo: 9
+  durability: 100
+  decor: rig/ship/harbor_trawler
+  upgrades:
+    speed: [0.05, 0.10, 0.15]
+    cargo: [9, 18, 27]
+    hull: [0.15, 0.30, 0.50]
+
+- id: ship/icebreaker
+  name: 쇄빙선
+  item: item/boat/icebreaker
+  base: chest_boat
+  wood: dark_oak
+  price: 25000
+  speed: 0.15
+  cargo: 9
+  durability: 150
+  flags: [ice_break]
+  requires: {flags: [story/ch4_done]}       # 메인 4장 완료 후
+  decor: rig/ship/icebreaker
+  upgrades:
+    speed: [0.05, 0.10, 0.15]
+    cargo: [9, 18, 27]
+    hull: [0.15, 0.30, 0.50]
+
+- id: ship/ocean_explorer
+  name: 원양 탐사선
+  item: item/boat/ocean_explorer
+  base: chest_boat
+  wood: mangrove
+  price: 60000
+  speed: 0.60
+  cargo: 18
+  durability: 200          # 선체 내구도 +50% 반영
+  flags: [storm, ocean]
+  requires: {level: 50, job_tier: 2}        # D3: 2차 전직 후 계열 무관
+  decor: rig/ship/ocean_explorer
+  upgrades:
+    speed: [0.05, 0.10, 0.15]
+    cargo: [9, 18, 27]
+    hull: [0.15, 0.30, 0.50]

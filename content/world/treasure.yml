@@ -1,0 +1,51 @@
+# 보물 지도 보상 (docs 20 8.4 '보물 지도', 추가 제안 형식). 시즌 보물 몫 약 25,000G ÷ 지도 약 30장 = 1장 평균 약 800G (제안값).
+#   tiers: 등급별 보상. region을 적으면 그 지역 전용, 없으면 모든 지역. weight 0은 이벤트 전용 (유령선 ghost)
+#   gold [최소, 최대] × region_mult (지역 배율, 해금 순서가 늦을수록 큼)
+#   items [{item, weight, count [최소, 최대]}] 에서 picks개를 뽑는다
+#   hint_chance: 수령 때 도감 힌트를 줄 확률 (TreasureClaimedEvent.hint → Collection이 처리)
+
+region_mult:
+  region/harbor: 0.6
+  region/swamp: 0.7
+  region/coral_isles: 0.9
+  region/lava_lake: 1.1
+  region/frost_fjord: 1.2
+  region/ash_trench: 1.4
+  region/void_sea: 1.5
+
+tiers:
+  - id: common
+    weight: 70
+    gold: [450, 800]
+    picks: 1
+    hint_chance: 0.05
+    items:
+      - {item: item/bait/earthworm, weight: 50, count: [8, 16]}
+      - {item: item/boat/repair_kit, weight: 30, count: [1, 1]}
+      - {item: item/trap/wood, weight: 20, count: [1, 1]}
+  - id: rare
+    weight: 25
+    gold: [900, 1500]
+    picks: 2
+    hint_chance: 0.15
+    items:
+      - {item: item/bait/shiny_lure, weight: 30, count: [1, 1]}
+      - {item: item/boat/repair_kit, weight: 40, count: [1, 2]}
+      - {item: item/material/coral_fragment, weight: 30, count: [2, 4]}
+  - id: epic
+    weight: 5
+    gold: [1800, 3000]
+    picks: 2
+    hint_chance: 0.4
+    items:
+      - {item: item/material/deep_crystal, weight: 50, count: [2, 4]}
+      - {item: item/material/coral_fragment, weight: 50, count: [4, 8]}
+  - id: ghost                # 유령선 습격 보물 (이벤트 전용)
+    weight: 0
+    gold: [1200, 2400]
+    picks: 2
+    hint_chance: 0.25
+    items:
+      - {item: item/bait/shiny_lure, weight: 40, count: [1, 1]}
+      - {item: item/material/deep_crystal, weight: 30, count: [1, 3]}
+      - {item: item/boat/repair_kit, weight: 30, count: [1, 2]}

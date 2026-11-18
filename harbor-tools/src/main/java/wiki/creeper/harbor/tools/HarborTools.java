@@ -25,6 +25,7 @@ import wiki.creeper.harbor.npc.content.NpcDef;
 import wiki.creeper.harbor.quest.content.QuestContent;
 import wiki.creeper.harbor.season.content.SeasonContent;
 import wiki.creeper.harbor.shop.content.ShopContent;
+import wiki.creeper.harbor.world.content.WorldContent;
 
 /**
  * 콘텐츠 검증 CLI. 서버와 같은 로더로 content/ YAML을 검사해서, 디자이너가 올린 YAML의 오류를 서버에 넣기 전에 CI에서 거른다.
@@ -57,6 +58,7 @@ public final class HarborTools {
         QuestContent.register(loader);
         ShopContent.TYPES.forEach(loader::register);
         BossContent.TYPES.forEach(loader::register);
+        WorldContent.TYPES.forEach(loader::register);
         loader.addCheck(BossDef.TYPE, BossContent.RIG_CHECK);
         loader.addCheck(BossDef.TYPE, BossContent.FISH_CHECK);
         ShopContent.registerChecks(loader::addCheck);

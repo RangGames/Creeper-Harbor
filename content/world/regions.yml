@@ -1,0 +1,200 @@
+# Harbor-World 지역 확장 (docs 20 8.3, 모두 추가 제안). 지역 경계·진입 레벨·아이템은 regions.yml (Core RegionDef), 여기에는
+# 같은 지역 ID로 World만 쓰는 필드를 둔다. 좌표는 맵 확정 전 제안값이다.
+#
+#   order            해금 순서 (1 항구 … 7 엔드). '해금한 가장 높은 지역'(의뢰 보상·통발 상한) 판정에 쓴다
+#   hourly_gold      수동 낚시 시간당 골드 ('7. 밸런스 기획' 3.2). 해도 단계 보상 = 이 값 × world.chart.step_gold_ratio
+#   server           이 지역 월드를 돌리는 서버 ID (비우면 지금 서버). 다른 서버면 ProxyBridge.requestMove로 옮긴다
+#   spawn            안전 지점 (막힌 지역에서 접속했을 때, 정류장 도착 기본값)
+#   unlock           RegionDef.unlock에 더하는 조건: flags(Quest가 장 보상으로 세운 플레이어 플래그), job_tier(전직 퀘스트),
+#                    vehicle(탑승해야 하는 선박 ID), first_entry_only(탈것 조건은 첫 방문에만)
+#   areas            세부 구역 [{id, bounds [[x, z]…], y_range [min, max]}] — 어종 area와 맞춘다
+#   docks            정류장 [{id, kind: airship · dive · pier, x, y, z, yaw}]
+#   stations         시설 [{id, type: shipyard · housing · decor_shop, x, y, z}]
+#   treasure_sites   보물 위치 [{id, x, y, z, type}]
+#   spot_candidates  물고기 떼 후보 [[x, y, z]…] (fishing_spots개를 골라 10~20분마다 옮긴다)
+#   hidden_spots     숨은 낚시터 [{id, x, y, z}] (탐험 2차 '숨은 낚시터 감지'로만 보인다)
+#   env              환경 디버프 [{type: cold · oxygen · heat, area, surface_y, depth}]
+#   air_pockets      산소 회복 지점 [[x, y, z]…] (유적 공기 주머니)
+#   ice_area         쇄빙선이 얼음을 깨는 세부 구역 ID
+
+- id: region/harbor
+  order: 1
+  hourly_gold: 600
+  spawn: {x: 0.5, y: 64, z: 0.5, yaw: 0}        # 여관 앞 광장
+  areas:
+    - {id: lighthouse, bounds: [[-60, -110], [40, -110], [40, -10], [-60, -10]], y_range: [30, 140]}
+    - {id: calm_bay, bounds: [[-320, 140], [320, 140], [320, 470], [-320, 470]], y_range: [0, 80]}
+    - {id: open_sea, bounds: [[-512, 470], [512, 470], [512, 512], [-512, 512]]}
+  docks:
+    - {id: harbor_airship, kind: airship, x: 24.5, y: 80, z: 60.5, yaw: 180}
+    - {id: harbor_pier, kind: pier, x: 60.5, y: 63, z: -30.5, yaw: 90}
+  stations:
+    - {id: shipyard, type: shipyard, x: 52.5, y: 63, z: -20.5}
+    - {id: housing_pier, type: housing, x: -80.5, y: 64, z: 40.5}
+    - {id: decor_shop, type: decor_shop, x: -84.5, y: 64, z: 44.5}
+  treasure_sites:
+    - {id: breakwater_rock, x: 140, y: 63, z: -150, type: beach}
+    - {id: old_pier_sand, x: 72, y: 62, z: -84, type: beach}
+    - {id: bay_shoal, x: -210, y: 58, z: 300, type: shoal}
+    - {id: east_cliff, x: 430, y: 70, z: 120, type: cliff}
+    - {id: west_cove, x: -440, y: 63, z: 260, type: beach}
+    - {id: lighthouse_cellar, x: -18, y: 70, z: -62, type: ruin}
+  spot_candidates: [
+    [272, 62, 205], [186, 62, 401], [149, 62, 362], [-153, 62, 152], [-159, 62, 292], [223, 62, 233],
+    [-82, 62, 365], [89, 62, 324], [-89, 62, 327], [-2, 62, 311], [159, 62, 247], [-3, 62, 396],
+    [244, 62, 422], [82, 62, 397], [153, 62, 374], [229, 62, 311], [-196, 62, 347], [-125, 62, 433],
+    [-53, 62, 299], [48, 62, 169]
+  ]
+  hidden_spots:
+    - {id: harbor_secret_cove, x: -455, y: 62, z: 300}
+    - {id: harbor_under_pier, x: 66, y: 62, z: -40}
+
+- id: region/swamp
+  order: 2
+  hourly_gold: 1000
+  spawn: {x: 970.5, y: 64, z: -900.5, yaw: 0}
+  unlock: {flags: [story/ch1_done]}             # 메인 1장 ('1. 기획서 본문' 2장)
+  areas:
+    - {id: moss_river, bounds: [[520, -760], [1420, -760], [1420, -680], [520, -680]]}
+    - {id: mushroom_bog, bounds: [[1050, -1250], [1420, -1250], [1420, -900], [1050, -900]]}
+  docks:
+    - {id: swamp_airship, kind: airship, x: 970.5, y: 72, z: -900.5, yaw: 180}
+  treasure_sites:
+    - {id: sunken_hut, x: 1200, y: 60, z: -1100, type: ruin}
+    - {id: river_bend, x: 700, y: 62, z: -720, type: beach}
+    - {id: giant_mushroom, x: 1300, y: 70, z: -1000, type: cliff}
+    - {id: reed_bank, x: 880, y: 62, z: -620, type: shoal}
+  spot_candidates: [
+    [633, 62, -792], [983, 62, -742], [1133, 62, -951], [1241, 62, -822], [657, 62, -1035], [712, 62, -890],
+    [1273, 62, -616], [884, 62, -710], [952, 62, -732], [794, 62, -997], [650, 62, -989], [1054, 62, -794],
+    [1320, 62, -1135], [900, 62, -1142], [642, 62, -1160], [875, 62, -866]
+  ]
+  hidden_spots:
+    - {id: swamp_lantern_pool, x: 1380, y: 62, z: -1210}
+    - {id: swamp_root_hollow, x: 560, y: 62, z: -1180}
+
+- id: region/coral_isles
+  order: 3
+  hourly_gold: 1800
+  spawn: {x: 0.5, y: 64, z: 2000.5, yaw: 0}
+  areas:
+    - {id: reef, bounds: [[-300, 1800], [300, 1800], [300, 2200], [-300, 2200]], y_range: [20, 70]}
+    - {id: wreck, bounds: [[400, 2300], [650, 2300], [650, 2550], [400, 2550]]}
+    - {id: open_sea, bounds: [[-700, 1400], [700, 1400], [700, 1500], [-700, 1500]]}
+  docks:
+    - {id: coral_airship, kind: airship, x: 0.5, y: 75, z: 2000.5, yaw: 0}
+  treasure_sites:
+    - {id: palm_island, x: -420, y: 64, z: 1700, type: beach}
+    - {id: lagoon_floor, x: 120, y: 40, z: 2050, type: shoal}
+    - {id: wreck_hold, x: 520, y: 45, z: 2420, type: ruin}
+    - {id: lonely_isle, x: 600, y: 65, z: 1550, type: beach}
+    - {id: coral_arch, x: -250, y: 50, z: 2400, type: cliff}
+  spot_candidates: [
+    [36, 62, 1869], [595, 62, 2229], [-178, 62, 1592], [-187, 62, 2225], [-243, 62, 2381], [331, 62, 2140],
+    [-20, 62, 2203], [402, 62, 1870], [-122, 62, 1597], [410, 62, 2316], [-131, 62, 2423], [-292, 62, 2426],
+    [-520, 62, 2220], [-442, 62, 2096], [573, 62, 1678], [-520, 62, 1956], [-173, 62, 2063], [231, 62, 1930],
+    [397, 62, 1785], [-277, 62, 1602], [-384, 62, 2126], [443, 62, 2230]
+  ]
+  hidden_spots:
+    - {id: coral_blue_hole, x: -640, y: 62, z: 2560}
+    - {id: coral_wreck_shadow, x: 560, y: 62, z: 2480}
+    - {id: coral_tide_pool, x: -60, y: 62, z: 1420}
+
+- id: region/lava_lake
+  order: 4
+  hourly_gold: 2800
+  spawn: {x: 0.5, y: 40, z: 0.5, yaw: 0}
+  unlock: {job_tier: 2}                         # 2차 전직 퀘스트
+  areas:
+    - {id: basalt_shore, bounds: [[-750, -750], [0, -750], [0, 0], [-750, 0]]}
+  treasure_sites:
+    - {id: obsidian_shelf, x: 300, y: 35, z: -200, type: ruin}
+    - {id: ash_island, x: -420, y: 33, z: 380, type: cliff}
+    - {id: magma_vent, x: 120, y: 31, z: 520, type: shoal}
+  spot_candidates: [
+    [-237, 31, -599], [127, 31, -57], [48, 31, -627], [286, 31, 555], [-445, 31, -577], [44, 31, 631],
+    [-163, 31, -40], [-68, 31, -418], [-215, 31, 487], [227, 31, 476], [395, 31, 447], [367, 31, 183],
+    [-636, 31, -29], [-480, 31, -156], [278, 31, -74], [-601, 31, -237]
+  ]
+  hidden_spots:
+    - {id: lava_glass_pool, x: -700, y: 31, z: -700}
+    - {id: lava_fortress_moat, x: 690, y: 31, z: 640}
+  env:
+    - {type: heat}
+
+- id: region/frost_fjord
+  order: 5
+  hourly_gold: 3200
+  spawn: {x: 0.5, y: 64, z: -2500.5, yaw: 180}
+  unlock: {flags: [story/ch4_done], vehicle: [ship/icebreaker], first_entry_only: true}   # 메인 4장 + 첫 진입 쇄빙선
+  areas:
+    - {id: ice_field, bounds: [[-500, -2200], [500, -2200], [500, -1900], [-500, -1900]]}
+    - {id: hunter_camp, bounds: [[300, -3000], [480, -3000], [480, -2850], [300, -2850]]}
+  docks:
+    - {id: fjord_airship, kind: airship, x: 0.5, y: 80, z: -2500.5, yaw: 180}
+  treasure_sites:
+    - {id: frozen_wreck, x: -380, y: 60, z: -2700, type: ruin}
+    - {id: glacier_crack, x: 200, y: 66, z: -3050, type: cliff}
+    - {id: seal_rock, x: 420, y: 63, z: -2300, type: beach}
+    - {id: ice_cave, x: -200, y: 55, z: -2950, type: ruin}
+  spot_candidates: [
+    [153, 62, -2442], [389, 62, -2573], [-358, 62, -2556], [-376, 62, -2342], [-61, 62, -2698], [-394, 62, -2201],
+    [351, 62, -2881], [260, 62, -2344], [407, 62, -2391], [-194, 62, -2946], [234, 62, -2763], [-169, 62, -2206],
+    [-278, 62, -2396], [262, 62, -2564], [407, 62, -2572], [358, 62, -2305], [288, 62, -2149], [395, 62, -2894],
+    [-8, 62, -3023], [-26, 62, -2790]
+  ]
+  hidden_spots:
+    - {id: fjord_aurora_hole, x: -480, y: 62, z: -3080}
+    - {id: fjord_warm_spring, x: 470, y: 62, z: -2950}
+  env:
+    - {type: cold}
+  ice_area: ice_field
+
+- id: region/ash_trench
+  order: 6
+  hourly_gold: 3800
+  spawn: {x: -2700.5, y: 64, z: 0.5, yaw: 90}
+  unlock: {vehicle: [ship/ocean_explorer], first_entry_only: true}   # 첫 진입 원양 탐사선 (이후 비행선 정류장)
+  areas:
+    - {id: deep_rift, bounds: [[-3000, -300], [-2400, -300], [-2400, 300], [-3000, 300]], y_range: [-64, 40]}
+    - {id: ruin, bounds: [[-3250, 350], [-3050, 350], [-3050, 550], [-3250, 550]], y_range: [-64, 30]}
+    - {id: open_sea, bounds: [[-2300, -600], [-2100, -600], [-2100, 600], [-2300, 600]]}
+  docks:
+    - {id: trench_airship, kind: airship, x: -2700.5, y: 82, z: 0.5, yaw: 90}
+    - {id: trench_dive, kind: dive, x: -2690.5, y: 63, z: 20.5, yaw: 90}
+  treasure_sites:
+    - {id: ash_wreck, x: -2500, y: 10, z: -420, type: ruin}
+    - {id: rift_ledge, x: -2800, y: -20, z: 120, type: cliff}
+    - {id: ruin_altar, x: -3150, y: 0, z: 450, type: ruin}
+    - {id: smoke_isle, x: -2250, y: 64, z: 380, type: beach}
+  spot_candidates: [
+    [-3007, 62, 50], [-2536, 62, -228], [-3032, 62, 129], [-2548, 62, -157], [-2514, 62, -476], [-2887, 62, 111],
+    [-2556, 62, -478], [-3159, 62, -395], [-2603, 62, -486], [-2297, 62, -543], [-2243, 62, -228], [-2872, 62, -157],
+    [-2171, 62, 54], [-2812, 62, 64], [-2754, 62, -345], [-2856, 62, -94], [-2966, 62, -472], [-3242, 62, 176],
+    [-2858, 62, -437], [-2825, 62, 80], [-2179, 62, -429], [-2585, 62, -238]
+  ]
+  hidden_spots:
+    - {id: trench_black_smoker, x: -2900, y: 62, z: -560}
+    - {id: trench_silent_bay, x: -3280, y: 62, z: -80}
+  env:
+    - {type: oxygen, surface_y: 62, depth: 20}
+  air_pockets: [[-3150, 5, 450], [-2800, -15, 120]]
+
+- id: region/void_sea
+  order: 7
+  hourly_gold: 4500
+  spawn: {x: 0.5, y: 70, z: 0.5, yaw: 0}
+  unlock: {job_tier: 3}                         # 3차 전직 퀘스트
+  areas:
+    - {id: floating_isles, bounds: [[-300, -300], [300, -300], [300, 300], [-300, 300]]}
+  treasure_sites:
+    - {id: chorus_grove, x: 250, y: 72, z: -180, type: cliff}
+    - {id: broken_gate, x: -320, y: 66, z: 260, type: ruin}
+    - {id: star_shore, x: 60, y: 61, z: 420, type: beach}
+  spot_candidates: [
+    [318, 60, -421], [-200, 60, -108], [446, 60, -172], [-205, 60, 110], [259, 60, 193], [-433, 60, -67],
+    [190, 60, 66], [-268, 60, -122], [-329, 60, -347], [-425, 60, -385], [48, 60, -345], [-306, 60, -354],
+    [378, 60, 53], [208, 60, 36]
+  ]
+  hidden_spots:
+    - {id: void_eye, x: -480, y: 60, z: -480}
