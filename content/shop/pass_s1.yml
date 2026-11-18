@@ -1,0 +1,40 @@
+# 시즌 1 패스 「항해 일지」 (docs 20 12.4, '6. BM 기획' 3.1). 50단계 · 무료 · 프리미엄(990) · 프리미엄+(1,990, 즉시 10단계).
+# 경험치 (제안값): 단계당 1,000, 합계 50,000. 일반 유저 기준 약 8주차 완주.
+# 진주 보상: 무료 합계 150, 프리미엄 합계 1,000 (무료 묶음 PASS_REWARD).
+- id: pass/s1
+  season: 1
+  name: 항해 일지 · 시즌 1
+  levels: 50
+  exp_per_level: 1000
+  prices: {premium: 990, premium_plus: 1990, upgrade: 1000, level: 100}   # upgrade·level은 제안값
+  premium_plus_levels: 10
+  exp_sources:
+    catch: {common: 2, uncommon: 4, rare: 15, epic: 40, legendary: 200, mythic: 200}
+    quest_daily: 150       # Quest가 registerSource("quest_daily")로 연결
+    quest_weekly: 500
+    chart_percent: 10      # World: 해도 1%
+    boss_clear: 300        # Boss: 클리어
+  rewards:
+    # ---- 무료 (칭호, 기본 찌, 어항 장식 일부, 진주 합계 150)
+    - {level: 1, track: free, cosmetic: cosmetic/pass_s1_float_bubble}
+    - {level: 5, track: free, pearls: 30}
+    - {level: 10, track: free, cosmetic: cosmetic/pass_s1_deco_buoy}
+    - {level: 15, track: free, pearls: 30}
+    - {level: 25, track: free, title: title/pass_s1_sailor}
+    - {level: 30, track: free, pearls: 30}
+    - {level: 40, track: free, pearls: 30}
+    - {level: 50, track: free, pearls: 30}
+    # ---- 프리미엄 (낚싯대·선박 스킨, 포획 연출, 이모트, 어항 테마, 진주 합계 1,000)
+    - {level: 1, track: premium, pearls: 100}
+    - {level: 5, track: premium, cosmetic: cosmetic/pass_s1_emote_wave}
+    - {level: 10, track: premium, pearls: 150}
+    - {level: 15, track: premium, cosmetic: cosmetic/pass_s1_aquarium_deep}
+    - {level: 20, track: premium, pearls: 150}
+    - {level: 25, track: premium, cosmetic: cosmetic/pass_s1_catch_fx_tide}
+    - {level: 30, track: premium, pearls: 200}
+    - {level: 35, track: premium, cosmetic: cosmetic/pass_s1_boat_whale}
+    - {level: 40, track: premium, pearls: 200}
+    - {level: 45, track: premium, pearls: 200}
+    - {level: 50, track: premium, cosmetic: cosmetic/pass_s1_rod_tide}
+    # ---- 프리미엄+ (시즌 한정 칭호 테두리)
+    - {level: 1, track: premium_plus, cosmetic: cosmetic/pass_s1_frame_tide}

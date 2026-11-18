@@ -1,0 +1,23 @@
+# Harbor-Shop 서버별 설정 (콘텐츠가 아니라 서버마다 다른 값. 비밀키는 저장소에 올리지 않는다).
+# 게임 수치는 content/shop/shop.yml에 있다.
+
+webhook:
+  # Tebex 웹훅 수신기. 한 서버(로비 권장: 재시작이 적고 부하가 낮음)에서만 켠다 (docs 20 12.4).
+  enabled: false
+  # 게임 포트와 분리된 내부 주소에만 묶는다. 앞단 리버스 프록시가 TLS를 끝내고 Tebex 공개 IP만 통과시킨다.
+  bind: 127.0.0.1
+  port: 8765
+  path: /tebex/webhook
+  # 서명 형식 (법률·기술 검토 항목, Phase 3 착수 때 Tebex 최신 문서로 재확인): tebex_v1 | hmac_body
+  signature: tebex_v1
+  secret: ""
+  # 비우면 검사하지 않는다 (앞단 프록시가 막는다). 예: ["18.209.80.3", "54.87.231.232"]
+  allowed_ips: []
+  # 이 서버가 수신함 처리기도 돌릴지 (기본: 수신기를 켠 서버)
+  process_inbox: true
+
+tebex:
+  # 일일 결제 대조용 Tebex API 비밀키 (비우면 대조를 건너뛴다)
+  secret: ""
+  # 결제 목록 API 주소 (Phase 3 착수 때 확인)
+  payments_url: "https://plugin.tebex.io/payments"

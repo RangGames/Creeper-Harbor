@@ -1,0 +1,2 @@
+# 크리에이터 코드 (추가 제안, '6. BM 기획' 3.6, 시즌 2 이후 기능: shop.yml features.creator_codes). 정산 비율은 제안값.
+- {id: creator/sample, code: HARBOR, name: "샘플 크리에이터", share_rate: 0.05, supporter_title: title/creator_supporter}

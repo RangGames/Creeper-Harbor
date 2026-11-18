@@ -1,0 +1,58 @@
+# Harbor-Shop 수치·기능 스위치 (추가 제안, docs 20 12장). 문서 수치는 그대로, 나머지는 제안값.
+features:
+  chest: false           # 진주 보물함: 시즌 2 이후 (docs 20 12.1)
+  festival: false        # 항구 축제: 시즌 1 중반
+  creator_codes: false   # 크리에이터 코드: 시즌 2 이후
+  gifting: true
+  name_change: true
+
+topup:                   # Tebex 결제 검증 (docs 20 12.4 6단계)
+  currency: KRW
+  min_krw: 1000
+  unit_krw: 10
+
+admin:
+  pearl_confirm_over: 5000   # 이보다 많은 관리자 지급은 다른 관리자 확인 (제안값)
+
+gift:                    # 제안값 (현금 거래 우회 방지)
+  daily_limit: 5
+  min_playtime_hours: 5
+
+name_change:             # 닉네임 표시 변경권 500 진주 ('6. BM 기획' 3.6). 길이는 제안값
+  price: 500
+  min_length: 2
+  max_length: 12
+
+donor:                   # 후원 등급 ('6. BM 기획' 3.2)
+  grace_days: 3
+  harbor: {monthly_pearls: 300, name_color: "<aqua>", chat_icon: "⚓", title: title/donor_harbor}
+  fleet: {monthly_pearls: 700, name_color: "<gold>", chat_icon: "⛵", title: title/donor_fleet}
+  monthly_cosmetics:     # 선단 후원자 월 1회 한정 코스메틱 (소유형, 해지 후에도 유지)
+    "2027-07": cosmetic/donor_2027_07_pet
+
+inbox:                   # 웹훅 수신함 재시도 (docs 20 12.4: 1분·5분·30분, 5번 실패하면 관리자 알림)
+  retry_minutes: [1, 5, 30]
+  max_attempts: 5
+  poll_seconds: 5
+
+reconcile:               # 일일 결제 대조 (매일 새벽, 최근 48시간)
+  hour: 5
+  window_hours: 48
+
+pet:                     # docs 20 12.6
+  view_distance: 32
+  follow_distance: 1.6
+  update_ticks: 4
+  max_parts: 20
+
+catch_fx:                # 포획 연출 등급 강도 (Fishing fishing/presets.yml의 pillar·firework 플래그와 맞춘다)
+  common: {pillar: 0, firework: false}
+  uncommon: {pillar: 0, firework: false}
+  rare: {pillar: 4, firework: false}
+  epic: {pillar: 6, firework: false}
+  legendary: {pillar: 12, firework: true}
+  mythic: {pillar: 16, firework: true}
+
+codex_rewards:           # Collection CodexMilestoneEvent 키 → 치장품 ('17-2' 4.4)
+  total_25: cosmetic/codex_25_frame
+  harbor: cosmetic/codex_harbor_theme

@@ -335,7 +335,7 @@ public final class EconomyCommands {
                                                 Commands.argument("target", ArgumentTypes.player())
                                                         .executes(this::mailHeld)));
         LiteralArgumentBuilder<CommandSourceStack> shopCmd =
-                Commands.literal("shop")
+                Commands.literal("npcshop")
                         .then(
                                 Commands.literal("open")
                                         .then(

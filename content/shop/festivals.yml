@@ -1,0 +1,7 @@
+# 항구 축제 후원 (추가 제안, '6. BM 기획' 3.5). 시즌 1 중반 기능 (shop.yml features.festival). 목표 금액은 제안값.
+- id: festival/s1_harbor
+  name: 시즌 1 항구 축제
+  season: 1
+  goal_krw: 3000000
+  rewards: [cosmetic/festival_s1_lantern]
+  contributor_title: title/festival_supporter

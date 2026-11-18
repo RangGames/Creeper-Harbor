@@ -1,0 +1,7 @@
+# 주간 로테이션 진열 (docs 20 12.3). 시즌 주차(Season SeasonClock.week)마다. repeat: true면 정의되지 않은 주차는 목록을 처음부터 돌아가며 쓴다.
+repeat: true
+weeks:
+  - {week: 1, items: [cosmetic/rod_creeper, cosmetic/catch_fx_heart, cosmetic/emote_big_catch]}
+  - {week: 2, items: [cosmetic/float_flame, cosmetic/boat_pirate]}
+  - {week: 3, items: [cosmetic/rod_starlight, cosmetic/catch_fx_heart]}
+  - {week: 4, items: [cosmetic/rod_creeper, cosmetic/boat_pirate, cosmetic/float_flame]}

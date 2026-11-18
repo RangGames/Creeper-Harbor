@@ -2,10 +2,72 @@ name: Harbor-Shop
 version: '${version}'
 main: wiki.creeper.harbor.shop.HarborShopPlugin
 api-version: '${apiVersion}'
-description: '결제·진주·코스메틱'
+description: '진주·코스메틱·시즌 패스·후원 등급·결제 수신'
 dependencies:
   server:
     Harbor-Core:
       load: BEFORE
       required: true
       join-classpath: true
+    Harbor-Fishing:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Collection:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Season:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    # 시즌 패스 경험치 출처 (선택). 이 모듈들은 SeasonPassService.registerSource로 직접 연결한다
+    Harbor-Quest:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    Harbor-World:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    Harbor-Boss:
+      load: BEFORE
+      required: false
+      join-classpath: true
+permissions:
+  harbor.shop:
+    description: '/상점 · /보관함 · /패스 · /진주 · /선물 · /닉네임 · /축제'
+    default: true
+  harbor.shop.chest:
+    description: '/보물함 (기능 스위치 features.chest)'
+    default: true
+  harbor.admin.shop.pearl:
+    description: '/harbor shop pearl give · take · confirm'
+    default: op
+  harbor.admin.shop.tx:
+    description: '/harbor shop tx'
+    default: op
+  harbor.admin.shop.inbox:
+    description: '/harbor shop inbox [retry]'
+    default: op
+  harbor.admin.shop.cosmetic:
+    description: '/harbor shop cosmetic give · revoke'
+    default: op
+  harbor.admin.shop.flag:
+    description: '/harbor shop flag lock · unlock · debt clear'
+    default: op
+  harbor.admin.shop.chest:
+    description: '/harbor shop chest stats'
+    default: op
+  harbor.admin.shop.reconcile:
+    description: '/harbor shop reconcile · audit'
+    default: op
+  harbor.admin.shop.pass:
+    description: '/harbor shop pass … (추가 제안)'
+    default: op
+  harbor.admin.shop.donor:
+    description: '/harbor shop donor … (추가 제안)'
+    default: op
+  harbor.admin.shop.festival:
+    description: '/harbor shop festival … (추가 제안)'
+    default: op

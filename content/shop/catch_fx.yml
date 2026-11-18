@@ -1,0 +1,4 @@
+# 포획 연출 코스메틱 프리셋 (추가 제안, docs 20 12.4 '포획 연출'). 색·모양만 바꾸고, 빛기둥 높이·폭죽 여부는 등급 강도(shop/shop.yml catch_fx)를 쓴다.
+- {id: catch_fx/aurora, pillar_particle: dust, pillar_colors: ["#55ffcc", "#5599ff", "#cc66ff"], firework: star, firework_colors: ["#55ffcc", "#cc66ff"]}
+- {id: catch_fx/heart, pillar_particle: dust, pillar_colors: ["#ff6688"], firework: ball, splash_particle: heart}
+- {id: catch_fx/tide, pillar_particle: dust, pillar_colors: ["#3399ff", "#ffffff"], firework: burst, sound: "minecraft:entity.dolphin.splash"}

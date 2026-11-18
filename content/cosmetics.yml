@@ -1,0 +1,54 @@
+# BM 코스메틱 ('11. 데이터 설계' 2.8, '6. BM 기획' 3.3, docs 20 12.3). 모두 비성능·계정 영구 소유·거래 불가 (tradeable 없음).
+# category: rod_skin · line_fx · catch_fx · boat_skin · pet · title_frame · name_color · chat_icon · emote · outfit · aquarium_theme · housing_deco
+# availability: permanent(상시) · rotation(주간 로테이션, shop/rotation.yml) · season(그 시즌만) · pass · chest · donor · free
+# grade는 표시 등급(희소도와 무관). price는 진주 (가격대는 '6. BM 기획' 3.3 표 안에서 제안값).
+# model은 리소스팩 item_model 키 (assets/harbor/items/, 준비 전 예시).
+
+# ---- 상시·로테이션 (진주 상점)
+- {id: cosmetic/rod_coral, name: "산호 낚싯대", category: rod_skin, grade: rare, price: 600, availability: permanent, model: "harbor:cosmetic/rod/coral", lore: "분홍빛 산호가 감긴 낚싯대 외형"}
+- {id: cosmetic/rod_creeper, name: "크리퍼 낚싯대", category: rod_skin, grade: epic, price: 1200, availability: rotation, model: "harbor:cosmetic/rod/creeper", lore: "쉿… 소리는 나지 않는다"}
+- {id: cosmetic/rod_starlight, name: "별빛 낚싯대", category: rod_skin, grade: legendary, price: 1500, availability: rotation, model: "harbor:cosmetic/rod/starlight"}
+- {id: cosmetic/line_rainbow, name: "무지개 줄", category: line_fx, grade: rare, price: 400, availability: permanent, particle: dust, particle_color: "#ff77ff"}
+- {id: cosmetic/float_flame, name: "불꽃 찌", category: line_fx, grade: epic, price: 600, availability: rotation, particle: flame}
+- {id: cosmetic/catch_fx_aurora, name: "오로라 빛기둥", category: catch_fx, grade: epic, price: 900, availability: permanent, preset: catch_fx/aurora}
+- {id: cosmetic/catch_fx_heart, name: "하트 물보라", category: catch_fx, grade: rare, price: 500, availability: rotation, preset: catch_fx/heart}
+- {id: cosmetic/pet_seagull, name: "갈매기", category: pet, grade: rare, price: 900, availability: permanent, rig: rig/pet/seagull, lore: "따라다니기만 하는 친구"}
+- {id: cosmetic/boat_pirate, name: "해적선 돛", category: boat_skin, grade: epic, price: 1500, availability: rotation, rig: rig/boat/pirate_sail}
+- {id: cosmetic/name_aqua, name: "파도빛 이름", category: name_color, grade: rare, price: 300, availability: permanent, color: "<gradient:#55ffff:#5555ff>"}
+- {id: cosmetic/chat_anchor, name: "닻 채팅 아이콘", category: chat_icon, grade: common, price: 150, availability: permanent, glyph: "⚓"}
+- {id: cosmetic/emote_big_catch, name: "대어 들어올리기", category: emote, grade: rare, price: 500, availability: rotation}
+- {id: cosmetic/outfit_raincoat, name: "노란 비옷", category: outfit, grade: rare, price: 700, availability: permanent}
+- {id: cosmetic/aquarium_coral_theme, name: "산호초 어항 테마", category: aquarium_theme, grade: rare, price: 800, availability: permanent}
+
+# ---- 시즌 한정 (시즌 1 동안만)
+- {id: cosmetic/s1_rod_lighthouse, name: "등대지기 낚싯대", category: rod_skin, grade: epic, price: 1100, availability: season, season: 1, model: "harbor:cosmetic/rod/s1_lighthouse"}
+
+# ---- 전설 어종 기념 스킨: 그 어종을 직접 잡은 사람만 구매 ('6. BM 기획' 3.3). 샘플은 1구역 신화 어종 (전설 어종이 추가되면 바꾼다)
+- {id: cosmetic/rod_memorial_ghost_captain, name: "유령 선장의 낚싯대", category: rod_skin, grade: legendary, price: 1500, availability: permanent, model: "harbor:cosmetic/rod/memorial_ghost_captain", requires: {fish_caught: fish/ghost_captain_goldfish}}
+
+# ---- 첫 항해 패키지 구성품 (shop/bundles.yml, 묶음으로만 판매)
+- {id: cosmetic/starter_hat, name: "새내기 어부 모자", category: outfit, grade: common, availability: free, giftable: false}
+- {id: cosmetic/starter_float, name: "새내기 빨간 찌", category: line_fx, grade: common, availability: free, particle: dust, particle_color: "#ff4444", giftable: false}
+
+# ---- 시즌 패스 보상 (shop/pass_s1.yml)
+- {id: cosmetic/pass_s1_float_bubble, name: "거품 찌", category: line_fx, grade: common, availability: pass, particle: bubble_pop}
+- {id: cosmetic/pass_s1_rod_tide, name: "밀물 낚싯대", category: rod_skin, grade: epic, availability: pass, model: "harbor:cosmetic/rod/s1_tide"}
+- {id: cosmetic/pass_s1_boat_whale, name: "고래 보트", category: boat_skin, grade: epic, availability: pass, rig: rig/boat/pirate_sail}
+- {id: cosmetic/pass_s1_catch_fx_tide, name: "밀물 빛기둥", category: catch_fx, grade: epic, availability: pass, preset: catch_fx/tide}
+- {id: cosmetic/pass_s1_emote_wave, name: "파도 인사", category: emote, grade: rare, availability: pass}
+- {id: cosmetic/pass_s1_aquarium_deep, name: "심해 어항 테마", category: aquarium_theme, grade: rare, availability: pass}
+- {id: cosmetic/pass_s1_frame_tide, name: "밀물 칭호 테두리", category: title_frame, grade: legendary, availability: pass, glyph: "≋"}
+- {id: cosmetic/pass_s1_deco_buoy, name: "부표 장식", category: housing_deco, grade: common, availability: pass}
+
+# ---- 후원·축제·도감 (무료 지급)
+- {id: cosmetic/donor_fleet_flag, name: "선단 깃발", category: boat_skin, grade: epic, availability: donor, rig: rig/boat/pirate_sail}
+- {id: cosmetic/donor_2027_07_pet, name: "7월 선단 갈매기", category: pet, grade: epic, availability: donor, rig: rig/pet/seagull}
+- {id: cosmetic/festival_s1_lantern, name: "항구 축제 등불 찌", category: line_fx, grade: rare, availability: free, particle: end_rod}
+- {id: cosmetic/codex_25_frame, name: "초보 수집가 테두리", category: title_frame, grade: common, availability: free, glyph: "◇"}
+- {id: cosmetic/codex_harbor_theme, name: "크리퍼 항구 어항 테마", category: aquarium_theme, grade: rare, availability: free}
+
+# ---- 진주 보물함 (시즌 2 이후, shop/chests.yml)
+- {id: cosmetic/s2_chest_rod_abyss, name: "심연 낚싯대", category: rod_skin, grade: legendary, availability: chest, model: "harbor:cosmetic/rod/s2_abyss"}
+- {id: cosmetic/s2_chest_pet_otter, name: "수달", category: pet, grade: epic, availability: chest, rig: rig/pet/seagull}
+- {id: cosmetic/s2_chest_fx_spark, name: "불티 빛기둥", category: catch_fx, grade: rare, availability: chest, preset: catch_fx/aurora}
+- {id: cosmetic/s2_chest_float_leaf, name: "잎사귀 찌", category: line_fx, grade: common, availability: chest, particle: cherry_leaves}

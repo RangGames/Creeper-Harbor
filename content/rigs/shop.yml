@@ -1,0 +1,44 @@
+# Shop 코스메틱 리그 (펫·선박 장식, docs 20 12.4). 형식은 rigs/fish.yml과 같다. item_model 키는 리소스팩 모델 자리 (준비 전 예시).
+# 펫은 플레이어당 1마리, 표시 부품 20개 이하 (shop/shop.yml pet.max_parts, docs 20 12.6).
+
+- id: rig/pet/seagull
+  length: 0.5
+  forward: -z
+  default_animation: idle
+  bones:
+    - name: body
+      part: {item_model: "harbor:rig/pet/seagull/body"}
+    - name: wing_l
+      parent: body
+      pivot: [0.12, 0.05, 0]
+      part: {item_model: "harbor:rig/pet/seagull/wing", offset: [0.1, 0, 0]}
+    - name: wing_r
+      parent: body
+      pivot: [-0.12, 0.05, 0]
+      part: {item_model: "harbor:rig/pet/seagull/wing", offset: [-0.1, 0, 0], scale: [-1, 1, 1]}
+  animations:
+    idle:
+      length: 20
+      mode: loop
+      bones:
+        wing_l:
+          rotation:
+            - {t: 0, v: [0, 0, 20], ease: ease_in_out}
+            - {t: 10, v: [0, 0, -20], ease: ease_in_out}
+            - {t: 20, v: [0, 0, 20]}
+        wing_r:
+          rotation:
+            - {t: 0, v: [0, 0, -20], ease: ease_in_out}
+            - {t: 10, v: [0, 0, 20], ease: ease_in_out}
+            - {t: 20, v: [0, 0, -20]}
+
+- id: rig/boat/pirate_sail
+  length: 1.5
+  forward: -z
+  bones:
+    - name: mast
+      part: {item_model: "harbor:rig/boat/pirate_sail/mast", offset: [0, 0.6, 0]}
+    - name: sail
+      parent: mast
+      pivot: [0, 1.2, 0]
+      part: {item_model: "harbor:rig/boat/pirate_sail/sail", offset: [0, 0.2, 0]}

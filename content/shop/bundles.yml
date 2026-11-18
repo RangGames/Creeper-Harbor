@@ -1,0 +1,9 @@
+# 코스메틱 묶음 (추가 제안). 첫 항해 패키지: 신규 유저용 입문 코스메틱 묶음, 진주로 구매, 계정당 1회, 진주 추가 지급 없음 ('6. BM 기획' 4장)
+- id: bundle/first_voyage
+  name: 첫 항해 패키지
+  lore: ["새내기 어부를 위한 입문 코스메틱 묶음", "계정당 1회 구매"]
+  icon: minecraft:chest
+  price: 300                       # 제안값
+  items: [cosmetic/starter_hat, cosmetic/starter_float]
+  account_limit: 1
+  weeks: [1, 2]                    # 시즌 초반 (1~2주차)

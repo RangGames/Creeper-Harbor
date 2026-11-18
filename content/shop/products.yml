@@ -1,0 +1,9 @@
+# Tebex 패키지 ↔ 지급 내용 (docs 20 12.3, '6. BM 기획' 2장). 10원 = 진주 1개 고정, 보너스 없음. tebex_package_id는 예시 번호 (실제 상점 생성 뒤 교체)
+- {id: product/pearls_100, tebex_package_id: 6000001, type: pearls, pearls: 100, price_krw: 1000}
+- {id: product/pearls_500, tebex_package_id: 6000002, type: pearls, pearls: 500, price_krw: 5000}
+- {id: product/pearls_990, tebex_package_id: 6000003, type: pearls, pearls: 990, price_krw: 9900}
+- {id: product/pearls_5000, tebex_package_id: 6000004, type: pearls, pearls: 5000, price_krw: 50000}
+- {id: product/pearls_custom, tebex_package_id: 6000005, type: pearls_custom}           # 자유 금액 (10원 단위, 최소 1,000원)
+- {id: product/donor_harbor, tebex_package_id: 6000010, type: subscription, tier: harbor, price_krw: 4900}   # 항구 후원자 (월 진주는 shop.yml)
+- {id: product/donor_fleet, tebex_package_id: 6000011, type: subscription, tier: fleet, price_krw: 9900}     # 선단 후원자
+- {id: product/festival_s1, tebex_package_id: 6000020, type: festival, festival: festival/s1_harbor}          # 항구 축제 후원 (자유 금액)
