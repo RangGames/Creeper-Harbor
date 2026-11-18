@@ -1,0 +1,59 @@
+# 보스 어종 ('2. 어종 목록', '4. 낚시 연출 & 보스전' 2.3). 개인 낚시로도 잡을 수 있고, 보스전에서는 확정 포획 + 품질 보너스.
+# 해구의 군주·녹빛 폭뢰어는 release_only (잡으면 도감에만 등록되고 바다로 돌아간다).
+# 가격·가중치는 제안값. 나머지 보스 어종(철갑상어·대왕오징어·잉어·성운어)은 그 보스를 만들 때 추가한다.
+
+- id: fish/swamp_catfish
+  no: 36
+  name: "늪지의 주인 '그놈'"
+  lore: "늪지 은둔자가 이름도 부르지 않고 '그놈'이라고만 하는 거대 메기."
+  grade: rare
+  region: region/swamp
+  time: [night]
+  weather: [storm]
+  size_cm: [150, 300]
+  base_price: 80             # 제안값
+  weight: 20                 # 제안값 (보스 어종이라 같은 등급보다 드물게)
+  model: harbor:fish/swamp_catfish
+  season: 1
+
+- id: fish/wreck_moray
+  no: 58
+  name: 난파선 수호 곰치
+  lore: "난파선 보물상자 위를 떠나지 않는다. 보물보다 이 녀석이 더 값지다는 말도 있다."
+  grade: epic
+  region: region/coral_isles
+  weather: [storm]
+  size_cm: [150, 250]
+  base_price: 250            # 제안값
+  weight: 20                 # 제안값
+  model: harbor:fish/wreck_moray
+  season: 1
+
+- id: fish/trench_lord
+  no: 108
+  name: 해구의 군주
+  lore: "잿빛 해구 그 자체라 불리는 거대어. 해구가 생긴 것도 이 녀석이 몸을 뒤척였기 때문이라고 한다."
+  grade: legendary
+  region: region/ash_trench
+  weather: [storm]
+  bait: [item/bait/legendary]
+  size_cm: [3000, 6000]
+  base_price: 0              # release_only: 판매 불가
+  release_only: true
+  model: harbor:fish/trench_lord
+  season: 1
+
+- id: fish/green_thunder_fish
+  no: 109
+  name: 녹빛 폭뢰어
+  lore: "크리퍼 항구를 무너뜨린 대폭발의 원인이라는 전설의 물고기. 비늘 사이로 초록 불꽃이 튄다."
+  grade: legendary
+  region: region/ash_trench
+  weather: [storm]
+  bait: [item/bait/legendary]
+  unlock_flag: climax_done   # 클라이맥스 이후에만 출현 (그 전에는 도감에 실루엣만)
+  size_cm: [150, 300]
+  base_price: 0              # release_only: 판매 불가
+  release_only: true
+  model: harbor:fish/green_thunder_fish
+  season: 1

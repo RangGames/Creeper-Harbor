@@ -3,6 +3,8 @@ package wiki.creeper.harbor.tools;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import wiki.creeper.harbor.boss.content.BossContent;
+import wiki.creeper.harbor.boss.content.BossDef;
 import wiki.creeper.harbor.collection.content.CollectionContent;
 import wiki.creeper.harbor.common.content.ContentLoader;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
@@ -20,7 +22,9 @@ import wiki.creeper.harbor.npc.content.CutsceneDef;
 import wiki.creeper.harbor.npc.content.DialogDef;
 import wiki.creeper.harbor.npc.content.NpcContent;
 import wiki.creeper.harbor.npc.content.NpcDef;
+import wiki.creeper.harbor.quest.content.QuestContent;
 import wiki.creeper.harbor.season.content.SeasonContent;
+import wiki.creeper.harbor.shop.content.ShopContent;
 
 /**
  * 콘텐츠 검증 CLI. 서버와 같은 로더로 content/ YAML을 검사해서, 디자이너가 올린 YAML의 오류를 서버에 넣기 전에 CI에서 거른다.
@@ -50,6 +54,12 @@ public final class HarborTools {
         EconomyContent.TYPES.forEach(loader::register);
         SeasonContent.TYPES.forEach(loader::register);
         NpcContent.TYPES.forEach(loader::register);
+        QuestContent.register(loader);
+        ShopContent.TYPES.forEach(loader::register);
+        BossContent.TYPES.forEach(loader::register);
+        loader.addCheck(BossDef.TYPE, BossContent.RIG_CHECK);
+        loader.addCheck(BossDef.TYPE, BossContent.FISH_CHECK);
+        ShopContent.registerChecks(loader::addCheck);
         loader.addCheck(DialogDef.TYPE, NpcContent.DIALOG_MESSAGES);
         loader.addCheck(CutsceneDef.TYPE, NpcContent.CUTSCENE_MESSAGES);
         loader.addCheck(NpcDef.TYPE, NpcContent.NPC_MESSAGES);

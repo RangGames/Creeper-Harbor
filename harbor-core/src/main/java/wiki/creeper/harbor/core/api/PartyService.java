@@ -19,8 +19,12 @@ public interface PartyService {
         CAPTAIN,
         /** 작살수: 부위 공격 담당. */
         HARPOONER,
-        /** 감는 사람: 텐션 담당. */
+        /** 감는 사람(닻): 텐션 담당. */
         REELER,
+        /** 정비사: 선체 수리. */
+        MECHANIC,
+        /** 보급관: 보급 (수리로 집계). */
+        QUARTERMASTER,
         MEMBER
     }
 

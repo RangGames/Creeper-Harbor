@@ -1,0 +1,130 @@
+# 시즌 레이드 '군주의 분노'와 6장 스토리 진정 전투 (docs 20 10.1). 같은 엔진의 별도 정의로 두고 기록을 섞지 않는다.
+# 레이드 경기장은 인스턴스 서버의 경기장 월드(harbor_instance)에 같은 경기장 4칸을 1,000블록 간격으로 미리 지어 둔다
+# (slots가 하나면 X축으로 boss.instance.spacing씩 띄운 칸을 쓴다). hp.base는 Phase 3에서 정함 → 제안값.
+
+- id: boss/trench_lord_raid
+  name: "<dark_aqua>군주의 분노"
+  type: raid
+  goal: calm                    # 체력 대신 분노 게이지를 가라앉힌다
+  region: region/ash_trench
+  arena:
+    mode: instance
+    world: harbor_instance
+    slots:
+      - {center: [0, 62, 0], radius: 32}
+    deck:
+      spawn: [0, 1, 0]
+      boss: [0, -1, -20]
+      wheel: [0, 1, 4]
+      repair: [[-3, 1, 0], [3, 1, 0], [-3, 1, 3], [3, 1, 3], [0, 1, -3]]
+  party: {min: 6, max: 10, base: 8}
+  hp: {base: 9000}              # 제안값 (Phase 3 조정)
+  rig: rig/boss/trench_lord
+  rig_scale: 1.0
+  parts:
+    - {id: eye, bone: eye, weakpoint: true}
+    - {id: head, bone: head}
+    - {id: body, bone: body, armor: true}
+    - {id: fin, bone: fin}
+    - {id: tail, bone: tail}
+  hull: {max: 200, repair_per_action: 60}
+  phases:
+    - id: hook
+      hook_seconds: 25
+      patterns: [trench_quake]
+    - id: counter
+      patterns: [trench_quake, whirlpool, minion_rush]
+      weak_interval: 14
+      weak_seconds: 3
+    - id: final_tug
+      enter: {hp_below: 0.15}
+      qte: {rounds: 3, inputs: 5}
+  patterns:
+    - id: trench_quake
+      name: "<dark_gray>해구 붕괴"
+      animation: quake
+      telegraph: {shape: circle, size: 5, at: member}
+      effect: {hull_damage: 15, knockback: 0.8, debuff: slow, debuff_seconds: 4}
+      cooldown: 7
+      weight: 3
+    - id: whirlpool
+      name: "<dark_aqua>소용돌이"
+      animation: roar
+      telegraph: {shape: ring, size: 12, inner: 4, at: deck}
+      effect: {hull_damage: 20, knockback: 1.2, tension: 0.2}
+      cooldown: 15
+      weight: 2
+    - id: minion_rush
+      name: "<aqua>쫄 어종 돌진"
+      telegraph: {shape: line, size: 6, length: 24, at: boss}
+      effect: {hull_damage: 25, knockback: 1.0}
+      cooldown: 12
+      weight: 2
+      charge: true
+  fish: fish/trench_lord        # release_only: 도감만
+  loot:
+    drops:
+      - {item: item/line/lord_scale, chance: 0.1, count: 1, pity: true}   # 군주 비늘 낚싯줄 10%, 8회 천장
+      - {item: item/material/boss_scale, chance: 1.0, count: [2, 3]}
+      - {item: item/bait/legendary, chance: 0.15, count: 1}
+    pity_after: 8
+    top_bonus:
+      - {item: item/material/boss_scale, count: 1}
+    participation: {item: item/material/boss_scale, count: 1}
+  presentation:
+    intro: rise
+    music: "harbor:boss.trench_lord"
+    announce: true
+
+# 6장 해구의 군주 진정 전투 (스토리, 혼자 진행 가능, 필드 경기장, 전리품·기록 없음)
+- id: boss/trench_lord_story
+  name: "<dark_aqua>해구의 군주"
+  type: sea
+  goal: calm
+  story: true
+  region: region/ash_trench
+  arena:
+    mode: field
+    world: harbor_main
+    slots:
+      - {center: [-2700, 62, 0], radius: 28}
+    deck:
+      spawn: [0, 1, 0]
+      boss: [0, -1, -18]
+      wheel: [0, 1, 4]
+      repair: [[-3, 1, 0], [3, 1, 0]]
+  party: {min: 1, max: 4, base: 1}
+  hp: {base: 2500}              # 제안값 (혼자서도 제한 시간 60~70% 안에)
+  rig: rig/boss/trench_lord
+  parts:
+    - {id: eye, bone: eye, weakpoint: true}
+    - {id: head, bone: head}
+    - {id: body, bone: body, armor: true}
+  hull: {max: 150, repair_per_action: 45}
+  phases:
+    - id: hook
+      patterns: [trench_quake]
+    - id: counter
+      patterns: [trench_quake, whirlpool]
+    - id: final_tug
+      enter: {hp_below: 0.2}
+  patterns:
+    - id: trench_quake
+      name: "<dark_gray>해구 붕괴"
+      animation: quake
+      telegraph: {shape: circle, size: 4, at: member}
+      effect: {hull_damage: 10, knockback: 0.6}
+      cooldown: 8
+      weight: 3
+    - id: whirlpool
+      name: "<dark_aqua>소용돌이"
+      animation: roar
+      telegraph: {shape: ring, size: 10, inner: 4, at: deck}
+      effect: {hull_damage: 15, knockback: 1.0, tension: 0.15}
+      cooldown: 16
+      weight: 2
+  fish: fish/trench_lord
+  presentation:
+    intro: rise
+    music: "harbor:boss.trench_lord"
+    announce: false

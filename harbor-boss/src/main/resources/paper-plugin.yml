@@ -2,10 +2,48 @@ name: Harbor-Boss
 version: '${version}'
 main: wiki.creeper.harbor.boss.HarborBossPlugin
 api-version: '${apiVersion}'
-description: '보스전'
+description: '보스전·파티·월드 보스·레이드 인스턴스'
 dependencies:
   server:
     Harbor-Core:
       load: BEFORE
       required: true
       join-classpath: true
+    Harbor-Fishing:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Season:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Npc:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    Harbor-Shop:
+      load: AFTER        # Shop이 Boss 이벤트를 듣기 때문에 Shop이 뒤에 켜진다. 펫 숨김 등록은 서버 시작이 끝난 뒤
+      required: false
+      join-classpath: true
+permissions:
+  harbor.party:
+    description: '/party (/파티) 파티 관리'
+    default: true
+  harbor.boss:
+    description: '/boss (/보스) info · records · claim · enter'
+    default: true
+  harbor.admin.boss.start:
+    description: '/harbor boss start'
+    default: op
+  harbor.admin.boss.end:
+    description: '/harbor boss end'
+    default: op
+  harbor.admin.boss.world:
+    description: '/harbor boss world start · resume · stop'
+    default: op
+  harbor.admin.boss.pending:
+    description: '/harbor boss pending'
+    default: op
+  harbor.admin.boss.debug:
+    description: '/harbor boss debug · list'
+    default: op

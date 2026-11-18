@@ -1,0 +1,223 @@
+# 보스 모델 리그 (Boss 모듈, 형식은 content/rigs/boss.yml과 같다). 부위(표시 + 판정) 30개 이하.
+# 판정 상자는 hitbox가 있는 뼈마다 하나 (bosses/*.yml parts가 뼈 이름으로 가리킨다). 모델 키·수치는 제안값.
+
+# 난파선 수호 곰치 (해역 보스): 긴 몸통을 마디로 나눠 물결치게 한다
+- id: rig/boss/wreck_moray
+  length: 6.0
+  scale: 1.0
+  forward: -z
+  view_range: 2.0
+  default_animation: idle
+  bones:
+    - name: body
+      pivot: [0, 0.8, 0]
+      part: {item_model: "harbor:rig/boss/wreck_moray/body", scale: 2.2}
+      hitbox: {width: 1.6, height: 1.4}
+    - name: head
+      parent: body
+      pivot: [0, 0.3, -1.6]
+      part: {item_model: "harbor:rig/boss/wreck_moray/head", scale: 2.0, glow_color: "#FF5555"}
+      hitbox: {width: 1.2, height: 1.1, offset: [0, 0, -0.3]}
+    - name: jaw
+      parent: head
+      pivot: [0, -0.35, -0.3]
+      part: {item_model: "harbor:rig/boss/wreck_moray/jaw", scale: 2.0}
+    - name: tail_1
+      parent: body
+      pivot: [0, 0, 1.4]
+      part: {item_model: "harbor:rig/boss/wreck_moray/tail_1", scale: 1.9}
+    - name: tail_2
+      parent: tail_1
+      pivot: [0, 0, 1.2]
+      part: {item_model: "harbor:rig/boss/wreck_moray/tail_2", scale: 1.6}
+      hitbox: {width: 1.0, height: 0.8}
+    - name: tail_3
+      parent: tail_2
+      pivot: [0, 0, 1.0]
+      part: {item_model: "harbor:rig/boss/wreck_moray/tail_3", scale: 1.3}
+  animations:
+    idle:
+      length: 40
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 0.15, 0], ease: ease_in_out}
+            - {t: 40, v: [0, 0, 0]}
+        tail_1:
+          rotation:
+            - {t: 0, v: [0, -12, 0], ease: catmullrom}
+            - {t: 20, v: [0, 12, 0], ease: catmullrom}
+            - {t: 40, v: [0, -12, 0]}
+        tail_2:
+          rotation:
+            - {t: 0, v: [0, -18, 0], ease: catmullrom}
+            - {t: 20, v: [0, 18, 0], ease: catmullrom}
+            - {t: 40, v: [0, -18, 0]}
+        tail_3:
+          rotation:
+            - {t: 0, v: [0, -24, 0], ease: catmullrom}
+            - {t: 20, v: [0, 24, 0], ease: catmullrom}
+            - {t: 40, v: [0, -24, 0]}
+    bite:                    # 물어뜯기 돌진 예고
+      length: 24
+      mode: once
+      bones:
+        head:
+          rotation:
+            - {t: 0, v: [0, 0, 0], ease: ease_out}
+            - {t: 12, v: [-20, 0, 0], ease: ease_in}
+            - {t: 24, v: [0, 0, 0]}
+        jaw:
+          rotation:
+            - {t: 0, v: [0, 0, 0]}
+            - {t: 10, v: [40, 0, 0], ease: ease_in}
+            - {t: 18, v: [0, 0, 0]}
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in}
+            - {t: 14, v: [0, 0, -1.5], ease: ease_out}
+            - {t: 24, v: [0, 0, 0]}
+    hide:                    # 난파선 잔해 사이 숨기
+      length: 30
+      mode: once
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in}
+            - {t: 15, v: [0, -2.0, 0], ease: ease_in_out}
+            - {t: 30, v: [0, 0, 0]}
+
+# 해구의 군주 (시즌 레이드, 스토리 전투 겸용): 아주 큰 머리와 등지느러미
+- id: rig/boss/trench_lord
+  length: 30.0
+  scale: 1.0
+  forward: -z
+  view_range: 4.0
+  default_animation: idle
+  bones:
+    - name: body
+      pivot: [0, 2.0, 0]
+      part: {item_model: "harbor:rig/boss/trench_lord/body", scale: 6.0}
+      hitbox: {width: 4.0, height: 3.5}
+    - name: head
+      parent: body
+      pivot: [0, 0.6, -4.5]
+      part: {item_model: "harbor:rig/boss/trench_lord/head", scale: 5.0, glow_color: "#55FFFF"}
+      hitbox: {width: 3.2, height: 2.8, offset: [0, 0, -0.6]}
+    - name: eye
+      parent: head
+      pivot: [0, 0.8, -1.0]
+      part: {item_model: "harbor:rig/boss/trench_lord/eye", scale: 2.0, glow_color: "#55FFFF"}
+      hitbox: {width: 1.0, height: 1.0}
+    - name: fin
+      parent: body
+      pivot: [0, 2.2, 0.5]
+      part: {item_model: "harbor:rig/boss/trench_lord/fin", scale: 4.0}
+      hitbox: {width: 2.0, height: 2.0}
+    - name: tail
+      parent: body
+      pivot: [0, 0, 4.5]
+      part: {item_model: "harbor:rig/boss/trench_lord/tail", scale: 5.0}
+      hitbox: {width: 2.6, height: 2.2}
+  animations:
+    idle:
+      length: 60
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 30, v: [0, 0.3, 0], ease: ease_in_out}
+            - {t: 60, v: [0, 0, 0]}
+        tail:
+          rotation:
+            - {t: 0, v: [0, -8, 0], ease: catmullrom}
+            - {t: 30, v: [0, 8, 0], ease: catmullrom}
+            - {t: 60, v: [0, -8, 0]}
+    rise:                    # 등장
+      length: 60
+      mode: once
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, -8, 0], ease: ease_out}
+            - {t: 60, v: [0, 0, 0]}
+    quake:                   # 해구 붕괴
+      length: 30
+      mode: once
+      bones:
+        body:
+          rotation:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 8, v: [0, 0, 6], ease: ease_in_out}
+            - {t: 16, v: [0, 0, -6], ease: ease_in_out}
+            - {t: 30, v: [0, 0, 0]}
+    roar:                    # 소용돌이
+      length: 30
+      mode: once
+      bones:
+        head:
+          rotation:
+            - {t: 0, v: [0, 0, 0], ease: ease_out}
+            - {t: 12, v: [-25, 0, 0], ease: ease_in}
+            - {t: 30, v: [0, 0, 0]}
+
+# 녹빛 폭뢰어 (월드 보스): 비늘 사이 초록 불꽃 (발광 부위)
+- id: rig/boss/green_thunder_fish
+  length: 8.0
+  scale: 1.0
+  forward: -z
+  view_range: 6.0
+  default_animation: idle
+  bones:
+    - name: body
+      pivot: [0, 1.5, 0]
+      part: {item_model: "harbor:rig/boss/green_thunder_fish/body", scale: 4.0, brightness: [15, 15]}
+      hitbox: {width: 3.0, height: 2.4}
+    - name: head
+      parent: body
+      pivot: [0, 0.2, -2.6]
+      part: {item_model: "harbor:rig/boss/green_thunder_fish/head", scale: 3.4, glow_color: "#55FF55", brightness: [15, 15]}
+      hitbox: {width: 2.2, height: 2.0}
+    - name: core
+      parent: body
+      pivot: [0, 0.6, 0]
+      part: {item_model: "harbor:rig/boss/green_thunder_fish/core", scale: 2.0, glow_color: "#55FF55", brightness: [15, 15]}
+      hitbox: {width: 1.4, height: 1.4}
+    - name: tail
+      parent: body
+      pivot: [0, 0, 2.6]
+      part: {item_model: "harbor:rig/boss/green_thunder_fish/tail", scale: 3.0, brightness: [15, 15]}
+      hitbox: {width: 1.8, height: 1.6}
+  animations:
+    idle:
+      length: 40
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_in_out}
+            - {t: 20, v: [0, 0.4, 0], ease: ease_in_out}
+            - {t: 40, v: [0, 0, 0]}
+        tail:
+          rotation:
+            - {t: 0, v: [0, -15, 0], ease: catmullrom}
+            - {t: 20, v: [0, 15, 0], ease: catmullrom}
+            - {t: 40, v: [0, -15, 0]}
+    hiss:                    # 쉬익- 소리 후 범위 폭발 예고 (몸이 부푼다)
+      length: 30
+      mode: once
+      bones:
+        body:
+          scale:
+            - {t: 0, v: [1, 1, 1], ease: ease_in}
+            - {t: 24, v: [1.25, 1.25, 1.25], ease: ease_out}
+            - {t: 30, v: [1, 1, 1]}
+    strike:                  # 뇌우 낙뢰
+      length: 20
+      mode: once
+      bones:
+        head:
+          rotation:
+            - {t: 0, v: [0, 0, 0], ease: ease_out}
+            - {t: 8, v: [-30, 0, 0], ease: ease_in}
+            - {t: 20, v: [0, 0, 0]}

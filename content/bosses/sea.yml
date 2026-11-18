@@ -1,0 +1,73 @@
+# 해역 보스 (docs 20 10.3). 난파선 수호 곰치는 그놈과 같은 엔진에 콘텐츠만 추가한다 (docs 20 0.5).
+# 좌표는 맵 확정 전 제안값 (산호 군도).
+
+- id: boss/wreck_moray
+  name: "<aqua>난파선 수호 곰치"
+  type: sea
+  goal: capture
+  region: region/coral_isles
+  arena:
+    mode: field
+    world: harbor_main
+    slots:
+      - {center: [0, 62, 2000], radius: 22}
+      - {center: [300, 62, 2200], radius: 22}
+    deck:
+      spawn: [0, 1, 0]
+      boss: [0, -0.5, -13]
+      wheel: [0, 1, 3]
+      repair: [[-2, 1, 0], [2, 1, 0], [-2, 1, 2], [2, 1, 2]]
+  party: {min: 2, max: 4, base: 3}
+  hp: {base: 3000}              # 제안값 ('7. 밸런스 기획' 9장)
+  rig: rig/boss/wreck_moray
+  parts:
+    - {id: head, bone: head, weakpoint: true}
+    - {id: body, bone: body}
+    - {id: tail, bone: tail_2, armor: true}
+  hull: {max: 120, repair_per_action: 36}
+  phases:
+    - id: hook
+      hook_seconds: 18
+      patterns: [wreck_hide]
+    - id: counter
+      patterns: [bite_rush, wreck_hide, tail_lash]
+      weak_interval: 11
+      weak_seconds: 3.5
+    - id: final_tug
+      enter: {hp_below: 0.2}
+  patterns:
+    - id: bite_rush
+      name: "<red>물어뜯기 돌진"
+      animation: bite
+      telegraph: {shape: line, size: 5, length: 18, at: boss}
+      effect: {hull_damage: 20, knockback: 1.2}
+      cooldown: 10
+      weight: 3
+      charge: true
+    - id: wreck_hide
+      name: "<gray>잔해 사이 숨기"
+      animation: hide
+      telegraph: {shape: circle, size: 4, at: member}
+      effect: {hull_damage: 8, debuff: slow, debuff_seconds: 3, tension: 0.1}
+      cooldown: 8
+      weight: 2
+    - id: tail_lash
+      name: "<aqua>꼬리 후려치기"
+      telegraph: {shape: cone, size: 9, angle: 70, at: boss}
+      effect: {hull_damage: 12, knockback: 0.9}
+      cooldown: 9
+      weight: 2
+  fish: fish/wreck_moray
+  loot:
+    drops:
+      - {item: item/material/coral_fragment, chance: 1.0, count: 5}   # 산호 조각 5 ('4. 낚시 연출 & 보스전' 2.3)
+      - {item: item/material/boss_scale, chance: 1.0, count: [1, 2]}
+      - {item: item/tool/treasure_map, chance: 0.3, count: 1}        # 보물 지도 30% ('7. 밸런스 기획' 9장)
+    top_bonus:
+      - {item: item/material/boss_scale, count: 1}
+    participation: {item: item/material/boss_scale, count: 1}
+  summon: {item: item/boss/summon_wreck_moray, cooldown: 300}
+  presentation:
+    intro: hide
+    music: "harbor:boss.wreck_moray"
+    announce: true

@@ -1,0 +1,60 @@
+# 월드 보스 '녹빛 폭뢰어' (메인 최종장 클라이맥스, docs 20 10.4 월드 보스).
+# 인원 비례 체력: 최대 게이지 = hp.base(1인 기준) × max(유효 참여자, 10) (D13). hp.base는 Phase 3에서 정함 → 제안값.
+# 크리퍼 항구 앞바다 고정 위치, 모두에게 표시, 반경 balance.yml boss.world.radius(64) 안에서 기여하면 참여자.
+
+- id: boss/green_thunder_fish
+  name: "<green>녹빛 폭뢰어"
+  type: world
+  goal: calm                    # 폭발 게이지를 가라앉힌다
+  region: region/harbor
+  arena:
+    mode: world
+    world: harbor_main
+    slots:
+      - {center: [0, 62, 320], radius: 64}
+    deck:
+      spawn: [0, 1, -20]
+      boss: [0, 0, 10]
+  party: {min: 1, max: 1000, base: 10}
+  hp: {base: 1500}              # 제안값 (1인 기준)
+  rig: rig/boss/green_thunder_fish
+  parts:
+    - {id: core, bone: core, weakpoint: true}
+    - {id: head, bone: head}
+    - {id: body, bone: body}
+    - {id: tail, bone: tail, armor: true}
+  hull: {max: 1000, repair_per_action: 100}   # 고정 갑판이 없어 배 내구도 피해를 쓰지 않는다
+  phases:
+    - id: hook
+      hook_seconds: 30
+      patterns: [hiss_blast]
+    - id: counter
+      patterns: [hiss_blast, thunder_strike]
+      weak_interval: 15
+      weak_seconds: 5
+    - id: final_tug
+      enter: {hp_below: 0.1}
+  patterns:
+    - id: hiss_blast
+      name: "<green>쉬익- 범위 폭발"
+      animation: hiss
+      telegraph: {shape: circle, size: 6, at: member}
+      effect: {knockback: 1.3}
+      cooldown: 4
+      weight: 3
+    - id: thunder_strike
+      name: "<yellow>뇌우 낙뢰"
+      animation: strike
+      telegraph: {shape: circle, size: 3, ticks: 24, at: member}
+      effect: {knockback: 0.6, debuff: darkness, debuff_seconds: 2}
+      cooldown: 3
+      weight: 2
+  fish: fish/green_thunder_fish  # release_only
+  loot:
+    drops:
+      - {item: item/material/boss_scale, chance: 1.0, count: 1}
+    title: title/lighthouse_keeper   # '등대를 밝힌 자' 100%
+  presentation:
+    outro: cutscene/climax_lighthouse
+    music: "harbor:boss.green_thunder_fish"
+    announce: true

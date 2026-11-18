@@ -1,0 +1,77 @@
+# 보스전 아이템 ('3. 아이템 목록' 2·3·7·9장, docs 20 10장). 가격·수치는 문서에 없으면 제안값.
+# 작살: stats.harpoon_damage = 작살 기본 피해 (Boss 피해 공식의 '아이템 stats'), weak_bonus = 약점 피해 보너스,
+#       recoverable = 1이면 맞힌 뒤 인벤토리로 돌아온다. base_item은 삼지창 (투척).
+# 선박 수리 키트는 World의 item/boat/repair_kit를 쓴다 (balance.yml boss.items.repair_kit).
+
+# ---- 재료
+- id: item/material/boss_scale
+  name: 보스 비늘
+  lore: "아직도 바다의 냉기를 머금고 있다."
+  type: material
+  grade: rare
+  base_item: minecraft:prismarine_crystals
+  model: harbor:material/boss_scale
+  tradeable: true            # 장비 제작 재료, 거래 가능 ('4. 낚시 연출 & 보스전' 2.4)
+  season_reset: true
+
+# ---- 보스전 장비 ('3. 아이템 목록' 7장)
+- id: item/gear/apprentice_harpoon
+  name: 견습 작살
+  lore: "손으로 던지는 작살. 낚싯대가 버티는 동안 동료가 던진다."
+  type: gear
+  grade: uncommon
+  base_item: minecraft:trident
+  model: harbor:gear/apprentice_harpoon
+  stats:
+    harpoon_damage: 20       # 제안값 (그놈 2,000 기준 약점 3배 × 약 33회)
+  buy_price: 300             # 제안값 (낚시용품점)
+  tradeable: true
+  season_reset: true
+
+- id: item/gear/whaler_harpoon
+  name: 고래잡이 작살
+  lore: "작살 끝에 바다 괴물의 이빨을 박았다."
+  type: gear
+  grade: epic
+  base_item: minecraft:trident
+  model: harbor:gear/whaler_harpoon
+  stats:
+    harpoon_damage: 28       # 제안값
+    weak_bonus: 0.5          # 약점 피해 +50% (문서)
+    recoverable: 1           # 회수 가능 (문서)
+  tradeable: true
+  season_reset: true
+
+# ---- 소환 미끼 ('3. 아이템 목록' 3장: 그 보스 지역 희귀 어종 3 + 새우 미끼 10 + 5,000G 제작)
+- id: item/boss/summon_swamp_catfish
+  name: "늪지의 주인 소환 미끼"
+  lore: "이 냄새를 맡으면 그 녀석이 반드시 올라온다. 동료를 먼저 모을 것."
+  type: tool
+  grade: epic
+  base_item: minecraft:rotten_flesh
+  model: harbor:boss/summon_swamp_catfish
+  tradeable: true
+  season_reset: true
+
+- id: item/boss/summon_wreck_moray
+  name: "난파선 수호 곰치 소환 미끼"
+  lore: "이 냄새를 맡으면 그 녀석이 반드시 올라온다. 동료를 먼저 모을 것."
+  type: tool
+  grade: epic
+  base_item: minecraft:rotten_flesh
+  model: harbor:boss/summon_wreck_moray
+  tradeable: true
+  season_reset: true
+
+# ---- 보스 전리품 ('3. 아이템 목록' 2장)
+- id: item/line/lord_scale
+  name: 군주 비늘 낚싯줄
+  lore: "분노를 가라앉힌 해구의 군주가 남기고 간 비늘을 가늘게 깎아 엮었다. 끊어진 적이 없다."
+  type: line
+  grade: legendary
+  base_item: minecraft:string
+  model: harbor:line/lord_scale
+  stats:
+    line_strength: 5         # 줄 강도 +5 (문서). 텐션 한계 +20%는 Fishing 줄 강도 공식으로 반영
+  tradeable: false
+  season_reset: true

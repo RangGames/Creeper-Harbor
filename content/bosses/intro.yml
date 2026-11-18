@@ -1,0 +1,73 @@
+# 입문 보스 (docs 20 10.3 bosses/*.yml, '4. 낚시 연출 & 보스전' 2.3, '7. 밸런스 기획' 9장).
+# 비운 수치(time_limit, hp.per_player_rate, loot.gold, telegraph.ticks …)는 balance.yml boss.types.<유형> 기본값을 쓴다.
+# 좌표는 맵 확정 전 제안값. 슬롯 0은 메인 2장 퀘스트 웨이포인트(230, 63, 150) 자리.
+
+- id: boss/swamp_catfish
+  name: "<dark_green>늪지의 주인 '그놈'"
+  type: intro
+  goal: capture
+  region: region/swamp
+  arena:
+    mode: field
+    world: harbor_main
+    slots:
+      - {center: [230, 62, 150], radius: 20}
+      - {center: [900, 62, -900], radius: 20}
+    deck:
+      spawn: [0, 1, 0]          # 고정 갑판 위 (슬롯 중심 기준)
+      boss: [0, -0.5, -12]      # 보스 등장 위치
+      wheel: [0, 1, 3]          # 조타륜
+      repair: [[-2, 1, 0], [2, 1, 0], [0, 1, -2]]
+  party: {min: 1, max: 2, base: 1}
+  hp: {base: 2000}              # 제안값 ('7. 밸런스 기획' 9장)
+  rig: rig/boss/gnome
+  parts:
+    - {id: head, bone: head, weakpoint: true}
+    - {id: body, bone: body}
+    - {id: tail, bone: tail_2, armor: true}
+  hull: {max: 100, repair_per_action: 30}   # 선박 수리 키트 = 내구도 30% ('3. 아이템 목록' 5장)
+  phases:
+    - id: hook
+      hook_seconds: 15
+      patterns: [mud_spit]
+    - id: counter
+      patterns: [mud_spit, swamp_dive, tail_sweep]
+      weak_interval: 12
+      weak_seconds: 4
+    - id: final_tug
+      enter: {hp_below: 0.2}
+      qte: {rounds: 3, inputs: 4, window_seconds: 1.0, pass: 0.6}
+  patterns:
+    - id: mud_spit
+      name: "<#8b6b3a>진흙 뿌리기"
+      animation: mud_spit
+      telegraph: {shape: circle, size: 3.5, at: member}
+      effect: {hull_damage: 6, debuff: blind, debuff_seconds: 3}
+      cooldown: 6
+      weight: 3
+    - id: swamp_dive
+      name: "<dark_green>늪 바닥 잠수"
+      animation: dive
+      telegraph: {shape: ring, size: 8, inner: 3, at: deck}
+      effect: {hull_damage: 10, knockback: 0.8, tension: 0.15}
+      cooldown: 14
+      weight: 2
+    - id: tail_sweep
+      name: "<green>꼬리 휩쓸기"
+      telegraph: {shape: line, size: 4, length: 16, at: boss}
+      effect: {hull_damage: 15, knockback: 1.0}
+      cooldown: 12
+      weight: 2
+      charge: true              # 선장이 조타륜에서 반대 방향을 입력하면 피한다
+  fish: fish/swamp_catfish
+  loot:
+    drops:
+      - {item: item/material/boss_scale, chance: 1.0, count: [1, 2]}
+    top_bonus:
+      - {item: item/material/boss_scale, count: 1}
+    participation: {item: item/material/boss_scale, count: 1}
+    title: title/swamp_master   # 늪지 칭호 100%
+  summon: {item: item/boss/summon_swamp_catfish, cooldown: 300}
+  presentation:
+    music: "harbor:boss.swamp_catfish"
+    announce: true
