@@ -1,0 +1,158 @@
+# 7. 공허의 바다 (엔드, 지역 단계 7). 원본: '2. 어종 목록 (시즌 1)'
+# 공허 성운어(141)는 boss.yml. 시간 조건은 오버월드 시간 기준. 엔드 판매 계수 0.65는 Economy가 판매가에 곱한다.
+# base_price = 등급 최소 + (최대 − 최소) × (지역 단계 − 1) ÷ 6 ('13. 제작 · 상점 가격'), 전설은 1,200 고정
+
+- id: fish/endstone_goby
+  no: 129
+  name: 엔드석 망둑
+  lore: "엔드석 섬 가장자리에 꼭 붙어 산다. 떨어질까 봐 늘 겁먹은 얼굴이다."
+  grade: uncommon
+  region: region/void_sea
+  size_cm: [10, 20]
+  base_price: 30
+  model: harbor:fish/endstone_goby
+  season: 1
+
+# 출현 구역 '엔드 도시 주변': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [end_city]).
+- id: fish/purpur_jellyfish
+  no: 130
+  name: 퍼퍼 해파리고기
+  lore: "퍼퍼 블록처럼 보랏빛 몸. 엔드 도시 벽을 따라 천천히 떠다닌다."
+  grade: uncommon
+  region: region/void_sea
+  size_cm: [15, 30]
+  base_price: 30
+  model: harbor:fish/purpur_jellyfish
+  season: 1
+
+- id: fish/stardust_anchovy
+  no: 131
+  name: 별가루 멸치
+  lore: "공허 속에서 반짝이며 떼 지어 다닌다. 멀리서 보면 은하수 같다."
+  grade: uncommon
+  region: region/void_sea
+  size_cm: [5, 12]
+  base_price: 30
+  model: harbor:fish/stardust_anchovy
+  season: 1
+
+- id: fish/void_killifish
+  no: 132
+  name: 공허 송사리
+  lore: "보라색 점처럼 허공을 헤엄친다. 물 없이도 사는 이유는 아무도 모른다."
+  grade: rare
+  region: region/void_sea
+  size_cm: [3, 8]
+  base_price: 90
+  model: harbor:fish/void_killifish
+  season: 1
+
+- id: fish/chorus_seahorse
+  no: 133
+  name: 코러스 해마
+  lore: "코러스 열매를 먹고 자라 가끔 순간이동한다. 어항 뚜껑을 꼭 닫을 것."
+  grade: rare
+  region: region/void_sea
+  bait: [item/bait/chorus]
+  size_cm: [10, 25]
+  base_price: 90
+  model: harbor:fish/chorus_seahorse
+  season: 1
+
+- id: fish/pearl_eye_fish
+  no: 134
+  name: 진주눈 물고기
+  lore: "눈이 엔더 진주로 되어 있다. 들여다보면 다른 곳의 풍경이 비친다."
+  grade: rare
+  region: region/void_sea
+  time: [night]
+  size_cm: [20, 40]
+  base_price: 90
+  model: harbor:fish/pearl_eye_fish
+  season: 1
+
+# 출현 구역 '엔드 도시 주변': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [end_city]).
+- id: fish/levitating_jellyfish
+  no: 135
+  name: 공중부양 해파리어
+  lore: "셜커에게 맞기라도 한 것처럼 늘 둥둥 떠 있다. 줄을 감으면 오히려 위로 올라간다."
+  grade: rare
+  region: region/void_sea
+  size_cm: [30, 60]
+  base_price: 90
+  model: harbor:fish/levitating_jellyfish
+  season: 1
+
+- id: fish/end_rod_halfbeak
+  no: 136
+  name: 엔드 막대 학꽁치
+  lore: "몸이 엔드 막대처럼 하얗게 빛난다. 어두운 공허에서 길잡이가 되어 준다."
+  grade: rare
+  region: region/void_sea
+  size_cm: [40, 70]
+  base_price: 90
+  model: harbor:fish/end_rod_halfbeak
+  season: 1
+
+- id: fish/ender_eel
+  no: 137
+  name: 엔더 장어
+  lore: "눈을 마주치면 낚싯줄을 끊고 사라진다. 고개를 숙이고 낚을 것."
+  grade: epic
+  region: region/void_sea
+  time: [night]
+  bait: [item/bait/chorus]
+  size_cm: [150, 250]
+  base_price: 300
+  model: harbor:fish/ender_eel
+  season: 1
+
+# 출현 구역 '엔드 도시 주변': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [end_city]).
+- id: fish/shell_clamfish
+  no: 138
+  name: 껍데기 조개고기
+  lore: "단단한 껍데기 속에 숨어 있다가 탄환처럼 튀어나온다."
+  grade: epic
+  region: region/void_sea
+  size_cm: [30, 60]
+  base_price: 300
+  model: harbor:fish/shell_clamfish
+  season: 1
+
+# 출현 구역 '엔드 도시 주변': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [end_city]).
+- id: fish/elytra_flyingfish
+  no: 139
+  name: 겉날개 날치
+  lore: "겉날개 같은 지느러미로 공허 위를 활공한다. 한 번 날면 섬 하나를 건넌다."
+  grade: epic
+  region: region/void_sea
+  bait: [item/bait/chorus]
+  size_cm: [80, 150]
+  base_price: 300
+  model: harbor:fish/elytra_flyingfish
+  season: 1
+
+# 출현 조건 '메인 스토리 7장 클리어 후': unlock_flag는 서버 플래그만 보므로 플레이어별 퀘스트 완료를 표현할 수 없어 생략.
+- id: fish/memory_carp
+  no: 140
+  name: 기억 잉어
+  lore: "비늘마다 누군가의 기억이 비친다. 오래 들여다보면 그리운 얼굴이 보인다고 한다."
+  grade: epic
+  region: region/void_sea
+  size_cm: [50, 100]
+  base_price: 300
+  model: harbor:fish/memory_carp
+  season: 1
+
+# 출현 조건 '공허 성운어 처치 후': 플레이어별 처치 기록을 표현할 필드가 없어 생략 (전설의 미끼 조건만 둔다).
+- id: fish/dragonscale_fish
+  no: 142
+  name: 용비늘어
+  lore: "엔더 드래곤의 비늘을 꼭 닮았다. 공허의 바다를 지키던 성운어가 쓰러진 뒤에야 모습을 드러낸다."
+  grade: legendary
+  region: region/void_sea
+  bait: [item/bait/legendary]
+  size_cm: [200, 400]
+  base_price: 1200            # 전설 기본가 고정 ('13. 제작 · 상점 가격' 1장)
+  model: harbor:fish/dragonscale_fish
+  season: 1

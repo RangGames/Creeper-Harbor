@@ -1,6 +1,7 @@
 # 보스 어종 ('2. 어종 목록', '4. 낚시 연출 & 보스전' 2.3). 개인 낚시로도 잡을 수 있고, 보스전에서는 확정 포획 + 품질 보너스.
 # 해구의 군주·녹빛 폭뢰어는 release_only (잡으면 도감에만 등록되고 바다로 돌아간다).
-# 가격·가중치는 제안값. 나머지 보스 어종(철갑상어·대왕오징어·잉어·성운어)은 그 보스를 만들 때 추가한다.
+# 그놈·곰치의 가격·가중치는 제안값. 백색 철갑상어(80)·해구 대왕오징어(103)·불꽃왕 잉어(126)·공허 성운어(141)는
+# '2. 어종 목록' 조건 그대로이고 가격은 '13. 제작 · 상점 가격' 공식(전설 1,200 고정). 보스 정의(content/bosses)는 Phase 3에서 추가한다.
 
 - id: fish/swamp_catfish
   no: 36
@@ -36,6 +37,7 @@
   grade: legendary
   region: region/ash_trench
   weather: [storm]
+  moon: [new]
   bait: [item/bait/legendary]
   size_cm: [3000, 6000]
   base_price: 0              # release_only: 판매 불가
@@ -46,7 +48,7 @@
 - id: fish/green_thunder_fish
   no: 109
   name: 녹빛 폭뢰어
-  lore: "크리퍼 항구를 무너뜨린 대폭발의 원인이라는 전설의 물고기. 비늘 사이로 초록 불꽃이 튄다."
+  lore: "크리퍼 항구를 무너뜨린 대폭발의 원인이라는 전설의 물고기. 비늘 사이로 초록 불꽃이 튄다. 늪지의 누군가는 그 반대라고 중얼거린다."
   grade: legendary
   region: region/ash_trench
   weather: [storm]
@@ -56,4 +58,57 @@
   base_price: 0              # release_only: 판매 불가
   release_only: true
   model: harbor:fish/green_thunder_blastfish
+  season: 1
+
+- id: fish/white_sturgeon
+  no: 80
+  name: 백색 철갑상어
+  lore: "협만의 모든 철갑상어를 거느리는 흰 거인. 등 위의 비늘 판이 얼음처럼 하얗다."
+  grade: epic
+  region: region/frost_fjord
+  weather: [storm]
+  size_cm: [300, 500]
+  base_price: 250
+  weight: 20                 # 제안값 (보스 어종이라 같은 등급보다 드물게)
+  model: harbor:fish/white_sturgeon
+  season: 1
+
+- id: fish/trench_giant_squid
+  no: 103
+  name: 해구 대왕오징어
+  lore: "배만 한 눈으로 낚싯배를 올려다본다. 끌어올리는 데 선원 셋이 필요하다."
+  grade: epic
+  region: region/ash_trench
+  time: [night]
+  weather: [storm]
+  size_cm: [600, 1200]
+  base_price: 275
+  weight: 20                 # 제안값 (보스 어종이라 같은 등급보다 드물게)
+  model: harbor:fish/trench_giant_squid
+  season: 1
+
+- id: fish/flame_king_carp
+  no: 126
+  name: 불꽃왕 잉어
+  lore: "용암 호수의 왕. 비늘 한 장 한 장이 타오르는 불꽃이다."
+  grade: legendary
+  region: region/lava_lake
+  bait: [item/bait/legendary]
+  job_tier_min: 2
+  size_cm: [120, 220]
+  base_price: 1200            # 전설 기본가 고정 ('13. 제작 · 상점 가격' 1장)
+  model: harbor:fish/flame_king_carp
+  season: 1
+
+- id: fish/void_nebula_fish
+  no: 141
+  name: 공허 성운어
+  lore: "별빛을 삼키며 공허를 헤엄치는 거대어. 지나간 자리마다 작은 별이 남는다."
+  grade: legendary
+  region: region/void_sea
+  bait: [item/bait/legendary]
+  job_tier_min: 3
+  size_cm: [400, 800]
+  base_price: 1200            # 전설 기본가 고정 ('13. 제작 · 상점 가격' 1장)
+  model: harbor:fish/void_nebula_fish
   season: 1

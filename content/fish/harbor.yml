@@ -179,7 +179,7 @@
 - id: fish/lighthouse_hairtail
   no: 16
   name: 등대 갈치
-  lore: "등대 불빛 아래에서 은빛 칼처럼 꼿꼿이 선 채 떠오른다."
+  lore: "꺼진 등대 그림자 아래에서 은빛 칼처럼 꼿꼿이 선 채 떠오른다. 등대에 다시 불이 켜지면 더 많이 몰려든다고 한다."
   grade: uncommon
   region: region/harbor
   area: [lighthouse]

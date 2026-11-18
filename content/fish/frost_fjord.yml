@@ -1,0 +1,260 @@
+# 5. 서리 협만 (지역 단계 5). 원본: '2. 어종 목록 (시즌 1)'
+# 백색 철갑상어(80)는 boss.yml. '얼음 구멍'은 area ice_field. 협만의 '눈'은 날씨 키 rain(눈 바이옴의 강수), '폭풍(눈보라)'는 storm.
+# base_price = 등급 최소 + (최대 − 최소) × (지역 단계 − 1) ÷ 6 ('13. 제작 · 상점 가격'), 전설은 1,200 고정
+
+- id: fish/ice_smelt
+  no: 59
+  name: 얼음 빙어
+  lore: "얼음 구멍 아래에서 떼로 올라온다. 튀김으로 먹으면 겨울이 즐겁다."
+  grade: common
+  region: region/frost_fjord
+  area: [ice_field]
+  size_cm: [8, 15]
+  base_price: 10
+  model: harbor:fish/ice_smelt
+  season: 1
+
+- id: fish/fjord_cod
+  no: 60
+  name: 협만 대구
+  lore: "입이 커서 '대구'. 협만 사람들의 주식이다."
+  grade: common
+  region: region/frost_fjord
+  size_cm: [40, 90]
+  base_price: 10
+  model: harbor:fish/fjord_cod
+  season: 1
+
+- id: fish/northern_herring
+  no: 61
+  name: 북방 청어
+  lore: "은빛 떼가 몰려오면 협만 바다가 하얗게 끓는다."
+  grade: common
+  region: region/frost_fjord
+  size_cm: [20, 35]
+  base_price: 10
+  model: harbor:fish/northern_herring
+  season: 1
+
+- id: fish/frost_capelin
+  no: 62
+  name: 서리 열빙어
+  lore: "알이 꽉 찬 녀석일수록 맛있다. 서리 사냥꾼의 간식."
+  grade: common
+  region: region/frost_fjord
+  time: [day]
+  size_cm: [12, 20]
+  base_price: 10
+  model: harbor:fish/frost_capelin
+  season: 1
+
+- id: fish/northern_flounder
+  no: 63
+  name: 북방 가자미
+  lore: "차가운 바닥에 엎드려 겨울을 난다."
+  grade: common
+  region: region/frost_fjord
+  size_cm: [25, 50]
+  base_price: 10
+  model: harbor:fish/northern_flounder
+  season: 1
+
+- id: fish/ice_sculpin
+  no: 64
+  name: 얼음 둑중개
+  lore: "피가 얼지 않는 신기한 물고기. 협만 아이들의 관찰 숙제 단골."
+  grade: common
+  region: region/frost_fjord
+  area: [ice_field]
+  size_cm: [10, 20]
+  base_price: 10
+  model: harbor:fish/ice_sculpin
+  season: 1
+
+- id: fish/dawn_salmon
+  no: 65
+  name: 새벽 연어
+  lore: "태어난 강으로 돌아가려고 협만을 지난다. 붉은 살이 일품."
+  grade: uncommon
+  region: region/frost_fjord
+  time: [dawn]
+  size_cm: [50, 90]
+  base_price: 25
+  model: harbor:fish/dawn_salmon
+  season: 1
+
+- id: fish/blizzard_trout
+  no: 66
+  name: 눈보라 송어
+  lore: "눈이 내리면 수면 가까이 올라와 눈송이를 받아먹는다."
+  grade: uncommon
+  region: region/frost_fjord
+  weather: [rain]  # '비 · 눈': 협만은 눈 바이옴이라 강수가 곧 눈 (날씨 키 rain)
+  size_cm: [40, 70]
+  base_price: 25
+  model: harbor:fish/blizzard_trout
+  season: 1
+
+- id: fish/night_pollock
+  no: 67
+  name: 밤바다 명태
+  lore: "이름이 열 개도 넘는다. 얼리고 말리는 방법에 따라 다르게 부른다."
+  grade: uncommon
+  region: region/frost_fjord
+  time: [night]
+  size_cm: [40, 70]
+  base_price: 25
+  model: harbor:fish/night_pollock
+  season: 1
+
+- id: fish/silver_char
+  no: 68
+  name: 은빛 곤들매기
+  lore: "차가운 호수의 은빛 사냥꾼. 맑은 날 햇빛에 눈부시게 빛난다."
+  grade: uncommon
+  region: region/frost_fjord
+  weather: [clear]
+  size_cm: [30, 60]
+  base_price: 25
+  model: harbor:fish/silver_char
+  season: 1
+
+# 출현 구역 '바닥': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [floor]).
+- id: fish/fjord_angler
+  no: 69
+  name: 협만 아귀
+  lore: "못생겼지만 맛은 최고. 협만 사냥꾼이 몰래 숨겨두고 먹는다."
+  grade: uncommon
+  region: region/frost_fjord
+  time: [night]
+  size_cm: [40, 90]
+  base_price: 25
+  model: harbor:fish/fjord_angler
+  season: 1
+
+- id: fish/arctic_skate
+  no: 70
+  name: 북극 홍어
+  lore: "연처럼 넓적한 몸으로 눈 내리는 바다 밑을 날아다닌다."
+  grade: uncommon
+  region: region/frost_fjord
+  weather: [rain]  # '눈': 협만은 눈 바이옴이라 강수가 곧 눈 (날씨 키 rain)
+  size_cm: [60, 120]
+  base_price: 25
+  model: harbor:fish/arctic_skate
+  season: 1
+
+- id: fish/king_salmon
+  no: 71
+  name: 왕연어
+  lore: "연어 중의 왕. 폭포를 거슬러 오르는 힘으로 낚싯줄을 끊는다."
+  grade: rare
+  region: region/frost_fjord
+  time: [dawn]
+  weather: [rain]
+  size_cm: [80, 140]
+  base_price: 75
+  model: harbor:fish/king_salmon
+  season: 1
+
+- id: fish/aurora_trout
+  no: 72
+  name: 오로라 송어
+  lore: "오로라가 뜨는 밤, 비늘이 하늘빛을 그대로 비춘다."
+  grade: rare
+  region: region/frost_fjord
+  time: [night]
+  weather: [clear]
+  size_cm: [40, 80]
+  base_price: 75
+  model: harbor:fish/aurora_trout
+  season: 1
+
+- id: fish/glacier_sturgeon
+  no: 73
+  name: 빙하 철갑상어
+  lore: "갑옷 같은 비늘 판을 두른 고대 물고기. 빙하가 생기기 전부터 살았다."
+  grade: rare
+  region: region/frost_fjord
+  size_cm: [150, 300]
+  base_price: 75
+  weight: 30                 # 제안값 (상시 저확률)
+  model: harbor:fish/glacier_sturgeon
+  season: 1
+
+- id: fish/arctic_charr
+  no: 74
+  name: 북극 곤들매기
+  lore: "배가 노을처럼 붉다. 가장 깊은 얼음 아래에서만 산다."
+  grade: rare
+  region: region/frost_fjord
+  area: [ice_field]
+  time: [night]
+  size_cm: [50, 90]
+  base_price: 75
+  model: harbor:fish/arctic_charr
+  season: 1
+
+- id: fish/frost_toothfish
+  no: 75
+  name: 서리 이빨고기
+  lore: "얼음 결정 같은 이빨을 가졌다. 물리면 손이 얼어붙는다는 소문."
+  grade: rare
+  region: region/frost_fjord
+  time: [night]
+  weather: [rain]  # '눈': 협만은 눈 바이옴이라 강수가 곧 눈 (날씨 키 rain)
+  size_cm: [60, 120]
+  base_price: 75
+  model: harbor:fish/frost_toothfish
+  season: 1
+
+- id: fish/icicle_eel
+  no: 76
+  name: 고드름 장어
+  lore: "몸이 고드름처럼 투명하고 길다. 녹기 전에 어시장으로 가져가자."
+  grade: rare
+  region: region/frost_fjord
+  weather: [rain]  # '눈': 협만은 눈 바이옴이라 강수가 곧 눈 (날씨 키 rain)
+  size_cm: [80, 150]
+  base_price: 75
+  model: harbor:fish/icicle_eel
+  season: 1
+
+- id: fish/fjord_sleeper_shark
+  no: 77
+  name: 협만 잠꾸러기 상어
+  lore: "수백 년을 산다는 느림보 상어. 너무 느려서 잡혔다는 사실도 늦게 깨닫는다."
+  grade: epic
+  region: region/frost_fjord
+  area: [ice_field]
+  time: [night]
+  size_cm: [250, 500]
+  base_price: 250
+  model: harbor:fish/fjord_sleeper_shark
+  season: 1
+
+- id: fish/ice_crystal_cod
+  no: 78
+  name: 얼음 결정 대구
+  lore: "눈보라 속에서만 나타난다. 비늘 하나하나가 눈 결정 모양이다."
+  grade: epic
+  region: region/frost_fjord
+  weather: [storm]  # 폭풍(눈보라)
+  size_cm: [100, 180]
+  base_price: 250
+  model: harbor:fish/ice_crystal_cod
+  season: 1
+
+- id: fish/aurora_fish
+  no: 79
+  name: 극광 물고기
+  lore: "오로라가 바다로 떨어져 물고기가 되었다는 협만의 옛이야기 그 자체."
+  grade: epic
+  region: region/frost_fjord
+  time: [night]
+  weather: [clear]
+  moon: [full]
+  size_cm: [30, 60]
+  base_price: 250
+  model: harbor:fish/aurora_fish
+  season: 1

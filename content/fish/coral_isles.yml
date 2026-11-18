@@ -1,0 +1,258 @@
+# 3. 산호 군도 (지역 단계 3). 원본: '2. 어종 목록 (시즌 1)'
+# 난파선 수호 곰치(58)는 boss.yml. '원해'는 area open_sea.
+# base_price = 등급 최소 + (최대 − 최소) × (지역 단계 − 1) ÷ 6 ('13. 제작 · 상점 가격'), 전설은 1,200 고정
+
+- id: fish/clown_coralfish
+  no: 37
+  name: 광대 산호어
+  lore: "말미잘 속에 숨어 사는 주황 줄무늬 물고기. 산호 군도의 마스코트."
+  grade: common
+  region: region/coral_isles
+  size_cm: [6, 12]
+  base_price: 8
+  model: harbor:fish/clown_coralfish
+  season: 1
+
+- id: fish/blue_tang
+  no: 38
+  name: 파랑 쥐돔
+  lore: "바다보다 더 파란 몸빛. 산호섬 원주민들은 행운의 상징으로 여긴다."
+  grade: common
+  region: region/coral_isles
+  time: [day]
+  size_cm: [15, 30]
+  base_price: 8
+  model: harbor:fish/blue_tang
+  season: 1
+
+- id: fish/yellow_butterflyfish
+  no: 39
+  name: 노랑 나비고기
+  lore: "나비처럼 산호 사이를 팔랑거리며 헤엄친다."
+  grade: common
+  region: region/coral_isles
+  time: [day]
+  size_cm: [10, 20]
+  base_price: 8
+  model: harbor:fish/yellow_butterflyfish
+  season: 1
+
+- id: fish/coral_damselfish
+  no: 40
+  name: 산호 자리돔
+  lore: "작은 몸으로 자기 산호 한 덩이를 끝까지 지킨다."
+  grade: common
+  region: region/coral_isles
+  size_cm: [5, 12]
+  base_price: 8
+  model: harbor:fish/coral_damselfish
+  season: 1
+
+- id: fish/striped_parrotfish
+  no: 41
+  name: 줄무늬 비늘돔
+  lore: "산호를 갉아먹고 하얀 모래를 만든다. 섬의 해변은 이 녀석 덕분이다."
+  grade: common
+  region: region/coral_isles
+  time: [day]
+  size_cm: [20, 40]
+  base_price: 8
+  model: harbor:fish/striped_parrotfish
+  season: 1
+
+- id: fish/sandbar_wrasse
+  no: 42
+  name: 모래톱 놀래기
+  lore: "밤이면 모래 속에 파고들어 잠을 잔다."
+  grade: common
+  region: region/coral_isles
+  size_cm: [15, 25]
+  base_price: 8
+  model: harbor:fish/sandbar_wrasse
+  season: 1
+
+- id: fish/tropical_trevally
+  no: 43
+  name: 열대 전갱이
+  lore: "떼 지어 섬 주위를 빙글빙글 돈다. 회로 먹으면 최고."
+  grade: common
+  region: region/coral_isles
+  size_cm: [25, 45]
+  base_price: 8
+  model: harbor:fish/tropical_trevally
+  season: 1
+
+- id: fish/island_saury
+  no: 44
+  name: 섬 꽁치
+  lore: "파도 위로 뛰어오르는 습관이 있다. 가끔 배 위로 스스로 떨어진다."
+  grade: common
+  region: region/coral_isles
+  time: [day]
+  size_cm: [25, 35]
+  base_price: 8
+  model: harbor:fish/island_saury
+  season: 1
+
+- id: fish/parrot_scarus
+  no: 45
+  name: 앵무 비늘돔
+  lore: "앵무새 부리 같은 이빨로 산호를 깨문다. 밤에는 점액 주머니 속에서 잔다."
+  grade: uncommon
+  region: region/coral_isles
+  time: [day]
+  size_cm: [40, 80]
+  base_price: 20
+  model: harbor:fish/parrot_scarus
+  season: 1
+
+- id: fish/lion_scorpionfish
+  no: 46
+  name: 사자 쏠배감펭
+  lore: "사자 갈기 같은 지느러미에 독가시가 숨어 있다. 화려할수록 위험하다."
+  grade: uncommon
+  region: region/coral_isles
+  time: [night]
+  size_cm: [20, 40]
+  base_price: 20
+  model: harbor:fish/lion_scorpionfish
+  season: 1
+
+- id: fish/rainbow_wrasse
+  no: 47
+  name: 무지개 놀래기
+  lore: "맑은 날에만 무지개 일곱 빛깔이 모두 드러난다."
+  grade: uncommon
+  region: region/coral_isles
+  weather: [clear]
+  size_cm: [15, 30]
+  base_price: 20
+  model: harbor:fish/rainbow_wrasse
+  season: 1
+
+- id: fish/coral_moray
+  no: 48
+  name: 산호 곰치
+  lore: "산호 구멍에서 입만 벌리고 있다. 손가락을 넣지 말 것."
+  grade: uncommon
+  region: region/coral_isles
+  time: [night]
+  size_cm: [80, 150]
+  base_price: 20
+  model: harbor:fish/coral_moray
+  season: 1
+
+- id: fish/silk_mandarinfish
+  no: 49
+  name: 비단 만다린어
+  lore: "비단옷을 입은 듯한 화려한 무늬. 해 질 녘에만 짝을 찾아 나온다."
+  grade: uncommon
+  region: region/coral_isles
+  time: [dusk]
+  size_cm: [5, 10]
+  base_price: 20
+  model: harbor:fish/silk_mandarinfish
+  season: 1
+
+- id: fish/bigfin_reef_squid
+  no: 50
+  name: 무늬 오징어
+  lore: "몸 색을 순식간에 바꾼다. 화가 나면 줄무늬가 번쩍인다."
+  grade: uncommon
+  region: region/coral_isles
+  time: [night]
+  size_cm: [20, 45]
+  base_price: 20
+  model: harbor:fish/bigfin_reef_squid
+  season: 1
+
+- id: fish/napoleon_wrasse
+  no: 51
+  name: 나폴레옹 놀래기
+  lore: "이마에 왕관처럼 혹이 솟았다. 산호 군도에서 가장 거만한 물고기."
+  grade: rare
+  region: region/coral_isles
+  time: [day]
+  weather: [clear]
+  size_cm: [80, 180]
+  base_price: 60
+  model: harbor:fish/napoleon_wrasse
+  season: 1
+
+- id: fish/golden_mahi
+  no: 52
+  name: 황금 만새기
+  lore: "물 밖으로 나오면 금빛에서 초록, 파랑으로 색이 바뀐다."
+  grade: rare
+  region: region/coral_isles
+  area: [open_sea]
+  weather: [clear]
+  size_cm: [60, 120]
+  base_price: 60
+  model: harbor:fish/golden_mahi
+  season: 1
+
+- id: fish/purple_coral_octopus
+  no: 53
+  name: 보라 산호 문어
+  lore: "보랏빛 산호로 완벽하게 위장한다. 다리 여덟 개로 낚싯대를 붙잡고 버틴다."
+  grade: rare
+  region: region/coral_isles
+  time: [night]
+  weather: [rain]
+  size_cm: [40, 90]
+  base_price: 60
+  model: harbor:fish/purple_coral_octopus
+  season: 1
+
+- id: fish/dusk_barracuda
+  no: 54
+  name: 황혼 바라쿠다
+  lore: "해 질 녘 붉은 바다를 가르는 은빛 창. 이빨이 면도날 같다."
+  grade: rare
+  region: region/coral_isles
+  time: [dusk]
+  size_cm: [80, 150]
+  base_price: 60
+  model: harbor:fish/dusk_barracuda
+  season: 1
+
+- id: fish/glass_seahorse
+  no: 55
+  name: 유리 해마
+  lore: "몸이 투명해서 산호 사이에서는 거의 보이지 않는다. 보름달 아래에서만 윤곽이 빛난다."
+  grade: rare
+  region: region/coral_isles
+  weather: [clear]
+  moon: [full]
+  size_cm: [8, 20]
+  base_price: 60
+  model: harbor:fish/glass_seahorse
+  season: 1
+
+- id: fish/archipelago_marlin
+  no: 56
+  name: 군도의 청새치
+  lore: "창 같은 주둥이로 파도를 찢으며 달린다. 1시간 넘게 싸웠다는 어부도 있다."
+  grade: epic
+  region: region/coral_isles
+  area: [open_sea]
+  weather: [clear]
+  bait: [item/bait/shiny_lure]
+  size_cm: [200, 400]
+  base_price: 200
+  model: harbor:fish/archipelago_marlin
+  season: 1
+
+- id: fish/rainbow_coral_ray
+  no: 57
+  name: 무지개 산호 가오리
+  lore: "보름달 밤에만 산호 위를 미끄러지듯 날아다닌다. 등에 무지개 무늬가 흐른다."
+  grade: epic
+  region: region/coral_isles
+  time: [night]
+  moon: [full]
+  size_cm: [100, 250]
+  base_price: 200
+  model: harbor:fish/rainbow_coral_ray
+  season: 1

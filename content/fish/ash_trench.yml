@@ -1,0 +1,323 @@
+# 6. 잿빛 해구 (심해, 지역 단계 6). 원본: '2. 어종 목록 (시즌 1)'
+# 해구 대왕오징어(103)·해구의 군주(108)·녹빛 폭뢰어(109)는 boss.yml. '해저 유적'은 area ruin, '해구 최심부'는 area deep_rift.
+# base_price = 등급 최소 + (최대 − 최소) × (지역 단계 − 1) ÷ 6 ('13. 제작 · 상점 가격'), 전설은 1,200 고정
+
+- id: fish/deep_lanternfish
+  no: 81
+  name: 심해 샛비늘치
+  lore: "배에 작은 등불이 줄지어 켜져 있다. 심해의 별빛."
+  grade: common
+  region: region/ash_trench
+  size_cm: [5, 15]
+  base_price: 12
+  model: harbor:fish/deep_lanternfish
+  season: 1
+
+- id: fish/silver_hatchetfish
+  no: 82
+  name: 은빛 도끼고기
+  lore: "납작한 은빛 몸이 도끼날 같다. 위에서 보면 거의 보이지 않는다."
+  grade: common
+  region: region/ash_trench
+  size_cm: [5, 10]
+  base_price: 12
+  model: harbor:fish/silver_hatchetfish
+  season: 1
+
+- id: fish/ash_skate
+  no: 83
+  name: 잿빛 홍어
+  lore: "해구 바닥의 잿더미에 섞여 있으면 찾을 수 없다."
+  grade: common
+  region: region/ash_trench
+  size_cm: [50, 100]
+  base_price: 12
+  model: harbor:fish/ash_skate
+  season: 1
+
+- id: fish/soft_snailfish
+  no: 84
+  name: 물렁 꼼치
+  lore: "몸이 젤리처럼 물렁하다. 국으로 끓이면 시원하다."
+  grade: common
+  region: region/ash_trench
+  size_cm: [30, 50]
+  base_price: 12
+  model: harbor:fish/soft_snailfish
+  season: 1
+
+- id: fish/ash_rockfish
+  no: 85
+  name: 잿빛 볼락
+  lore: "빛 한 줄기 없는 곳에서 산다. 눈이 얼굴의 절반이다."
+  grade: common
+  region: region/ash_trench
+  size_cm: [20, 40]
+  base_price: 12
+  model: harbor:fish/ash_rockfish
+  season: 1
+
+- id: fish/trench_eel
+  no: 86
+  name: 해구 장어
+  lore: "해구 절벽 틈에 몸을 감고 지나가는 먹이를 기다린다."
+  grade: common
+  region: region/ash_trench
+  size_cm: [40, 80]
+  base_price: 12
+  model: harbor:fish/trench_eel
+  season: 1
+
+- id: fish/lantern_angler
+  no: 87
+  name: 초롱아귀
+  lore: "머리 위에 초롱을 달고 다닌다. 그 불빛을 따라가면 입속이다."
+  grade: uncommon
+  region: region/ash_trench
+  time: [night]
+  size_cm: [10, 40]
+  base_price: 28
+  model: harbor:fish/lantern_angler
+  season: 1
+
+- id: fish/deep_squid
+  no: 88
+  name: 심해 오징어
+  lore: "몸에서 푸른 빛을 깜빡이며 서로 신호를 보낸다."
+  grade: uncommon
+  region: region/ash_trench
+  size_cm: [30, 80]
+  base_price: 28
+  model: harbor:fish/deep_squid
+  season: 1
+
+- id: fish/ghost_ray
+  no: 89
+  name: 유령 가오리
+  lore: "하얗고 반투명한 몸으로 소리 없이 지나간다. 잠수부들이 가장 무서워한다."
+  grade: uncommon
+  region: region/ash_trench
+  time: [night]
+  size_cm: [60, 120]
+  base_price: 28
+  model: harbor:fish/ghost_ray
+  season: 1
+
+- id: fish/venom_scorpionfish
+  no: 90
+  name: 독침 쏨뱅이
+  lore: "바위와 구분이 안 된다. 밟으면 독가시가 박힌다."
+  grade: uncommon
+  region: region/ash_trench
+  size_cm: [20, 40]
+  base_price: 28
+  model: harbor:fish/venom_scorpionfish
+  season: 1
+
+- id: fish/ruin_grey_seabream
+  no: 91
+  name: 유적 회색도미
+  lore: "비늘에 고대 문양이 새겨져 있다. 유적 기둥 사이를 집처럼 드나든다."
+  grade: uncommon
+  region: region/ash_trench
+  area: [ruin]
+  size_cm: [30, 60]
+  base_price: 28
+  model: harbor:fish/ruin_grey_seabream
+  season: 1
+
+- id: fish/blobfish
+  no: 92
+  name: 물렁 심해어
+  lore: "수면으로 끌어올리면 녹은 젤리처럼 늘어진다. 심해에서는 멀쩡한 물고기다."
+  grade: uncommon
+  region: region/ash_trench
+  size_cm: [20, 35]
+  base_price: 28
+  model: harbor:fish/blobfish
+  season: 1
+
+- id: fish/fangtooth
+  no: 93
+  name: 심해 바늘이빨고기
+  lore: "몸보다 긴 바늘 이빨 때문에 입을 다물지 못한다. 그래서 늘 웃는 얼굴이다."
+  grade: uncommon
+  region: region/ash_trench
+  time: [night]
+  size_cm: [15, 30]
+  base_price: 28
+  model: harbor:fish/fangtooth
+  season: 1
+
+- id: fish/ash_sablefish
+  no: 94
+  name: 잿빛 은대구
+  lore: "기름이 많아 구우면 잿빛 살이 눈처럼 하얗게 변한다. 심해 연구원의 야식."
+  grade: uncommon
+  region: region/ash_trench
+  size_cm: [50, 90]
+  base_price: 28
+  model: harbor:fish/ash_sablefish
+  season: 1
+
+- id: fish/oarfish
+  no: 95
+  name: 산갈치
+  lore: "붉은 갈기를 단 리본 같은 몸. 나타나면 큰일이 생긴다는 전설이 있다."
+  grade: rare
+  region: region/ash_trench
+  weather: [storm]
+  size_cm: [300, 600]
+  base_price: 83
+  model: harbor:fish/oarfish
+  season: 1
+
+- id: fish/barreleye
+  no: 96
+  name: 유리머리 물고기
+  lore: "머리가 투명한 유리 돔이다. 그 안의 초록 눈이 위를 올려다본다."
+  grade: rare
+  region: region/ash_trench
+  time: [night]
+  size_cm: [10, 20]
+  base_price: 83
+  model: harbor:fish/barreleye
+  season: 1
+
+- id: fish/deep_chimaera
+  no: 97
+  name: 심해 은상어
+  lore: "은빛 몸에 큰 눈. 상어보다 오래된 혈통을 가진 유령 같은 물고기."
+  grade: rare
+  region: region/ash_trench
+  time: [night]
+  size_cm: [60, 120]
+  base_price: 83
+  model: harbor:fish/deep_chimaera
+  season: 1
+
+- id: fish/coelacanth
+  no: 98
+  name: 실러캔스
+  lore: "화석으로만 알려졌던 물고기. 심해 연구원이 보면 기절할 것이다."
+  grade: rare
+  region: region/ash_trench
+  area: [ruin]
+  size_cm: [120, 200]
+  base_price: 83
+  model: harbor:fish/coelacanth
+  season: 1
+
+- id: fish/obsidian_angler
+  no: 99
+  name: 흑요석 아귀
+  lore: "피부가 흑요석처럼 단단하고 검게 빛난다. 칼이 잘 들지 않는다."
+  grade: rare
+  region: region/ash_trench
+  area: [deep_rift]
+  size_cm: [40, 80]
+  base_price: 83
+  model: harbor:fish/obsidian_angler
+  season: 1
+
+- id: fish/helmet_fish
+  no: 100
+  name: 고대 투구어
+  lore: "머리에 뼈 투구를 썼다. 해저 유적 벽화에 그려진 그 물고기다."
+  grade: rare
+  region: region/ash_trench
+  area: [ruin]
+  time: [night]
+  size_cm: [30, 60]
+  base_price: 83
+  model: harbor:fish/helmet_fish
+  season: 1
+
+- id: fish/gulper_eel
+  no: 101
+  name: 자루입 장어
+  lore: "입이 자루처럼 늘어나 자기보다 큰 먹이도 삼킨다. 가끔 낚싯대째 삼키려 든다."
+  grade: rare
+  region: region/ash_trench
+  time: [night]
+  size_cm: [60, 100]
+  base_price: 83
+  model: harbor:fish/gulper_eel
+  season: 1
+
+# 출현 구역 '해구 열수구': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [hydrothermal_vent]).
+- id: fish/vent_fish
+  no: 102
+  name: 열수구 물고기
+  lore: "뜨거운 물이 솟는 해구 틈에서만 산다. 손에 쥐면 비늘이 따뜻하다."
+  grade: rare
+  region: region/ash_trench
+  size_cm: [20, 40]
+  base_price: 83
+  model: harbor:fish/vent_fish
+  season: 1
+
+- id: fish/goblin_shark
+  no: 104
+  name: 해구 마귀상어
+  lore: "턱이 앞으로 튀어나오며 먹이를 낚아챈다. 분홍빛 피부가 오히려 섬뜩하다."
+  grade: epic
+  region: region/ash_trench
+  time: [night]
+  size_cm: [200, 400]
+  base_price: 275
+  model: harbor:fish/goblin_shark
+  season: 1
+
+- id: fish/ruin_guardian_fish
+  no: 105
+  name: 유적 수호어
+  lore: "해저 유적의 문장과 똑같은 무늬를 가졌다. 유적을 지은 이들이 기르던 물고기일까."
+  grade: epic
+  region: region/ash_trench
+  area: [ruin]
+  moon: [full]
+  size_cm: [100, 180]
+  base_price: 275
+  model: harbor:fish/ruin_guardian_fish
+  season: 1
+
+# 미끼 조건 '심해 발광 미끼'는 아이템 정의(content/items)가 아직 없어 bait를 비워 둔다 (아이템이 생기면 bait에 추가).
+- id: fish/abyss_lanternfish
+  no: 106
+  name: 심연 등불어
+  lore: "온몸이 등불처럼 빛난다. 그믐밤, 빛이 하나도 없을 때만 다가온다."
+  grade: epic
+  region: region/ash_trench
+  moon: [new]
+  size_cm: [80, 150]
+  base_price: 275
+  model: harbor:fish/abyss_lanternfish
+  season: 1
+
+- id: fish/royal_guard_armorfish
+  no: 107
+  name: 왕국 근위 철갑어
+  lore: "비늘에 옛 왕국 근위대의 문장이 새겨져 있다. 주인이 사라진 뒤에도 왕궁을 지킨다."
+  grade: epic
+  region: region/ash_trench
+  area: [ruin]
+  time: [night]
+  size_cm: [150, 250]
+  base_price: 275
+  model: harbor:fish/royal_guard_armorfish
+  season: 1
+
+- id: fish/sunken_crown_seabream
+  no: 110
+  name: 가라앉은 왕관 도미
+  lore: "옛 항구 왕국의 왕관을 지느러미에 걸고 있다. 왕관의 주인은 아직 밝혀지지 않았다."
+  grade: legendary
+  region: region/ash_trench
+  area: [ruin]
+  moon: [full]
+  bait: [item/bait/legendary]
+  size_cm: [60, 100]
+  base_price: 1200            # 전설 기본가 고정 ('13. 제작 · 상점 가격' 1장)
+  model: harbor:fish/sunken_crown_seabream
+  season: 1

@@ -1,0 +1,209 @@
+# 4. 용암 호수 (네더, 지역 단계 4). 원본: '2. 어종 목록 (시즌 1)'
+# 불꽃왕 잉어(126)는 boss.yml. 시간 조건은 오버월드 시간 기준. '현무암 삼각주'는 area basalt_shore.
+# base_price = 등급 최소 + (최대 − 최소) × (지역 단계 − 1) ÷ 6 ('13. 제작 · 상점 가격'), 전설은 1,200 고정
+
+- id: fish/ember_minnow
+  no: 111
+  name: 잿불 피라미
+  lore: "용암 표면을 톡톡 튀어 다니는 작은 불씨 같은 물고기."
+  grade: common
+  region: region/lava_lake
+  size_cm: [5, 12]
+  base_price: 9
+  model: harbor:fish/ember_minnow
+  season: 1
+
+- id: fish/basalt_goby
+  no: 112
+  name: 현무암 망둑
+  lore: "돌 틈에 숨어 사는 거무튀튀한 망둑. 식으면 진짜 돌처럼 굳는다."
+  grade: common
+  region: region/lava_lake
+  area: [basalt_shore]
+  size_cm: [10, 20]
+  base_price: 9
+  model: harbor:fish/basalt_goby
+  season: 1
+
+# 출현 구역 '진홍 숲 인근': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [crimson_forest]).
+- id: fish/crimson_crucian
+  no: 113
+  name: 진홍 버섯 붕어
+  lore: "진홍 균사를 뜯어 먹고 자라 비늘까지 붉게 물들었다."
+  grade: common
+  region: region/lava_lake
+  size_cm: [15, 30]
+  base_price: 9
+  model: harbor:fish/crimson_crucian
+  season: 1
+
+# 출현 구역 '뒤틀린 숲 인근': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [warped_forest]).
+- id: fish/warped_trout
+  no: 114
+  name: 뒤틀린 숲 송어
+  lore: "청록빛 비늘을 가졌다. 엔더맨이 지나가면 재빨리 몸을 숨긴다."
+  grade: uncommon
+  region: region/lava_lake
+  size_cm: [25, 45]
+  base_price: 23
+  model: harbor:fish/warped_trout
+  season: 1
+
+- id: fish/quartz_stickleback
+  no: 115
+  name: 석영 가시고기
+  lore: "등에 네더 석영 가시가 솟아 있다. 세공사들이 탐내는 물고기."
+  grade: uncommon
+  region: region/lava_lake
+  size_cm: [10, 20]
+  base_price: 23
+  model: harbor:fish/quartz_stickleback
+  season: 1
+
+- id: fish/magma_puffer
+  no: 116
+  name: 마그마 공 복어
+  lore: "부풀면 마그마 덩어리처럼 통통 튄다. 뜨거우니 받아내지 말 것."
+  grade: uncommon
+  region: region/lava_lake
+  bait: [item/bait/magma_cream]
+  size_cm: [15, 35]
+  base_price: 23
+  model: harbor:fish/magma_puffer
+  season: 1
+
+# 출현 구역 '영혼 모래 골짜기': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [soul_sand_valley]).
+- id: fish/ash_sky_ray
+  no: 117
+  name: 잿빛 하늘가오리
+  lore: "재가 흩날리는 골짜기 위를 유령처럼 소리 없이 미끄러진다."
+  grade: uncommon
+  region: region/lava_lake
+  size_cm: [50, 90]
+  base_price: 23
+  model: harbor:fish/ash_sky_ray
+  season: 1
+
+- id: fish/lava_loach
+  no: 118
+  name: 용암 미꾸라지
+  lore: "끓는 용암 속에서도 꿈틀거린다. 맨손으로 잡지 말 것."
+  grade: rare
+  region: region/lava_lake
+  size_cm: [15, 30]
+  base_price: 68
+  model: harbor:fish/lava_loach
+  season: 1
+
+- id: fish/basalt_carp
+  no: 119
+  name: 현무암 잉어
+  lore: "비늘이 식은 현무암처럼 거칠다. 들어 올리면 돌덩이처럼 무겁다."
+  grade: rare
+  region: region/lava_lake
+  area: [basalt_shore]
+  size_cm: [40, 80]
+  base_price: 68
+  model: harbor:fish/basalt_carp
+  season: 1
+
+# 출현 구역 '네더 요새 잔해': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [nether_fortress]).
+- id: fish/gunpowder_catfish
+  no: 120
+  name: 화약고 메기
+  lore: "왕국 함대가 버리고 간 화약 창고 아래에서 화약을 먹고 자랐다. 가까이 가면 매캐한 냄새가 난다."
+  grade: rare
+  region: region/lava_lake
+  bait: [item/bait/gunpowder_paste]
+  size_cm: [60, 120]
+  base_price: 68
+  model: harbor:fish/gunpowder_catfish
+  season: 1
+
+# 출현 구역 '네더 요새 주변': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [nether_fortress]).
+- id: fish/blaze_rod_eel
+  no: 121
+  name: 화염막대 장어
+  lore: "꼬리가 화염 막대처럼 빙글빙글 돈다. 낚싯줄이 그을릴 수 있다."
+  grade: rare
+  region: region/lava_lake
+  size_cm: [80, 140]
+  base_price: 68
+  model: harbor:fish/blaze_rod_eel
+  season: 1
+
+- id: fish/magma_catfish
+  no: 122
+  name: 마그마 메기
+  lore: "수염 끝이 붉게 달아올라 있다. 낚싯줄이 녹기 전에 끌어올려야 한다."
+  grade: epic
+  region: region/lava_lake
+  bait: [item/bait/magma_cream]
+  size_cm: [80, 160]
+  base_price: 225
+  model: harbor:fish/magma_catfish
+  season: 1
+
+# 출현 구역 '영혼 모래 골짜기': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [soul_sand_valley]).
+- id: fish/soul_eel
+  no: 123
+  name: 영혼 장어
+  lore: "푸른 영혼의 불꽃을 꼬리에 달고 다닌다. 잡을 때 희미한 비명이 들린다."
+  grade: epic
+  region: region/lava_lake
+  size_cm: [100, 200]
+  base_price: 225
+  model: harbor:fish/soul_eel
+  season: 1
+
+- id: fish/debris_sturgeon
+  no: 124
+  name: 고대 잔해 철갑상어
+  lore: "비늘 판이 고대 잔해만큼 단단하다. 웬만한 작살로는 흠집도 나지 않는다."
+  grade: epic
+  region: region/lava_lake
+  area: [basalt_shore]
+  bait: [item/bait/magma_cream]
+  size_cm: [150, 280]
+  base_price: 225
+  model: harbor:fish/debris_sturgeon
+  season: 1
+
+# 출현 구역 '영혼 모래 골짜기': world/regions.yml에 해당 구역이 없어 area를 비워 둔다 (구역이 생기면 area: [soul_sand_valley]).
+- id: fish/skeleton_angler
+  no: 125
+  name: 검은 해골 아귀
+  lore: "뼈만 남은 듯한 검은 몸. 초롱 대신 푸른 영혼의 불을 달고 다닌다."
+  grade: epic
+  region: region/lava_lake
+  time: [night]
+  size_cm: [60, 120]
+  base_price: 225
+  model: harbor:fish/skeleton_angler
+  season: 1
+
+# 출현 조건 '금 장비 착용'은 FishDef에 표현할 필드가 없어 생략 (Fishing 판정 추가 필요).
+- id: fish/golden_greed
+  no: 127
+  name: 황금 탐욕어
+  lore: "온몸이 순금이다. 피글린들이 금괴와 바꾸자고 졸라댄다."
+  grade: legendary
+  region: region/lava_lake
+  bait: [item/bait/legendary]
+  size_cm: [50, 90]
+  base_price: 1200            # 전설 기본가 고정 ('13. 제작 · 상점 가격' 1장)
+  model: harbor:fish/golden_greed
+  season: 1
+
+- id: fish/crying_ray
+  no: 128
+  name: 울음 가오리
+  lore: "울 때마다 하얀 눈물 결정을 흘린다. 그 눈물은 아무리 뜨거워도 녹지 않는다."
+  grade: legendary
+  region: region/lava_lake
+  time: [night]
+  bait: [item/bait/legendary]
+  size_cm: [150, 300]
+  base_price: 1200            # 전설 기본가 고정 ('13. 제작 · 상점 가격' 1장)
+  model: harbor:fish/crying_ray
+  season: 1
