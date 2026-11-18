@@ -1,0 +1,189 @@
+# 메인 스토리 프롤로그~3장 ('5. 서버 스토리' 3장, docs 20 6.4). CBT 범위 ('14. 개발 일정' 3장).
+# ID 규칙: quest/main/ch<N>_<이름> (DB에는 harbor:quest/main/…). 메인은 시즌 이월·포기 불가, 목표는 차례대로(sequence).
+# 장 마지막 보상: 진실의 조각 1(1~7장), 물비늘 3('7. 밸런스 기획' 7장 장당 3), 평판 +150(제안값), 다음 지역 진입 플래그.
+# 지역 목표는 NPC가 서 있는 자리(npcs.yml)에 맞춰 point:<월드>,<x>,<y>,<z>,<반경>으로 둔다 (region:<ID>도 쓸 수 있다).
+# 보상 수치(골드·경험치)는 제안값.
+
+# ---------------------------------------------------------------- 프롤로그 · 표류
+- id: quest/main/ch0_drift
+  name: 표류
+  type: main
+  chapter: 0
+  description:
+    - 폭풍에 휩쓸려 나룻배에서 깨어났다. 눈앞에 작은 항구가 보인다.
+    - 항구장 한솔은 마지못해 받아주며 경고했다. "밤에 초록 불빛을 보거든 가까이 가지 마라."
+  start_npc: npc/hansol
+  end_npc: npc/hansol
+  cutscene: cutscene/prologue_drift
+  objectives:
+    - {key: wake, type: cutscene, target: cutscene/prologue_drift, text: 정신을 차린다}
+    - {key: meet_bawi, type: talk, target: npc/bawi, waypoint: npc/bawi, text: 어부 길드의 바위를 찾아간다}
+    - {key: report, type: talk, target: npc/hansol, waypoint: npc/hansol, text: 항구장 한솔에게 돌아간다}
+  rewards:
+    gold: 300
+    exp: 40
+    items:
+      - {item: item/bait/earthworm, amount: 20}
+    flags: [story/arrived, story/ch0_done]
+
+# ---------------------------------------------------------------- 1장 · 꺼진 등대 (크리퍼 항구 / 1차)
+- id: quest/main/ch1_first_cast
+  name: 첫 캐스팅
+  type: main
+  chapter: 1
+  description:
+    - 길드 마스터 바위가 낚시의 기본을 가르쳐 주겠다고 한다. "필요한 만큼만 잡는 게 어부야."
+  requires: {quests: [quest/main/ch0_drift]}
+  start_npc: npc/bawi
+  end_npc: npc/bawi
+  objectives:
+    - {key: mackerel, type: catch, target: fish/harbor_mackerel, count: 3, waypoint: "harbor_main,10,63,40"}
+    - {key: any_fish, type: catch, target: any, count: 5}
+  rewards: {gold: 400, exp: 80}
+
+- id: quest/main/ch1_harbor_rebuild
+  name: 항구 재건 의뢰
+  type: main
+  chapter: 1
+  description:
+    - 무너진 부두를 고치는 일꾼들에게 생선을 대 주자. 한솔이 기다리고 있다.
+  requires: {quests: [quest/main/ch1_first_cast]}
+  start_npc: npc/bawi
+  end_npc: npc/hansol
+  objectives:
+    - {key: uncommon, type: catch, target: "grade:uncommon+", count: 1}
+    - {key: job_level, type: job_level, count: 5, text: 직업 레벨 5 달성}
+    - {key: shad, type: deliver, target: fish/calm_bay_gizzard_shad, count: 3}
+  rewards:
+    gold: 600
+    exp: 120
+    affinity:
+      - {npc: npc/hansol, value: 20}
+
+- id: quest/main/ch1_dark_lighthouse
+  name: 꺼진 등대
+  type: main
+  chapter: 1
+  description:
+    - 언덕 위 등대는 30년 동안 한 번도 켜지지 않았다고 한다.
+    - 뇌우가 치던 밤, 먼 바다에서 초록 불빛이 깜빡였다.
+  requires: {quests: [quest/main/ch1_harbor_rebuild]}
+  start_npc: npc/hansol
+  end_npc: npc/hansol
+  objectives:
+    - {key: lighthouse, type: visit, target: "point:harbor_main,-14,72,-50,8", waypoint: "harbor_main,-14,72,-50", text: 언덕 위 등대에 올라간다}
+    - {key: hairtail, type: catch, target: fish/lighthouse_hairtail, count: 1, text: 등대 아래에서 등대 갈치를 낚는다}
+  rewards:
+    gold: 800
+    exp: 200
+    mulbineul: 3
+    reputation: 150
+    chronicle: rusty_key
+    flags: [story/ch1_done]   # World 늪지 진입 조건 (world/regions.yml)
+
+# ---------------------------------------------------------------- 2장 · 늪의 노인 (이끼 강 & 버섯 늪지 / 1차)
+- id: quest/main/ch2_swamp_path
+  name: 늪으로 가는 길
+  type: main
+  chapter: 2
+  description:
+    - 버섯 늪지에 수염이 덮인 노인이 산다는 소문이 있다. "초록 빛은 원수가 아니야"라는 말만 되풀이한다고.
+  requires: {quests: [quest/main/ch1_dark_lighthouse]}
+  start_npc: npc/hansol
+  end_npc: npc/hermit
+  objectives:
+    - {key: swamp, type: visit, target: "point:harbor_main,220,63,140,40", waypoint: "harbor_main,220,63,140", text: 버섯 늪지에 들어간다}
+    - {key: hermit, type: talk, target: npc/hermit, waypoint: npc/hermit, text: 늪지 은둔자에게 말을 건다}
+  rewards: {gold: 600, exp: 200}
+
+- id: quest/main/ch2_the_thing
+  name: 그놈
+  type: main
+  chapter: 2
+  description:
+    - 노인은 늪지의 주인 '그놈'을 잡아오면 이야기를 해주겠다고 한다.
+  requires: {quests: [quest/main/ch2_swamp_path], level: 12}
+  start_npc: npc/hermit
+  end_npc: npc/hermit
+  objectives:
+    - {key: bait, type: catch, target: "grade:uncommon+", count: 3, text: 그놈을 꾀어낼 고급 어종을 낚는다}
+    - {key: boss, type: boss, target: boss/swamp_catfish, count: 1, waypoint: "harbor_main,230,63,150", text: 늪지의 주인 '그놈'을 잡는다}
+  rewards:
+    gold: 1500
+    exp: 400
+    title: title/swamp_master
+
+- id: quest/main/ch2_hermit_riddle
+  name: 은둔자의 수수께끼
+  type: main
+  chapter: 2
+  description:
+    - '"초록 빛은 원수가 아니야. 바다에게 물어봐라." 노인은 그 한마디만 남겼다.'
+  requires: {quests: [quest/main/ch2_the_thing]}
+  start_npc: npc/hermit
+  end_npc: npc/hansol
+  objectives:
+    - {key: ask, type: talk, target: npc/hermit, text: 노인의 말을 다시 듣는다}
+    - {key: hansol, type: talk, target: npc/hansol, waypoint: npc/hansol, text: 한솔에게 노인의 말을 전한다}
+  rewards:
+    gold: 800
+    exp: 300
+    mulbineul: 3
+    reputation: 150
+    chronicle: hermit_riddle
+    flags: [story/ch2_done]
+
+# ---------------------------------------------------------------- 3장 · 지켜진 약속 (산호 군도 / 1차 마스터)
+- id: quest/main/ch3_coral_invite
+  name: 산호섬의 초대
+  type: main
+  chapter: 3
+  description:
+    - 산호섬 사람들이 '첫 물고기 방류 의식'에 초대했다.
+  requires: {quests: [quest/main/ch2_hermit_riddle], level: 18}
+  start_npc: npc/hansol
+  end_npc: npc/coral
+  objectives:
+    - {key: coral, type: visit, target: "point:harbor_main,380,64,-260,50", waypoint: "harbor_main,380,64,-260", text: 산호 군도에 닿는다}
+    - {key: chief, type: talk, target: npc/coral, waypoint: npc/coral, text: 족장 코랄에게 인사한다}
+  rewards: {gold: 800, exp: 300}
+
+- id: quest/main/ch3_first_fish_rite
+  name: 첫 물고기 방류 의식
+  type: main
+  chapter: 3
+  description:
+    - '"필요한 만큼만 가져가고, 매년 그해의 첫 물고기는 바다에 돌려보낸다." 처음으로 바다와의 약속을 들었다.'
+  requires: {quests: [quest/main/ch3_coral_invite]}
+  start_npc: npc/coral
+  end_npc: npc/coral
+  objectives:
+    - {key: snapper, type: catch, target: fish/celebration_red_snapper, count: 1, text: 의식에 쓸 축제 참돔을 낚는다}
+    - {key: donate, type: donate, target: any, count: 1, text: 항구 수족관에 물고기를 기부한다 (이슬)}
+  rewards:
+    gold: 1000
+    exp: 400
+    affinity:
+      - {npc: npc/coral, value: 30}
+
+- id: quest/main/ch3_kept_promise
+  name: 지켜진 약속
+  type: main
+  chapter: 3
+  description:
+    - 난파선에서 왕국 항해일지 1권을 찾았다. "왕께서 약속은 미신이라 하셨다."
+  requires: {quests: [quest/main/ch3_first_fish_rite]}
+  start_npc: npc/coral
+  end_npc: npc/iseul
+  objectives:
+    - {key: wreck, type: visit, target: "point:harbor_main,400,60,-300,12", waypoint: "harbor_main,400,60,-300", text: 산호 군도 난파선을 조사한다}
+    - {key: codex, type: codex, target: region:region/harbor, count: 50, text: 항구 시즌 도감 50% 채우기}
+    - {key: iseul, type: talk, target: npc/iseul, waypoint: npc/iseul, text: 수족관 관장 이슬에게 항해일지를 보여준다}
+  rewards:
+    gold: 1200
+    exp: 500
+    mulbineul: 3
+    reputation: 150
+    chronicle: logbook_1
+    title: title/promise_witness
+    flags: [story/ch3_done]

@@ -1,0 +1,120 @@
+# 어부 길드 게시판 일일·주간 의뢰와 수족관 관장 수집 의뢰 (docs 20 6.4, '13. 제작 · 상점 가격' 6장).
+# 골드·물비늘·평판은 board.yml 기본값 (해금한 가장 높은 지역 기준, 수락 시점 값으로 고정). 목표 수량만 의뢰별로 정한다.
+# 납품 어종은 해당 지역 일반·고급 위주. 보고 NPC가 없는 의뢰(포획만)는 목표를 채우면 바로 완료된다.
+
+# ---------------------------------------------------------------- 일일 (3개 게시, 1개 수락)
+- id: quest/daily/catch_mackerel
+  name: "[일일] 고등어 떼"
+  type: daily
+  pool: {board: daily, region: region/harbor, weight: 100}
+  objectives:
+    - {key: mackerel, type: catch, target: fish/harbor_mackerel, count: 12}
+
+- id: quest/daily/catch_anchovy
+  name: "[일일] 은멸치 잡이"
+  type: daily
+  pool: {board: daily, region: region/harbor, weight: 100}
+  objectives:
+    - {key: anchovy, type: catch, target: fish/silver_anchovy, count: 15}
+
+- id: quest/daily/deliver_rockfish
+  name: "[일일] 우럭 납품"
+  type: daily
+  pool: {board: daily, region: region/harbor, weight: 80}
+  end_npc: npc/bawi
+  objectives:
+    - {key: rockfish, type: deliver, target: fish/harbor_rockfish, count: 4}
+
+- id: quest/daily/deliver_flounder
+  name: "[일일] 가자미 납품"
+  type: daily
+  pool: {board: daily, region: region/harbor, weight: 80}
+  end_npc: npc/bawi
+  objectives:
+    - {key: flounder, type: deliver, target: fish/sand_flounder, count: 4, quality_min: 2}
+
+- id: quest/daily/any_catch
+  name: "[일일] 오늘의 어획"
+  type: daily
+  pool: {board: daily, region: region/harbor, weight: 60}
+  objectives:
+    - {key: any, type: catch, target: any, count: 20}
+
+- id: quest/daily/uncommon_catch
+  name: "[일일] 귀한 손님"
+  type: daily
+  pool: {board: daily, region: region/harbor, weight: 50}
+  objectives:
+    - {key: uncommon, type: catch, target: "grade:uncommon+", count: 3}
+
+# ---------------------------------------------------------------- 주간 (3개 게시, 모두 가능)
+- id: quest/weekly/big_haul
+  name: "[주간] 큰 어획"
+  type: weekly
+  pool: {board: weekly, region: region/harbor, weight: 100}
+  objectives:
+    - {key: any, type: catch, target: any, count: 80}
+
+- id: quest/weekly/uncommon_hunt
+  name: "[주간] 고급 어종 사냥"
+  type: weekly
+  pool: {board: weekly, region: region/harbor, weight: 100}
+  objectives:
+    - {key: uncommon, type: catch, target: "grade:uncommon+", count: 12}
+
+- id: quest/weekly/cuttlefish_order
+  name: "[주간] 갑오징어 주문"
+  type: weekly
+  pool: {board: weekly, region: region/harbor, weight: 80}
+  end_npc: npc/bawi
+  objectives:
+    - {key: cuttlefish, type: deliver, target: fish/ink_cuttlefish, count: 5}
+
+- id: quest/weekly/quality_catch
+  name: "[주간] 품질 검사"
+  type: weekly
+  pool: {board: weekly, region: region/harbor, weight: 70}
+  objectives:
+    - {key: quality, type: catch, target: any, count: 10, quality_min: 3}
+
+- id: quest/weekly/big_bass
+  name: "[주간] 폭풍 농어"
+  type: weekly
+  pool: {board: weekly, region: region/harbor, weight: 60}
+  objectives:
+    - {key: bass, type: catch, target: fish/storm_sea_bass, count: 3, size_min: 40}
+
+# ---------------------------------------------------------------- 수집 의뢰 (이슬, 주 2개 · 힌트 + 평판 +20)
+# donate_delivered: 납품 어종을 수족관 기부로 처리한다 (장부 상태 DONATED). 골드·물비늘 없음.
+- id: quest/collect/aquarium_wrasse
+  name: "[수집] 놀래기 전시"
+  type: collect
+  pool: {board: collect, region: region/harbor, weight: 100}
+  end_npc: npc/iseul
+  donate_delivered: true
+  objectives:
+    - {key: wrasse, type: deliver, target: fish/striped_wrasse, count: 2}
+  rewards:
+    hints: {count: 1}
+
+- id: quest/collect/aquarium_pufferfish
+  name: "[수집] 화약 복어 전시"
+  type: collect
+  pool: {board: collect, region: region/harbor, weight: 80}
+  end_npc: npc/iseul
+  donate_delivered: true
+  objectives:
+    - {key: puffer, type: deliver, target: fish/gunpowder_pufferfish, count: 1}
+  rewards:
+    hints: {count: 1}
+
+- id: quest/collect/aquarium_halfbeak
+  name: "[수집] 학공치 전시"
+  type: collect
+  pool: {board: collect, region: region/harbor, weight: 100}
+  end_npc: npc/iseul
+  donate_delivered: true
+  objectives:
+    - {key: halfbeak, type: deliver, target: fish/gull_halfbeak, count: 3}
+  rewards:
+    hints: {count: 1}

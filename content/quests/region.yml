@@ -1,0 +1,17 @@
+# 지역 퀘스트 (평판 +40, docs 20 5.4 평판 표). 수치는 제안값.
+- id: quest/region/harbor_tackle_errand
+  name: 낚시용품점 심부름
+  type: region
+  description:
+    - 낚시용품점 주인이 미끼 시험용 망둑어가 필요하다고 한다.
+  requires: {quests: [quest/main/ch1_first_cast]}
+  start_npc: npc/tackle_keeper
+  end_npc: npc/tackle_keeper
+  objectives:
+    - {key: goby, type: deliver, target: fish/dock_goby, count: 5}
+  rewards:
+    gold: 300
+    exp: 100
+    reputation: 40
+    items:
+      - {item: item/bait/gunpowder_paste, amount: 10}

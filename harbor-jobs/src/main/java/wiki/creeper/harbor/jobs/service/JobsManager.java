@@ -86,6 +86,7 @@ public final class JobsManager implements JobsService, Listener {
     private LevelCurve curve;
     private @Nullable CapstoneService capstones;
     private @Nullable CatchUpService catchUp;
+    private java.util.function.@Nullable Predicate<Player> advanceCutscene;
 
     public JobsManager(Plugin plugin, HarborApi api, Tasks tasks, Logger log) {
         this.plugin = plugin;
@@ -93,6 +94,11 @@ public final class JobsManager implements JobsService, Listener {
         this.tasks = tasks;
         this.log = log;
         this.curve = LevelCurve.of(balance());
+    }
+
+    /** 전직 컷씬 (docs 20 0.3: NPC 선택 의존의 CutsceneService). 재생을 시작했으면 true를 돌려주고, 없으면 기본 타이틀 연출을 쓴다. */
+    public void setAdvanceCutscene(java.util.function.@Nullable Predicate<Player> cutscene) {
+        this.advanceCutscene = cutscene;
     }
 
     public void attach(CapstoneService capstoneService, CatchUpService catchUpService) {
@@ -410,6 +416,11 @@ public final class JobsManager implements JobsService, Listener {
         Player player = Bukkit.getPlayer(hp.uuid());
         if (player != null) {
             String name = lineDef(line).map(d -> d.name(target.level())).orElse(line.key());
+            var cutscene = advanceCutscene;
+            if (cutscene != null && cutscene.test(player)) {
+                api.messages().send(player, "jobs.advance.done", Placeholder.unparsed("job", name));
+                return;
+            }
             Sequence.of(plugin, player)
                     .run(
                             p ->

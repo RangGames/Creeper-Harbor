@@ -2,10 +2,61 @@ name: Harbor-Quest
 version: '${version}'
 main: wiki.creeper.harbor.quest.HarborQuestPlugin
 api-version: '${apiVersion}'
-description: '퀘스트'
+description: '퀘스트·의뢰 게시판·항구 연대기'
 dependencies:
   server:
     Harbor-Core:
       load: BEFORE
       required: true
       join-classpath: true
+    Harbor-Npc:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Jobs:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Fishing:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Collection:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Harbor-Season:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    # 선택 의존 (docs 20 6.2): 있으면 지역 진입·해도·보스 이벤트를 이름으로 연결한다
+    Harbor-World:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    Harbor-Boss:
+      load: BEFORE
+      required: false
+      join-classpath: true
+permissions:
+  harbor.quest:
+    description: '/퀘스트 · /퀘스트 추적 · 포기 · /의뢰'
+    default: true
+  harbor.quest.chronicle:
+    description: '/연대기'
+    default: true
+  harbor.admin.quest.info:
+    description: '/harbor quest info'
+    default: op
+  harbor.admin.quest.set:
+    description: '/harbor quest set · progress · reset'
+    default: op
+  harbor.admin.quest.complete:
+    description: '/harbor quest complete'
+    default: op
+  harbor.admin.quest.board:
+    description: '/harbor quest board reroll'
+    default: op
+  harbor.admin.quest.server:
+    description: '/harbor quest server'
+    default: op

@@ -20,3 +20,14 @@
 
 # ---- 기념 ('14. 개발 일정' 3장)
 - {id: title/cbt_pioneer, name: "<light_purple>첫 항해의 선원", style: special, source_hint: "클로즈 베타 참여"}
+
+# ---- 퀘스트 (Quest, '5. 서버 스토리' 3·6장)
+- {id: title/promise_witness, name: "<aqua>약속의 증인", style: rare, source_hint: "메인 3장 '지켜진 약속' 완료"}
+- {id: title/chronicle_keeper, name: "<gold>연대기를 엮은 자", style: legendary, source_hint: "「항구 연대기」 진실의 조각을 모두 모음"}
+
+# ---- 상점 (Shop, docs 20 12.4). 후원자 칭호는 상태형 (구독이 끝나면 회수)
+- {id: title/donor_harbor, name: "<aqua>항구 후원자", style: special, source_hint: "항구 후원자 구독 중", permanent: false}
+- {id: title/donor_fleet, name: "<gold>선단 후원자", style: special, source_hint: "선단 후원자 구독 중", permanent: false}
+- {id: title/festival_supporter, name: "<light_purple>축제의 후원자", style: rare, source_hint: "항구 축제 후원"}
+- {id: title/creator_supporter, name: "<yellow>응원단", style: common, source_hint: "크리에이터 코드 등록"}
+- {id: title/pass_s1_sailor, name: "<aqua>시즌 1 항해사", style: rare, source_hint: "시즌 1 항해 일지 25단계"}

@@ -56,6 +56,11 @@ public final class HarborJobsPlugin extends HarborModule {
         getServer()
                 .getServicesManager()
                 .register(JobsService.class, jobs, this, ServicePriority.Normal);
+        // NPC 선택 의존: 대화 액션 job:change_line · job:reset_skill, 전직 컷씬 (NPC가 없으면 클래스를 불러오지 않는다)
+        var npc = getServer().getPluginManager().getPlugin("Harbor-Npc");
+        if (npc != null && npc.isEnabled()) {
+            wiki.creeper.harbor.jobs.npc.JobsNpcHooks.register(this, api, jobs);
+        }
     }
 
     @Override

@@ -1,0 +1,17 @@
+# 어부 길드 게시판 (추가 제안, docs 20 6.3). 금액은 '13. 제작 · 상점 가격' 6장, 물비늘은 '7. 밸런스 기획' 7장, 평판은 docs 20 5.4 (제안값).
+location: {world: harbor_main, x: 24.5, y: 64, z: 10.5, yaw: 180}   # 게시판 Interaction 위치 (제안값, 길드 앞)
+collect_npc: npc/iseul        # 수집 의뢰를 주는 NPC (quest:list에 수집 의뢰 게시판이 붙는다)
+daily:   {offers: 3, pick: 1, mulbineul: 1, reputation: 10}
+weekly:  {offers: 3, pick: 3, mulbineul: 1, reputation: 30}
+collect: {offers: 2, pick: 2, mulbineul: 0, reputation: 20}
+hint_fallback_gold: 100       # 수집 의뢰 힌트를 줄 어종이 없을 때 대체 골드 (제안값)
+# 해금한 가장 높은 지역 기준 의뢰 골드. 순서 = 지역 해금 순서 (해금 판정에도 쓴다).
+# 지역 ID는 regions.yml과 같다 (없는 지역은 해금 판정에서 빠진다).
+gold_by_region:
+  - {region: region/harbor,      daily: 150,  weekly: 300}
+  - {region: region/swamp,       daily: 250,  weekly: 500}
+  - {region: region/coral_isles, daily: 450,  weekly: 900}
+  - {region: region/lava_lake,   daily: 700,  weekly: 1400}
+  - {region: region/frost_fjord, daily: 800,  weekly: 1600}
+  - {region: region/ash_trench,  daily: 950,  weekly: 1900}
+  - {region: region/void_sea,    daily: 1100, weekly: 2200}

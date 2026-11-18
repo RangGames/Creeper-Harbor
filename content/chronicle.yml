@@ -1,0 +1,31 @@
+# 「항구 연대기」와 메인 스토리 장 (추가 제안, docs 20 6.3·6.4, '5. 서버 스토리' 3·6장).
+# 장 final 퀘스트를 완료하면 장 클리어. region(+area)은 연대기 회상(D9) 판정: 이미 완료한 장(이월)의 지역에 새 시즌 처음 들어가면 회상 보상.
+# area {x, z, r}를 쓰면 지역 안 범위로 좁힌다 (선택). 프롤로그·1장은 같은 항구 지역이라 항구에 들어오면 둘 다 회상한다.
+complete_title: title/chronicle_keeper
+recap: {mulbineul: 3, reputation: 150, max_mulbineul: 27}   # D9: 장당 물비늘 3, 시즌당 최대 27. 평판은 제안값
+
+chapters:
+  - {chapter: 0, name: "프롤로그 · 표류", final: quest/main/ch0_drift, region: region/harbor, cutscene: cutscene/prologue_drift}
+  - {chapter: 1, name: "1장 · 꺼진 등대", final: quest/main/ch1_dark_lighthouse, region: region/harbor}
+  - {chapter: 2, name: "2장 · 늪의 노인", final: quest/main/ch2_hermit_riddle, region: region/swamp, cutscene: cutscene/green_night}
+  - {chapter: 3, name: "3장 · 지켜진 약속", final: quest/main/ch3_kept_promise, region: region/coral_isles}
+
+pieces:
+  - id: rusty_key
+    chapter: 1
+    name: 꺼진 등대의 녹슨 열쇠
+    icon: minecraft:tripwire_hook
+    advancement: harbor:chronicle/rusty_key
+    text: [등대 문에 꽂혀 있던 녹슨 열쇠. 30년 동안 아무도 돌리지 않았다.]
+  - id: hermit_riddle
+    chapter: 2
+    name: 은둔자의 수수께끼
+    icon: minecraft:brown_mushroom
+    advancement: harbor:chronicle/hermit_riddle
+    text: ["\"초록 빛은 원수가 아니야. 바다에게 물어봐라.\""]
+  - id: logbook_1
+    chapter: 3
+    name: 왕국 항해일지 1권
+    icon: minecraft:writable_book
+    advancement: harbor:chronicle/logbook_1
+    text: ["\"왕께서 약속은 미신이라 하셨다.\"", 난파선 선장실에서 찾았다.]

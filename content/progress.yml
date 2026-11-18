@@ -1,0 +1,9 @@
+# 서버 진행도 · 클라이맥스 개방 조건 (추가 제안, docs 20 6.4). 모두 제안값.
+# 기부율 ≥ donation_rate + 7장 클리어(이번 시즌 클리어 + 연대기 회상) ≥ max(min_clears, 시즌 활동 유저 × clear_ratio)
+climax:
+  donation_rate: 0.8
+  chapter: 7
+  min_clears: 50
+  clear_ratio: 0.15
+check_interval_minutes: 5
+announce: true
