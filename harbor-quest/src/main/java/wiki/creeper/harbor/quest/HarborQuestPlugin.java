@@ -12,6 +12,7 @@ import wiki.creeper.harbor.quest.api.ObjectiveTypeRegistry;
 import wiki.creeper.harbor.quest.api.QuestService;
 import wiki.creeper.harbor.quest.api.RegionProgressProvider;
 import wiki.creeper.harbor.quest.api.ServerProgressService;
+import wiki.creeper.harbor.quest.bridge.WorldRegionProgress;
 import wiki.creeper.harbor.quest.content.ChronicleDef;
 import wiki.creeper.harbor.quest.content.QuestContent;
 import wiki.creeper.harbor.quest.content.QuestDef;
@@ -76,6 +77,9 @@ public final class HarborQuestPlugin extends HarborModule {
         registry.register(ObjectiveTypeRegistry.class, engine, this, ServicePriority.Normal);
         // 기본 구현은 가장 낮은 우선순위: World가 더 높은 우선순위로 등록하면 그 구현을 쓴다
         registry.register(RegionProgressProvider.class, engine, this, ServicePriority.Lowest);
+        if (getServer().getPluginManager().isPluginEnabled("Harbor-World")) {
+            var _ = WorldRegionProgress.register(this);
+        }
         registry.register(ChronicleService.class, s.chronicle(), this, ServicePriority.Normal);
         registry.register(
                 ServerProgressService.class, s.serverProgress(), this, ServicePriority.Normal);

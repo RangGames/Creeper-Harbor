@@ -1,4 +1,4 @@
-package wiki.creeper.harbor.world.bridge;
+package wiki.creeper.harbor.quest.bridge;
 
 import java.util.Optional;
 import org.bukkit.Bukkit;
@@ -9,14 +9,18 @@ import wiki.creeper.harbor.quest.api.RegionProgressProvider;
 import wiki.creeper.harbor.world.api.RegionService;
 
 /**
- * Quest 연결 (선택). Quest의 기본 구현(레벨 + 해금 퀘스트)보다 높은 우선순위로 "해금한 가장 높은 지역"을 등록한다 (World는 진입 조건 전체로 판정).
- * Harbor-Quest가 있을 때만 이 클래스를 불러온다.
+ * World 연결 (선택). Quest 기본 구현(레벨 + 해금 퀘스트)보다 높은 우선순위로 World 판정(진입 조건 전체)의 "해금한 가장 높은 지역"을 등록한다.
+ * Harbor-World가 켜져 있을 때만 이 클래스를 불러온다.
  */
-public final class QuestBridge {
+public final class WorldRegionProgress {
 
-    private QuestBridge() {}
+    private WorldRegionProgress() {}
 
-    public static void register(Plugin plugin, RegionService regions) {
+    public static boolean register(Plugin plugin) {
+        RegionService regions = Bukkit.getServicesManager().load(RegionService.class);
+        if (regions == null) {
+            return false;
+        }
         RegionProgressProvider provider =
                 uuid -> {
                     Player player = Bukkit.getPlayer(uuid);
@@ -26,5 +30,6 @@ public final class QuestBridge {
                 };
         Bukkit.getServicesManager()
                 .register(RegionProgressProvider.class, provider, plugin, ServicePriority.High);
+        return true;
     }
 }

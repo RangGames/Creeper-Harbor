@@ -32,7 +32,6 @@ import wiki.creeper.harbor.world.api.ShipService;
 import wiki.creeper.harbor.world.api.TreasureService;
 import wiki.creeper.harbor.world.bridge.NpcBridge;
 import wiki.creeper.harbor.world.bridge.Payments;
-import wiki.creeper.harbor.world.bridge.QuestBridge;
 import wiki.creeper.harbor.world.bridge.SeasonBridge;
 import wiki.creeper.harbor.world.chart.ChartManager;
 import wiki.creeper.harbor.world.command.WorldCommands;
@@ -200,9 +199,6 @@ public final class HarborWorldPlugin extends HarborModule {
         }
         if (getServer().getPluginManager().getPlugin("Harbor-Season") != null) {
             SeasonBridge.register();
-        }
-        if (getServer().getPluginManager().getPlugin("Harbor-Quest") != null) {
-            QuestBridge.register(this, regions);
         }
     }
 

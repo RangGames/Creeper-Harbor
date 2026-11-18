@@ -62,6 +62,7 @@ import wiki.creeper.harbor.world.api.SeaEventService;
 import wiki.creeper.harbor.world.api.ShipFlag;
 import wiki.creeper.harbor.world.api.ShipInfo;
 import wiki.creeper.harbor.world.api.ShipService;
+import wiki.creeper.harbor.world.api.ShipSkinProvider;
 import wiki.creeper.harbor.world.api.ShipState;
 import wiki.creeper.harbor.world.api.UpgradePath;
 import wiki.creeper.harbor.world.api.event.ShipSummonEvent;
@@ -484,9 +485,8 @@ public final class ShipManager implements ShipService, Listener {
     }
 
     private @Nullable RigInstance spawnDecor(Player owner, ShipDef def, Boat boat) {
-        if (Bukkit.getPluginManager().getPlugin("Harbor-Shop") != null
-                && wiki.creeper.harbor.world.bridge.ShopBridge.boatSkinEquipped(
-                        owner.getUniqueId())) {
+        ShipSkinProvider skins = Bukkit.getServicesManager().load(ShipSkinProvider.class);
+        if (skins != null && skins.hasBoatSkin(owner.getUniqueId())) {
             return null; // 선박 스킨은 Shop이 탑승 때 태운다
         }
         RigId rigId = def.decor();

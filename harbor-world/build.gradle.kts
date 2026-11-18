@@ -11,10 +11,7 @@ dependencies {
     compileOnly(project(":harbor-economy"))
     compileOnly(project(":harbor-npc"))
     compileOnly(project(":harbor-season"))
-    // 선택(나중에 적재): Quest RegionProgressProvider를 더 높은 우선순위로 등록
-    compileOnly(project(":harbor-quest"))
-    // 선택(나중에 적재): Shop 선박 스킨 장착 여부
-    compileOnly(project(":harbor-shop"))
+    // Quest·Collection·Shop에는 의존하지 않는다 (docs 20 0.3). 그쪽이 World api를 쓴다 (RegionProgressProvider·ShipSkinProvider 등록)
     testImplementation(project(":harbor-fishing"))
     testImplementation(project(":harbor-jobs"))
 }

@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.ServicePriority;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.collection.api.AquariumThemeOwnership;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborModule;
 import wiki.creeper.harbor.core.api.ModuleContext;
@@ -16,6 +17,7 @@ import wiki.creeper.harbor.shop.api.CosmeticService;
 import wiki.creeper.harbor.shop.api.DonorService;
 import wiki.creeper.harbor.shop.api.PearlService;
 import wiki.creeper.harbor.shop.api.SeasonPassService;
+import wiki.creeper.harbor.shop.bridge.WorldShipSkins;
 import wiki.creeper.harbor.shop.chest.ChestManager;
 import wiki.creeper.harbor.shop.command.ShopCommands;
 import wiki.creeper.harbor.shop.content.ShopContent;
@@ -157,6 +159,12 @@ public final class HarborShopPlugin extends HarborModule {
         services.register(CosmeticService.class, cosmetics, this, ServicePriority.Normal);
         services.register(DonorService.class, donors, this, ServicePriority.Normal);
         services.register(SeasonPassService.class, passes, this, ServicePriority.Normal);
+        // Collection 어항 테마 보유 확인 (Collection은 Shop에 의존할 수 없어서 이 서비스로 묻는다)
+        services.register(
+                AquariumThemeOwnership.class, cosmetics::owns, this, ServicePriority.Normal);
+        if (getServer().getPluginManager().isPluginEnabled("Harbor-World")) {
+            WorldShipSkins.register(this, cosmetics);
+        }
     }
 
     private void startWebhook(FileConfiguration config, ShopRuntime rt, InboxProcessor inbox) {

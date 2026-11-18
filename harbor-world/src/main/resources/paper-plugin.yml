@@ -21,22 +21,12 @@ dependencies:
       load: BEFORE
       required: false
       join-classpath: true
-    Harbor-NPC:
+    Harbor-Npc:
       load: BEFORE
       required: false
       join-classpath: true
     Harbor-Season:
       load: BEFORE
-      required: false
-      join-classpath: true
-    # Quest는 World 뒤에 켜진다 (Quest가 World 이벤트를 이름으로 듣는다). 클래스만 같이 본다
-    Harbor-Quest:
-      load: AFTER
-      required: false
-      join-classpath: true
-    # Shop도 World 뒤에 켜진다 (선박 스킨 장착 여부만 읽는다)
-    Harbor-Shop:
-      load: AFTER
       required: false
       join-classpath: true
 permissions:

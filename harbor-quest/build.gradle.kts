@@ -10,7 +10,8 @@ dependencies {
     compileOnly(project(":harbor-collection"))
     compileOnly(project(":harbor-jobs"))
     compileOnly(project(":harbor-season"))
-    // World·Boss는 선택 의존이라 클래스를 직접 쓰지 않는다 (OptionalBridges가 이벤트 이름으로 연결)
+    // 선택: World api (해금한 가장 높은 지역을 World 판정으로 등록). Boss는 OptionalBridges가 이벤트 이름으로 연결
+    compileOnly(project(":harbor-world"))
 }
 
 // Fishing api가 JOML(Display 변환 행렬)을 끌고 와서 javac classfile 경고가 난다. 그 경고만 끈다

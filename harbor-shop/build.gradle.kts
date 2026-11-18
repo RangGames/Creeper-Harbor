@@ -9,6 +9,8 @@ dependencies {
     compileOnly(project(":harbor-jobs"))
     compileOnly(project(":harbor-collection"))
     compileOnly(project(":harbor-season"))
+    // 선택: World api (선박 스킨 장착 여부를 ShipSkinProvider로 등록)
+    compileOnly(project(":harbor-world"))
     testImplementation(project(":harbor-fishing"))
     testImplementation(project(":harbor-jobs"))
     testImplementation(project(":harbor-collection"))
