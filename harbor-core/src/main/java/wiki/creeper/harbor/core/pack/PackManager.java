@@ -27,8 +27,8 @@ import wiki.creeper.harbor.core.task.Tasks;
  * 리소스팩 자동 빌드·배포 (ItemsAdder 방식, 추가 제안).
  *
  * <ul>
- *   <li>모든 서버: 시작할 때 Redis {@value PublishedPack#KEY}에서 지금 팩을 읽고, {@link PublishedPack#CHANNEL}로 바뀐
- *       팩을 받아 {@link ActivePack}에 넣는다 (커스텀 모델·소리 판정).
+ *   <li>모든 서버: 시작할 때 Redis {@value PublishedPack#KEY}에서 지금 팩을 읽어 {@link ActivePack}에 넣는다 (커스텀 모델·소리
+ *       판정). {@link PublishedPack#CHANNEL} 알림을 받거나, 알림을 놓쳤을 때를 대비해 1분마다 SHA-1 키를 비교해서 바뀌었으면 다시 읽는다.
  *   <li>빌드 서버 (harbor-infra.yml pack.build: true, lobby 한 대): 시작할 때와 /harbor pack build 때 에셋 폴더를
  *       압축하고, SHA-1이 지금 팩과 다르면 CDN에 올린 뒤 Redis에 저장·발행한다.
  * </ul>
@@ -47,6 +47,9 @@ public final class PackManager {
 
         record Failed(String reason) implements Outcome {}
     }
+
+    /** 알림을 놓쳤을 때를 대비한 확인 간격 (1분, 제안값). */
+    private static final long POLL_TICKS = 20L * 60;
 
     private final InfraConfig infra;
     private final Path harborDir;
@@ -75,17 +78,9 @@ public final class PackManager {
 
     /** 지금 팩을 읽고 변경을 구독한다. 빌드 서버면 에셋 폴더를 준비하고 한 번 빌드한다. */
     public void start() {
-        bus.subscribe(
-                PublishedPack.CHANNEL,
-                envelope -> tasks.main().execute(() -> accept(envelope.payload())));
-        var _ =
-                tasks.supplyAsync(this::readStored)
-                        .thenAcceptAsync(stored -> stored.ifPresent(this::accept), tasks.main())
-                        .exceptionally(
-                                e -> {
-                                    log.warn("지금 리소스팩 정보를 읽지 못했습니다: {}", String.valueOf(e));
-                                    return null;
-                                });
+        bus.subscribe(PublishedPack.CHANNEL, envelope -> refresh(envelope.payload().sha1()));
+        refresh(null);
+        var _ = tasks.timer(POLL_TICKS, POLL_TICKS, () -> refresh(null));
         InfraConfig.PackBuild config = infra.packBuild();
         if (config != null && config.apiKey().isBlank()) {
             log.warn("harbor-infra.yml pack.build가 켜져 있지만 cdn.api_key가 비어 있어 리소스팩을 만들지 않습니다");
@@ -103,6 +98,35 @@ public final class PackManager {
             }
             var _ = build().thenAccept(this::logOutcome);
         }
+    }
+
+    /**
+     * Redis의 지금 팩이 내가 아는 것과 다르면 다시 읽어 적용한다 (가상 스레드에서 읽고 메인 스레드에서 적용).
+     *
+     * @param knownSha1 알림으로 받은 SHA-1 (null이면 Redis에서 확인)
+     */
+    private void refresh(@Nullable String knownSha1) {
+        var _ =
+                tasks.supplyAsync(
+                                () -> {
+                                    String latest =
+                                            knownSha1 != null
+                                                    ? knownSha1
+                                                    : redis.sync().get(PublishedPack.SHA1_KEY);
+                                    Optional<PublishedPack> current = ActivePack.published();
+                                    if (current.isPresent()
+                                            && (latest == null
+                                                    || current.get().sha1().equals(latest))) {
+                                        return Optional.<PublishedPack>empty();
+                                    }
+                                    return readStored();
+                                })
+                        .thenAcceptAsync(stored -> stored.ifPresent(this::accept), tasks.main())
+                        .exceptionally(
+                                e -> {
+                                    log.warn("리소스팩 정보를 읽지 못했습니다: {}", String.valueOf(e));
+                                    return null;
+                                });
     }
 
     /** 이 서버가 팩을 만드는지. */
@@ -164,6 +188,7 @@ public final class PackManager {
                             new PackBuilder.Meta(config.format(), config.description()));
             Optional<PublishedPack> stored = readStored();
             if (stored.isPresent() && stored.get().sha1().equals(built.sha1())) {
+                redis.sync().set(PublishedPack.SHA1_KEY, built.sha1());
                 return new Outcome.Unchanged(stored.get());
             }
             CdnClient.Uploaded uploaded =
@@ -178,7 +203,8 @@ public final class PackManager {
                             new ArrayList<>(built.index().sounds()),
                             System.currentTimeMillis());
             redis.sync().set(PublishedPack.KEY, Json.GSON.toJson(pack));
-            bus.publish(PublishedPack.CHANNEL, pack);
+            redis.sync().set(PublishedPack.SHA1_KEY, pack.sha1());
+            bus.publish(PublishedPack.CHANNEL, new PublishedPack.Changed(pack.sha1()));
             return new Outcome.Uploaded(pack, built.files());
         } catch (IOException | RuntimeException e) {
             return new Outcome.Failed(String.valueOf(e.getMessage()));
