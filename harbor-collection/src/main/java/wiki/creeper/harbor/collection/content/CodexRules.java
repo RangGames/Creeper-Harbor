@@ -13,7 +13,8 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * 도감 보상 정의 (codex.yml, 추가 제안, docs 20 4.3).
  *
  * @param firstCatchMinGrade 이 등급 이상 첫 등록이면 물비늘 ('7. 밸런스 기획' 7장: 희귀 이상 종당 1)
- * @param regionTitlePrefix 지역 완성 칭호 ID 접두사 (칭호 = 접두사/지역 이름)
+ * @param regionTitlePrefix 지역 완성 칭호 ID 접두사 (칭호 = 접두사/지역 이름, titles.yml에 없는 지역 칭호는 Season이 거부하고 물비늘만
+ *     준다)
  */
 public record CodexRules(
         Grade firstCatchMinGrade,
@@ -23,7 +24,7 @@ public record CodexRules(
         List<Milestone> totalMilestones,
         List<SeasonBuff> seasonBuffs) {
 
-    /** 누적 달성률 단계. 칭호는 Season, 치장품은 Shop이 CodexMilestoneEvent로 지급한다. */
+    /** 누적 달성률 단계. 칭호는 Collection이 Season TitleService로, 치장품은 Shop이 CodexMilestoneEvent로 지급한다. */
     public record Milestone(int percent, String title) {}
 
     /** 시즌 도감 달성률 버프 (출처 codex_season). */
@@ -40,7 +41,14 @@ public record CodexRules(
         List<Milestone> milestones = new ArrayList<>();
         for (YamlNode m : node.list("total_milestones")) {
             m.allowOnly(Set.of("percent", "title"));
-            milestones.add(new Milestone(m.integer("percent", 100, 1, 100), m.string("title")));
+            String title = m.string("title");
+            try {
+                // 칭호 정의는 Season titles.yml (Season 형식이 등록되지 않은 검사에서는 건너뛴다)
+                ctx.ref("title", CodexTitles.titleId(title), m.pos());
+            } catch (IllegalArgumentException e) {
+                m.error("칭호 키 형식이 틀렸습니다: " + title);
+            }
+            milestones.add(new Milestone(m.integer("percent", 100, 1, 100), title));
         }
         List<SeasonBuff> buffs = new ArrayList<>();
         for (YamlNode b : node.list("season_buffs")) {

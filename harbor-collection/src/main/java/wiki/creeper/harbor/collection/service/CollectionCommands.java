@@ -3,6 +3,7 @@ package wiki.creeper.harbor.collection.service;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
@@ -16,13 +17,17 @@ import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSele
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Supplier;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.collection.api.AquariumService;
+import wiki.creeper.harbor.collection.api.DisplayCaseService;
 import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.api.RecordService;
+import wiki.creeper.harbor.collection.release.ReleaseManager;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.HarborApi;
@@ -33,11 +38,20 @@ public final class CollectionCommands {
     private final HarborApi api;
     private final CollectionManager codex;
     private final AquariumManager aquarium;
+    private final ReleaseManager release;
+    private final Supplier<@Nullable DisplayCaseService> display;
 
-    public CollectionCommands(HarborApi api, CollectionManager codex, AquariumManager aquarium) {
+    public CollectionCommands(
+            HarborApi api,
+            CollectionManager codex,
+            AquariumManager aquarium,
+            ReleaseManager release,
+            Supplier<@Nullable DisplayCaseService> display) {
         this.api = api;
         this.codex = codex;
         this.aquarium = aquarium;
+        this.release = release;
+        this.display = display;
     }
 
     public void registerPlayerCommands(Commands commands) {
@@ -59,9 +73,32 @@ public final class CollectionCommands {
                                                     }
                                                     return Command.SINGLE_SUCCESS;
                                                 }))
+                        .then(
+                                Commands.literal("기부함")
+                                        .executes(
+                                                ctx -> {
+                                                    if (ctx.getSource().getExecutor()
+                                                            instanceof Player player) {
+                                                        aquarium.openDonationBox(player);
+                                                    }
+                                                    return Command.SINGLE_SUCCESS;
+                                                }))
                         .build(),
                 "항구 수족관",
                 List.of("aquarium"));
+        commands.register(
+                Commands.literal("방류")
+                        .requires(src -> src.getExecutor() instanceof Player)
+                        .executes(
+                                ctx -> {
+                                    if (ctx.getSource().getExecutor() instanceof Player player) {
+                                        var _ = release.releaseHeld(player);
+                                    }
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                        .build(),
+                "손에 든 어종 방류",
+                List.of("release"));
     }
 
     private LiteralCommandNode<CommandSourceStack> codexCommand() {
@@ -125,6 +162,21 @@ public final class CollectionCommands {
 
     private int aquariumStatus(CommandContext<CommandSourceStack> ctx) {
         AquariumService.Status s = aquarium.status();
+        aquarium.nextStage(s)
+                .ifPresent(
+                        next ->
+                                api.messages()
+                                        .send(
+                                                ctx.getSource().getSender(),
+                                                "collection.aquarium.next",
+                                                Placeholder.unparsed(
+                                                        "stage", String.valueOf(next.stage())),
+                                                Placeholder.unparsed(
+                                                        "rate",
+                                                        String.format(
+                                                                Locale.ROOT,
+                                                                "%.0f",
+                                                                next.rate() * 100))));
         api.messages()
                 .send(
                         ctx.getSource().getSender(),
@@ -141,6 +193,22 @@ public final class CollectionCommands {
     /** /harbor collection … (권한 harbor.admin.collection은 Core가 건다). */
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {
         return Commands.literal("collection")
+                .then(
+                        Commands.literal("display")
+                                .then(
+                                        Commands.argument("plot", LongArgumentType.longArg(0))
+                                                .then(
+                                                        Commands.literal("clear")
+                                                                .then(
+                                                                        Commands.argument(
+                                                                                        "slot",
+                                                                                        IntegerArgumentType
+                                                                                                .integer(
+                                                                                                        0,
+                                                                                                        1000))
+                                                                                .executes(
+                                                                                        this
+                                                                                                ::displayClear)))))
                 .then(
                         Commands.literal("codex")
                                 .then(
@@ -310,6 +378,28 @@ public final class CollectionCommands {
                 .send(
                         ctx.getSource().getSender(),
                         ok ? "collection.admin.done" : "collection.admin.failed");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int displayClear(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        DisplayCaseService service = display.get();
+        if (service == null) {
+            api.messages().send(sender, "collection.display.disabled");
+            return 0;
+        }
+        long plot = LongArgumentType.getLong(ctx, "plot");
+        int slot = IntegerArgumentType.getInteger(ctx, "slot");
+        var _ =
+                service.clear(null, plot, slot)
+                        .thenAccept(
+                                ok ->
+                                        api.messages()
+                                                .send(
+                                                        sender,
+                                                        ok
+                                                                ? "collection.admin.done"
+                                                                : "collection.admin.failed"));
         return Command.SINGLE_SUCCESS;
     }
 

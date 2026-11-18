@@ -2,7 +2,7 @@ name: Harbor-Collection
 version: '${version}'
 main: wiki.creeper.harbor.collection.HarborCollectionPlugin
 api-version: '${apiVersion}'
-description: '도감·수족관'
+description: '도감·수족관·개인 어항·방류'
 dependencies:
   server:
     Harbor-Core:
@@ -13,3 +13,39 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    # 칭호(TitleService)·랭킹 전광판(RankingService)·명예의 전당·시즌 훅
+    Harbor-Season:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    # 선택: 대화 액션(aquarium:donate · codex:hint), 최고 평판 등급(어항 칸, D11), 방류 평판
+    Harbor-Npc:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    # 선택: 개인 어항 (DisplayAnchor · EDIT_DISPLAY · PlotLoaded/Unloaded)
+    Harbor-World:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    # 선택: 어항 테마 보유 확인 (Shop은 Collection 뒤에 켜진다. 컴파일 의존 없이 서비스로 찾는다)
+    Harbor-Shop:
+      load: AFTER
+      required: false
+      join-classpath: true
+permissions:
+  harbor.collection.codex:
+    description: '/도감'
+    default: true
+  harbor.collection.record:
+    description: '/기록'
+    default: true
+  harbor.collection.aquarium:
+    description: '/수족관 · /수족관 기부'
+    default: true
+  harbor.collection.release:
+    description: '/방류'
+    default: true
+  harbor.admin.collection.display:
+    description: '/harbor collection display'
+    default: op

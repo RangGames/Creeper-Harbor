@@ -1,0 +1,5 @@
+# 방류 (추가 제안, docs 20 4.4 '방류', Phase 3). 판매 대신이라 골드는 없다. 수치는 제안값.
+flag: climax_done            # 이 서버 플래그가 서면 열린다 ('5. 서버 스토리' 6장, Boss가 월드 보스 CLEARED 때 세움)
+reward_min_grade: rare       # 이 등급 이상만 평판·행운 버프
+reputation: 0                # 0이면 NPC balance.yml reputation.sources.release (+3, 하루 상한 30은 NPC가 적용)
+buff: {stat: size_luck, value: 0.02, minutes: 30}   # 다시 방류하면 시간만 새로 (겹치지 않음)

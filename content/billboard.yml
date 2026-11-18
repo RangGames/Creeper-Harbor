@@ -1,0 +1,16 @@
+# 어시장 광장 랭킹 전광판 (추가 제안, docs 20 4.4 '랭킹 전광판'). Season RankingService 캐시(10분 주기)를 읽어
+# page_seconds마다 다음 페이지를 그린다. 좌표는 시제품 맵 기준 제안값.
+server: ""                    # 비우면 world가 있는 모든 서버
+world: harbor_main
+at: [12.5, 67.5, -30.5]
+yaw: 180
+line_width: 220
+page_seconds: 10
+lines: 10
+pages:
+  - {board: mackerel, league: all}
+  - {board: mackerel, league: tier1}
+  - {board: hairtail, league: all}
+  - {board: codex, league: all}
+  - {region: region/harbor}
+  - {weekly: true}

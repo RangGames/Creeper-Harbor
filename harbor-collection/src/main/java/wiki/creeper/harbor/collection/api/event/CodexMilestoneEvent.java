@@ -6,8 +6,8 @@ import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 도감 마일스톤 (지역 완성, 누적 달성률 단계). 칭호는 Season(TitleService), 치장품은 Shop이 이 이벤트를 듣고 지급한다. Season 모듈이 생기기
- * 전에는 칭호 키만 실어 보낸다.
+ * 도감 마일스톤 (지역 완성, 누적 달성률 단계). 칭호는 Collection이 Season TitleService로 직접 지급하고(참조 ID {@code
+ * codex:<시즌>:<칭호 키>}), 치장품은 Shop이 이 이벤트를 듣고 지급한다. title은 지급한 칭호 키다.
  *
  * @see Kind
  */

@@ -54,10 +54,13 @@ tables:
   - {table: aquarium_species, policy: archive_keep}
   - {table: aquarium_state, policy: archive_keep}
   - {table: aquarium_donation, policy: archive_keep}
+  - {table: release_log, policy: archive_keep}        # Collection 방류 기록 (추가 제안)
   # ---- keep (season 열이 있지만 손대지 않음)
   - {table: fish_ledger, policy: keep}        # 상태만 ARCHIVED (위 fish_ledger)
   - {table: boss_records, policy: keep}       # 이월 (시즌별 1~10위)
   - {table: season_meta, policy: keep}
+  # ---- keep, season 열 없음 (이월)
+  - {table: housing_display, scope: full, policy: keep}   # Collection 개인 어항 전시 (플롯과 함께 이월)
 
 gate:                     # 새 시즌 첫 접속 정리 (SeasonGate)
   keep_vanilla: false     # season_reset 표시가 없는 바닐라 아이템도 지운다 (제안)

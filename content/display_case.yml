@@ -1,0 +1,17 @@
+# 개인 어항 전시 (추가 제안, docs 20 4.4 '개인 어항 전시', 0.6 D11·D14). 수치는 모두 제안값.
+# 수조 자리(DisplayAnchor)·편집 권한은 Harbor-World (housing_decor.yml kind: tank), 전시 내용·칸 수·연출은 Collection.
+
+base_slots: 6               # '12. 월드 · 하우징 · 통발' 4장: 기본 6칸
+rep_bonus: {3: 2, 5: 4}     # 시즌 간 최고 평판 등급 → 추가 칸 (도달한 가장 높은 단계 하나, docs 20 5.4 평판 표)
+base_theme_slots: 1         # 기본 테마가 아닌 테마를 걸 수 있는 칸 (후원 FLEET +2는 Common DonorTier, 외형만)
+part_budget: 120            # 플롯당 리그 부품 상한 (넘으면 간이 리그)
+view_radius: 32             # 플롯 경계에서 이 거리 안 플레이어에게도 보인다
+info_seconds: 5             # 방문객 클릭 정보 표시 시간
+swim_radius: 0.25           # 수조 안 헤엄 반경 (블록)
+simple_rig: rig/fish/shadow_small   # 부품 1개짜리 간이 리그
+
+default_theme: {floor: "minecraft:sand", particle: bubble}
+themes:                     # Shop 어항 테마 코스메틱 → 수조 외형 (바닥 블록·주변 파티클)
+  - {cosmetic: cosmetic/aquarium_coral_theme, floor: "minecraft:brain_coral_block", particle: bubble}
+  - {cosmetic: cosmetic/pass_s1_aquarium_deep, floor: "minecraft:sculk", particle: underwater}
+  - {cosmetic: cosmetic/codex_harbor_theme, floor: "minecraft:smooth_sandstone", particle: bubble_pop}

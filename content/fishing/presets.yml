@@ -1,7 +1,8 @@
 # 등급별 낚시 연출 프리셋 (docs 20 3.3 FishingPreset, '4. 낚시 연출 & 보스전' 1장).
 # shadow_rig: 어종 리그(rig/fish/<어종 이름>)가 없을 때 쓰는 그림자 리그. 리그가 없으면 shadow_model 아이템 하나로 그린다
 # shadow_scale: 그림자 크기 (전설은 배보다 크게) · glow: 그림자 감별(feature_shadow_grade) 테두리 색
-# bite·catch.flags: darkness title shake pillar firework dialog nearby
+# bite·catch.flags: darkness title shake pillar firework dialog nearby flop
+# flop: 포획 때 어종 리그(rig/fish/<이름>)의 flop 동작으로 물고기가 손 위에서 퍼덕인다 ('4. 낚시 연출 & 보스전' 1장 일반~고급). 리그가 없으면 생략
 # 효과음·파티클 키는 리소스팩 사운드가 준비되면 harbor:fishing/... 로 바꾼다.
 
 grades:
@@ -10,14 +11,14 @@ grades:
     shadow_model: harbor:rig/shadow/small
     shadow_scale: 0.6
     bite: {sound: "minecraft:entity.fishing_bobber.splash", particle: splash, count: 8}
-    catch: {sound: "minecraft:entity.player.splash", particle: splash, count: 10}
+    catch: {sound: "minecraft:entity.player.splash", particle: splash, count: 10, flags: [flop]}
   uncommon:
     shadow_rig: rig/fish/shadow_small
     shadow_model: harbor:rig/shadow/small
     shadow_scale: 0.8
     glow: "#55ff55"
     bite: {sound: "minecraft:entity.fishing_bobber.splash", particle: splash, count: 12}
-    catch: {sound: "minecraft:entity.player.splash", particle: splash, count: 14}
+    catch: {sound: "minecraft:entity.player.splash", particle: splash, count: 14, flags: [flop]}
   rare:
     shadow_rig: rig/fish/shadow_small
     shadow_model: harbor:rig/shadow/small
@@ -49,6 +50,6 @@ grades:
 
 # 연출 강도(/낚시 설정)별로 생략할 항목: 0 최소 · 1 보통 · 2 최대
 intensity:
-  0: [darkness, shake, pillar, firework, dialog, jump_viewers, shadow]
+  0: [darkness, shake, pillar, firework, dialog, jump_viewers, shadow, flop]
   1: [darkness, firework, jump_viewers]
   2: []

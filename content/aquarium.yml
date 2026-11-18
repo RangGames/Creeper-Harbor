@@ -5,9 +5,30 @@ quality_bonus: 0.1          # × (1 + 0.1 × (★ − 1))
 first_species_mult: 3       # 서버에 처음 기부되는 어종
 per_player_species_cap: 5   # 같은 어종 한 사람 시즌 점수 인정 마리 수
 
-stages:                     # 기부율 (제안값)
-  - {stage: 1, rate: 0.10, flag: aquarium_stage_1, modifiers: [{stat: exp_gain, value: 0.02}]}
-  - {stage: 2, rate: 0.25, flag: aquarium_stage_2, modifiers: [{stat: exp_gain, value: 0.02}]}
-  - {stage: 3, rate: 0.45, flag: aquarium_stage_3, modifiers: [{stat: sell_price, value: 0.02}]}
-  - {stage: 4, rate: 0.65, flag: aquarium_stage_4, modifiers: [{stat: rare_weight, value: 0.02}]}
-  - {stage: 5, rate: 0.80, flag: aquarium_stage_5}
+stages:                     # 기부율 (제안값). structure: 이 단계에서 붙일 구조물 템플릿 (월드 generated/<ns>/structures/<path>.nbt)
+  - {stage: 1, rate: 0.10, flag: aquarium_stage_1, modifiers: [{stat: exp_gain, value: 0.02}], structure: "harbor:aquarium/stage_1"}     # 수조 2개 추가
+  - {stage: 2, rate: 0.25, flag: aquarium_stage_2, modifiers: [{stat: exp_gain, value: 0.02}]}                                          # 사육사 물결 상주 (NPC spawn_flag)
+  - {stage: 3, rate: 0.45, flag: aquarium_stage_3, modifiers: [{stat: sell_price, value: 0.02}], structure: "harbor:aquarium/stage_3"}   # 기념품 상점 (Economy requires.server_flag)
+  - {stage: 4, rate: 0.65, flag: aquarium_stage_4, modifiers: [{stat: rare_weight, value: 0.02}], structure: "harbor:aquarium/stage_4"}  # 심해관 개방
+  - {stage: 5, rate: 0.80, flag: aquarium_stage_5}                                                                                       # 방류 의식 준비 완료
+
+# 수조 연출 (docs 20 4.4 '수조 연출'·'수조 구조물', 본 서버). 좌표는 시제품 맵 기준 제안값 (옛 세관 건물, 이슬 서쪽)
+display:
+  world: harbor_main
+  view: [-72, 62, 8, -46, 74, 36]          # 이 상자 안 플레이어에게만 리그를 보여준다
+  visible_max: 40                          # 동시에 보이는 리그 (나머지는 교대)
+  rotate_minutes: 10
+  lod_radius: 32                           # 이 거리 안에 시청자가 없는 수조는 헤엄 이동 생략
+  swim_speed: 0.08                         # 블록/틱
+  # fallback_rig: rig/fish/harbor_mackerel # 어종 리그가 없을 때 쓸 리그 (없으면 그 어종은 수조에 안 보임)
+  base_structure: "harbor:aquarium/stage_0"  # 시즌 초기화 뒤 0단계 모습
+  structure_origin: [-72, 62, 8]
+  structure_box: [-72, 62, 8, -46, 74, 36]   # 구조물을 붙이기 직전 이 안의 플레이어를 entrance로 옮긴다
+  entrance: [-44.5, 64, 20.5]
+  deep_regions: [region/ash_trench, region/void_sea]   # 심해관 수조 어종
+  tanks:
+    - {id: main_a, box: [-68, 63, 12, -62, 67, 18], slots: 10}
+    - {id: main_b, box: [-68, 63, 24, -62, 67, 30], slots: 10}
+    - {id: east_a, box: [-58, 63, 12, -52, 67, 16], slots: 8, stage: 1}
+    - {id: east_b, box: [-58, 63, 26, -52, 67, 30], slots: 8, stage: 1}
+    - {id: deep, box: [-70, 63, 19, -60, 68, 23], slots: 10, stage: 4, deep: true, label: [-65, 69.5, 21]}

@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.fishing.present;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.kyori.adventure.key.Key;
@@ -13,10 +14,16 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.FishDef;
+import wiki.creeper.harbor.common.id.HarborId;
+import wiki.creeper.harbor.common.id.RigId;
 import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.RigInstance;
+import wiki.creeper.harbor.core.api.RigOptions;
+import wiki.creeper.harbor.core.api.RigService;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.Locs;
 import wiki.creeper.harbor.fishing.api.CatchPresentationOverride;
@@ -31,6 +38,9 @@ public final class CatchPresenter {
 
     private static final double NEARBY_RADIUS = 32;
     private static final int PILLAR_TICKS = 40;
+    private static final String FLOP = "flop";
+    private static final int FLOP_TICKS = 30;
+    private static final double FLOP_VIEW_RADIUS = 16;
 
     private final HarborApi api;
     private final Tasks tasks;
@@ -106,6 +116,9 @@ public final class CatchPresenter {
             if (stage.has("firework") && presets.shows(intensity, "firework")) {
                 particle(at.clone().add(0, 2.5, 0), "firework", 80);
             }
+            if (stage.has("flop") && presets.shows(intensity, "flop")) {
+                flop(player, fish);
+            }
         }
         String size = String.format(Locale.ROOT, "%.1f", sizeCm);
         if (stage.has("nearby") && presets.shows(intensity, "nearby")) {
@@ -142,6 +155,50 @@ public final class CatchPresenter {
                                     firstCatch
                                             ? api.messages().get("fishing.present.first_catch")
                                             : Component.empty()));
+        }
+    }
+
+    /**
+     * 손 위 퍼덕임 ('4. 낚시 연출 & 보스전' 1장 일반~고급 '물고기가 손 위로 튀어 오름'). 어종 리그 rig/fish/<이름>에 flop 동작이 있으면 플레이어
+     * 앞(손 높이)에 띄워 FLOP_TICKS 동안 재생하고 지운다. 리그·동작이 없으면 생략한다. 본인과 근처 플레이어에게만 보인다.
+     */
+    private void flop(Player player, FishDef fish) {
+        RigId rig =
+                new RigId(
+                        new HarborId(
+                                fish.id().id().namespace(), "rig/fish/" + fish.id().id().name()));
+        RigService rigs = api.rigs();
+        boolean hasFlop =
+                rigs.definition(rig).map(d -> d.animation(FLOP).isPresent()).orElse(false);
+        if (!hasFlop) {
+            return;
+        }
+        Location eye = player.getEyeLocation();
+        Vector dir = eye.getDirection().setY(0);
+        if (dir.lengthSquared() < 1e-6) {
+            dir = new Vector(0, 0, 1);
+        }
+        dir.normalize();
+        Location at = eye.clone().add(dir.multiply(0.6)).add(0, -0.45, 0);
+        at.setYaw(eye.getYaw() + 90f); // 몸을 옆으로 눕혀 보여준다
+        at.setPitch(0);
+        List<Player> viewers = new ArrayList<>();
+        viewers.add(player);
+        for (Player other : player.getWorld().getPlayers()) {
+            if (!other.equals(player)
+                    && Locs.of(other).distanceSquared(at) <= FLOP_VIEW_RADIUS * FLOP_VIEW_RADIUS) {
+                viewers.add(other);
+            }
+        }
+        try {
+            RigInstance instance =
+                    rigs.spawn(
+                            rig,
+                            at,
+                            RigOptions.privateTo(viewers).withAnimation(FLOP).withMoveTicks(0));
+            var _ = tasks.later(FLOP_TICKS, instance::remove);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            // 리그를 띄우지 못하면 생략
         }
     }
 

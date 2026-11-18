@@ -32,6 +32,9 @@ public final class CollectionRepository {
         public static final AquariumState EMPTY = new AquariumState(0, 0, 0);
     }
 
+    /** 이번 시즌 기부된 어종 한 줄 (수조 연출·이름표). donor는 처음 기부한 사람 이름. */
+    public record SpeciesRow(FishId fish, UUID firstDonor, String donor, Instant donatedAt) {}
+
     private CollectionRepository() {}
 
     // ------------------------------------------------------------------ 도감
@@ -334,6 +337,54 @@ public final class CollectionRepository {
             ps.setInt(2, season.value());
             ps.setInt(3, stage);
             return ps.executeUpdate() == 1;
+        }
+    }
+
+    /** 이번 시즌 기부된 어종 (먼저 기부된 순). */
+    public static List<SpeciesRow> species(Connection c, SeasonId season) throws SQLException {
+        List<SpeciesRow> rows = new ArrayList<>();
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "SELECT s.fish_id, s.first_donor, COALESCE(p.name, '?'), s.donated_at FROM aquarium_species s"
+                                + " LEFT JOIN players p ON p.uuid = s.first_donor WHERE s.season = ? ORDER BY s.donated_at")) {
+            ps.setInt(1, season.value());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    UUID donor = UUID.fromString(rs.getString(2));
+                    String name = rs.getString(3);
+                    Instant at = rs.getTimestamp(4).toInstant();
+                    parse(rs.getString(1))
+                            .ifPresent(f -> rows.add(new SpeciesRow(f, donor, name, at)));
+                }
+            }
+        }
+        return rows;
+    }
+
+    /** 방류 기록 (release_log, 추가 제안). */
+    public static void logRelease(
+            Connection c,
+            SeasonId season,
+            UUID uuid,
+            FishId fish,
+            double size,
+            int quality,
+            @Nullable UUID itemUuid)
+            throws SQLException {
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "INSERT INTO release_log (season, uuid, fish_id, size, quality, item_uuid) VALUES (?, ?, ?, ?, ?, ?)")) {
+            ps.setInt(1, season.value());
+            ps.setString(2, uuid.toString());
+            ps.setString(3, fish.toString());
+            ps.setBigDecimal(4, size(size));
+            ps.setInt(5, quality);
+            if (itemUuid == null) {
+                ps.setNull(6, Types.VARCHAR);
+            } else {
+                ps.setString(6, itemUuid.toString());
+            }
+            ps.executeUpdate();
         }
     }
 

@@ -35,6 +35,7 @@ import wiki.creeper.harbor.collection.api.event.CodexMilestoneEvent;
 import wiki.creeper.harbor.collection.api.event.CodexRegisteredEvent;
 import wiki.creeper.harbor.collection.api.event.RecordBrokenEvent;
 import wiki.creeper.harbor.collection.content.CodexRules;
+import wiki.creeper.harbor.collection.content.CodexTitles;
 import wiki.creeper.harbor.collection.content.StatBonus;
 import wiki.creeper.harbor.collection.data.CodexData;
 import wiki.creeper.harbor.collection.data.CollectionRepository;
@@ -59,6 +60,7 @@ import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.api.CodexProvider;
 import wiki.creeper.harbor.fishing.api.event.FishCaughtEvent;
+import wiki.creeper.harbor.season.api.event.WeeklyResetEvent;
 
 /** 도감·힌트·최대어 기록 (docs 20 4.4). 포획 처리는 메인 스레드 메모리만 쓰고, 도감·힌트는 지연 쓰기 큐, 기록은 가상 스레드 즉시 업서트. */
 public final class CollectionManager
@@ -81,10 +83,17 @@ public final class CollectionManager
     private static final String BUFF_SOURCE = "codex_season";
     private static final StatKey HINT_STAT = StatKey.of("feature_condition_hint");
 
+    /** 이번 주 서버 신기록 한 줄 (전광판 '이번 주 신기록' 페이지). */
+    public record WeeklyRecord(FishId fish, RecordEntry entry) {}
+
+    private static final int WEEKLY_MAX = 30;
+
     private final HarborApi api;
     private final Tasks tasks;
     private final Logger log;
+    private final SeasonLink seasonLink;
     private final Map<String, List<RecordEntry>> top = new ConcurrentHashMap<>();
+    private final List<WeeklyRecord> weekly = new ArrayList<>();
     private final Map<FishId, Instant> lastAnnounce = new HashMap<>();
     private Index index;
 
@@ -108,10 +117,11 @@ public final class CollectionManager
         }
     }
 
-    public CollectionManager(HarborApi api, Tasks tasks, Logger log) {
+    public CollectionManager(HarborApi api, Tasks tasks, Logger log, SeasonLink seasonLink) {
         this.api = api;
         this.tasks = tasks;
         this.log = log;
+        this.seasonLink = seasonLink;
         this.index = Index.of(api.content().snapshot(), api.infra().season());
     }
 
@@ -143,15 +153,18 @@ public final class CollectionManager
                                 RecordUpdated u = envelope.payload();
                                 tasks.main()
                                         .execute(
-                                                () ->
-                                                        put(
-                                                                u.fish(),
-                                                                u.league(),
-                                                                new RecordEntry(
-                                                                        u.player(),
-                                                                        u.name(),
-                                                                        u.size(),
-                                                                        u.caughtAt())));
+                                                () -> {
+                                                    RecordEntry entry =
+                                                            new RecordEntry(
+                                                                    u.player(),
+                                                                    u.name(),
+                                                                    u.size(),
+                                                                    u.caughtAt());
+                                                    if (put(u.fish(), u.league(), entry)
+                                                            && u.league().equals("all")) {
+                                                        weekly(u.fish(), entry);
+                                                    }
+                                                });
                             }
                         });
     }
@@ -336,6 +349,11 @@ public final class CollectionManager
         if (!regionFish.isEmpty()
                 && regionFish.stream().allMatch(hp.get(COMPONENT).season()::containsKey)) {
             String region = fish.region().id().name();
+            // 칭호는 (uuid, 칭호) 유니크라 다음 시즌에 다시 완성해도 물비늘만 다시 받는다
+            var _ =
+                    seasonLink.grant(
+                            uuid,
+                            CodexTitles.regionTitle(rules.regionTitlePrefix(), fish.region()));
             if (rules.regionCompleteMulbineul() > 0) {
                 String ref = "codexr:" + hp.season().value() + ":" + region + ":" + uuid;
                 var _ =
@@ -377,6 +395,9 @@ public final class CollectionManager
                                         "total_" + m.percent(),
                                         m.percent(),
                                         m.title()));
+                if (!m.title().isEmpty()) {
+                    var _ = seasonLink.grant(uuid, m.title());
+                }
                 Player player = Bukkit.getPlayer(uuid);
                 if (player != null) {
                     api.messages()
@@ -448,7 +469,7 @@ public final class CollectionManager
         String key = fish.id().toString();
         List<RecordEntry> before = top.getOrDefault(key + "|" + league, List.of());
         RecordEntry previousLeader = before.isEmpty() ? null : before.getFirst();
-        put(key, league, entry);
+        var _ = put(key, league, entry);
         api.bus()
                 .publish(
                         RECORDS,
@@ -468,6 +489,12 @@ public final class CollectionManager
             return;
         }
         double previous = previousLeader == null ? 0 : previousLeader.size();
+        if (league.equals("all")) {
+            weekly(key, entry);
+            // 명예의 전당 잠정 기록 (Season이 시즌 마감 때 확정)
+            seasonLink.submitBiggestFish(
+                    fish.id().id(), entry.player(), entry.name(), entry.size(), entry.caughtAt());
+        }
         Bukkit.getPluginManager()
                 .callEvent(
                         new RecordBrokenEvent(
@@ -503,8 +530,10 @@ public final class CollectionManager
                 .findFirst();
     }
 
-    /** 캐시에 넣는다: 같은 사람은 큰 값 하나, 크기 내림차순·먼저 잡은 사람 우선, 상위 10. */
-    private void put(String fish, String league, RecordEntry entry) {
+    /** 캐시에 넣는다: 같은 사람은 큰 값 하나, 크기 내림차순·먼저 잡은 사람 우선, 상위 10. 이 기록으로 1위가 바뀌었으면 true. */
+    private boolean put(String fish, String league, RecordEntry entry) {
+        List<RecordEntry> before = top.getOrDefault(fish + "|" + league, List.of());
+        RecordEntry previousLeader = before.isEmpty() ? null : before.getFirst();
         top.compute(
                 fish + "|" + league,
                 (k, list) -> {
@@ -526,6 +555,31 @@ public final class CollectionManager
                                     .thenComparing(RecordEntry::caughtAt));
                     return List.copyOf(next.subList(0, Math.min(TOP, next.size())));
                 });
+        List<RecordEntry> after = top.getOrDefault(fish + "|" + league, List.of());
+        return !after.isEmpty()
+                && after.getFirst().player().equals(entry.player())
+                && (previousLeader == null || entry.size() > previousLeader.size());
+    }
+
+    private void weekly(String fish, RecordEntry entry) {
+        try {
+            weekly.addFirst(new WeeklyRecord(FishId.parse(fish), entry));
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+        while (weekly.size() > WEEKLY_MAX) {
+            weekly.removeLast();
+        }
+    }
+
+    /** 이번 주 서버 신기록 (최신 순, 이 서버가 받은 것만. 재시작하면 비어 있다). */
+    public List<WeeklyRecord> weeklyRecords() {
+        return List.copyOf(weekly);
+    }
+
+    /** 지역 어종 (신화 제외, 전광판 지역 페이지). */
+    public Set<FishId> regionFish(RegionId region) {
+        return index.regionFish().getOrDefault(region, Set.of());
     }
 
     @Override
@@ -650,7 +704,30 @@ public final class CollectionManager
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        applySeasonBuffs(event.getPlayer().getUniqueId());
+        UUID uuid = event.getPlayer().getUniqueId();
+        applySeasonBuffs(uuid);
+        // Season 칭호: 실패한 지급 재시도, Season이 생기기 전 달성분 한 번 지급 (플래그 캐시가 올라온 뒤)
+        var _ =
+                tasks.later(
+                        40,
+                        () -> {
+                            if (Bukkit.getPlayer(uuid) == null) {
+                                return;
+                            }
+                            seasonLink.retry(uuid);
+                            seasonLink.backfill(
+                                    uuid,
+                                    CodexTitles.earned(
+                                            rules(),
+                                            percent(uuid, CodexScope.TOTAL, null),
+                                            index.regionFish(),
+                                            data(uuid).season().keySet()));
+                        });
+    }
+
+    @EventHandler
+    public void onWeeklyReset(WeeklyResetEvent event) {
+        weekly.clear();
     }
 
     @EventHandler
@@ -667,7 +744,7 @@ public final class CollectionManager
                 .orElse(region.id().name());
     }
 
-    static String fmt(double size) {
+    public static String fmt(double size) {
         return String.format(Locale.ROOT, "%.1f", size);
     }
 }

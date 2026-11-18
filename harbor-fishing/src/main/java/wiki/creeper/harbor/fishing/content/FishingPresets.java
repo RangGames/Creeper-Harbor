@@ -18,7 +18,7 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *
  * <p>생략 항목 이름: darkness(전설 입질 어둠), title(입질 타이틀), shake(화면 흔들림 대신 짧은 흔들림 사운드), pillar(빛기둥),
  * firework(폭죽), dialog(포획 결과 Dialog), nearby(근처 플레이어 알림), jump_viewers(근처 플레이어에게 점프 장면),
- * shadow(그림자).
+ * shadow(그림자), flop(포획 때 손 위에서 퍼덕이는 어종 리그).
  */
 public record FishingPresets(Map<Grade, GradePreset> grades, Map<Integer, Set<String>> skip) {
 
@@ -79,7 +79,8 @@ public record FishingPresets(Map<Grade, GradePreset> grades, Map<Integer, Set<St
                     "dialog",
                     "nearby",
                     "jump_viewers",
-                    "shadow");
+                    "shadow",
+                    "flop");
 
     public GradePreset of(Grade grade) {
         return grades.getOrDefault(grade, NONE);

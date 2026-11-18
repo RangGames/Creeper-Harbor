@@ -133,3 +133,16 @@
           position:
             - {t: 0, v: [0, 0, 0], ease: ease_in}
             - {t: 8, v: [0, -0.4, 0]}
+    leap:                  # 점프 (Fishing 파이팅 점프 패턴: 한 번 재생 후 swim). 그림자가 수면 위로 튀어 올랐다 떨어진다
+      length: 16
+      mode: once
+      bones:
+        body:
+          position:
+            - {t: 0, v: [0, 0, 0], ease: ease_out}
+            - {t: 8, v: [0, 1.6, 0], ease: ease_in}
+            - {t: 16, v: [0, 0, 0]}
+          rotation:
+            - {t: 0, v: [-35, 0, 0]}
+            - {t: 8, v: [0, 0, 0]}
+            - {t: 16, v: [40, 0, 0]}
