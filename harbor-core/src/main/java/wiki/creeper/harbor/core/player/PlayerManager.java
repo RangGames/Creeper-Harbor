@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -421,6 +422,24 @@ public final class PlayerManager implements PlayerService, Listener {
     }
 
     /** 메인 스레드: 접속자 전원을 큐에 넣고 바로 쓴다 (점검 직전). 잠금은 그대로 둔다. */
+    @Override
+    public CompletableFuture<Void> saveNow(UUID uuid) {
+        PlayerState state = online.get(uuid);
+        if (state == null || readOnly) {
+            return CompletableFuture.completedFuture(null);
+        }
+        enqueueSave(state, false);
+        return tasks.supplyAsync(
+                () -> {
+                    try {
+                        queue.flushNow(prefix(uuid));
+                    } catch (SQLException e) {
+                        throw new CompletionException(e);
+                    }
+                    return null;
+                });
+    }
+
     private void saveAllNow() {
         autosave();
         var _ = tasks.async(queue::flush);
