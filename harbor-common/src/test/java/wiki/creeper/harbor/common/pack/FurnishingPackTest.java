@@ -30,7 +30,15 @@ class FurnishingPackTest {
                 null,
                 null,
                 null,
-                Map.of());
+                Map.of(),
+                CustomBlockDef.Rotation.NONE,
+                CustomBlockDef.Breaking.NOTE_BLOCK,
+                List.of(),
+                false,
+                0,
+                0,
+                null,
+                null);
     }
 
     private static String text(Map<String, byte[]> files, String path) {
@@ -117,5 +125,44 @@ class FurnishingPackTest {
                                 result.files())
                         .sha1();
         assertEquals(built.sha1(), again);
+    }
+
+    @Test
+    void axisBlocksRotateLikeLogs() {
+        CustomBlockDef log =
+                new CustomBlockDef(
+                        HarborId.parse("block/driftwood"),
+                        "유목",
+                        50,
+                        "harbor:block/driftwood",
+                        null,
+                        null,
+                        null,
+                        null,
+                        Map.of(),
+                        CustomBlockDef.Rotation.AXIS,
+                        CustomBlockDef.Breaking.NOTE_BLOCK,
+                        List.of(),
+                        false,
+                        0,
+                        0,
+                        null,
+                        null);
+        JsonObject variants =
+                JsonParser.parseString(
+                                text(
+                                        FurnishingPack.generate(List.of(log), null).files(),
+                                        FurnishingPack.BLOCKSTATE))
+                        .getAsJsonObject()
+                        .getAsJsonObject("variants");
+        JsonObject y = variants.getAsJsonObject(CustomBlockDef.properties(50, false));
+        JsonObject x = variants.getAsJsonObject(CustomBlockDef.properties(51, false));
+        JsonObject z = variants.getAsJsonObject(CustomBlockDef.properties(52, true));
+        assertFalse(y.has("x"));
+        assertEquals(90, x.get("x").getAsInt());
+        assertEquals(90, x.get("y").getAsInt());
+        assertEquals(90, z.get("x").getAsInt());
+        assertFalse(z.has("y"));
+        assertEquals("harbor:block/driftwood", z.get("model").getAsString());
     }
 }

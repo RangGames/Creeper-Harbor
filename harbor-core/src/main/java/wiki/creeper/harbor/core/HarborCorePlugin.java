@@ -41,6 +41,7 @@ import wiki.creeper.harbor.core.currency.CurrencyManager;
 import wiki.creeper.harbor.core.currency.GoldCommand;
 import wiki.creeper.harbor.core.currency.SeasonBalanceStore;
 import wiki.creeper.harbor.core.flag.FlagManager;
+import wiki.creeper.harbor.core.furniture.BlockBreakSpeed;
 import wiki.creeper.harbor.core.furniture.CustomBlockManager;
 import wiki.creeper.harbor.core.furniture.FurnishingCommand;
 import wiki.creeper.harbor.core.furniture.FurnishingService;
@@ -88,6 +89,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
     private @Nullable MessageManager messages;
     private @Nullable RigManager rigs;
     private @Nullable FurnitureManager furniture;
+    private @Nullable BlockBreakSpeed breakSpeeds;
 
     @Override
     public void onEnable() {
@@ -217,7 +219,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         FurnitureManager furnitureManager = new FurnitureManager(content::snapshot, msg, ui, tasks);
         furniture = furnitureManager;
         CustomBlockManager customBlocks =
-                new CustomBlockManager(content::snapshot, msg, tasks, log);
+                new CustomBlockManager(content::snapshot, msg, items, tasks, log);
         AdminLog adminLog = new AdminLog(database, log);
         HarborCommand command =
                 new HarborCommand(
@@ -263,6 +265,9 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         pm.registerEvents(rigManager, this);
         pm.registerEvents(furnitureManager, this);
         pm.registerEvents(customBlocks, this);
+        BlockBreakSpeed breakSpeed = new BlockBreakSpeed(customBlocks);
+        breakSpeeds = breakSpeed;
+        pm.registerEvents(breakSpeed, this);
         GlitchedNoteBlocks glitched = new GlitchedNoteBlocks(content::snapshot, tasks, log);
         pm.registerEvents(glitched, this);
         FurnishingCommand furnishing =
@@ -332,6 +337,9 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         }
         if (furniture != null) {
             furniture.shutdown();
+        }
+        if (breakSpeeds != null) {
+            breakSpeeds.shutdown();
         }
         try {
             if (players != null) {

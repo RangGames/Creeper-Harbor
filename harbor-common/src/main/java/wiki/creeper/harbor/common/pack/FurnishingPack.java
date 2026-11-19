@@ -54,7 +54,7 @@ public final class FurnishingPack {
         }
         Map<String, byte[]> files = new TreeMap<>();
         List<String> warnings = new ArrayList<>();
-        Map<Integer, String> stateModels = new HashMap<>();
+        Map<Integer, Variant> stateModels = new HashMap<>();
         List<CustomBlockDef> sorted = new ArrayList<>(blocks);
         sorted.sort(Comparator.comparing(CustomBlockDef::id));
         for (CustomBlockDef block : sorted) {
@@ -63,8 +63,8 @@ public final class FurnishingPack {
                 warnings.add(block.id() + ": 에셋 폴더에 " + missing + " 파일이 없어 넣지 않았습니다");
                 continue;
             }
-            if (stateModels.containsKey(block.state())) {
-                warnings.add(block.id() + ": state " + block.state() + "가 다른 블록과 겹쳐 넣지 않았습니다");
+            if (block.states().stream().anyMatch(stateModels::containsKey)) {
+                warnings.add(block.id() + ": 상태 번호가 다른 블록과 겹쳐 넣지 않았습니다");
                 continue;
             }
             String ns = block.id().namespace();
@@ -81,27 +81,43 @@ public final class FurnishingPack {
                             "{\"model\":{\"type\":\"minecraft:model\",\"model\":\""
                                     + block.blockModel()
                                     + "\"}}\n"));
-            stateModels.put(block.state(), block.blockModel());
+            for (String orientation : block.rotation().orientations()) {
+                int[] rot = CustomBlockDef.Rotation.modelRotation(orientation);
+                stateModels.put(
+                        block.stateOf(orientation),
+                        new Variant(block.blockModel(), rot[0], rot[1]));
+            }
         }
         files.put(BLOCKSTATE, bytes(blockstate(stateModels)));
         return new Result(files, warnings);
     }
 
-    /** 노트블록 상태 파일 (상태 → 모델, 없는 상태는 바닐라). */
-    static String blockstate(Map<Integer, String> stateModels) {
+    /** 상태 하나의 모델과 회전 (도). */
+    record Variant(String model, int x, int y) {}
+
+    /** 노트블록 상태 파일 (상태 → 모델·회전, 없는 상태는 바닐라). */
+    static String blockstate(Map<Integer, Variant> stateModels) {
+        Variant vanilla = new Variant(VANILLA, 0, 0);
         StringBuilder sb = new StringBuilder("{\n  \"variants\": {");
         boolean first = true;
         int states = CustomBlockDef.INSTRUMENTS.size() * CustomBlockDef.NOTES;
         for (int state = 0; state < states; state++) {
-            String model = stateModels.getOrDefault(state, VANILLA);
+            Variant v = stateModels.getOrDefault(state, vanilla);
             for (boolean powered : new boolean[] {false, true}) {
                 sb.append(first ? "\n" : ",\n");
                 first = false;
                 sb.append("    \"")
                         .append(CustomBlockDef.properties(state, powered))
                         .append("\": {\"model\": \"")
-                        .append(model)
-                        .append("\"}");
+                        .append(v.model())
+                        .append('"');
+                if (v.x() != 0) {
+                    sb.append(", \"x\": ").append(v.x());
+                }
+                if (v.y() != 0) {
+                    sb.append(", \"y\": ").append(v.y());
+                }
+                sb.append('}');
             }
         }
         return sb.append("\n  }\n}\n").toString();

@@ -38,11 +38,22 @@ public final class CoreContent {
         loader.addCheck(CustomBlockDef.TYPE, CoreContent::checkBlockState);
     }
 
-    /** 커스텀 블록의 노트블록 상태 번호는 블록마다 달라야 한다. */
+    /** 커스텀 블록의 노트블록 상태 번호(방향 블록은 state부터 방향 수만큼)는 블록끼리 겹치면 안 된다. */
     private static void checkBlockState(CustomBlockDef block, ContentCheck.Context ctx) {
         for (CustomBlockDef other : ctx.snapshot().all(CustomBlockDef.TYPE).values()) {
-            if (other.state() == block.state() && !other.id().equals(block.id())) {
-                ctx.error("state " + block.state() + "가 '" + other.id() + "'와 중복됩니다");
+            if (other.id().equals(block.id())) {
+                continue;
+            }
+            for (int state : block.states()) {
+                if (other.states().contains(state)) {
+                    ctx.error(
+                            "상태 번호 "
+                                    + state
+                                    + "가 '"
+                                    + other.id()
+                                    + "'와 겹칩니다 (방향 블록은 state부터 방향 수만큼 씀)");
+                    return;
+                }
             }
         }
     }

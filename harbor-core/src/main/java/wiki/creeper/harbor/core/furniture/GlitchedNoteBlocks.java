@@ -83,7 +83,8 @@ public final class GlitchedNoteBlocks implements Listener {
     /** 지금 배정된 상태 번호 (정렬). */
     private int[] assigned() {
         return content.get().all(CustomBlockDef.TYPE).values().stream()
-                .mapToInt(CustomBlockDef::state)
+                .flatMap(def -> def.states().stream())
+                .mapToInt(Integer::intValue)
                 .distinct()
                 .sorted()
                 .toArray();

@@ -7,6 +7,18 @@
 #     model: "harbor:block/x"                          직접 만든 블록 모델 (assets/harbor/models/block/x.json)
 #     textures: {down: …, up: …, north: …, south: …, east: …, west: …}   면마다 다른 텍스처 (여섯 면 모두)
 # 에셋 폴더에 텍스처·모델이 없으면 그 블록은 팩에 넣지 않는다 (서버 로그 경고, 바닐라 노트블록 모양).
+#   rotation     놓는 방향에 따라 돌아감. 방향마다 상태 번호를 하나씩 더 쓴다 (state부터 연속, 다른 블록과 겹치면 오류)
+#                axis (원목, 3개: 세로·동서·남북) · horizontal (화로, 4개: 놓는 사람 쪽) · facing (발사기, 6개: 위·아래 포함)
+#                모델·텍스처는 north(axis는 세로)를 기준으로 만든다
+#   hardness     캐는 시간 = 바닐라 단단함 (기본 0.8 노트블록 · 돌 1.5 · 철광석 3 · 흑요석 50 · 0 즉시 · -1 부술 수 없음)
+#   tool         잘 캐지는 도구 none · axe · pickaxe · shovel · hoe · sword (기본 axe)
+#   tier         곡괭이 등급 wood · stone · iron · diamond (그 등급 이상, tool: pickaxe일 때)
+#   requires_tool  true면 맞는 도구(등급)가 아닐 때 느리게 캐지고 아무것도 떨어지지 않음 (돌처럼)
+#   drops        떨어뜨릴 아이템 목록 {item, amount 또는 min·max, chance(%)}. item은 minecraft:x 또는 Harbor 아이템 item/x.
+#                없으면 블록 자신
+#   silk_touch   true면 섬세한 손길로 캘 때 drops 대신 블록 자신
+#   exp          경험치 (숫자 또는 {min, max})
+#   sounds       {place, break} 서버가 내는 소리 키 (노트블록의 나무 소리도 클라이언트에서 함께 난다)
 # 서버 설정: paper-global.yml block-updates.disable-noteblock-updates: true (아래 블록이 바뀌어도 모양이 그대로이게).
 #   대신 노트블록 레드스톤 연주는 동작하지 않는다. 커스텀 블록이 하나라도 있으면 노트블록 음 바꾸기·연주도 막는다.
 # 기존 노트블록: 번호를 새로 배정하기 전부터 월드에 있던 노트블록이 마침 그 상태면 커스텀 블록 모양으로 보인다.
@@ -16,5 +28,20 @@
 # 예:
 # - {id: block/marble_tile, name: 대리석 타일, state: 1, texture: "harbor:block/marble_tile"}
 # - {id: block/fish_crate, name: 생선 상자, state: 2, top: "harbor:block/fish_crate_top", side: "harbor:block/fish_crate_side"}
+# - {id: block/driftwood, name: 유목, state: 3, top: "harbor:block/driftwood_top", side: "harbor:block/driftwood", rotation: axis}   # 3·4·5번
+# - id: block/coral_ore
+#   name: 산호 광석
+#   state: 6
+#   texture: "harbor:block/coral_ore"
+#   hardness: 3
+#   tool: pickaxe
+#   tier: stone
+#   requires_tool: true
+#   drops:
+#     - {item: minecraft:prismarine_shard, min: 1, max: 3}
+#     - {item: minecraft:prismarine_crystals, chance: 20}
+#   silk_touch: true
+#   exp: {min: 1, max: 3}
+#   sounds: {place: "minecraft:block.stone.place", break: "minecraft:block.stone.break"}
 
 []

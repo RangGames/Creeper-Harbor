@@ -7,23 +7,34 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -36,8 +47,10 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.CustomBlockDef;
+import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.ItemModels;
+import wiki.creeper.harbor.core.api.ItemService;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
@@ -63,18 +76,22 @@ public final class CustomBlockManager implements Listener {
 
     private final Supplier<ContentSnapshot> content;
     private final MessageService messages;
+    private final ItemService items;
     private final Tasks tasks;
     private final Logger log;
 
     /** 블록 데이터 문자열 → 블록 (powered 두 상태 모두). 콘텐츠를 다시 읽으면 비운다. */
     private @Nullable Map<String, CustomBlockDef> byState;
 
-    private Map<HarborId, BlockData> dataById = Map.of();
-
     public CustomBlockManager(
-            Supplier<ContentSnapshot> content, MessageService messages, Tasks tasks, Logger log) {
+            Supplier<ContentSnapshot> content,
+            MessageService messages,
+            ItemService items,
+            Tasks tasks,
+            Logger log) {
         this.content = content;
         this.messages = messages;
+        this.items = items;
         this.tasks = tasks;
         this.log = log;
     }
@@ -120,19 +137,17 @@ public final class CustomBlockManager implements Listener {
             return cached;
         }
         Map<String, CustomBlockDef> map = new HashMap<>();
-        Map<HarborId, BlockData> data = new HashMap<>();
         for (CustomBlockDef def : content.get().all(CustomBlockDef.TYPE).values()) {
             try {
-                BlockData unpowered = noteBlock(def.state(), false);
-                map.put(unpowered.getAsString(), def);
-                map.put(noteBlock(def.state(), true).getAsString(), def);
-                data.put(def.id(), unpowered);
+                for (int state : def.states()) {
+                    map.put(noteBlock(state, false).getAsString(), def);
+                    map.put(noteBlock(state, true).getAsString(), def);
+                }
             } catch (IllegalArgumentException e) {
                 log.error("커스텀 블록 {}의 노트블록 상태를 만들지 못했습니다: {}", def.id(), e.getMessage());
             }
         }
         Map<String, CustomBlockDef> result = Map.copyOf(map);
-        dataById = Map.copyOf(data);
         byState = result;
         return result;
     }
@@ -189,33 +204,138 @@ public final class CustomBlockManager implements Listener {
 
     // ------------------------------------------------------------------ 이벤트
 
-    /** 놓인 뒤(보호 구역 검사가 모두 끝난 뒤) 상태를 바꾼다. 나중에 취소되면 서버가 원래 블록으로 되돌린다. */
+    /** 놓인 뒤(보호 구역 검사가 모두 끝난 뒤) 방향에 맞는 상태로 바꾼다. 나중에 취소되면 서버가 원래 블록으로 되돌린다. */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        Optional<HarborId> id = idOf(event.getItemInHand());
-        if (id.isEmpty()) {
+        Optional<CustomBlockDef> def = idOf(event.getItemInHand()).flatMap(this::def);
+        if (def.isEmpty()) {
             return;
         }
-        states();
-        BlockData data = dataById.get(id.get());
-        if (data != null) {
-            event.getBlockPlaced().setBlockData(data, false);
+        Block placed = event.getBlockPlaced();
+        String orientation = orientation(def.get().rotation(), event);
+        try {
+            placed.setBlockData(noteBlock(def.get().stateOf(orientation), false), false);
+        } catch (IllegalArgumentException e) {
+            return;
         }
+        sound(placed, def.get().placeSound());
     }
 
-    /** 노트블록 대신 커스텀 블록 아이템을 떨어뜨린다. */
+    /** 놓는 방향: axis = 댄 면의 축 (원목), horizontal = 놓는 사람 쪽 (화로), facing = 바라보는 반대쪽, 위·아래 포함 (발사기). */
+    private static String orientation(CustomBlockDef.Rotation rotation, BlockPlaceEvent event) {
+        Player player = event.getPlayer();
+        BlockFace face = event.getBlockAgainst().getFace(event.getBlockPlaced());
+        BlockFace toward = player.getFacing().getOppositeFace();
+        return switch (rotation) {
+            case NONE -> "none";
+            case AXIS -> {
+                BlockFace f = face != null && face != BlockFace.SELF ? face : BlockFace.UP;
+                yield f == BlockFace.EAST || f == BlockFace.WEST
+                        ? "x"
+                        : f == BlockFace.NORTH || f == BlockFace.SOUTH ? "z" : "y";
+            }
+            case HORIZONTAL -> toward.name().toLowerCase(Locale.ROOT);
+            case FACING -> {
+                float pitch = feet(player).getPitch();
+                yield pitch > 45
+                        ? "up"
+                        : pitch < -45 ? "down" : toward.name().toLowerCase(Locale.ROOT);
+            }
+        };
+    }
+
+    /** 부술 수 없는 블록 · 경험치 · 부수는 소리. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBreak(BlockBreakEvent event) {
+        Optional<CustomBlockDef> def = at(event.getBlock());
+        if (def.isEmpty()) {
+            return;
+        }
+        Player player = event.getPlayer();
+        boolean creative = player.getGameMode() == GameMode.CREATIVE;
+        if (def.get().breaking().unbreakable() && !creative) {
+            event.setCancelled(true);
+            return;
+        }
+        int min = def.get().expMin();
+        int max = def.get().expMax();
+        ItemStack tool = player.getInventory().getItemInMainHand();
+        if (!creative && max > 0 && BlockBreakSpeed.canHarvest(def.get().breaking(), tool)) {
+            event.setExpToDrop(min + ThreadLocalRandom.current().nextInt(max - min + 1));
+        }
+        sound(event.getBlock(), def.get().breakSound());
+    }
+
+    /** 노트블록 대신 정한 드롭 (없으면 블록 자신). 도구가 맞지 않으면(requires_tool) 아무것도 없다. */
     @EventHandler(ignoreCancelled = true)
     public void onDrop(BlockDropItemEvent event) {
         Optional<CustomBlockDef> def = at(event.getBlockState());
         if (def.isEmpty()) {
             return;
         }
-        for (Item drop : event.getItems()) {
+        int amount = 0;
+        for (Item drop : List.copyOf(event.getItems())) {
             ItemStack stack = drop.getItemStack();
             if (stack.getType() == Material.NOTE_BLOCK) {
-                drop.setItemStack(item(def.get(), stack.getAmount()));
+                amount += stack.getAmount();
+                event.getItems().remove(drop);
             }
         }
+        if (amount == 0) {
+            return;
+        }
+        ItemStack tool = event.getPlayer().getInventory().getItemInMainHand();
+        CustomBlockDef block = def.get();
+        if (!BlockBreakSpeed.canHarvest(block.breaking(), tool)) {
+            return;
+        }
+        Location at = event.getBlock().getLocation().add(0.5, 0.5, 0.5);
+        World world = event.getBlock().getWorld();
+        boolean silk = block.silkTouch() && tool.containsEnchantment(Enchantment.SILK_TOUCH);
+        if (block.drops().isEmpty() || silk) {
+            world.dropItemNaturally(at, item(block, amount));
+            return;
+        }
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        for (CustomBlockDef.Drop drop : block.drops()) {
+            if (random.nextDouble() * 100 >= drop.chance()) {
+                continue;
+            }
+            int n = drop.min() + random.nextInt(drop.max() - drop.min() + 1);
+            if (n <= 0) {
+                continue;
+            }
+            dropItem(drop.item(), n).ifPresent(stack -> world.dropItemNaturally(at, stack));
+        }
+    }
+
+    private Optional<ItemStack> dropItem(String item, int amount) {
+        if (item.startsWith("minecraft:")) {
+            Material material = Material.matchMaterial(item);
+            return material == null || !material.isItem()
+                    ? Optional.empty()
+                    : Optional.of(
+                            ItemStack.of(material, Math.min(amount, material.getMaxStackSize())));
+        }
+        return HarborId.tryParse(item)
+                .flatMap(id -> content.get().get(ItemDef.TYPE, id))
+                .map(def -> items.create(def, amount));
+    }
+
+    private static void sound(Block block, @Nullable String key) {
+        if (key == null || !Key.parseable(key)) {
+            return;
+        }
+        block.getWorld()
+                .playSound(
+                        Sound.sound(Key.key(key), Sound.Source.BLOCK, 1f, 1f),
+                        block.getX() + 0.5,
+                        block.getY() + 0.5,
+                        block.getZ() + 0.5);
+    }
+
+    private static Location feet(Player player) {
+        return java.util.Objects.requireNonNull(player.getLocation());
     }
 
     /** 노트블록 음 바꾸기를 막는다 (블록을 대고 놓기는 그대로). */
