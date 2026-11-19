@@ -13,6 +13,10 @@ dependencyResolutionManagement {
         mavenCentral()
         maven("https://repo.papermc.io/repository/maven-public/")
         maven("https://repo.purpurmc.org/snapshots")
+        // Skript API (Harbor-Skript 컴파일 전용)
+        maven("https://repo.skriptlang.org/releases") {
+            content { includeGroup("com.github.SkriptLang") }
+        }
     }
 }
 
@@ -31,5 +35,6 @@ include(
     "harbor-season",
     "harbor-shop",
     "harbor-wildlife",
+    "harbor-skript",
     "harbor-tools",
 )

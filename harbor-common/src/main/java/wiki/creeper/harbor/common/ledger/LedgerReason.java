@@ -10,6 +10,10 @@ public enum LedgerReason {
     ADMIN_TAKE,
     SEASON_RESET,
 
+    // Harbor-Skript: 스크립트의 골드·물비늘 증감 (추가 제안)
+    SCRIPT_GRANT,
+    SCRIPT_TAKE,
+
     // Jobs: 레벨업 물비늘, 전직, 계열 변경, 스킬 투자·환급·초기화, 단계 첫 품질 보상
     LEVEL_UP,
     JOB_ADVANCE,

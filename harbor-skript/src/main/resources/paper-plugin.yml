@@ -1,0 +1,15 @@
+name: Harbor-Skript
+version: '${version}'
+main: wiki.creeper.harbor.skript.HarborSkriptPlugin
+api-version: '${apiVersion}'
+description: 'Skript 애드온 (Harbor 재화·아이템·문구·가구를 Skript에서 안전하게)'
+dependencies:
+  server:
+    Harbor-Core:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    Skript:
+      load: BEFORE
+      required: false
+      join-classpath: true

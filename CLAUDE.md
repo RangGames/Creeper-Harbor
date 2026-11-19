@@ -47,6 +47,7 @@ harbor-core     Purpur 플러그인. Common을 api 의존으로 노출
 harbor-proxy    Velocity 플러그인. Common + Lettuce를 shadow (relocate)
 harbor-<게임>    jobs, fishing, collection, npc, quest, economy, world, boss, season, shop, wildlife
                 → paper-plugin.yml에서 Harbor-Core에 load: BEFORE, join-classpath: true
+harbor-skript   Skript 애드온 (선택). Skript가 있을 때만 문법 등록, 재화·아이템은 Harbor API로만
 harbor-tools    콘텐츠 검증 CLI (CI용). Common의 로더를 그대로 쓴다
 build-logic     컨벤션 플러그인: harbor.java / harbor.paper-plugin / harbor.paper-module / harbor.velocity-plugin
 content/        디자이너가 편집하는 YAML (fish/*.yml, items/*.yml, regions.yml, balance.yml, messages_ko.yml)
