@@ -73,34 +73,34 @@ public final class BossCommands {
 
     public void registerPlayerCommands(Commands commands) {
         LiteralArgumentBuilder<CommandSourceStack> root =
-                Commands.literal("boss")
+                Commands.literal("보스")
                         .requires(src -> src.getSender().hasPermission("harbor.boss"))
-                        .then(Commands.literal("info").then(bossArg().executes(this::info)))
+                        .then(Commands.literal("정보").then(bossArg().executes(this::info)))
                         .then(
-                                Commands.literal("records")
+                                Commands.literal("기록")
                                         .then(
                                                 bossArg()
                                                         .executes(ctx -> records(ctx, false))
                                                         .then(
-                                                                Commands.literal("all")
+                                                                Commands.literal("전체")
                                                                         .executes(
                                                                                 ctx ->
                                                                                         records(
                                                                                                 ctx,
                                                                                                 true)))))
                         .then(
-                                Commands.literal("claim")
+                                Commands.literal("보상")
                                         .requires(BossCommands::isPlayer)
                                         .executes(this::claim))
                         .then(
-                                Commands.literal("enter")
+                                Commands.literal("입장")
                                         .requires(BossCommands::isPlayer)
                                         .then(bossArg().executes(this::enter)))
                         .then(
-                                Commands.literal("role")
+                                Commands.literal("역할")
                                         .requires(BossCommands::isPlayer)
                                         .then(PartyCommands.roleArg().executes(this::role)));
-        commands.register(root.build(), "보스전 정보·기록·보상", List.of("보스"));
+        commands.register(root.build(), "보스전 정보·기록·보상", List.of());
     }
 
     private static boolean isPlayer(CommandSourceStack src) {

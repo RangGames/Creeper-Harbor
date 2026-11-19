@@ -39,21 +39,21 @@ public final class PartyCommands {
 
     public void register(Commands commands) {
         LiteralArgumentBuilder<CommandSourceStack> root =
-                Commands.literal("party")
+                Commands.literal("파티")
                         .requires(
                                 src ->
                                         src.getExecutor() instanceof Player
                                                 && src.getSender().hasPermission("harbor.party"))
                         .executes(this::info)
-                        .then(Commands.literal("create").executes(this::create))
-                        .then(Commands.literal("invite").then(target().executes(this::invite)))
-                        .then(Commands.literal("join").executes(this::join))
-                        .then(Commands.literal("leave").executes(this::leave))
-                        .then(Commands.literal("kick").then(target().executes(this::kick)))
-                        .then(Commands.literal("disband").executes(this::disband))
-                        .then(Commands.literal("promote").then(target().executes(this::promote)))
+                        .then(Commands.literal("만들기").executes(this::create))
+                        .then(Commands.literal("초대").then(target().executes(this::invite)))
+                        .then(Commands.literal("수락").executes(this::join))
+                        .then(Commands.literal("나가기").executes(this::leave))
+                        .then(Commands.literal("추방").then(target().executes(this::kick)))
+                        .then(Commands.literal("해산").executes(this::disband))
+                        .then(Commands.literal("위임").then(target().executes(this::promote)))
                         .then(
-                                Commands.literal("role")
+                                Commands.literal("역할")
                                         .then(
                                                 roleArg()
                                                         .executes(ctx -> role(ctx, false))
@@ -63,7 +63,7 @@ public final class PartyCommands {
                                                                                         role(
                                                                                                 ctx,
                                                                                                 true)))));
-        commands.register(root.build(), "파티 (보스전)", List.of("파티"));
+        commands.register(root.build(), "파티 (보스전)", List.of());
     }
 
     static RequiredArgumentBuilder<CommandSourceStack, String> roleArg() {

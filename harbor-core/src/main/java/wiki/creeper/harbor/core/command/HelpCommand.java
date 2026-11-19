@@ -24,8 +24,8 @@ import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.MessageService;
 
 /**
- * 플레이어 /도움말 (별칭 /명령어, /guide, 추가 제안). help.yml 순서대로 명령을 보여 주고, 이 서버에 없는 명령과 쓸 수 없는 명령(Brigadier
- * requires)은 감춘다. 줄을 누르면 실행하거나 입력창에 넣는다.
+ * 플레이어 /도움말 (별칭 /명령어, 추가 제안). help.yml 순서대로 명령을 보여 주고, 이 서버에 없는 명령과 쓸 수 없는 명령(Brigadier requires)은
+ * 감춘다. 줄을 누르면 실행하거나 입력창에 넣는다.
  *
  * <p>처음 접속한 플레이어에게는 한 번만 안내 문구를 보낸다 (영구 플래그 {@value #WELCOMED}, 서버를 옮겨도 다시 보내지 않음).
  */
@@ -54,7 +54,7 @@ public final class HelpCommand implements Listener {
         commands.register(
                 Commands.literal("도움말").executes(this::show).build(),
                 "크리퍼 항구 명령어 안내",
-                List.of("명령어", "guide"));
+                List.of("명령어"));
     }
 
     private int show(CommandContext<CommandSourceStack> ctx) {

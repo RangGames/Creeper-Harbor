@@ -29,7 +29,7 @@ sections:
     commands:
       - {command: "판매", text: "물고기·아이템 팔기"}
       - {command: "시세 <어종>", text: "어종 시세 보기"}
-      - {command: "경매", text: "경매장"}
+      - {command: "경매", text: "경매장 · <white>/경매 등록 [가격]</white> · 분류: 전체 어종 장비 미끼 재료 요리"}
       - {command: "제작", text: "근처 작업대에서 제작"}
       - {command: "수리", text: "낚싯대·장비 수리"}
       - {command: "큰손", text: "큰손 거래 (경제 계열 캡스톤)"}
@@ -46,21 +46,22 @@ sections:
 
   - title: "<red>보스 · 파티"
     commands:
-      - {command: "보스 info <보스>", text: "보스 정보"}
-      - {command: "보스 records", text: "보스전 기록"}
-      - {command: "보스 claim", text: "보스전 보상 받기"}
-      - {command: "파티 create", text: "파티 만들기"}
-      - {command: "파티 invite <플레이어>", text: "파티에 초대"}
-      - {command: "파티 leave", text: "파티 나가기"}
+      - {command: "보스 정보 <보스>", text: "보스 정보"}
+      - {command: "보스 기록 <보스>", text: "보스전 기록 (끝에 전체를 붙이면 전체 순위)"}
+      - {command: "보스 보상", text: "보스전 보상 받기"}
+      - {command: "파티", text: "내 파티 정보"}
+      - {command: "파티 만들기", text: "파티 만들기"}
+      - {command: "파티 초대 <플레이어>", text: "파티에 초대 · 받은 초대는 <white>/파티 수락</white>"}
+      - {command: "파티 나가기", text: "파티 나가기"}
 
   - title: "<light_purple>시즌 · 꾸미기"
     commands:
       - {command: "시즌", text: "이번 시즌 정보와 남은 기간"}
       - {command: "랭킹", text: "시즌 랭킹"}
       - {command: "명예의전당", text: "지난 시즌 명예의 전당"}
-      - {command: "칭호", text: "칭호 고르기"}
+      - {command: "칭호", text: "칭호 고르기 · <white>/칭호 해제</white>"}
       - {command: "패스", text: "시즌 패스 「항해 일지」"}
-      - {command: "상점", text: "코스메틱 상점"}
+      - {command: "상점", text: "코스메틱 상점 (진열 · 상시 · 시즌 · 묶음)"}
       - {command: "보관함", text: "코스메틱 보관함 · 장착"}
       - {command: "진주", text: "진주 잔액 · 내역"}
       - {command: "보물함", text: "진주 보물함"}

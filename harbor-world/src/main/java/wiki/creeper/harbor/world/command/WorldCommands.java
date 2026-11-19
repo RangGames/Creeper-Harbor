@@ -115,7 +115,7 @@ public final class WorldCommands {
                                                                                                 ctx)))))
                         .build(),
                 "지역 해도 완성도",
-                List.of("chart"));
+                List.of());
         commands.register(
                 Commands.literal("부두")
                         .requires(src -> src.getSender().hasPermission("harbor.world.housing"))
@@ -191,7 +191,7 @@ public final class WorldCommands {
                                                                                                                         false))))))
                         .build(),
                 "개인 부두 (하우징)",
-                List.of("home"));
+                List.of());
         commands.register(
                 Commands.literal("선박")
                         .requires(src -> src.getSender().hasPermission("harbor.world.ship"))
@@ -217,14 +217,14 @@ public final class WorldCommands {
                         .then(Commands.literal("정보").executes(ctx -> player(ctx, this::shipInfo)))
                         .build(),
                 "선박 소환·회수",
-                List.of("ship"));
+                List.of());
         commands.register(
                 Commands.literal("조선소")
                         .requires(src -> src.getSender().hasPermission("harbor.world.ship"))
                         .executes(ctx -> player(ctx, this::yard))
                         .build(),
                 "조선소 (선박 구매·업그레이드·수리)",
-                List.of("shipyard"));
+                List.of());
         commands.register(
                 Commands.literal("비행선")
                         .requires(src -> src.getSender().hasPermission("harbor.world.travel"))
@@ -243,14 +243,14 @@ public final class WorldCommands {
                                                                                                 null)))))
                         .build(),
                 "항구 비행선 노선",
-                List.of("airship"));
+                List.of());
         commands.register(
                 Commands.literal("노틸러스")
                         .requires(src -> src.getSender().hasPermission("harbor.world.travel"))
                         .executes(ctx -> player(ctx, rides::rent))
                         .build(),
                 "심해 탈것 대여",
-                List.of("nautilus"));
+                List.of());
     }
 
     /** 조선소: 조선소 시설 8블록 안 (우회 권한이면 어디서나). */

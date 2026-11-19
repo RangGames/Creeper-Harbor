@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Supplier;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -29,7 +28,7 @@ import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.api.RecordService;
 import wiki.creeper.harbor.collection.release.ReleaseManager;
 import wiki.creeper.harbor.common.content.type.FishDef;
-import wiki.creeper.harbor.common.id.HarborId;
+import wiki.creeper.harbor.core.api.FishArgs;
 import wiki.creeper.harbor.core.api.HarborApi;
 
 /** /도감, /기록, /수족관, /harbor collection … (docs 20 4.5). */
@@ -55,11 +54,11 @@ public final class CollectionCommands {
     }
 
     public void registerPlayerCommands(Commands commands) {
-        commands.register(codexCommand(), "도감", List.of("codex"));
+        commands.register(codexCommand(), "도감", List.of());
         commands.register(
                 Commands.literal("기록").then(fishArgument().executes(this::records)).build(),
                 "최대어 기록",
-                List.of("records"));
+                List.of());
         commands.register(
                 Commands.literal("수족관")
                         .executes(this::aquariumStatus)
@@ -85,7 +84,7 @@ public final class CollectionCommands {
                                                 }))
                         .build(),
                 "항구 수족관",
-                List.of("aquarium"));
+                List.of());
         commands.register(
                 Commands.literal("방류")
                         .requires(src -> src.getExecutor() instanceof Player)
@@ -98,7 +97,7 @@ public final class CollectionCommands {
                                 })
                         .build(),
                 "손에 든 어종 방류",
-                List.of("release"));
+                List.of());
     }
 
     private LiteralCommandNode<CommandSourceStack> codexCommand() {
@@ -405,29 +404,13 @@ public final class CollectionCommands {
 
     // ------------------------------------------------------------------ 도우미
 
-    private RequiredArgumentBuilder<CommandSourceStack, Key> fishArgument() {
-        return Commands.argument("fish", ArgumentTypes.key())
-                .suggests(
-                        (ctx, b) -> {
-                            api.content()
-                                    .snapshot()
-                                    .ids(FishDef.TYPE.name())
-                                    .forEach(id -> b.suggest(id.toString()));
-                            return b.buildFuture();
-                        });
+    /** 어종 이름 인자 (한국어, 마지막 인자). */
+    private RequiredArgumentBuilder<CommandSourceStack, String> fishArgument() {
+        return FishArgs.argument("fish", api.content()::snapshot);
     }
 
     private Optional<FishDef> fish(CommandContext<CommandSourceStack> ctx) {
-        Key key = ctx.getArgument("fish", Key.class);
-        String namespace =
-                key.namespace().equals(Key.MINECRAFT_NAMESPACE)
-                        ? HarborId.DEFAULT_NAMESPACE
-                        : key.namespace();
-        try {
-            return api.content().snapshot().get(FishDef.TYPE, new HarborId(namespace, key.value()));
-        } catch (IllegalArgumentException e) {
-            return Optional.empty();
-        }
+        return FishArgs.get(ctx, "fish", api.content().snapshot());
     }
 
     private static RequiredArgumentBuilder<CommandSourceStack, PlayerSelectorArgumentResolver>

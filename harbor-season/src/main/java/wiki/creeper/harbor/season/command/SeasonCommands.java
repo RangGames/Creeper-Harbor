@@ -101,7 +101,7 @@ public final class SeasonCommands {
                         .executes(this::season)
                         .build(),
                 "현재 시즌·주차·다음 초기화",
-                List.of("season"));
+                List.of());
         commands.register(
                 Commands.literal("랭킹")
                         .requires(
@@ -143,7 +143,7 @@ public final class SeasonCommands {
                                                                                                 "league")))))
                         .build(),
                 "랭킹",
-                List.of("ranking"));
+                List.of());
         commands.register(
                 Commands.literal("명예의전당")
                         .requires(
@@ -161,7 +161,7 @@ public final class SeasonCommands {
                                                                         ctx, "season"))))
                         .build(),
                 "명예의 전당",
-                List.of("halloffame"));
+                List.of());
         commands.register(
                 Commands.literal("칭호")
                         .requires(
@@ -175,12 +175,12 @@ public final class SeasonCommands {
                                     }
                                     return Command.SINGLE_SUCCESS;
                                 })
-                        .then(Commands.literal("list").executes(this::titleList))
+                        .then(Commands.literal("목록").executes(this::titleList))
                         .then(
-                                Commands.literal("equip")
+                                Commands.literal("장착")
                                         .then(ownedTitleArgument().executes(this::titleEquip)))
                         .then(
-                                Commands.literal("unequip")
+                                Commands.literal("해제")
                                         .executes(
                                                 ctx -> {
                                                     if (ctx.getSource().getExecutor()
@@ -193,7 +193,7 @@ public final class SeasonCommands {
                                                 }))
                         .build(),
                 "칭호",
-                List.of("title"));
+                List.of());
     }
 
     private int season(CommandContext<CommandSourceStack> ctx) {

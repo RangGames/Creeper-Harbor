@@ -46,6 +46,7 @@ import wiki.creeper.harbor.common.rig.FishRigs;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.core.admin.AdminLog;
 import wiki.creeper.harbor.core.api.ContentService;
+import wiki.creeper.harbor.core.api.FishArgs;
 import wiki.creeper.harbor.core.api.ItemService;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.PlayerService;
@@ -505,27 +506,9 @@ public final class FishDemoCommand {
         return Optional.of(picked);
     }
 
-    /** 번호(1, 001) 또는 이름(harbor_mackerel, fish/harbor_mackerel, 모델 이름)으로 어종을 찾는다. */
+    /** 번호(1, 001) · 한국어 이름 · 어종 ID · 모델 이름으로 어종을 찾는다 (Core {@link FishArgs}). */
     static Optional<FishDef> findFish(ContentSnapshot snap, String raw) {
-        String key = raw.toLowerCase(Locale.ROOT);
-        if (key.startsWith(HarborId.DEFAULT_NAMESPACE + ":")) {
-            key = key.substring(HarborId.DEFAULT_NAMESPACE.length() + 1);
-        }
-        if (key.startsWith("fish/")) {
-            key = key.substring("fish/".length());
-        }
-        int no = -1;
-        if (key.chars().allMatch(Character::isDigit) && !key.isEmpty() && key.length() <= 4) {
-            no = Integer.parseInt(key);
-        }
-        for (FishDef def : snap.all(FishDef.TYPE).values()) {
-            if (def.no() == no
-                    || def.id().id().name().equals(key)
-                    || FishRigs.rigOf(def).id().name().equals(key)) {
-                return Optional.of(def);
-            }
-        }
-        return Optional.empty();
+        return FishArgs.resolve(snap, raw);
     }
 
     private Optional<RigDef> rigDef(FishDef def) {

@@ -55,7 +55,7 @@ public final class QuestCommands {
     // ------------------------------------------------------------------ 플레이어
 
     public void registerPlayerCommands(Commands commands) {
-        commands.register(questCommand(), "퀘스트 목록·추적·포기", List.of("quest", "quests"));
+        commands.register(questCommand(), "퀘스트 목록·추적·포기", List.of());
         commands.register(
                 Commands.literal("의뢰")
                         .requires(
@@ -65,7 +65,7 @@ public final class QuestCommands {
                         .executes(ctx -> run(ctx, dialogs::boardRoot))
                         .build(),
                 "어부 길드 게시판",
-                List.of("board"));
+                List.of());
         commands.register(
                 Commands.literal("연대기")
                         .requires(
@@ -76,7 +76,7 @@ public final class QuestCommands {
                         .executes(ctx -> run(ctx, p -> services.chronicle().open(p)))
                         .build(),
                 "항구 연대기",
-                List.of("chronicle"));
+                List.of());
     }
 
     private LiteralCommandNode<CommandSourceStack> questCommand() {

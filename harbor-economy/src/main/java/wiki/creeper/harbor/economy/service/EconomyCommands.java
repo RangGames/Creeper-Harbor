@@ -14,6 +14,7 @@ import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import net.kyori.adventure.key.Key;
@@ -23,6 +24,7 @@ import org.bukkit.entity.Player;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
+import wiki.creeper.harbor.core.api.FishArgs;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.economy.content.ShopDef;
@@ -84,14 +86,13 @@ public final class EconomyCommands {
                                         .executes(ctx -> run(ctx, p -> sell.open(p, true))))
                         .build(),
                 "어종 판매",
-                List.of("sell"));
-        commands.register(player("우편함", "harbor.economy.mail", mail::open), "우편함", List.of("mail"));
-        commands.register(
-                player("수리", "harbor.economy.repair", repair::open), "장비 수리", List.of("repair"));
+                List.of());
+        commands.register(player("우편함", "harbor.economy.mail", mail::open), "우편함", List.of());
+        commands.register(player("수리", "harbor.economy.repair", repair::open), "장비 수리", List.of());
         commands.register(
                 player("큰손", "harbor.economy.big_deal", sell::bigDeal),
                 "큰손 거래 (경제 계열 캡스톤)",
-                List.of("bigdeal"));
+                List.of());
         commands.register(
                 player(
                         "제작",
@@ -102,26 +103,17 @@ public final class EconomyCommands {
                             }
                         }),
                 "제작 스테이션",
-                List.of("craft"));
-        commands.register(auctionCommand(), "경매장", List.of("auction"));
+                List.of());
+        commands.register(auctionCommand(), "경매장", List.of());
         commands.register(
                 Commands.literal("시세")
                         .requires(src -> src.getSender().hasPermission("harbor.economy.market"))
                         .then(
-                                Commands.argument("fish", ArgumentTypes.key())
-                                        .suggests(
-                                                (ctx, b) -> {
-                                                    api.content()
-                                                            .snapshot()
-                                                            .ids(FishDef.TYPE.name())
-                                                            .forEach(
-                                                                    id -> b.suggest(id.toString()));
-                                                    return b.buildFuture();
-                                                })
+                                FishArgs.argument("fish", api.content()::snapshot)
                                         .executes(this::price))
                         .build(),
                 "시세",
-                List.of("market"));
+                List.of());
     }
 
     private LiteralCommandNode<CommandSourceStack> auctionCommand() {
@@ -181,7 +173,7 @@ public final class EconomyCommands {
                                                                                 true, 0))));
         for (String category : AuctionHouse.CATEGORIES) {
             root.then(
-                    Commands.literal(category)
+                    Commands.literal(categoryCommand(category))
                             .executes(
                                     ctx ->
                                             run(
@@ -191,6 +183,19 @@ public final class EconomyCommands {
                                                                     p, category, null, false, 0))));
         }
         return root.build();
+    }
+
+    /** /경매 분류 하위 명령 이름 (한국어, messages economy 경매 분류 이름과 같다). */
+    private static String categoryCommand(String category) {
+        return switch (category) {
+            case "all" -> "전체";
+            case "fish" -> "어종";
+            case "gear" -> "장비";
+            case "bait" -> "미끼";
+            case "material" -> "재료";
+            case "food" -> "요리";
+            default -> category;
+        };
     }
 
     private static LiteralCommandNode<CommandSourceStack> player(
@@ -219,12 +224,22 @@ public final class EconomyCommands {
             api.messages().send(sender, "economy.market.locked");
             return 0;
         }
-        FishId fish = new FishId(harborId(ctx.getArgument("fish", Key.class)));
+        Optional<FishDef> def = FishArgs.get(ctx, "fish", api.content().snapshot());
+        if (def.isEmpty()) {
+            api.messages()
+                    .send(
+                            sender,
+                            "economy.market.unknown_fish",
+                            Placeholder.unparsed(
+                                    "fish", StringArgumentType.getString(ctx, "fish")));
+            return 0;
+        }
+        FishId fish = def.get().id();
         api.messages()
                 .send(
                         sender,
                         "economy.market.coef",
-                        Placeholder.unparsed("fish", fish.toString()),
+                        Placeholder.unparsed("fish", def.get().name()),
                         Placeholder.unparsed("coef", format(market.coefficient(fish))));
         boolean forecast =
                 !(sender instanceof Player p)

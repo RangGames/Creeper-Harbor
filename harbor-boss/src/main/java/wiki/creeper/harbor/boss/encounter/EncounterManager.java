@@ -1206,7 +1206,7 @@ public final class EncounterManager implements BossService, Listener {
         harpoons.clear();
     }
 
-    /** 준비 단계 역할 선택 (/boss role). 준비 중인 조우가 없으면 false. */
+    /** 준비 단계 역할 선택 (/보스 역할). 준비 중인 조우가 없으면 false. */
     public boolean chooseRole(UUID player, BossRole role) {
         Encounter e = byPlayer.get(player);
         return e != null && e.chooseRole(player, role);

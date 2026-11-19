@@ -64,8 +64,8 @@ public final class JobCommands {
 
     /** 플레이어 명령 (Paper COMMANDS 이벤트에서 등록). */
     public void registerPlayerCommands(Commands commands) {
-        commands.register(playerCommand("직업", this::info), "직업 정보", List.of("job"));
-        commands.register(playerCommand("스킬", p -> menu.open(p, 0)), "스킬 트리", List.of("skills"));
+        commands.register(playerCommand("직업", this::info), "직업 정보", List.of());
+        commands.register(playerCommand("스킬", p -> menu.open(p, 0)), "스킬 트리", List.of());
     }
 
     private static LiteralCommandNode<CommandSourceStack> playerCommand(

@@ -332,7 +332,7 @@ public final class Encounter {
                                         List.of(BossRole.values()).get(Math.clamp(idx, 0, 4))));
     }
 
-    /** 준비 단계 역할 선택 (Dialog 또는 /boss role). */
+    /** 준비 단계 역할 선택 (Dialog 또는 /보스 역할). */
     boolean chooseRole(UUID player, BossRole role) {
         Member m = members.get(player);
         if (m == null || fight.state() != EncounterState.PREPARING || launching) {

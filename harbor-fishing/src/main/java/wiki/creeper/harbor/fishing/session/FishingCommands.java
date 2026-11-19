@@ -685,7 +685,7 @@ public final class FishingCommands {
                                                 }))
                         .build(),
                 "낚시 설정",
-                List.of("fishing"));
+                List.of());
         commands.register(
                 Commands.literal("통발")
                         .requires(src -> src.getExecutor() instanceof Player)
@@ -698,7 +698,7 @@ public final class FishingCommands {
                                 })
                         .build(),
                 "내 통발 목록",
-                List.of("traps"));
+                List.of());
     }
 
     /** 설정 화면: 누른 항목을 바꾸고 다시 연다. */

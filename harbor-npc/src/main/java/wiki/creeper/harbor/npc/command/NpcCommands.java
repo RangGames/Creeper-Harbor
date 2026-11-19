@@ -80,14 +80,14 @@ public final class NpcCommands {
                         .executes(this::reputationView)
                         .build(),
                 "항구 평판",
-                List.of("reputation"));
+                List.of());
         commands.register(
                 Commands.literal("호감도")
                         .requires(src -> src.getExecutor() instanceof Player)
                         .executes(this::affinityView)
                         .build(),
                 "NPC 호감도",
-                List.of("affinity"));
+                List.of());
     }
 
     /** /평판: 현재 값, 등급, 다음 등급 혜택, 최근 획득 내역 (Dialog). */

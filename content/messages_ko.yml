@@ -472,6 +472,7 @@ economy:
     done: "<green>수리했습니다."
     failed: "<red>골드가 모자라 수리하지 못했습니다."
   market:
+    unknown_fish: "<red>없는 어종입니다: <fish>"
     locked: "<gray>시세는 어시장 게시판에서 볼 수 있습니다. (경제 계열 '시세 정보' 스킬로 어디서나 열람)"
     coef: "<yellow><fish></yellow> <gray>현재 시세 계수 <white><coef>"
     forecast: "<gray>다음 시간 예측 <aqua><coef>"
@@ -1424,7 +1425,7 @@ boss:
     fail_limit: "<gray>이번 주 실패 참여 보상은 모두 받았습니다."
     not_eligible: "<gray>참여가 적어 보상을 받지 못했습니다."
     same_ip: "<red>같은 접속지의 다른 계정이 이미 보상을 받았습니다."
-    inventory_full: "<red>인벤토리가 가득 차 일부 보상을 보관했습니다. 자리를 비우고 /보스 claim"
+    inventory_full: "<red>인벤토리가 가득 차 일부 보상을 보관했습니다. 자리를 비우고 /보스 보상"
     nothing: "<gray>받을 보상이 없습니다."
     bait_refund: "<yellow>중단된 보스전의 소환 미끼를 돌려드렸습니다."
   record:
@@ -1456,13 +1457,13 @@ boss:
     pending: "<yellow>이미 입장을 요청했습니다."
     busy: "<red>이미 보스전 중인 파티원이 있습니다."
   party:
-    none: "<gray>파티가 없습니다. /파티 create"
+    none: "<gray>파티가 없습니다. /파티 만들기"
     header: "<gold>파티 <gray>(<count>/<max>)"
     line: "<gray> - <white><player></white> <role> <gold><leader></gold> <online>"
     offline: "<dark_gray>(오프라인)"
     created: "<green>파티를 만들었습니다."
     invite_sent: "<green><player>님을 초대했습니다."
-    invited: "<gold><player>님의 파티 초대! <gray>/파티 join"
+    invited: "<gold><player>님의 파티 초대! <gray>/파티 수락"
     joined: "<green><player>님의 파티에 들어왔습니다."
     joined_other: "<green><player>님이 파티에 들어왔습니다."
     left: "<gray>파티를 떠났습니다."

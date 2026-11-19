@@ -103,28 +103,24 @@ public final class ShopCommands {
                 player("상점", "harbor.shop", p -> menus.openShop(p, ShopMenus.Tab.ROTATION));
         for (ShopMenus.Tab tab : ShopMenus.Tab.values()) {
             shop.then(
-                    Commands.literal(tab.name().toLowerCase(Locale.ROOT))
+                    Commands.literal(tabCommand(tab))
                             .executes(ctx -> run(ctx, p -> menus.openShop(p, tab))));
         }
-        commands.register(shop.build(), "코스메틱 상점", List.of("shop"));
+        commands.register(shop.build(), "코스메틱 상점", List.of());
         commands.register(
                 player("보관함", "harbor.shop", p -> menus.openWardrobe(p, null)).build(),
                 "코스메틱 보관함·장착",
-                List.of("wardrobe"));
+                List.of());
         commands.register(
                 player("패스", "harbor.shop", p -> menus.openPass(p, 0)).build(),
                 "시즌 패스 「항해 일지」",
-                List.of("pass"));
+                List.of());
         commands.register(
-                player("진주", "harbor.shop", this::pearlInfo).build(), "진주 잔액·내역", List.of("pearl"));
+                player("진주", "harbor.shop", this::pearlInfo).build(), "진주 잔액·내역", List.of());
         commands.register(
-                player("보물함", "harbor.shop.chest", menus::openChest).build(),
-                "진주 보물함",
-                List.of("chest"));
+                player("보물함", "harbor.shop.chest", menus::openChest).build(), "진주 보물함", List.of());
         commands.register(
-                player("축제", "harbor.shop", this::festivalInfo).build(),
-                "항구 축제",
-                List.of("festival"));
+                player("축제", "harbor.shop", this::festivalInfo).build(), "항구 축제", List.of());
         commands.register(
                 player("선물", "harbor.shop", p -> rt.api().messages().send(p, "shop.gift.usage"))
                         .then(
@@ -154,7 +150,7 @@ public final class ShopCommands {
                                                                                                                 "cosmetic"))))))
                         .build(),
                 "코스메틱 선물하기",
-                List.of("gift"));
+                List.of());
         commands.register(
                 player("닉네임", "harbor.shop", p -> rt.api().messages().send(p, "shop.name.usage"))
                         .then(
@@ -172,7 +168,7 @@ public final class ShopCommands {
                                                                                                 "name")))))
                         .build(),
                 "닉네임 표시 변경권",
-                List.of("nickname"));
+                List.of());
         commands.register(
                 player(
                                 "크리에이터",
@@ -196,7 +192,17 @@ public final class ShopCommands {
                                                                                                                 "code"))))))
                         .build(),
                 "크리에이터 코드 등록",
-                List.of("creator"));
+                List.of());
+    }
+
+    /** /상점 탭 하위 명령 이름 (한국어, 공백 없이). */
+    private static String tabCommand(ShopMenus.Tab tab) {
+        return switch (tab) {
+            case ROTATION -> "진열";
+            case PERMANENT -> "상시";
+            case SEASON -> "시즌";
+            case BUNDLE -> "묶음";
+        };
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> player(

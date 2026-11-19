@@ -168,7 +168,7 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
 
     // ------------------------------------------------------------------ 요청 서버 (본 서버)
 
-    /** 파티장이 레이드 입장을 요청한다 (/boss enter, NPC 대화 액션 boss:enter). */
+    /** 파티장이 레이드 입장을 요청한다 (/보스 입장, NPC 대화 액션 boss:enter). */
     public EnterResult requestEntry(Player leader, BossId bossId) {
         Optional<BossDef> def =
                 encounters
