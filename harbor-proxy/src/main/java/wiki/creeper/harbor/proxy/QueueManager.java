@@ -59,6 +59,9 @@ final class QueueManager {
     /** 이전 서버 세션 잠금이 남아 있는 사람 ({@link StaleLockWatcher}가 채우고 비운다). */
     private final Set<UUID> cleaning = ConcurrentHashMap.newKeySet();
 
+    /** /로비로 스스로 나온 사람: 팩 적용이 끝나도 대기열에 넣지 않는다 (/출항 때까지, 추가 제안). */
+    private final Set<UUID> staying = ConcurrentHashMap.newKeySet();
+
     private final Deque<Instant> recentAdmissions = new ArrayDeque<>();
     private boolean paused;
     private @Nullable Integer capOverride;
@@ -92,6 +95,11 @@ final class QueueManager {
                 ProxyMessages.toProxy(PackStatus.class),
                 envelope -> {
                     if (envelope.payload().status() != PackStatus.Status.LOADED) {
+                        return;
+                    }
+                    if (staying.contains(envelope.payload().player())) {
+                        proxy.getPlayer(envelope.payload().player())
+                                .ifPresent(p -> p.sendMessage(text.get("lobby.staying")));
                         return;
                     }
                     proxy.getPlayer(envelope.payload().player())
@@ -175,6 +183,17 @@ final class QueueManager {
         }
     }
 
+    /** 로비에 머문다: 대기열에서 빼고 팩 적용 뒤 자동 입장을 막는다. */
+    void stay(UUID uuid) {
+        staying.add(uuid);
+        remove(uuid);
+    }
+
+    /** 머무르기를 끝낸다. 머물던 중이었으면 true. */
+    boolean leaveStay(UUID uuid) {
+        return staying.remove(uuid);
+    }
+
     /** 본 서버에서 나간 사람: 유예 시간 안에 돌아오면 자리를 보장한다. */
     synchronized void grantGrace(UUID uuid) {
         graceUntil.put(uuid, Instant.now().plusSeconds(config.queue().graceSeconds()));
@@ -201,6 +220,7 @@ final class QueueManager {
         remove(uuid);
         donors.remove(uuid);
         cleaning.remove(uuid);
+        staying.remove(uuid);
     }
 
     synchronized OptionalInt position(UUID uuid) {

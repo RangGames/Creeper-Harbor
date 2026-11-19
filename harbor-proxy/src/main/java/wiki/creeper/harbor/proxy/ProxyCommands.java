@@ -83,6 +83,7 @@ final class ProxyCommands {
         CommandManager manager = proxy.getCommandManager();
         manager.unregister("server");
         register(manager, lobby(), "lobby", "hub");
+        register(manager, depart());
         register(manager, queueStatus(), "queue");
         register(manager, whisper(), "w", "whisper");
         register(manager, reply(), "r", "reply");
@@ -98,32 +99,60 @@ final class ProxyCommands {
 
     // ------------------------------------------------------------------ 플레이어 명령
 
+    /** /로비: 로비로 가서 머문다 (/출항 전까지 대기열에 넣지 않는다). 로비에 있으면 대기열에서만 빠진다. */
     private LiteralArgumentBuilder<CommandSource> lobby() {
         return BrigadierCommand.literalArgumentBuilder("로비")
                 .requires(src -> src instanceof Player)
                 .executes(
                         ctx -> {
                             Player player = (Player) ctx.getSource();
-                            boolean onMain =
-                                    player.getCurrentServer()
-                                            .map(
-                                                    s ->
-                                                            config.mainServers()
-                                                                    .containsKey(
-                                                                            s.getServerInfo()
-                                                                                    .getName()))
-                                            .orElse(false);
+                            UUID uuid = player.getUniqueId();
+                            String current = currentServer(player);
+                            if (current.equals(config.lobby())) {
+                                queue.stay(uuid);
+                                player.sendMessage(text.get("lobby.staying"));
+                                return Command.SINGLE_SUCCESS;
+                            }
+                            boolean onMain = config.mainServers().containsKey(current);
+                            // 팩 적용 결과(PackStatus)가 오기 전에 표시해 둔다
+                            queue.stay(uuid);
                             var _ =
                                     mover.move(player, config.lobby(), "lobby")
                                             .thenAccept(
                                                     result -> {
-                                                        if (result.ok() && onMain) {
-                                                            queue.grantGrace(player.getUniqueId());
+                                                        if (!result.ok()) {
+                                                            queue.leaveStay(uuid);
+                                                        } else if (onMain) {
+                                                            queue.grantGrace(uuid);
                                                         }
                                                         notifyFailure(player, result);
                                                     });
                             return Command.SINGLE_SUCCESS;
                         });
+    }
+
+    /** /출항: 로비에 머물던 사람이 본 서버 대기열에 들어간다 (추가 제안). */
+    private LiteralArgumentBuilder<CommandSource> depart() {
+        return BrigadierCommand.literalArgumentBuilder("출항")
+                .requires(src -> src instanceof Player)
+                .executes(
+                        ctx -> {
+                            Player player = (Player) ctx.getSource();
+                            if (!currentServer(player).equals(config.lobby())) {
+                                player.sendMessage(text.get("lobby.only"));
+                                return Command.SINGLE_SUCCESS;
+                            }
+                            queue.leaveStay(player.getUniqueId());
+                            if (queue.position(player.getUniqueId()).isEmpty()) {
+                                queue.enqueue(player);
+                            }
+                            player.sendMessage(text.get("lobby.depart"));
+                            return Command.SINGLE_SUCCESS;
+                        });
+    }
+
+    private static String currentServer(Player player) {
+        return player.getCurrentServer().map(s -> s.getServerInfo().getName()).orElse("");
     }
 
     private LiteralArgumentBuilder<CommandSource> queueStatus() {

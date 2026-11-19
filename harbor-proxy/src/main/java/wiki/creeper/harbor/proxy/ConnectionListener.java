@@ -192,6 +192,7 @@ final class ConnectionListener {
     public void onConnected(ServerConnectedEvent event) {
         if (config.mainServers().containsKey(event.getServer().getServerInfo().getName())) {
             var _ = seats.release(event.getPlayer().getUniqueId());
+            queue.leaveStay(event.getPlayer().getUniqueId());
         }
     }
 

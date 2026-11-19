@@ -103,6 +103,10 @@ messages:
     busy: "<yellow>이미 이동 중입니다."
     returned_lobby: "<yellow>서버와 연결이 끊어져 로비로 돌아왔습니다. 자리는 3분간 유지됩니다."
     unapproved: "<red>이 방법으로는 서버를 옮길 수 없습니다. /로비 를 이용해 주세요."
+  lobby:
+    staying: "<gray>로비에 머뭅니다. 바다로 나가려면 <white>/출항</white> 을 입력하세요."
+    depart: "<green>출항 대기열에 들어갔습니다."
+    only: "<red>로비에서만 쓸 수 있습니다."
   queue:
     position: "<yellow>대기 순번 <position> · 예상 <eta>"
     bar: "대기열 <position>번째 · 예상 <eta>"
