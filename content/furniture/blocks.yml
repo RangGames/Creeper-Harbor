@@ -1,0 +1,16 @@
+# 커스텀 블록 (추가 제안). 노트블록 상태 하나에 모델 하나를 붙인다. 리소스팩 자동 빌드가
+# minecraft:blockstates/note_block.json과 블록·아이템 모델을 만들어 넣는다 (/harbor pack build).
+#   state    노트블록 상태 번호 1~399. 블록마다 달라야 하고, 한 번 정하면 바꾸지 않는다 (설치한 블록 모양이 바뀜)
+#   모양은 셋 중 하나:
+#     texture: "harbor:block/x"                       여섯 면 같은 텍스처 (assets/harbor/textures/block/x.png)
+#     top: "...", side: "..." (bottom 생략 시 top)     윗면·옆면·아랫면 텍스처
+#     model: "harbor:block/x"                          직접 만든 블록 모델 (assets/harbor/models/block/x.json)
+# 에셋 폴더에 텍스처·모델이 없으면 그 블록은 팩에 넣지 않는다 (서버 로그 경고, 바닐라 노트블록 모양).
+# 서버 설정: paper-global.yml block-updates.disable-noteblock-updates: true (아래 블록이 바뀌어도 모양이 그대로이게)
+# 지급: /harbor block give <대상> <블록> [개수] · 놓기·부수기는 바닐라 블록처럼
+#
+# 예:
+# - {id: block/marble_tile, name: 대리석 타일, state: 1, texture: "harbor:block/marble_tile"}
+# - {id: block/fish_crate, name: 생선 상자, state: 2, top: "harbor:block/fish_crate_top", side: "harbor:block/fish_crate_side"}
+
+[]

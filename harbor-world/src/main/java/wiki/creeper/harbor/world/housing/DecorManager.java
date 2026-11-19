@@ -38,10 +38,13 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.common.content.type.CustomBlockDef;
+import wiki.creeper.harbor.common.content.type.FurnitureDef;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.MessageService;
+import wiki.creeper.harbor.core.api.event.FurnitureRemoveEvent;
 import wiki.creeper.harbor.core.gui.PagedMenu;
 import wiki.creeper.harbor.world.Icons;
 import wiki.creeper.harbor.world.WorldKit;
@@ -181,10 +184,32 @@ public final class DecorManager implements Listener {
         if (!shop) {
             lore.add(msg.get("world.decor.lore.take"));
         }
-        return Icons.of(base(d), Component.text(d.name()), lore, d.model());
+        return Icons.of(base(d), Component.text(d.name()), lore, iconModel(d));
+    }
+
+    /** 아이콘 모델: 직접 적은 model, 없으면 Core 가구·커스텀 블록의 모델. */
+    private @Nullable String iconModel(DecorDef d) {
+        if (d.model() != null) {
+            return d.model();
+        }
+        var snapshot = kit.api().content().snapshot();
+        HarborId furniture = d.furniture();
+        if (furniture != null) {
+            return snapshot.get(FurnitureDef.TYPE, furniture).map(FurnitureDef::model).orElse(null);
+        }
+        HarborId block = d.block();
+        if (block != null) {
+            return snapshot.get(CustomBlockDef.TYPE, block)
+                    .map(CustomBlockDef::itemModel)
+                    .orElse(null);
+        }
+        return null;
     }
 
     private ItemStack base(DecorDef d) {
+        if (d.block() != null) {
+            return ItemStack.of(Material.NOTE_BLOCK);
+        }
         String raw = d.material();
         Material m = raw == null ? null : Material.matchMaterial(raw);
         return ItemStack.of(m != null && m.isItem() ? m : Material.PAPER);
@@ -328,16 +353,55 @@ public final class DecorManager implements Listener {
     }
 
     private ItemStack item(DecorDef d, int amount) {
-        ItemStack stack =
-                Icons.of(
-                        base(d),
-                        Component.text(d.name()),
-                        List.of(kit.api().messages().get("world.decor.lore.item")),
-                        d.model());
+        ItemStack stack = coreItem(d, amount).orElse(null);
+        if (stack == null) {
+            stack =
+                    Icons.of(
+                            base(d),
+                            Component.text(d.name()),
+                            List.of(kit.api().messages().get("world.decor.lore.item")),
+                            d.model());
+        }
         stack.setAmount(amount);
         stack.editPersistentDataContainer(
                 pdc -> pdc.set(tag(), PersistentDataType.STRING, d.id().toString()));
         return stack;
+    }
+
+    /** Core 가구·커스텀 블록 아이템 (장식 태그는 item()이 붙인다). 이름은 장식 이름으로 둔다. */
+    private Optional<ItemStack> coreItem(DecorDef d, int amount) {
+        HarborId furniture = d.furniture();
+        HarborId block = d.block();
+        Optional<ItemStack> stack =
+                furniture != null
+                        ? kit.api().furniture().furnitureItem(furniture)
+                        : block != null
+                                ? kit.api().furniture().blockItem(block, amount)
+                                : Optional.empty();
+        stack.ifPresent(
+                s ->
+                        s.setData(
+                                io.papermc.paper.datacomponent.DataComponentTypes.ITEM_NAME,
+                                Component.text(d.name())));
+        return stack;
+    }
+
+    /** 플롯 안 Core 가구: 플롯 건축 권한이 있으면 회수를 허락한다. 장식으로 산 가구는 회수한 사람이 아니라 플롯 주인의 보관함 개수로 돌린다. */
+    @EventHandler(ignoreCancelled = true)
+    public void onFurnitureRemove(FurnitureRemoveEvent event) {
+        Optional<HousingManager.PlotState> plot = housing.stateAt(event.location());
+        if (plot.isEmpty()) {
+            return;
+        }
+        if (housing.can(event.player(), plot.get().info, PlotPermission.BUILD)) {
+            event.setAllowed(true);
+        }
+        Optional<DecorDef> d = def(event.item());
+        if (d.isEmpty() || !event.allowed()) {
+            return;
+        }
+        event.setReturnItem(false);
+        addCount(plot.get().info.owner(), d.get().id(), 1);
     }
 
     // ------------------------------------------------------------------ 설치·회수
@@ -362,9 +426,13 @@ public final class DecorManager implements Listener {
         }
         Block block = event.getBlockPlaced();
         Optional<HousingManager.PlotState> plot = housing.stateAt(block.getLocation());
-        if (plot.isEmpty() || d.get().kind() == DecorDef.Kind.FURNITURE) {
+        if (plot.isEmpty()
+                || (d.get().kind() == DecorDef.Kind.FURNITURE && d.get().furniture() == null)) {
             event.setCancelled(true);
             return;
+        }
+        if (d.get().kind() == DecorDef.Kind.FURNITURE) {
+            return; // Core 가구 설치 확인 (블록을 놓지 않는다)
         }
         if (d.get().kind() == DecorDef.Kind.TANK
                 && plot.get().anchors.size() >= kit.balance().housingAnchorLimit()) {
@@ -464,8 +532,11 @@ public final class DecorManager implements Listener {
         ItemStack hand = player.getInventory().getItemInMainHand();
         Optional<DecorDef> d = def(hand);
         Block clicked = event.getClickedBlock();
-        if (d.isEmpty() || d.get().kind() != DecorDef.Kind.FURNITURE || clicked == null) {
-            return;
+        if (d.isEmpty()
+                || d.get().kind() != DecorDef.Kind.FURNITURE
+                || d.get().furniture() != null
+                || clicked == null) {
+            return; // Core 가구(furniture:)는 Core가 놓는다
         }
         event.setCancelled(true);
         Block target = clicked.getRelative(event.getBlockFace());

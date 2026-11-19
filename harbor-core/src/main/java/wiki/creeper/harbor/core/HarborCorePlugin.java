@@ -41,6 +41,10 @@ import wiki.creeper.harbor.core.currency.CurrencyManager;
 import wiki.creeper.harbor.core.currency.GoldCommand;
 import wiki.creeper.harbor.core.currency.SeasonBalanceStore;
 import wiki.creeper.harbor.core.flag.FlagManager;
+import wiki.creeper.harbor.core.furniture.CustomBlockManager;
+import wiki.creeper.harbor.core.furniture.FurnishingCommand;
+import wiki.creeper.harbor.core.furniture.FurnishingService;
+import wiki.creeper.harbor.core.furniture.FurnitureManager;
 import wiki.creeper.harbor.core.gui.MenuListener;
 import wiki.creeper.harbor.core.item.ItemManager;
 import wiki.creeper.harbor.core.item.ItemModelSync;
@@ -82,6 +86,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
     private @Nullable PlayerManager players;
     private @Nullable MessageManager messages;
     private @Nullable RigManager rigs;
+    private @Nullable FurnitureManager furniture;
 
     @Override
     public void onEnable() {
@@ -208,6 +213,10 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         WorldBorderManager borders = new WorldBorderManager();
         RigManager rigManager = new RigManager(this, content::snapshot, tasks, log);
         rigs = rigManager;
+        FurnitureManager furnitureManager = new FurnitureManager(content::snapshot, msg, ui, tasks);
+        furniture = furnitureManager;
+        CustomBlockManager customBlocks =
+                new CustomBlockManager(content::snapshot, msg, tasks, log);
         AdminLog adminLog = new AdminLog(database, log);
         HarborCommand command =
                 new HarborCommand(
@@ -235,6 +244,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         proxy,
                         borders,
                         rigManager,
+                        new FurnishingService(furnitureManager, customBlocks),
                         infra,
                         time,
                         database,
@@ -250,6 +260,12 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         pm.registerEvents(modifiers, this);
         pm.registerEvents(borders, this);
         pm.registerEvents(rigManager, this);
+        pm.registerEvents(furnitureManager, this);
+        pm.registerEvents(customBlocks, this);
+        FurnishingCommand furnishing =
+                new FurnishingCommand(furnitureManager, customBlocks, msg, adminLog);
+        command.addModuleCommand(furnishing.furniture());
+        command.addModuleCommand(furnishing.blocks());
         pm.registerEvents(new ItemModelSync(items), this);
         command.addModuleCommand(new RigCommand(rigManager, msg, adminLog).build());
         command.addModuleCommand(
@@ -264,7 +280,8 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         soundCues.subscribe(messageBus, tasks);
         pm.registerEvents(new ChatBridge(infra, r, messageBus), this);
         pm.registerEvents(this, this);
-        PackManager packManager = new PackManager(infra, harborDir, r, messageBus, tasks, log);
+        PackManager packManager =
+                new PackManager(infra, harborDir, content::snapshot, r, messageBus, tasks, log);
         command.addModuleCommand(new PackCommand(packManager, msg, adminLog).build());
         if (infra.role() == ServerRole.LOBBY) {
             pm.registerEvents(
@@ -284,6 +301,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         playerManager.start();
         proxy.start();
         rigManager.start();
+        customBlocks.start();
         packManager.start();
         new LedgerAuditJob(database, balanceStore, locks, time, msg, tasks, log).schedule();
         log.info("Harbor-Core 준비 완료: 콘텐츠 {}", content.snapshot().counts());
@@ -307,6 +325,9 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
             } catch (RuntimeException e) {
                 log.error("리그 정리 중 오류", e);
             }
+        }
+        if (furniture != null) {
+            furniture.shutdown();
         }
         try {
             if (players != null) {

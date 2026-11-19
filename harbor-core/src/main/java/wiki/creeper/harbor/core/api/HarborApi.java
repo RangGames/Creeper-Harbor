@@ -39,6 +39,9 @@ public interface HarborApi {
     /** 디스플레이 리그 재생 ('16. 플러그인 설계' 5.10). */
     RigService rigs();
 
+    /** 가구·커스텀 블록 (추가 제안). */
+    FurnitureService furniture();
+
     InfraConfig infra();
 
     HarborTime time();

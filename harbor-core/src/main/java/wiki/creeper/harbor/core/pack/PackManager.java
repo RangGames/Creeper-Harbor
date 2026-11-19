@@ -11,10 +11,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.config.InfraConfig;
+import wiki.creeper.harbor.common.content.ContentSnapshot;
+import wiki.creeper.harbor.common.content.type.CustomBlockDef;
 import wiki.creeper.harbor.common.pack.CdnClient;
+import wiki.creeper.harbor.common.pack.FurnishingPack;
 import wiki.creeper.harbor.common.pack.PackBuilder;
 import wiki.creeper.harbor.common.pack.PublishedPack;
 import wiki.creeper.harbor.common.redis.MessageBus;
@@ -53,6 +57,7 @@ public final class PackManager {
 
     private final InfraConfig infra;
     private final Path harborDir;
+    private final Supplier<ContentSnapshot> content;
     private final Redis redis;
     private final MessageBus bus;
     private final Tasks tasks;
@@ -64,12 +69,14 @@ public final class PackManager {
     public PackManager(
             InfraConfig infra,
             Path harborDir,
+            Supplier<ContentSnapshot> content,
             Redis redis,
             MessageBus bus,
             Tasks tasks,
             Logger log) {
         this.infra = infra;
         this.harborDir = harborDir;
+        this.content = content;
         this.redis = redis;
         this.bus = bus;
         this.tasks = tasks;
@@ -181,11 +188,21 @@ public final class PackManager {
             if (!PackBuilder.hasAssets(source) || isEmpty(source.resolve("assets"))) {
                 return new Outcome.NoAssets(source);
             }
+            FurnishingPack.Result furnishing =
+                    FurnishingPack.generate(
+                            content.get().all(CustomBlockDef.TYPE).values(),
+                            path -> Files.isRegularFile(source.resolve(path)));
+            furnishing.warnings().forEach(w -> log.warn("커스텀 블록: {}", w));
+            if (!furnishing.files().isEmpty()
+                    && Files.isRegularFile(source.resolve(FurnishingPack.BLOCKSTATE))) {
+                log.warn("에셋 폴더의 {}는 커스텀 블록용 생성 파일로 바뀝니다", FurnishingPack.BLOCKSTATE);
+            }
             PackBuilder.Built built =
                     PackBuilder.build(
                             source,
                             out,
-                            new PackBuilder.Meta(config.format(), config.description()));
+                            new PackBuilder.Meta(config.format(), config.description()),
+                            furnishing.files());
             Optional<PublishedPack> stored = readStored();
             if (stored.isPresent() && stored.get().sha1().equals(built.sha1())) {
                 redis.sync().set(PublishedPack.SHA1_KEY, built.sha1());

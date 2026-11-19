@@ -15,6 +15,8 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *
  * @param material 블록 (block · tank)
  * @param model 가구 외형 아이템 모델 (furniture · tank 표시용)
+ * @param furniture Core 가구 정의 (furniture/furniture.yml, 추가 제안). 있으면 앉기·충돌·빛까지 Core 가구로 놓는다
+ * @param block Core 커스텀 블록 정의 (furniture/blocks.yml, 추가 제안). block 장식에서 material 대신
  * @param amount 한 번 살 때 받는 개수
  * @param reputationMin 시즌 간 최고 평판 등급 조건 (0 = 없음)
  */
@@ -24,6 +26,8 @@ public record DecorDef(
         Kind kind,
         @Nullable String material,
         @Nullable String model,
+        @Nullable HarborId furniture,
+        @Nullable HarborId block,
         int amount,
         long price,
         int reputationMin,
@@ -59,6 +63,8 @@ public record DecorDef(
                         "kind",
                         "material",
                         "model",
+                        "furniture",
+                        "block",
                         "amount",
                         "price",
                         "reputation_min",
@@ -76,11 +82,22 @@ public record DecorDef(
         if (model != null && !KEY.matcher(model).matches()) {
             node.error("model은 'harbor:decor/x' 같은 키여야 합니다: '" + model + "'");
         }
-        if ((kind == Kind.BLOCK || kind == Kind.TANK) && material == null) {
-            node.error(kind.name().toLowerCase(java.util.Locale.ROOT) + " 장식에는 material이 필요합니다");
+        HarborId furniture = ref(node, ctx, "furniture", "furniture/", "furniture");
+        HarborId block = ref(node, ctx, "block", "block/", "custom_block");
+        if (kind == Kind.TANK && material == null) {
+            node.error("tank 장식에는 material이 필요합니다");
         }
-        if (kind == Kind.FURNITURE && model == null) {
-            node.error("furniture 장식에는 model이 필요합니다");
+        if (kind == Kind.BLOCK && (material == null) == (block == null)) {
+            node.error("block 장식에는 material(바닐라 블록) 또는 block(커스텀 블록) 중 하나가 필요합니다");
+        }
+        if (kind == Kind.FURNITURE && model == null && furniture == null) {
+            node.error("furniture 장식에는 furniture(Core 가구) 또는 model이 필요합니다");
+        }
+        if (furniture != null && kind != Kind.FURNITURE) {
+            node.error("furniture는 kind: furniture 장식에만 씁니다");
+        }
+        if (block != null && kind != Kind.BLOCK) {
+            node.error("block은 kind: block 장식에만 씁니다");
         }
         long price = node.longValue("price", 0);
         if (price <= 0) {
@@ -92,9 +109,23 @@ public record DecorDef(
                 kind,
                 material,
                 model,
+                furniture,
+                block,
                 node.integer("amount", 1, 1, 64),
                 price,
                 node.integer("reputation_min", 0, 0, 10),
                 node.string("category", "misc"));
+    }
+
+    private static @Nullable HarborId ref(
+            YamlNode node, ParseContext ctx, String field, String prefix, String type) {
+        return node.get(field)
+                .flatMap(n -> n.asId(prefix))
+                .map(
+                        id -> {
+                            ctx.ref(type, id, node.pos());
+                            return id;
+                        })
+                .orElse(null);
     }
 }

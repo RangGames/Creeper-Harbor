@@ -646,6 +646,23 @@ fish_demo:
   none_shown: "<red>진열한 물고기가 없습니다. <gray>/harbor fish showcase 또는 spawn 먼저"
   cleared: "<green>진열한 물고기 <white><count></white>마리를 지웠습니다."
 
+furniture:
+  item_name: "<white><name>"
+  block_name: "<white><name>"
+  lore: "<gray>블록을 우클릭해 설치 · 설치 후 <white>웅크리고 우클릭</white>으로 회수"
+  lore_seat: "<gray>블록을 우클릭해 설치 · 우클릭으로 앉기 · <white>웅크리고 우클릭</white>으로 회수"
+  no_space: "<red>가구를 놓을 자리가 부족합니다"
+  occupied: "<red>이미 다른 가구가 있습니다"
+  no_place: "<red>여기에는 가구를 놓을 수 없습니다"
+  no_remove: "<red>이 가구를 회수할 수 없습니다"
+  removed: "<gray><name>을(를) 회수했습니다"
+  seat_taken: "<gray>누군가 앉아 있습니다"
+  admin:
+    list_header: "<gold>등록된 항목 <white><count></white>종"
+    list_line: "<gray>- <white><id></white> <name>"
+    unknown: "<red>없는 ID입니다: <id> <gray>(Tab으로 목록)"
+    given: "<green><target></green><gray>에게 <white><name></white> <amount>개를 주었습니다"
+
 season:
   info:
     header: "<gold><name></gold> <gray>(시즌 <season>)"

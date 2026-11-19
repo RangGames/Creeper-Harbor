@@ -11,6 +11,7 @@ import wiki.creeper.harbor.core.api.ContentService;
 import wiki.creeper.harbor.core.api.CurrencyService;
 import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.FlagService;
+import wiki.creeper.harbor.core.api.FurnitureService;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.ItemService;
 import wiki.creeper.harbor.core.api.MessageService;
@@ -35,6 +36,7 @@ record CoreApi(
         ProxyBridge proxy,
         WorldBorderService worldBorders,
         RigService rigs,
+        FurnitureService furniture,
         InfraConfig infra,
         HarborTime time,
         Database database,

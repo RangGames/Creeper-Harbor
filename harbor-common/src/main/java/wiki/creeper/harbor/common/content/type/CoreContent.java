@@ -7,7 +7,8 @@ import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.rig.RigDef;
 
 /**
- * Core가 기본으로 등록하는 콘텐츠 형식 (fish·items·regions·balance·messages·rigs·resource_pack·sounds·help). 서버
+ * Core가 기본으로 등록하는 콘텐츠 형식
+ * (fish·items·regions·balance·messages·rigs·resource_pack·sounds·help·furniture·custom_block). 서버
  * 플러그인과 harbor-tools가 같은 목록을 쓴다.
  */
 public final class CoreContent {
@@ -22,7 +23,9 @@ public final class CoreContent {
                     RigDef.TYPE,
                     ResourcePackIndex.TYPE,
                     SoundTable.TYPE,
-                    HelpBook.TYPE);
+                    HelpBook.TYPE,
+                    FurnitureDef.TYPE,
+                    CustomBlockDef.TYPE);
 
     private CoreContent() {}
 
@@ -32,6 +35,16 @@ public final class CoreContent {
         loader.addCheck(FishDef.TYPE, CoreContent::checkFishNumber);
         loader.addCheck(RigDef.TYPE, CoreContent::checkRigParts);
         loader.addCheck(Balance.TYPE, CoreContent::checkRigBalance);
+        loader.addCheck(CustomBlockDef.TYPE, CoreContent::checkBlockState);
+    }
+
+    /** 커스텀 블록의 노트블록 상태 번호는 블록마다 달라야 한다. */
+    private static void checkBlockState(CustomBlockDef block, ContentCheck.Context ctx) {
+        for (CustomBlockDef other : ctx.snapshot().all(CustomBlockDef.TYPE).values()) {
+            if (other.state() == block.state() && !other.id().equals(block.id())) {
+                ctx.error("state " + block.state() + "가 '" + other.id() + "'와 중복됩니다");
+            }
+        }
     }
 
     /** rig.fps는 20의 약수여야 프레임이 틱에 맞는다. */

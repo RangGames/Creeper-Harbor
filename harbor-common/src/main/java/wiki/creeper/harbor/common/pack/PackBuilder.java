@@ -14,11 +14,16 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 에셋 폴더 → 클라이언트 리소스팩 zip (ItemsAdder처럼 에셋만 넣으면 서버가 압축한다, 추가 제안).
@@ -63,28 +68,70 @@ public final class PackBuilder {
 
     /** source를 압축해 out에 쓴다 (임시 파일에 쓴 뒤 바꿔 넣는다). */
     public static Built build(Path source, Path out, Meta meta) throws IOException {
+        return build(source, out, meta, Map.of());
+    }
+
+    /**
+     * source에 generated(팩 경로 → 내용, 서버가 만든 파일)를 더해 압축한다. 같은 경로면 generated가 이긴다.
+     *
+     * @param generated 예: 커스텀 블록의 note_block.json·모델 ({@link FurnishingPack})
+     */
+    public static Built build(Path source, Path out, Meta meta, Map<String, byte[]> generated)
+            throws IOException {
         if (!hasAssets(source)) {
             throw new IOException("assets 폴더가 없습니다: " + source.getFileName());
         }
-        List<Path> files = files(source);
+        Map<String, @Nullable Path> entries = new TreeMap<>();
+        for (Path file : files(source)) {
+            entries.put(relative(source, file), file);
+        }
+        generated.keySet().forEach(name -> entries.put(name, null));
         Path parent = out.toAbsolutePath().getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
         Path tmp = out.resolveSibling(out.getFileName() + ".tmp");
-        boolean hasMeta = Files.isRegularFile(source.resolve("pack.mcmeta"));
+        boolean hasMeta = entries.containsKey("pack.mcmeta");
         try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(tmp))) {
             zip.setLevel(9);
             if (!hasMeta) {
                 put(zip, "pack.mcmeta", mcmeta(meta).getBytes(StandardCharsets.UTF_8));
             }
-            for (Path file : files) {
-                put(zip, relative(source, file), Files.readAllBytes(file));
+            for (Map.Entry<String, @Nullable Path> e : entries.entrySet()) {
+                byte[] made = generated.get(e.getKey());
+                put(
+                        zip,
+                        e.getKey(),
+                        made != null
+                                ? made
+                                : Files.readAllBytes(Objects.requireNonNull(e.getValue())));
             }
         }
         Files.move(tmp, out, StandardCopyOption.REPLACE_EXISTING);
+        PackIndex scanned = scan(source);
+        Set<String> models = new TreeSet<>(scanned.models());
+        for (String name : generated.keySet()) {
+            itemModelKey(name).ifPresent(models::add);
+        }
         return new Built(
-                out, sha1(out), Files.size(out), files.size() + (hasMeta ? 0 : 1), scan(source));
+                out,
+                sha1(out),
+                Files.size(out),
+                entries.size() + (hasMeta ? 0 : 1),
+                new PackIndex(models, scanned.sounds()));
+    }
+
+    /** {@code assets/<ns>/items/<경로>.json} → {@code <ns>:<경로>}. */
+    static Optional<String> itemModelKey(String path) {
+        String[] parts = path.split("/", 4);
+        if (parts.length < 4
+                || !parts[0].equals("assets")
+                || !parts[2].equals("items")
+                || !parts[3].endsWith(".json")) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                parts[1] + ":" + parts[3].substring(0, parts[3].length() - ".json".length()));
     }
 
     /** 에셋 폴더(또는 압축을 푼 팩)의 item_model·소리 목록. */

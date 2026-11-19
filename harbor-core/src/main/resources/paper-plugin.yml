@@ -13,6 +13,15 @@ permissions:
   harbor.admin.alerts:
     description: 원장 불일치 등 운영 알림 받기
     default: op
+  harbor.admin.furniture:
+    description: /harbor furniture (가구 목록·지급)
+    default: op
+  harbor.furniture.manage:
+    description: 남이 놓은 가구도 회수 (웅크리고 우클릭)
+    default: op
+  harbor.admin.block:
+    description: /harbor block (커스텀 블록 목록·지급)
+    default: op
   harbor.gold:
     description: /골드 · /골드 순위 (내 잔액과 순위)
     default: true

@@ -1,0 +1,16 @@
+# 가구 (추가 제안). ItemDisplay(모델) + Interaction(클릭 판정)으로 놓는다. 운영진 건축(/harbor furniture give)과
+# 하우징 장식 상점(world/housing_decor.yml의 furniture:)이 같은 정의를 쓴다.
+#   model      리소스팩 아이템 모델 키 (assets/<ns>/items/<경로>.json). 팩에 없으면 base_item 모양
+#   base_item  모델이 없을 때 보일 바닐라 아이템 (기본 minecraft:paper)
+#   width · height  클릭 판정 크기 (블록, 기본 1)
+#   seat       앉는 높이 (블록 바닥 기준, 발 위치). 적으면 우클릭으로 앉는다
+#   solid      true면 부딪힌다 (height만큼 방벽 블록을 채운다, 한 칸 너비)
+#   light      밝기 0~15 (빛 블록. solid면 가구 바로 위 칸)
+#   rotation   회전 단계 4 · 8 · 16 (기본 8 = 45도)
+#   scale · offset_y  모델 크기 배율 · 모델 높이 (기본 1 · 0.5)
+# 설치: 아이템을 들고 블록 우클릭 · 회수: 웅크리고 우클릭 (보호 구역 권한을 따른다)
+
+- {id: furniture/fishing_chair, name: 낚시 의자, model: "harbor:decor/fishing_chair", seat: 0.45, solid: true, rotation: 8}
+- {id: furniture/net_wall, name: 벽걸이 그물, model: "harbor:decor/net_wall", height: 1.0, rotation: 4}
+- {id: furniture/anchor_statue, name: 닻 조각상, model: "harbor:decor/anchor_statue", height: 2.0, solid: true}
+- {id: furniture/lighthouse_model, name: 등대 모형, model: "harbor:decor/lighthouse_model", height: 1.5, solid: true, light: 12}
