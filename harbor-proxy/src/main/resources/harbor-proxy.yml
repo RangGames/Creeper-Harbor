@@ -15,6 +15,8 @@ queue:
   per_second: 3              # 1초에 최대 입장 수
   tps_freeze: 18.0           # TPS가 이 아래면 한도 동결
   tps_resume: 19.5           # 이 이상 1분 유지되면 해제
+  auto_join: true            # 로비에 들어와 리소스팩이 적용되면 바로 출항 대기열에 넣음. false면 로비에 머물고
+                             # /출항 · NPC · Skript(harbor send player to sea)로 출발 (끊겼다 돌아온 자리·보스 재접속은 그대로 자동)
 
 priority: []                 # 우선 줄 UUID (CBT 운영진·테스터). 후원 등급은 Redis harbor:donor로 자동 (Common DonorTier)
 
@@ -107,6 +109,7 @@ messages:
     staying: "<gray>로비에 머뭅니다. 바다로 나가려면 <white>/출항</white> 을 입력하세요."
     depart: "<green>출항 대기열에 들어갔습니다."
     only: "<red>로비에서만 쓸 수 있습니다."
+    already_queued: "<gray>이미 출항 대기열에 있습니다. <white>/대기열</white>로 순번을 확인하세요."
   queue:
     position: "<yellow>대기 순번 <position> · 예상 <eta>"
     bar: "대기열 <position>번째 · 예상 <eta>"

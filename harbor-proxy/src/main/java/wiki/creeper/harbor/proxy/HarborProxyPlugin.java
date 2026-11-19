@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -126,6 +127,18 @@ public final class HarborProxyPlugin {
         directory.start(messageBus);
         mover.start();
         queue.start(messageBus, instances::tryRejoin);
+        mover.onLobbyMove(
+                new MoveCoordinator.LobbyHook() {
+                    @Override
+                    public void before(UUID player) {
+                        queue.beforeLobbyMove(player);
+                    }
+
+                    @Override
+                    public void after(UUID player, String origin, boolean ok) {
+                        queue.afterLobbyMove(player, origin, ok);
+                    }
+                });
         instances.start();
         chat.start(messageBus);
         maintenance.refresh();

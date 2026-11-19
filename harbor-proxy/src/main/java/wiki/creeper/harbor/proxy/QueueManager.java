@@ -23,6 +23,7 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.donor.DonorTier;
 import wiki.creeper.harbor.common.proxy.ProxyMessages;
+import wiki.creeper.harbor.common.proxy.ProxyMessages.DepartRequest;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.PackStatus;
 import wiki.creeper.harbor.common.redis.MessageBus;
 
@@ -110,12 +111,25 @@ final class QueueManager {
                                                         .exceptionally(e -> false)
                                                         .thenAccept(
                                                                 moved -> {
-                                                                    if (!moved) {
+                                                                    if (moved) {
+                                                                        return;
+                                                                    }
+                                                                    if (autoJoin(player)) {
                                                                         enqueue(player);
+                                                                    } else {
+                                                                        staying.add(
+                                                                                player
+                                                                                        .getUniqueId());
+                                                                        player.sendMessage(
+                                                                                text.get(
+                                                                                        "lobby.staying"));
                                                                     }
                                                                 });
                                     });
                 });
+        bus.subscribe(
+                ProxyMessages.toProxy(DepartRequest.class),
+                envelope -> proxy.getPlayer(envelope.payload().player()).ifPresent(this::depart));
     }
 
     /** 로그인 때 조회한 후원 등급. */
@@ -187,6 +201,55 @@ final class QueueManager {
     void stay(UUID uuid) {
         staying.add(uuid);
         remove(uuid);
+    }
+
+    /**
+     * 팩 적용 뒤 바로 대기열에 넣을지. queue.auto_join이 꺼져 있어도 인스턴스에서 끊겼다 돌아온 사람(자리 예약)과 이전 접속 정리 중인 사람은 자동으로
+     * 넣는다.
+     */
+    private boolean autoJoin(Player player) {
+        UUID uuid = player.getUniqueId();
+        return config.queue().autoJoin()
+                || seats.seatOf(uuid).isPresent()
+                || cleaning.contains(uuid);
+    }
+
+    /** 출항 결과. */
+    enum Departure {
+        QUEUED,
+        ALREADY_QUEUED,
+        NOT_IN_LOBBY
+    }
+
+    /** /출항 · DepartRequest: 로비에 있으면 머무르기를 끝내고 대기열에 넣는다. */
+    Departure depart(Player player) {
+        String server = player.getCurrentServer().map(s -> s.getServerInfo().getName()).orElse("");
+        if (!server.equals(config.lobby())) {
+            player.sendMessage(text.get("lobby.only"));
+            return Departure.NOT_IN_LOBBY;
+        }
+        leaveStay(player.getUniqueId());
+        if (position(player.getUniqueId()).isPresent()) {
+            player.sendMessage(text.get("lobby.already_queued"));
+            return Departure.ALREADY_QUEUED;
+        }
+        enqueue(player);
+        player.sendMessage(text.get("lobby.depart"));
+        return Departure.QUEUED;
+    }
+
+    /** 백엔드 요청으로 로비에 가기 직전 (잠수·Skript·NPC): 도착해도 자동 출항하지 않게 한다. */
+    void beforeLobbyMove(UUID uuid) {
+        stay(uuid);
+    }
+
+    /** 로비 이동 결과: 실패면 표시를 지우고, 본 서버에서 나왔으면 자리 유예를 준다. */
+    void afterLobbyMove(UUID uuid, String origin, boolean ok) {
+        if (!ok) {
+            leaveStay(uuid);
+        } else if (config.mainServers().containsKey(origin)) {
+            grantGrace(uuid);
+        }
     }
 
     /** 머무르기를 끝낸다. 머물던 중이었으면 true. */

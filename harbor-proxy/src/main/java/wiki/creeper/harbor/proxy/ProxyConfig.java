@@ -37,9 +37,18 @@ record ProxyConfig(
         List<Link> links,
         Map<String, String> messages) {
 
-    /** 대기열 설정. */
+    /**
+     * 대기열 설정.
+     *
+     * @param autoJoin 로비에서 리소스팩 적용이 끝나면 바로 본 서버 대기열에 넣을지 (false면 /출항·NPC·GUI로 출발, 추가 제안)
+     */
     record Queue(
-            int normalShare, int graceSeconds, int perSecond, double tpsFreeze, double tpsResume) {}
+            int normalShare,
+            int graceSeconds,
+            int perSecond,
+            double tpsFreeze,
+            double tpsResume,
+            boolean autoJoin) {}
 
     /** 채팅 도배 방지 설정. */
     record Chat(int repeatLimit, int linesPerSecond, int blockSeconds, List<String> bannedWords) {}
@@ -110,7 +119,8 @@ record ProxyConfig(
                         q.integer("grace_seconds", 180, 0, 3600),
                         q.integer("per_second", 3, 1, 100),
                         q.number("tps_freeze", 18.0),
-                        q.number("tps_resume", 19.5));
+                        q.number("tps_resume", 19.5),
+                        q.bool("auto_join", true));
 
         YamlNode m = root.get("maintenance").orElse(root);
         YamlNode c = root.get("chat").orElse(root);

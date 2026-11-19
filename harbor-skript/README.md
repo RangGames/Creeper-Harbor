@@ -9,7 +9,7 @@
 ## 설치
 
 1. 문법을 쓸 서버(lobby·play)마다 `Skript.jar`와 `harbor-skript.jar`를 `plugins/`에 넣습니다.
-2. 서버를 켜면 로그에 `Skript에 Harbor 문법 6개를 등록했습니다`가 찍힙니다.
+2. 서버를 켜면 로그에 `Skript에 Harbor 문법 8개를 등록했습니다`가 찍힙니다.
 3. 스크립트는 `plugins/Skript/scripts/*.sk`에 둡니다 (Skript 기본 방식).
 
 ## 꼭 지킬 것
@@ -109,6 +109,36 @@ send harbor message %string% to %players%
 ```
 send harbor message "help.welcome" to player
 ```
+
+### 서버 이동
+
+```
+harbor send %players% to [the] lobby
+harbor send %players% to [the] sea
+```
+
+- `lobby`: 로비로 보냅니다. 저장 → 세션 넘김을 거치는 정상 이동이고, 본 서버에서 나갔으면 자리 유예(`harbor-proxy.yml` `queue.grace_seconds`)를 받습니다. 로비에 도착해도 자동 출항하지 않습니다.
+- `sea`: **출항**입니다. 로비에 있는 플레이어를 본 서버 대기열에 넣습니다 (`/출항`과 같음). 로비가 아니면 아무 일도 없고, 결과(대기 순번 등)는 프록시가 플레이어에게 알립니다.
+- 다른 서버로 바로 보내는 문법은 없습니다. 본 서버 입장은 항상 대기열을 거칩니다.
+
+```
+harbor server            # 이 서버 ID (예: lobby, play)
+harbor server role       # main · lobby · instance
+```
+
+Shift+F 메뉴 예시 (로비·본 서버 공통):
+
+```
+on swap hand items:
+    player is sneaking
+    cancel event
+    if harbor server role is "lobby":
+        harbor send player to sea
+    else:
+        harbor send player to lobby
+```
+
+NPC 대화에서는 액션 `server:depart`(출항) · `server:lobby`(로비로)를 쓸 수 있습니다.
 
 ### 이벤트: 재화가 바뀐 뒤
 

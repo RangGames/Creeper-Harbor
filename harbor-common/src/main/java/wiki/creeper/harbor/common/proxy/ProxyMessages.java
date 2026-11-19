@@ -42,6 +42,11 @@ public final class ProxyMessages {
     public record MoveRequest(
             String requestId, UUID player, String origin, String destination, String reason) {}
 
+    /**
+     * 백엔드 → 프록시: 로비에 있는 플레이어를 본 서버 대기열에 넣어 달라 (/출항과 같음, NPC·GUI·Skript용, 추가 제안). 로비에 있지 않으면 무시한다.
+     */
+    public record DepartRequest(UUID player, String origin) {}
+
     /** 프록시 → 출발 서버: 저장하고 잠금을 handoff로 바꿔라. */
     public record TransferPrepare(String requestId, UUID player, String destination) {}
 
@@ -90,6 +95,14 @@ public final class ProxyMessages {
             String message,
             List<UUID> recipients,
             @Nullable String formatted) {}
+
+    /**
+     * 로비가 이 플레이어에게 적용한 리소스팩 묶음 서명 (Redis 키 접두사 + UUID, 추가 제안). 같은 접속 안에서 로비에 다시 오면 같은 팩을 또 보내지 않는다.
+     * 프록시가 접속을 끊을 때 지운다 (남아도 {@link #PACK_APPLIED_TTL_SECONDS} 뒤 사라짐).
+     */
+    public static final String PACK_APPLIED_PREFIX = "harbor:pack_applied:";
+
+    public static final long PACK_APPLIED_TTL_SECONDS = 12L * 3600;
 
     /** {@link ChatMessage#formatted}의 메시지 자리 표시 (사용자 문구에 나올 일 없는 사용자 정의 영역 문자). */
     public static final String MESSAGE_SLOT = "\uE000message\uE000";

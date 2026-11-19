@@ -137,16 +137,7 @@ final class ProxyCommands {
                 .requires(src -> src instanceof Player)
                 .executes(
                         ctx -> {
-                            Player player = (Player) ctx.getSource();
-                            if (!currentServer(player).equals(config.lobby())) {
-                                player.sendMessage(text.get("lobby.only"));
-                                return Command.SINGLE_SUCCESS;
-                            }
-                            queue.leaveStay(player.getUniqueId());
-                            if (queue.position(player.getUniqueId()).isEmpty()) {
-                                queue.enqueue(player);
-                            }
-                            player.sendMessage(text.get("lobby.depart"));
+                            var _ = queue.depart((Player) ctx.getSource());
                             return Command.SINGLE_SUCCESS;
                         });
     }

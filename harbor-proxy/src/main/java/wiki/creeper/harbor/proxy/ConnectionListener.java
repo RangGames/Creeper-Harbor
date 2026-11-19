@@ -29,6 +29,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.donor.DonorTier;
+import wiki.creeper.harbor.common.proxy.ProxyMessages;
 import wiki.creeper.harbor.common.redis.Redis;
 
 /**
@@ -253,6 +254,16 @@ final class ConnectionListener {
         chat.forget(uuid);
         sanctions.forget(uuid);
         joinLog.left(uuid);
+        // 다음 접속 때는 리소스팩을 다시 받아야 한다 (클라이언트가 팩을 내려놓았다)
+        Thread.ofVirtual()
+                .start(
+                        () -> {
+                            try {
+                                redis.sync().del(ProxyMessages.PACK_APPLIED_PREFIX + uuid);
+                            } catch (RuntimeException e) {
+                                // Redis 장애: TTL로 사라진다
+                            }
+                        });
     }
 
     private static List<ServerLink> buildLinks(List<ProxyConfig.Link> links, Logger log) {

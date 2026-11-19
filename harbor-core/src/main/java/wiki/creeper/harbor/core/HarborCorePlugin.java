@@ -62,6 +62,7 @@ import wiki.creeper.harbor.core.pack.PackManager;
 import wiki.creeper.harbor.core.pack.ResourcePacks;
 import wiki.creeper.harbor.core.pack.SoundCues;
 import wiki.creeper.harbor.core.player.PlayerManager;
+import wiki.creeper.harbor.core.proxy.AfkWatcher;
 import wiki.creeper.harbor.core.proxy.ProxyLink;
 import wiki.creeper.harbor.core.rig.FishDemoCommand;
 import wiki.creeper.harbor.core.rig.RigCommand;
@@ -322,7 +323,13 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         command.addModuleCommand(new PackCommand(packManager, msg, adminLog).build());
         if (infra.role() == ServerRole.LOBBY) {
             pm.registerEvents(
-                    new ResourcePacks(infra, packManager, messageBus, msg, dialogs), this);
+                    new ResourcePacks(infra, packManager, messageBus, msg, dialogs, r, tasks),
+                    this);
+        }
+        if (infra.role() == ServerRole.MAIN) {
+            AfkWatcher afk = new AfkWatcher(content::snapshot, proxy, msg, tasks);
+            pm.registerEvents(afk, this);
+            afk.start();
         }
 
         // 6. 명령어 (모든 모듈이 켜진 뒤 발생하므로 모듈 하위 명령도 들어간다)

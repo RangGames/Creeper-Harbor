@@ -23,6 +23,9 @@ import wiki.creeper.harbor.core.api.event.CurrencyChangedEvent;
  * harbor id of %itemstacks%           아이템의 Harbor ID (어종이면 fish/x)
  * %itemstacks% is [a] harbor item     Harbor 아이템인지
  * send harbor message %string% to %players%   messages_ko.yml 문구
+ * harbor send %players% to lobby     로비로 (자리 유예, 자동 출항 안 함)
+ * harbor send %players% to sea       출항 = 로비에서 본 서버 대기열로
+ * harbor server · harbor server role 이 서버 ID · 역할
  * on harbor currency change           골드·물비늘이 바뀐 뒤 (event-offlineplayer, event-number = 변화량, event-string = gold·mulbineul)
  * </pre>
  */
@@ -87,6 +90,20 @@ final class SkriptSyntax {
                         .addPatterns("harbor currency change")
                         .addDescription("골드·물비늘이 바뀐 뒤 (원장에 기록된 뒤, 이 서버에서 처리한 변경)")
                         .supplier(EvtCurrencyChange::new)
+                        .build());
+        count++;
+        registry.register(
+                SyntaxRegistry.EFFECT,
+                SyntaxInfo.builder(EffMove.class)
+                        .addPatterns("harbor send %players% to (0:[the] lobby|1:[the] sea)")
+                        .supplier(EffMove::new)
+                        .build());
+        count++;
+        registry.register(
+                SyntaxRegistry.EXPRESSION,
+                DefaultSyntaxInfos.Expression.builder(ExprServer.class, String.class)
+                        .addPatterns("[the] harbor server", "[the] harbor server role")
+                        .supplier(ExprServer::new)
                         .build());
         count++;
         EventValueRegistry values = skript.registry(EventValueRegistry.class);

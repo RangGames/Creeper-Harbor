@@ -218,6 +218,11 @@ jobs:
   other_line_limit: 40
   curve_check: {10: 620, 20: 5640, 30: 19940, 40: 48560, 50: 96650, 60: 169410, 70: 272120}
 
+# 잠수 시 로비로 (본 서버만, 추가 제안). 움직임·시점·키 입력·채팅·명령·클릭이 없으면 로비로 보낸다 (자리 유예, harbor.afk.exempt 제외)
+afk:
+  lobby_minutes: 15     # 0이면 끔 (제안값)
+  warn_seconds: 60      # 이만큼 전에 한 번 알림
+
 # 가구·커스텀 블록 (furniture/*.yml, 추가 제안)
 furniture:
   fix_glitched_noteblocks: true   # 커스텀 블록 번호를 새로 배정하기 전부터 있던 노트블록이 그 모양으로 보이면 바닐라로 되돌림 (청크마다 한 번)

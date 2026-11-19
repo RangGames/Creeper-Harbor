@@ -96,14 +96,41 @@ final class MoveCoordinator {
                                         request.requestId(), request.player(), false, "offline"));
                         return;
                     }
+                    boolean toLobby = request.destination().equals(config.lobby());
+                    LobbyHook hook = lobbyHook;
+                    if (toLobby && hook != null) {
+                        hook.before(request.player());
+                    }
                     var _ =
                             move(
                                             player.get(),
                                             request.destination(),
                                             request.reason(),
                                             request.requestId())
-                                    .thenAccept(result -> reply(request.origin(), result));
+                                    .thenAccept(
+                                            result -> {
+                                                if (toLobby && hook != null) {
+                                                    hook.after(
+                                                            request.player(),
+                                                            request.origin(),
+                                                            result.ok());
+                                                }
+                                                reply(request.origin(), result);
+                                            });
                 });
+    }
+
+    /** 백엔드가 요청한 로비 이동 앞뒤 (대기열: 자동 출항 막기·자리 유예). */
+    interface LobbyHook {
+        void before(UUID player);
+
+        void after(UUID player, String origin, boolean ok);
+    }
+
+    private volatile @Nullable LobbyHook lobbyHook;
+
+    void onLobbyMove(LobbyHook hook) {
+        this.lobbyHook = hook;
     }
 
     /** ServerPreConnectEvent: 백엔드 간 연결은 여기서 승인한 것만 허용한다. 승인 표시는 한 번 쓰면 지운다. */

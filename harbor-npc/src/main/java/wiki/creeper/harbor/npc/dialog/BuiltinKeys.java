@@ -31,7 +31,7 @@ import wiki.creeper.harbor.npc.content.CutsceneDef;
  *
  * <ul>
  *   <li>액션: goto, page, close, affinity:add, flag:set, flag:unset, gift:open, cutscene:play, sound,
- *       message
+ *       message, server:depart (출항), server:lobby (로비로)
  *   <li>조건: affinity_min, rep_tier_min, flag, not_flag, server_flag, not_server_flag, job_tier,
  *       level_min, time, weather
  * </ul>
@@ -72,6 +72,21 @@ public final class BuiltinKeys {
                             }
                         }));
         dialogs.registerAction(plugin, "close", (ctx, args) -> ActionResult.CLOSE);
+        // 서버 이동 (추가 제안): 출항 = 로비에서 본 서버 대기열, 로비 = 자리 유예를 남기고 로비로. 대화를 닫는다
+        dialogs.registerAction(
+                plugin,
+                "server:depart",
+                (ctx, args) -> {
+                    api.proxy().requestDepart(ctx.player().getUniqueId());
+                    return ActionResult.CLOSE;
+                });
+        dialogs.registerAction(
+                plugin,
+                "server:lobby",
+                (ctx, args) -> {
+                    var _ = api.proxy().requestLobby(ctx.player().getUniqueId(), "npc");
+                    return ActionResult.CLOSE;
+                });
         dialogs.registerAction(
                 plugin,
                 "affinity:add",

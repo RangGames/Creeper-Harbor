@@ -10,6 +10,7 @@ import java.util.function.BooleanSupplier;
 import org.bukkit.Bukkit;
 import wiki.creeper.harbor.common.config.InfraConfig;
 import wiki.creeper.harbor.common.proxy.ProxyMessages;
+import wiki.creeper.harbor.common.proxy.ProxyMessages.DepartRequest;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.InstanceRequest;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.MoveRequest;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.MoveResult;
@@ -61,6 +62,18 @@ public final class ProxyLink implements ProxyBridge {
                 ProxyMessages.toProxy(MoveRequest.class),
                 new MoveRequest(requestId, player, infra.serverId(), destination, reason));
         return future;
+    }
+
+    @Override
+    public CompletableFuture<MoveResult> requestLobby(UUID player, String reason) {
+        return requestMove(player, infra.lobbyServer(), reason);
+    }
+
+    @Override
+    public void requestDepart(UUID player) {
+        bus.publish(
+                ProxyMessages.toProxy(DepartRequest.class),
+                new DepartRequest(player, infra.serverId()));
     }
 
     @Override
