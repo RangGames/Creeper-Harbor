@@ -33,6 +33,7 @@ import wiki.creeper.harbor.core.api.ModuleHost;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.border.WorldBorderManager;
 import wiki.creeper.harbor.core.chat.ChatBridge;
+import wiki.creeper.harbor.core.chat.PlaceholderApiHook;
 import wiki.creeper.harbor.core.command.HarborCommand;
 import wiki.creeper.harbor.core.command.HelpCommand;
 import wiki.creeper.harbor.core.content.DefaultContent;
@@ -286,7 +287,16 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         SoundCues soundCues = new SoundCues(api.content());
         pm.registerEvents(soundCues, this);
         soundCues.subscribe(messageBus, tasks);
-        pm.registerEvents(new ChatBridge(infra, r, messageBus), this);
+        pm.registerEvents(
+                new ChatBridge(
+                        infra,
+                        r,
+                        messageBus,
+                        content::snapshot,
+                        ui,
+                        new PlaceholderApiHook(log),
+                        tasks),
+                this);
         pm.registerEvents(this, this);
         PackManager packManager =
                 new PackManager(infra, harborDir, content::snapshot, r, messageBus, tasks, log);

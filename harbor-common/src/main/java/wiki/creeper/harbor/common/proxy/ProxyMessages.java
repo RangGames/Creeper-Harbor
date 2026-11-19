@@ -2,6 +2,7 @@ package wiki.creeper.harbor.common.proxy;
 
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.redis.Channel;
 
 /**
@@ -78,6 +79,8 @@ public final class ProxyMessages {
      *
      * @param channel global · server · whisper · party
      * @param recipients 귓속말·파티 수신자 (그 밖은 빈 목록)
+     * @param formatted 백엔드가 만든 채팅 줄 (Adventure JSON, PlaceholderAPI까지 적용, 추가 제안). 메시지 자리는 {@link
+     *     #MESSAGE_SLOT} 글자로 비워 두고 프록시가 걸러낸 메시지로 바꾼다. null이면 프록시의 chat.format을 쓴다
      */
     public record ChatMessage(
             UUID sender,
@@ -85,7 +88,11 @@ public final class ProxyMessages {
             String server,
             String channel,
             String message,
-            List<UUID> recipients) {}
+            List<UUID> recipients,
+            @Nullable String formatted) {}
+
+    /** {@link ChatMessage#formatted}의 메시지 자리 표시 (사용자 문구에 나올 일 없는 사용자 정의 영역 문자). */
+    public static final String MESSAGE_SLOT = "\uE000message\uE000";
 
     /**
      * Boss → 프록시: 파티를 인스턴스 서버로 보내 달라 ('17-4' 10.4). server는 Boss가 harbor:instance로 배정한 서버 ID다. 프록시는

@@ -6,6 +6,11 @@ bootstrapper: wiki.creeper.harbor.core.HarborCoreBootstrap
 api-version: '${apiVersion}'
 description: '크리퍼 항구 공통 플러그인 (콘텐츠, 플레이어 데이터, 재화, 아이템, 보정자, 메시지, 명령어)'
 website: https://creeper.wiki
+dependencies:
+  server:
+    PlaceholderAPI:     # 있으면 채팅 형식에서 %플레이스홀더% (추가 제안)
+      load: BEFORE
+      required: false
 permissions:
   harbor.admin:
     description: /harbor 관리 명령

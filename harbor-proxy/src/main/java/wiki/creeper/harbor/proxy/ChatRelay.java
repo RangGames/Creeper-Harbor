@@ -13,8 +13,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
+import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.proxy.ProxyMessages;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.ChatMessage;
 import wiki.creeper.harbor.common.redis.Channels;
@@ -78,12 +81,15 @@ final class ChatRelay {
                     chat.recipients()
                             .forEach(to -> whisper(chat.sender(), chat.senderName(), to, clean));
             case "party" -> {
+                Component drawn = drawn(chat, clean);
                 Component line =
-                        text.get(
-                                "chat.party_format",
-                                Placeholder.unparsed("server", chat.server()),
-                                Placeholder.unparsed("name", chat.senderName()),
-                                Placeholder.unparsed("message", clean));
+                        drawn != null
+                                ? drawn
+                                : text.get(
+                                        "chat.party_format",
+                                        Placeholder.unparsed("server", chat.server()),
+                                        Placeholder.unparsed("name", chat.senderName()),
+                                        Placeholder.unparsed("message", clean));
                 Set<UUID> to = new LinkedHashSet<>(chat.recipients());
                 to.add(chat.sender());
                 to.forEach(uuid -> proxy.getPlayer(uuid).ifPresent(p -> p.sendMessage(line)));
@@ -140,7 +146,12 @@ final class ChatRelay {
         lastWhisper.remove(player);
     }
 
+    /** 백엔드가 그린 줄(PlaceholderAPI 포함)이 있으면 메시지 자리만 채우고, 없으면 harbor-proxy.yml chat.format. */
     private Component format(ChatMessage chat, String message) {
+        Component drawn = drawn(chat, message);
+        if (drawn != null) {
+            return drawn;
+        }
         return text.get(
                 "chat.format",
                 Placeholder.unparsed("server", chat.server()),
@@ -184,5 +195,23 @@ final class ChatRelay {
             }
         }
         return result;
+    }
+
+    private static @Nullable Component drawn(ChatMessage chat, String message) {
+        String formatted = chat.formatted();
+        if (formatted == null || formatted.isBlank()) {
+            return null;
+        }
+        try {
+            return GsonComponentSerializer.gson()
+                    .deserialize(formatted)
+                    .replaceText(
+                            TextReplacementConfig.builder()
+                                    .matchLiteral(ProxyMessages.MESSAGE_SLOT)
+                                    .replacement(Component.text(message))
+                                    .build());
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 }
