@@ -11,6 +11,12 @@ public interface PlayerService {
 
     Optional<HarborPlayer> get(UUID player);
 
+    /**
+     * 이름으로 플레이어를 찾는다 (대소문자 무시, 추가 제안). 이 서버 접속자를 먼저 보고, 없으면 players 테이블(다른 서버 접속자·오프라인, 마지막 접속이 가장
+     * 최근인 계정)에서 찾는다. 메인 스레드에서 완료된다.
+     */
+    CompletableFuture<Optional<wiki.creeper.harbor.common.model.PlayerRef>> find(String name);
+
     /** 접속 중인 플레이어의 데이터. 접속 전에 로드를 마치므로 접속 중이면 항상 있다. */
     HarborPlayer get(Player player);
 

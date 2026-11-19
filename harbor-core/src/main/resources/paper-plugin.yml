@@ -13,3 +13,9 @@ permissions:
   harbor.admin.alerts:
     description: 원장 불일치 등 운영 알림 받기
     default: op
+  harbor.gold:
+    description: /골드 · /골드 순위 (내 잔액과 순위)
+    default: true
+  harbor.admin.gold:
+    description: /골드 <플레이어> · 지급 · 회수 · 설정
+    default: op

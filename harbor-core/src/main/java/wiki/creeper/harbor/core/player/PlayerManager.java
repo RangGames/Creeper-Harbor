@@ -34,6 +34,7 @@ import wiki.creeper.harbor.common.config.ServerRole;
 import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.db.WriteBehindQueue;
 import wiki.creeper.harbor.common.model.Currency;
+import wiki.creeper.harbor.common.model.PlayerRef;
 import wiki.creeper.harbor.common.model.SeasonId;
 import wiki.creeper.harbor.common.proxy.ProxyMessages;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.SaveAll;
@@ -152,6 +153,33 @@ public final class PlayerManager implements PlayerService, Listener {
             throw new IllegalStateException("플레이어 데이터가 없습니다: " + player.getName());
         }
         return state;
+    }
+
+    @Override
+    public CompletableFuture<Optional<PlayerRef>> find(String name) {
+        Player local = Bukkit.getPlayerExact(name);
+        if (local != null) {
+            return CompletableFuture.completedFuture(
+                    Optional.of(new PlayerRef(local.getUniqueId(), local.getName())));
+        }
+        return db.async(
+                        c -> {
+                            try (var ps =
+                                    c.prepareStatement(
+                                            "SELECT uuid, name FROM players WHERE name = ?"
+                                                    + " ORDER BY last_join DESC LIMIT 1")) {
+                                ps.setString(1, name);
+                                try (var rs = ps.executeQuery()) {
+                                    return rs.next()
+                                            ? Optional.of(
+                                                    new PlayerRef(
+                                                            UUID.fromString(rs.getString(1)),
+                                                            rs.getString(2)))
+                                            : Optional.<PlayerRef>empty();
+                                }
+                            }
+                        })
+                .thenApplyAsync(r -> r, tasks.main());
     }
 
     @Override

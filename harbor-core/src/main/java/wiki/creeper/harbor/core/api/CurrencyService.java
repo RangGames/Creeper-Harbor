@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.core.api;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.jspecify.annotations.Nullable;
@@ -45,6 +46,33 @@ public interface CurrencyService {
      */
     CompletableFuture<Result<List<Long>, LedgerError>> atomic(
             List<LedgerEntry> entries, @Nullable SqlConsumer extra);
+
+    /** 이번 시즌 잔액. 이 서버에 접속 중이면 캐시 값, 아니면 DB에서 읽는다 (다른 서버 접속자·오프라인 포함, 행이 없으면 0). 메인 스레드에서 완료된다. */
+    CompletableFuture<Long> balance(UUID player, Currency currency);
+
+    /**
+     * 이번 시즌 잔액 순위 (잔액이 0보다 큰 플레이어만, 같으면 이름순). 상위 {@value #TOP_CACHED}위까지는 30초 캐시라 조금 늦을 수 있다. 메인
+     * 스레드에서 완료된다.
+     *
+     * @param offset 건너뛸 수 (0 = 1위부터)
+     * @param limit 최대 줄 수 (1~100)
+     */
+    CompletableFuture<List<BalanceRank>> top(Currency currency, int offset, int limit);
+
+    /** 상위 캐시 크기. */
+    int TOP_CACHED = 100;
+
+    /** 이번 시즌 순위 (1부터). 잔액이 0이거나 행이 없으면 빈 값. 메인 스레드에서 완료된다. */
+    CompletableFuture<Optional<Integer>> rank(UUID player, Currency currency);
+
+    /**
+     * 잔액을 amount로 맞춘다 (관리 명령). 지금 잔액과의 차이를 ADMIN_GRANT·ADMIN_TAKE로 원장에 기록한다. 잔액을 읽고 쓰는 사이에 다른 변경이
+     * 끼어들면 그만큼 어긋날 수 있다 (운영자 전용, 처리 후 잔액을 돌려준다).
+     *
+     * @return 처리 후 잔액. 차이가 없으면 지금 잔액
+     */
+    CompletableFuture<Result<Long, LedgerError>> set(
+            UUID player, Currency currency, long amount, @Nullable String refId);
 
     /**
      * 한 트랜잭션으로 옮긴다 (경매 낙찰 등). 하나라도 실패하면 모두 취소된다.

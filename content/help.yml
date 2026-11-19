@@ -34,6 +34,8 @@ sections:
       - {command: "수리", text: "낚싯대·장비 수리"}
       - {command: "큰손", text: "큰손 거래 (경제 계열 캡스톤)"}
       - {command: "우편함", text: "받은 우편과 정산금"}
+      - {command: "골드", text: "내 골드 잔액과 순위"}
+      - {command: "골드 순위", text: "시즌 골드 순위"}
 
   - title: "<blue>이동 · 항해"
     commands:

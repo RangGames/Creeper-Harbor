@@ -38,6 +38,7 @@ import wiki.creeper.harbor.core.command.HelpCommand;
 import wiki.creeper.harbor.core.content.DefaultContent;
 import wiki.creeper.harbor.core.content.HarborContent;
 import wiki.creeper.harbor.core.currency.CurrencyManager;
+import wiki.creeper.harbor.core.currency.GoldCommand;
 import wiki.creeper.harbor.core.currency.SeasonBalanceStore;
 import wiki.creeper.harbor.core.flag.FlagManager;
 import wiki.creeper.harbor.core.gui.MenuListener;
@@ -198,7 +199,8 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                 new ModifierManager(() -> content.snapshot().single(Balance.TYPE));
         SeasonBalanceStore balanceStore = new SeasonBalanceStore(infra.season());
         CurrencyManager currency =
-                new CurrencyManager(database, balanceStore, playerManager, tasks);
+                new CurrencyManager(database, balanceStore, playerManager, tasks, infra.season());
+        currency.listen(messageBus, infra.serverId());
         ItemManager items =
                 new ItemManager(
                         content::snapshot, msg, database, infra.season(), infra.zone(), log);
@@ -255,6 +257,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         .build());
         HelpCommand help = new HelpCommand(this, api.content(), msg, flags);
         pm.registerEvents(help, this);
+        GoldCommand gold = new GoldCommand(currency, playerManager, msg, adminLog);
         pm.registerEvents(new MenuListener(), this);
         SoundCues soundCues = new SoundCues(api.content());
         pm.registerEvents(soundCues, this);
@@ -275,6 +278,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         event -> {
                             command.register(event.registrar());
                             help.register(event.registrar());
+                            gold.register(event.registrar());
                         });
 
         playerManager.start();
