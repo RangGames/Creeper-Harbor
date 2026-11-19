@@ -105,6 +105,538 @@
   special: rise
   depth: [2, 14]
 
+# ---------------------------------------------------------------- 2. 이끼 강 상류 & 버섯 늪지
+# 고유 동작은 리소스팩 어종 목록(fish-list.md)의 특수 애니메이션, 템플릿은 시연 데이터팩의 뇌 몹(squid → ceph/jelly) 기준 (제안값)
+- id: wild/moss_crucian
+  fish_id: fish/moss_crucian
+  special: bask   # No.017 이끼 붕어 · 옆으로 누워 햇빛에 비늘 반짝이기
+
+- id: wild/riffle_minnow
+  fish_id: fish/riffle_minnow
+  special: leap   # No.018 여울 피라미 · 폭포를 거슬러 뛰어오르기
+
+- id: wild/moss_catfish
+  fish_id: fish/moss_catfish
+  special: whisker   # No.019 이끼 메기 · 수염으로 바닥을 더듬기
+
+- id: wild/upstream_chub
+  fish_id: fish/upstream_chub
+  special: dart   # No.020 상류 버들치 · 순간 돌진
+
+- id: wild/swamp_loach
+  fish_id: fish/swamp_loach
+  special: coil   # No.021 늪지 미꾸라지 · 몸을 똬리처럼 감았다 풀기
+
+- id: wild/river_carp
+  fish_id: fish/river_carp
+  special: bask   # No.022 강 잉어 · 옆으로 누워 햇빛에 비늘 반짝이기
+
+- id: wild/cave_blindfish
+  fish_id: fish/cave_blindfish
+  special: startle   # No.023 동굴 장님고기 · 겁먹고 뒤로 튀기
+
+- id: wild/reed_killifish
+  fish_id: fish/reed_killifish
+  special: turn   # No.024 갈대 송사리 · 떼지어 한 바퀴 선회
+
+- id: wild/mud_snakehead
+  fish_id: fish/mud_snakehead
+  special: bite   # No.025 진흙 가물치 · 먹이를 덮쳐 물기
+
+- id: wild/spotted_sculpin
+  fish_id: fish/spotted_sculpin
+  special: startle   # No.026 점박이 둑중개 · 겁먹고 뒤로 튀기
+
+- id: wild/rock_mandarin_perch
+  fish_id: fish/rock_mandarin_perch
+  special: bite   # No.027 바위 쏘가리 · 먹이를 덮쳐 물기
+
+- id: wild/upstream_masu
+  fish_id: fish/upstream_masu
+  special: leap   # No.028 상류 산천어 · 폭포를 거슬러 뛰어오르기
+
+- id: wild/riffle_aucha_perch
+  fish_id: fish/riffle_aucha_perch
+  special: flare   # No.029 여울 꺽지 · 지느러미를 활짝 펴 위협
+
+- id: wild/mushback_trout
+  fish_id: fish/mushback_trout
+  special: bask   # No.030 버섯등 송어 · 옆으로 누워 햇빛에 비늘 반짝이기
+
+- id: wild/golden_crucian
+  fish_id: fish/golden_crucian
+  special: bask   # No.031 황금 붕어 · 옆으로 누워 햇빛에 비늘 반짝이기
+
+- id: wild/swamp_eel
+  fish_id: fish/swamp_eel
+  special: coil   # No.032 늪 장어 · 몸을 똬리처럼 감았다 풀기
+
+- id: wild/redeye_lenok
+  fish_id: fish/redeye_lenok
+  special: leap   # No.033 붉은눈 열목어 · 폭포를 거슬러 뛰어오르기
+
+- id: wild/firefly_sweetfish
+  fish_id: fish/firefly_sweetfish
+  special: flash   # No.034 반딧불 은어 · 몸을 뒤집어 은빛 번쩍
+
+- id: wild/crystal_cavefish
+  fish_id: fish/crystal_cavefish
+  special: flash   # No.035 수정 동굴어 · 몸을 뒤집어 은빛 번쩍
+
+
+# ---------------------------------------------------------------- 3. 산호 군도
+# 고유 동작은 리소스팩 어종 목록(fish-list.md)의 특수 애니메이션, 템플릿은 시연 데이터팩의 뇌 몹(squid → ceph/jelly) 기준 (제안값)
+- id: wild/clown_coralfish
+  fish_id: fish/clown_coralfish
+  special: startle   # No.037 광대 산호어 · 겁먹고 뒤로 튀기
+
+- id: wild/blue_tang
+  fish_id: fish/blue_tang
+  special: dart   # No.038 파랑 쥐돔 · 순간 돌진
+
+- id: wild/yellow_butterflyfish
+  fish_id: fish/yellow_butterflyfish
+  special: turn   # No.039 노랑 나비고기 · 떼지어 한 바퀴 선회
+
+- id: wild/coral_damselfish
+  fish_id: fish/coral_damselfish
+  special: bite   # No.040 산호 자리돔 · 먹이를 덮쳐 물기
+
+- id: wild/striped_parrotfish
+  fish_id: fish/striped_parrotfish
+  special: bite   # No.041 줄무늬 비늘돔 · 먹이를 덮쳐 물기
+
+- id: wild/sandbar_wrasse
+  fish_id: fish/sandbar_wrasse
+  special: burrow   # No.042 모래톱 놀래기 · 모래 속으로 파고들기
+
+- id: wild/tropical_trevally
+  fish_id: fish/tropical_trevally
+  special: turn   # No.043 열대 전갱이 · 떼지어 한 바퀴 선회
+
+- id: wild/island_saury
+  fish_id: fish/island_saury
+  special: jump   # No.044 섬 꽁치 · 수면 위로 점프
+
+- id: wild/parrot_scarus
+  fish_id: fish/parrot_scarus
+  special: bite   # No.045 앵무 비늘돔 · 먹이를 덮쳐 물기
+
+- id: wild/lion_scorpionfish
+  fish_id: fish/lion_scorpionfish
+  special: flare   # No.046 사자 쏠배감펭 · 지느러미를 활짝 펴 위협
+
+- id: wild/rainbow_wrasse
+  fish_id: fish/rainbow_wrasse
+  special: flash   # No.047 무지개 놀래기 · 몸을 뒤집어 은빛 번쩍
+
+- id: wild/coral_moray
+  fish_id: fish/coral_moray
+  special: gape   # No.048 산호 곰치 · 입을 자루처럼 크게 벌려 삼키기
+
+- id: wild/silk_mandarinfish
+  fish_id: fish/silk_mandarinfish
+  special: flare   # No.049 비단 만다린어 · 지느러미를 활짝 펴 위협
+
+- id: wild/bigfin_reef_squid
+  fish_id: fish/bigfin_reef_squid
+  template: ceph
+  special: ink   # No.050 무늬 오징어 · 먹물 뿜고 달아나기
+
+- id: wild/napoleon_wrasse
+  fish_id: fish/napoleon_wrasse
+  special: stare   # No.051 나폴레옹 놀래기 · 고개를 돌려 빤히 쳐다보기
+
+- id: wild/golden_mahi
+  fish_id: fish/golden_mahi
+  special: jump   # No.052 황금 만새기 · 수면 위로 점프
+
+- id: wild/purple_coral_octopus
+  fish_id: fish/purple_coral_octopus
+  template: ceph
+  special: ink   # No.053 보라 산호 문어 · 먹물 뿜고 달아나기
+
+- id: wild/dusk_barracuda
+  fish_id: fish/dusk_barracuda
+  special: dart   # No.054 황혼 바라쿠다 · 순간 돌진
+
+- id: wild/glass_seahorse
+  fish_id: fish/glass_seahorse
+  template: seahorse
+  special: curl   # No.055 유리 해마 · 꼬리를 동그랗게 말기
+
+- id: wild/archipelago_marlin
+  fish_id: fish/archipelago_marlin
+  special: leap   # No.056 군도의 청새치 · 폭포를 거슬러 뛰어오르기
+
+- id: wild/rainbow_coral_ray
+  fish_id: fish/rainbow_coral_ray
+  template: ray
+  special: glide   # No.057 무지개 산호 가오리 · 날개를 크게 쳐 미끄러지듯 활공
+
+
+# ---------------------------------------------------------------- 4. 용암 호수 (네더, medium lava)
+# 고유 동작은 리소스팩 어종 목록(fish-list.md)의 특수 애니메이션, 템플릿은 시연 데이터팩의 뇌 몹(squid → ceph/jelly) 기준 (제안값)
+- id: wild/ember_minnow
+  fish_id: fish/ember_minnow
+  medium: lava
+  special: jump   # No.111 잿불 피라미 · 수면 위로 점프
+
+- id: wild/basalt_goby
+  fish_id: fish/basalt_goby
+  medium: lava
+  special: startle   # No.112 현무암 망둑 · 겁먹고 뒤로 튀기
+
+- id: wild/crimson_crucian
+  fish_id: fish/crimson_crucian
+  medium: lava
+  special: bask   # No.113 진홍 버섯 붕어 · 옆으로 누워 햇빛에 비늘 반짝이기
+
+- id: wild/warped_trout
+  fish_id: fish/warped_trout
+  medium: lava
+  special: dart   # No.114 뒤틀린 숲 송어 · 순간 돌진
+
+- id: wild/quartz_stickleback
+  fish_id: fish/quartz_stickleback
+  medium: lava
+  special: flare   # No.115 석영 가시고기 · 지느러미를 활짝 펴 위협
+
+- id: wild/magma_puffer
+  fish_id: fish/magma_puffer
+  medium: lava
+  special: puff   # No.116 마그마 공 복어 · 쉬익- 소리와 함께 부풀기
+
+- id: wild/ash_sky_ray
+  fish_id: fish/ash_sky_ray
+  template: ray
+  medium: lava
+  special: glide   # No.117 잿빛 하늘가오리 · 날개를 크게 쳐 미끄러지듯 활공
+
+- id: wild/lava_loach
+  fish_id: fish/lava_loach
+  medium: lava
+  special: coil   # No.118 용암 미꾸라지 · 몸을 똬리처럼 감았다 풀기
+
+- id: wild/basalt_carp
+  fish_id: fish/basalt_carp
+  medium: lava
+  special: turn   # No.119 현무암 잉어 · 떼지어 한 바퀴 선회
+
+- id: wild/gunpowder_catfish
+  fish_id: fish/gunpowder_catfish
+  medium: lava
+  special: whisker   # No.120 화약고 메기 · 수염으로 바닥을 더듬기
+
+- id: wild/blaze_rod_eel
+  fish_id: fish/blaze_rod_eel
+  medium: lava
+  special: spin   # No.121 화염막대 장어 · 꼬리 막대를 빙글빙글 돌리기
+
+- id: wild/magma_catfish
+  fish_id: fish/magma_catfish
+  medium: lava
+  special: whisker   # No.122 마그마 메기 · 수염으로 바닥을 더듬기
+
+- id: wild/soul_eel
+  fish_id: fish/soul_eel
+  medium: lava
+  special: coil   # No.123 영혼 장어 · 몸을 똬리처럼 감았다 풀기
+
+- id: wild/debris_sturgeon
+  fish_id: fish/debris_sturgeon
+  medium: lava
+  special: turn   # No.124 고대 잔해 철갑상어 · 떼지어 한 바퀴 선회
+
+- id: wild/skeleton_angler
+  fish_id: fish/skeleton_angler
+  medium: lava
+  special: lure   # No.125 검은 해골 아귀 · 초롱을 흔들어 꾀어낸 뒤 덥석
+
+- id: wild/golden_greed
+  fish_id: fish/golden_greed
+  medium: lava
+  special: bask   # No.127 황금 탐욕어 · 옆으로 누워 햇빛에 비늘 반짝이기 (전설·신화: 자연 스폰 없음)
+
+- id: wild/crying_ray
+  fish_id: fish/crying_ray
+  template: ray
+  medium: lava
+  special: weep   # No.128 울음 가오리 · 고개 숙여 눈물 결정 흘리기 (전설·신화: 자연 스폰 없음)
+
+
+# ---------------------------------------------------------------- 5. 서리 협만
+# 고유 동작은 리소스팩 어종 목록(fish-list.md)의 특수 애니메이션, 템플릿은 시연 데이터팩의 뇌 몹(squid → ceph/jelly) 기준 (제안값)
+- id: wild/ice_smelt
+  fish_id: fish/ice_smelt
+  special: turn   # No.059 얼음 빙어 · 떼지어 한 바퀴 선회
+
+- id: wild/fjord_cod
+  fish_id: fish/fjord_cod
+  special: gape   # No.060 협만 대구 · 입을 자루처럼 크게 벌려 삼키기
+
+- id: wild/northern_herring
+  fish_id: fish/northern_herring
+  special: turn   # No.061 북방 청어 · 떼지어 한 바퀴 선회
+
+- id: wild/frost_capelin
+  fish_id: fish/frost_capelin
+  special: flash   # No.062 서리 열빙어 · 몸을 뒤집어 은빛 번쩍
+
+- id: wild/northern_flounder
+  fish_id: fish/northern_flounder
+  special: burrow   # No.063 북방 가자미 · 모래 속으로 파고들기
+
+- id: wild/ice_sculpin
+  fish_id: fish/ice_sculpin
+  special: startle   # No.064 얼음 둑중개 · 겁먹고 뒤로 튀기
+
+- id: wild/dawn_salmon
+  fish_id: fish/dawn_salmon
+  special: leap   # No.065 새벽 연어 · 폭포를 거슬러 뛰어오르기
+
+- id: wild/blizzard_trout
+  fish_id: fish/blizzard_trout
+  special: jump   # No.066 눈보라 송어 · 수면 위로 점프
+
+- id: wild/night_pollock
+  fish_id: fish/night_pollock
+  special: bite   # No.067 밤바다 명태 · 먹이를 덮쳐 물기
+
+- id: wild/silver_char
+  fish_id: fish/silver_char
+  special: flash   # No.068 은빛 곤들매기 · 몸을 뒤집어 은빛 번쩍
+
+- id: wild/fjord_angler
+  fish_id: fish/fjord_angler
+  special: lure   # No.069 협만 아귀 · 초롱을 흔들어 꾀어낸 뒤 덥석
+
+- id: wild/arctic_skate
+  fish_id: fish/arctic_skate
+  template: ray
+  special: glide   # No.070 북극 홍어 · 날개를 크게 쳐 미끄러지듯 활공
+
+- id: wild/king_salmon
+  fish_id: fish/king_salmon
+  special: leap   # No.071 왕연어 · 폭포를 거슬러 뛰어오르기
+
+- id: wild/aurora_trout
+  fish_id: fish/aurora_trout
+  special: bask   # No.072 오로라 송어 · 옆으로 누워 햇빛에 비늘 반짝이기
+
+- id: wild/glacier_sturgeon
+  fish_id: fish/glacier_sturgeon
+  special: turn   # No.073 빙하 철갑상어 · 떼지어 한 바퀴 선회
+
+- id: wild/arctic_charr
+  fish_id: fish/arctic_charr
+  special: leap   # No.074 북극 곤들매기 · 폭포를 거슬러 뛰어오르기
+
+- id: wild/frost_toothfish
+  fish_id: fish/frost_toothfish
+  special: bite   # No.075 서리 이빨고기 · 먹이를 덮쳐 물기
+
+- id: wild/icicle_eel
+  fish_id: fish/icicle_eel
+  special: coil   # No.076 고드름 장어 · 몸을 똬리처럼 감았다 풀기
+
+- id: wild/fjord_sleeper_shark
+  fish_id: fish/fjord_sleeper_shark
+  special: stare   # No.077 협만 잠꾸러기 상어 · 고개를 돌려 빤히 쳐다보기
+
+- id: wild/ice_crystal_cod
+  fish_id: fish/ice_crystal_cod
+  special: flash   # No.078 얼음 결정 대구 · 몸을 뒤집어 은빛 번쩍
+
+- id: wild/aurora_fish
+  fish_id: fish/aurora_fish
+  special: bask   # No.079 극광 물고기 · 옆으로 누워 햇빛에 비늘 반짝이기
+
+
+# ---------------------------------------------------------------- 6. 잿빛 해구 (심해)
+# 고유 동작은 리소스팩 어종 목록(fish-list.md)의 특수 애니메이션, 템플릿은 시연 데이터팩의 뇌 몹(squid → ceph/jelly) 기준 (제안값)
+- id: wild/deep_lanternfish
+  fish_id: fish/deep_lanternfish
+  special: flash   # No.081 심해 샛비늘치 · 몸을 뒤집어 은빛 번쩍
+
+- id: wild/silver_hatchetfish
+  fish_id: fish/silver_hatchetfish
+  special: flash   # No.082 은빛 도끼고기 · 몸을 뒤집어 은빛 번쩍
+
+- id: wild/ash_skate
+  fish_id: fish/ash_skate
+  template: ray
+  special: glide   # No.083 잿빛 홍어 · 날개를 크게 쳐 미끄러지듯 활공
+
+- id: wild/soft_snailfish
+  fish_id: fish/soft_snailfish
+  special: turn   # No.084 물렁 꼼치 · 떼지어 한 바퀴 선회
+
+- id: wild/ash_rockfish
+  fish_id: fish/ash_rockfish
+  special: stare   # No.085 잿빛 볼락 · 고개를 돌려 빤히 쳐다보기
+
+- id: wild/trench_eel
+  fish_id: fish/trench_eel
+  special: coil   # No.086 해구 장어 · 몸을 똬리처럼 감았다 풀기
+
+- id: wild/lantern_angler
+  fish_id: fish/lantern_angler
+  special: lure   # No.087 초롱아귀 · 초롱을 흔들어 꾀어낸 뒤 덥석
+
+- id: wild/deep_squid
+  fish_id: fish/deep_squid
+  template: ceph
+  special: ink   # No.088 심해 오징어 · 먹물 뿜고 달아나기
+
+- id: wild/ghost_ray
+  fish_id: fish/ghost_ray
+  template: ray
+  special: glide   # No.089 유령 가오리 · 날개를 크게 쳐 미끄러지듯 활공
+
+- id: wild/venom_scorpionfish
+  fish_id: fish/venom_scorpionfish
+  special: flare   # No.090 독침 쏨뱅이 · 지느러미를 활짝 펴 위협
+
+- id: wild/ruin_grey_seabream
+  fish_id: fish/ruin_grey_seabream
+  special: turn   # No.091 유적 회색도미 · 떼지어 한 바퀴 선회
+
+- id: wild/blobfish
+  fish_id: fish/blobfish
+  special: gape   # No.092 물렁 심해어 · 입을 자루처럼 크게 벌려 삼키기
+
+- id: wild/fangtooth
+  fish_id: fish/fangtooth
+  special: bite   # No.093 심해 바늘이빨고기 · 먹이를 덮쳐 물기
+
+- id: wild/ash_sablefish
+  fish_id: fish/ash_sablefish
+  special: dart   # No.094 잿빛 은대구 · 순간 돌진
+
+- id: wild/oarfish
+  fish_id: fish/oarfish
+  special: rise   # No.095 산갈치 · 꼿꼿이 선 채 떠오르기
+
+- id: wild/barreleye
+  fish_id: fish/barreleye
+  special: moongaze   # No.096 유리머리 물고기 · 고개 들어 달빛 바라보기
+
+- id: wild/deep_chimaera
+  fish_id: fish/deep_chimaera
+  special: glide   # No.097 심해 은상어 · 지느러미 날개로 활공
+
+- id: wild/coelacanth
+  fish_id: fish/coelacanth
+  special: turn   # No.098 실러캔스 · 떼지어 한 바퀴 선회
+
+- id: wild/obsidian_angler
+  fish_id: fish/obsidian_angler
+  special: lure   # No.099 흑요석 아귀 · 초롱을 흔들어 꾀어낸 뒤 덥석
+
+- id: wild/helmet_fish
+  fish_id: fish/helmet_fish
+  special: bow   # No.100 고대 투구어 · 왕관을 보이며 고개 숙이기
+
+- id: wild/gulper_eel
+  fish_id: fish/gulper_eel
+  special: gape   # No.101 자루입 장어 · 입을 자루처럼 크게 벌려 삼키기
+
+- id: wild/vent_fish
+  fish_id: fish/vent_fish
+  special: bask   # No.102 열수구 물고기 · 옆으로 누워 햇빛에 비늘 반짝이기
+
+- id: wild/goblin_shark
+  fish_id: fish/goblin_shark
+  special: jaw_shoot   # No.104 해구 마귀상어 · 턱을 앞으로 튀어나오게 하며 낚아채기
+
+- id: wild/ruin_guardian_fish
+  fish_id: fish/ruin_guardian_fish
+  special: stare   # No.105 유적 수호어 · 고개를 돌려 빤히 쳐다보기
+
+- id: wild/abyss_lanternfish
+  fish_id: fish/abyss_lanternfish
+  special: lure   # No.106 심연 등불어 · 초롱을 흔들어 꾀어낸 뒤 덥석
+
+- id: wild/royal_guard_armorfish
+  fish_id: fish/royal_guard_armorfish
+  special: bow   # No.107 왕국 근위 철갑어 · 왕관을 보이며 고개 숙이기
+
+- id: wild/sunken_crown_seabream
+  fish_id: fish/sunken_crown_seabream
+  special: bow   # No.110 가라앉은 왕관 도미 · 왕관을 보이며 고개 숙이기 (전설·신화: 자연 스폰 없음)
+
+
+# ---------------------------------------------------------------- 7. 공허의 바다 (엔드, medium air)
+# 고유 동작은 리소스팩 어종 목록(fish-list.md)의 특수 애니메이션, 템플릿은 시연 데이터팩의 뇌 몹(squid → ceph/jelly) 기준 (제안값)
+- id: wild/endstone_goby
+  fish_id: fish/endstone_goby
+  medium: air
+  special: startle   # No.129 엔드석 망둑 · 겁먹고 뒤로 튀기
+
+- id: wild/purpur_jellyfish
+  fish_id: fish/purpur_jellyfish
+  template: jelly
+  medium: air
+  special: pulse   # No.130 퍼퍼 해파리고기 · 힘차게 오므려 솟구치기
+
+- id: wild/stardust_anchovy
+  fish_id: fish/stardust_anchovy
+  medium: air
+  special: turn   # No.131 별가루 멸치 · 떼지어 한 바퀴 선회
+
+- id: wild/void_killifish
+  fish_id: fish/void_killifish
+  medium: air
+  special: teleport   # No.132 공허 송사리 · 순간이동
+
+- id: wild/chorus_seahorse
+  fish_id: fish/chorus_seahorse
+  template: seahorse
+  medium: air
+  special: teleport   # No.133 코러스 해마 · 코러스 열매처럼 순간이동
+
+- id: wild/pearl_eye_fish
+  fish_id: fish/pearl_eye_fish
+  medium: air
+  special: stare   # No.134 진주눈 물고기 · 고개를 돌려 빤히 쳐다보기
+
+- id: wild/levitating_jellyfish
+  fish_id: fish/levitating_jellyfish
+  template: jelly
+  medium: air
+  special: levitate   # No.135 공중부양 해파리어 · 둥실 떠올랐다 내려오기
+
+- id: wild/end_rod_halfbeak
+  fish_id: fish/end_rod_halfbeak
+  medium: air
+  special: dart   # No.136 엔드 막대 학꽁치 · 순간 돌진
+
+- id: wild/ender_eel
+  fish_id: fish/ender_eel
+  medium: air
+  special: teleport   # No.137 엔더 장어 · 순간이동
+
+- id: wild/shell_clamfish
+  fish_id: fish/shell_clamfish
+  medium: air          # 엔드에는 물이 없어 바닥(floor) 대신 공중. clam 템플릿은 floor 전용이라 fish
+  special: shoot   # No.138 껍데기 조개고기 · 껍데기를 열고 탄환처럼 튀어나오기
+
+- id: wild/elytra_flyingfish
+  fish_id: fish/elytra_flyingfish
+  medium: air
+  special: glide   # No.139 겉날개 날치 · 지느러미 날개로 활공
+
+- id: wild/memory_carp
+  fish_id: fish/memory_carp
+  medium: air
+  special: bask   # No.140 기억 잉어 · 옆으로 누워 햇빛에 비늘 반짝이기
+
+- id: wild/dragonscale_fish
+  fish_id: fish/dragonscale_fish
+  medium: air
+  special: flare   # No.142 용비늘어 · 지느러미를 활짝 펴 위협 (전설·신화: 자연 스폰 없음)
+
 # ---------------------------------------------------------------- 신화 (자연 스폰 없음, 이벤트 연출 spawnScripted용)
 - id: wild/migration_leader
   fish_id: fish/migration_leader
