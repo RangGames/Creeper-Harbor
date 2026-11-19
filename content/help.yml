@@ -1,0 +1,69 @@
+# 플레이어 /도움말 목록 (추가 제안). Core가 적은 순서대로 보여 준다.
+# 서버에 없는 명령(그 서버에서 꺼진 모듈)과 쓸 권한이 없는 명령은 자동으로 감추므로, 모든 서버에 같은 파일을 둔다.
+#
+#   command  클릭 때 넣을 명령 (앞의 / 없이). <인자>가 있으면 그 앞까지만 입력창에 넣는다
+#   text     설명 (MiniMessage)
+#   run      true = 클릭 즉시 실행, false = 입력창에 넣기만. 비우면 <인자>가 없을 때 true
+
+sections:
+  - title: "<aqua>낚시"
+    commands:
+      - {command: "낚시 설정", text: "미니게임 조작·알림 설정"}
+      - {command: "통발", text: "내 통발 위치와 수확 상태"}
+      - {command: "도감", text: "잡은 물고기 도감과 지역별 수집률"}
+      - {command: "기록 <어종>", text: "어종별 최대어 기록"}
+      - {command: "수족관", text: "수족관 상태 · <white>/수족관 기부</white>로 물고기 기부"}
+      - {command: "방류", text: "손에 든 물고기를 도감에 남기고 바다로 돌려보내기"}
+
+  - title: "<green>성장"
+    commands:
+      - {command: "직업", text: "직업 계열·차수·레벨"}
+      - {command: "스킬", text: "스킬 트리"}
+      - {command: "퀘스트", text: "진행 중인 퀘스트 · 추적 · 포기"}
+      - {command: "의뢰", text: "어부 길드 게시판 의뢰"}
+      - {command: "연대기", text: "지금까지의 이야기"}
+      - {command: "평판", text: "항구 평판 등급"}
+      - {command: "호감도", text: "주민 호감도"}
+
+  - title: "<gold>거래"
+    commands:
+      - {command: "판매", text: "물고기·아이템 팔기"}
+      - {command: "시세 <어종>", text: "어종 시세 보기"}
+      - {command: "경매", text: "경매장"}
+      - {command: "제작", text: "근처 작업대에서 제작"}
+      - {command: "수리", text: "낚싯대·장비 수리"}
+      - {command: "큰손", text: "큰손 거래 (경제 계열 캡스톤)"}
+      - {command: "우편함", text: "받은 우편과 정산금"}
+
+  - title: "<blue>이동 · 항해"
+    commands:
+      - {command: "해도", text: "지역 해도와 이동"}
+      - {command: "부두", text: "내 부두(집)로 가기"}
+      - {command: "선박", text: "내 배 부르기"}
+      - {command: "조선소", text: "배 고르기 · 수리 · 개조"}
+      - {command: "비행선", text: "비행선 타기"}
+      - {command: "노틸러스", text: "노틸러스 빌리기 (심해 탐사)"}
+
+  - title: "<red>보스 · 파티"
+    commands:
+      - {command: "보스 info <보스>", text: "보스 정보"}
+      - {command: "보스 records", text: "보스전 기록"}
+      - {command: "보스 claim", text: "보스전 보상 받기"}
+      - {command: "파티 create", text: "파티 만들기"}
+      - {command: "파티 invite <플레이어>", text: "파티에 초대"}
+      - {command: "파티 leave", text: "파티 나가기"}
+
+  - title: "<light_purple>시즌 · 꾸미기"
+    commands:
+      - {command: "시즌", text: "이번 시즌 정보와 남은 기간"}
+      - {command: "랭킹", text: "시즌 랭킹"}
+      - {command: "명예의전당", text: "지난 시즌 명예의 전당"}
+      - {command: "칭호", text: "칭호 고르기"}
+      - {command: "패스", text: "시즌 패스 「항해 일지」"}
+      - {command: "상점", text: "코스메틱 상점"}
+      - {command: "보관함", text: "코스메틱 보관함 · 장착"}
+      - {command: "진주", text: "진주 잔액 · 내역"}
+      - {command: "보물함", text: "진주 보물함"}
+      - {command: "축제", text: "항구 축제"}
+      - {command: "선물 <플레이어>", text: "다른 플레이어에게 선물하기"}
+      - {command: "닉네임 <이름>", text: "닉네임 바꾸기"}

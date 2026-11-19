@@ -7,8 +7,8 @@ import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.rig.RigDef;
 
 /**
- * Core가 기본으로 등록하는 콘텐츠 형식 (fish·items·regions·balance·messages·rigs·resource_pack·sounds). 서버 플러그인과
- * harbor-tools가 같은 목록을 쓴다.
+ * Core가 기본으로 등록하는 콘텐츠 형식 (fish·items·regions·balance·messages·rigs·resource_pack·sounds·help). 서버
+ * 플러그인과 harbor-tools가 같은 목록을 쓴다.
  */
 public final class CoreContent {
 
@@ -21,7 +21,8 @@ public final class CoreContent {
                     Messages.TYPE,
                     RigDef.TYPE,
                     ResourcePackIndex.TYPE,
-                    SoundTable.TYPE);
+                    SoundTable.TYPE,
+                    HelpBook.TYPE);
 
     private CoreContent() {}
 

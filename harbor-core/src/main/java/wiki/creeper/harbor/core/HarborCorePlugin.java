@@ -34,6 +34,7 @@ import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.border.WorldBorderManager;
 import wiki.creeper.harbor.core.chat.ChatBridge;
 import wiki.creeper.harbor.core.command.HarborCommand;
+import wiki.creeper.harbor.core.command.HelpCommand;
 import wiki.creeper.harbor.core.content.DefaultContent;
 import wiki.creeper.harbor.core.content.HarborContent;
 import wiki.creeper.harbor.core.currency.CurrencyManager;
@@ -53,6 +54,7 @@ import wiki.creeper.harbor.core.pack.ResourcePacks;
 import wiki.creeper.harbor.core.pack.SoundCues;
 import wiki.creeper.harbor.core.player.PlayerManager;
 import wiki.creeper.harbor.core.proxy.ProxyLink;
+import wiki.creeper.harbor.core.rig.FishDemoCommand;
 import wiki.creeper.harbor.core.rig.RigCommand;
 import wiki.creeper.harbor.core.rig.RigManager;
 import wiki.creeper.harbor.core.task.Tasks;
@@ -248,6 +250,11 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         pm.registerEvents(rigManager, this);
         pm.registerEvents(new ItemModelSync(items), this);
         command.addModuleCommand(new RigCommand(rigManager, msg, adminLog).build());
+        command.addModuleCommand(
+                new FishDemoCommand(rigManager, api.content(), items, playerManager, msg, adminLog)
+                        .build());
+        HelpCommand help = new HelpCommand(this, api.content(), msg, flags);
+        pm.registerEvents(help, this);
         pm.registerEvents(new MenuListener(), this);
         SoundCues soundCues = new SoundCues(api.content());
         pm.registerEvents(soundCues, this);
@@ -264,7 +271,11 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         // 6. 명령어 (모든 모듈이 켜진 뒤 발생하므로 모듈 하위 명령도 들어간다)
         getLifecycleManager()
                 .registerEventHandler(
-                        LifecycleEvents.COMMANDS, event -> command.register(event.registrar()));
+                        LifecycleEvents.COMMANDS,
+                        event -> {
+                            command.register(event.registrar());
+                            help.register(event.registrar());
+                        });
 
         playerManager.start();
         proxy.start();

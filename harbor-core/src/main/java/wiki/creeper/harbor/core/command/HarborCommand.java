@@ -9,12 +9,14 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.mojang.brigadier.tree.CommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -23,6 +25,9 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -249,6 +254,8 @@ public final class HarborCommand {
         root.then(sub("debug").executes(this::debug));
 
         moduleCommands.forEach(root::then);
+        root.executes(this::help);
+        root.then(Commands.literal("help").executes(this::help));
         return root.build();
     }
 
@@ -463,6 +470,45 @@ public final class HarborCommand {
                         q.pending() + " (쓴 것 " + q.written() + ", 버린 것 " + q.dropped() + ")"),
                 Placeholder.unparsed("players", String.valueOf(players.online().size())),
                 Placeholder.unparsed("threads", String.valueOf(Thread.activeCount())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** 쓸 수 있는 하위 명령 목록. 줄을 누르면 입력창에 넣는다. 설명은 messages command.help.desc.<하위 명령>. */
+    private int help(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack src = ctx.getSource();
+        CommandNode<CommandSourceStack> root = ctx.getRootNode().getChild("harbor");
+        if (root == null) {
+            return 0;
+        }
+        messages.send(src.getSender(), "command.help.header");
+        root.getChildren().stream()
+                .filter(node -> node.canUse(src) && !node.getName().equals("help"))
+                .sorted(Comparator.comparing(CommandNode::getName))
+                .forEach(
+                        node -> {
+                            String name = node.getName();
+                            String descKey = "command.help.desc." + name;
+                            String click = "/harbor " + name + " ";
+                            Component desc =
+                                    messages.has(descKey)
+                                            ? messages.get(descKey)
+                                            : Component.empty();
+                            src.getSender()
+                                    .sendMessage(
+                                            messages.get(
+                                                            "command.help.line",
+                                                            Placeholder.unparsed("command", name),
+                                                            Placeholder.component("text", desc))
+                                                    .clickEvent(ClickEvent.suggestCommand(click))
+                                                    .hoverEvent(
+                                                            HoverEvent.showText(
+                                                                    messages.get(
+                                                                            "help.hover_suggest",
+                                                                            Placeholder.unparsed(
+                                                                                    "command",
+                                                                                    click
+                                                                                            .strip())))));
+                        });
         return Command.SINGLE_SUCCESS;
     }
 

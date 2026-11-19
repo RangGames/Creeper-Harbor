@@ -20,6 +20,19 @@ core:
 player:
   load_failed: "<red>데이터를 불러오지 못했습니다. 잠시 후 다시 접속해 주세요."
 
+help:
+  header: "<gold>── 크리퍼 항구 명령어 ── <gray>(줄을 누르면 실행합니다)"
+  section: "<newline><title>"
+  line: " <yellow><command></yellow> <gray><text>"
+  hover_run: "<gray>클릭하면 <white><command></white> 실행"
+  hover_suggest: "<gray>클릭하면 <white><command></white>을(를) 입력창에 넣습니다"
+  footer: "<dark_gray>쓸 수 있는 명령만 보입니다. 낚싯대를 들고 물에 던져 보세요!"
+  empty: "<gray>지금 쓸 수 있는 명령이 없습니다."
+  welcome:
+    - "<gold><bold>크리퍼 항구에 오신 것을 환영합니다, <player>님!</bold>"
+    - "<gray>낚싯대를 들고 물에 던지면 낚시가 시작됩니다. 입질이 오면 챔질하고, <white>Shift</white>로 감고 <white>A/D</white>로 물고기를 따라가세요."
+    - "<gray>명령어가 궁금하면 <click:run_command:'/도움말'><hover:show_text:'<gray>클릭하면 /도움말 실행'><yellow><u>/도움말</u></yellow></hover></click>을 눌러 보세요."
+
 item:
   name:
     common: "<white><name>"
@@ -63,6 +76,32 @@ command:
     ok: "<green><player>의 <currency> 잔액: <balance>"
     failed: "<red>처리하지 못했습니다: <error>"
   debug: "<yellow>DB 풀 <white><pool></white> · 지연 쓰기 <white><queue></white> · 접속자 <white><players></white> · 스레드 <white><threads>"
+  help:
+    header: "<gold>── /harbor 관리 명령 ── <gray>(줄을 누르면 입력창에 넣습니다)"
+    line: "<yellow>/harbor <command></yellow> <gray><text>"
+    desc:
+      reload: "콘텐츠 다시 읽기 (all · content · balance · messages)"
+      validate: "콘텐츠 검사만 (적용 안 함)"
+      give: "아이템·어종 지급 (크기·품질 지정 가능)"
+      stat: "플레이어 스탯과 보정 내역"
+      player: "플레이어 요약"
+      currency: "골드·물비늘 지급·회수"
+      debug: "DB 풀 · 지연 쓰기 · 스레드 상태"
+      rig: "디스플레이 리그 확인 (list · spawn · play · clear · stats)"
+      fish: "어종 시연 (list · give · spawn · showcase · play · clear)"
+      pack: "리소스팩 빌드·상태"
+      fishing: "낚시 관리"
+      jobs: "직업 관리"
+      npc: "NPC 관리"
+      quest: "퀘스트 관리"
+      season: "시즌 관리"
+      collection: "도감·수족관 관리"
+      economy: "경제 관리"
+      market: "시세 관리"
+      world: "월드·지역 관리"
+      wildlife: "야생 물고기 (spawn · clear · debug · stats)"
+      boss: "보스전 관리"
+      shop: "상점·결제 관리"
 
 jobs:
   level_up:
@@ -566,6 +605,25 @@ rig:
   over_budget: "<red>주변 표시 부품이 기준(rig.part_budget)을 넘었습니다."
   players_only: "<red>플레이어만 쓸 수 있습니다."
   hit: "<gray>리그 판정: <white><bone></white> (<kind>)"
+
+fish_demo:
+  list:
+    header: "<gold>어종 <white><count></white>종 <gray>(줄을 누르면 소환 명령을 넣습니다)"
+    region: "<aqua>■ <region>"
+    line: "<gray>No.<no></gray> <name> <dark_gray><grade></dark_gray> <gray><animations>"
+    hover: "<gray>클릭: <white><command>"
+  given: "<green><player>에게 어종 <white><count></white>종을 지급했습니다. <gray>(가방이 넘쳐 발밑에 떨어뜨린 것 <dropped>개)"
+  spawned: "<green>No.<no> <name></green><gray>을(를) 띄웠습니다. 동작: <white><animations></white> · <yellow>/harbor fish play \\<동작>"
+  unknown_fish: "<red>없는 어종입니다: <fish> <gray>(번호 1~145 또는 이름, Tab으로 목록)"
+  unknown_region: "<red>없는 지역이거나 어종이 없는 지역입니다: <region>"
+  no_rig: "<red><name></red><gray>의 리그가 없습니다 (<rig>). rigImport로 가져왔는지 확인하세요."
+  showcase:
+    region: "<aqua><bold><region>"
+    label: "<gray>No.<no></gray><newline><name>"
+    done: "<green>어종 <white><count></white>종을 진열했습니다. <gray>(리그 없음 <missing> · 이전 진열 지움 <removed>) <yellow>/harbor fish play special"
+  played: "<green><animation></green><gray> 재생: <white><count></white>마리 (동작 없음 <skipped>)"
+  none_shown: "<red>진열한 물고기가 없습니다. <gray>/harbor fish showcase 또는 spawn 먼저"
+  cleared: "<green>진열한 물고기 <white><count></white>마리를 지웠습니다."
 
 season:
   info:
