@@ -96,6 +96,11 @@ public final class DonorManager implements DonorService {
 
     /** DB 기준으로 harbor:donor 전체를 맞춘다 (가상 스레드, 한 서버만). 유예가 지난 구독은 이때 ENDED로 닫는다. */
     public void reconcile() {
+        reconcile(false);
+    }
+
+    /** quiet면 바뀐 것(제거·종료)이 있을 때만 로그를 남긴다 (10분 주기 점검용). */
+    private void reconcile(boolean quiet) {
         Optional<DistributedLock.Handle> lock;
         try {
             lock = rt.api().locks().tryAcquire(RECONCILE_LOCK, LOCK_TTL);
@@ -112,9 +117,11 @@ public final class DonorManager implements DonorService {
             List<ShopRepository.Subscription> open =
                     rt.api().database().tx(ShopRepository::openSubscriptions);
             Map<String, String> expected = new HashMap<>();
+            int ended = 0;
             for (ShopRepository.Subscription s : open) {
                 if (DonorGrace.shouldEnd(s.state(), s.periodEnd(), now, grace)) {
                     endAndRevoke(s.player(), s.tier());
+                    ended++;
                     continue;
                 }
                 DonorTier tier =
@@ -134,7 +141,9 @@ public final class DonorManager implements DonorService {
             if (!expected.isEmpty()) {
                 rt.api().redis().sync().hset(DonorTier.REDIS_KEY, expected);
             }
-            rt.log().info("harbor:donor 대조: 유지 {}명, 제거 {}명", expected.size(), removed);
+            if (!quiet || removed > 0 || ended > 0) {
+                rt.log().info("harbor:donor 대조: 유지 {}명, 제거 {}명", expected.size(), removed);
+            }
         } catch (Exception e) {
             rt.log().error("harbor:donor 대조 실패", e);
         }
@@ -142,7 +151,7 @@ public final class DonorManager implements DonorService {
 
     /** 10분마다 유예가 지난 구독을 닫는다 (가상 스레드, 대조와 같은 잠금). */
     void sweep() {
-        reconcile();
+        reconcile(true);
     }
 
     private void endAndRevoke(UUID player, DonorTier tier) throws java.sql.SQLException {
