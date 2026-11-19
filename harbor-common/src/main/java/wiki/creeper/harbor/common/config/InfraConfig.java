@@ -60,6 +60,8 @@ public record InfraConfig(
      * @param version CDN 버전 칸 (예: 1.0). 주소는 내용 해시로 바뀌므로 팩을 바꿔도 그대로 둬도 된다
      * @param format pack.mcmeta가 없을 때 쓸 팩 형식 (예: 97.1)
      * @param fileName 올릴 파일 이름 (확장자 포함)
+     * @param merge 같이 합칠 다른 리소스팩 (폴더 또는 zip, 서버 폴더 기준 경로, 앞쪽이 우선. plugins/Harbor/pack-merge/ 안의 팩은
+     *     자동으로 뒤에 붙는다, 추가 제안)
      */
     public record PackBuild(
             @Nullable Path source,
@@ -69,7 +71,12 @@ public record InfraConfig(
             String version,
             String format,
             String description,
-            String fileName) {
+            String fileName,
+            List<Path> merge) {
+
+        public PackBuild {
+            merge = List.copyOf(merge);
+        }
 
         @Override
         public String toString() {
@@ -204,7 +211,8 @@ public record InfraConfig(
                             version,
                             format,
                             p.string("description", "크리퍼 항구"),
-                            p.string("file_name", "Creeper-Harbor-RP.zip"));
+                            p.string("file_name", "Creeper-Harbor-RP.zip"),
+                            p.strings("merge").stream().map(Path::of).toList());
         }
 
         return new InfraConfig(

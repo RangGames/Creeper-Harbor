@@ -12,10 +12,10 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -23,7 +23,6 @@ import java.util.TreeSet;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import org.jspecify.annotations.Nullable;
 
 /**
  * 에셋 폴더 → 클라이언트 리소스팩 zip (ItemsAdder처럼 에셋만 넣으면 서버가 압축한다, 추가 제안).
@@ -48,8 +47,14 @@ public final class PackBuilder {
     /**
      * @param sha1 zip의 SHA-1 (16진수 40자리, 클라이언트 검증용)
      * @param files 넣은 파일 수
+     * @param notes 합치면서 생긴 안내 (겹친 파일·읽지 못한 팩)
      */
-    public record Built(Path zip, String sha1, long sizeBytes, int files, PackIndex index) {}
+    public record Built(
+            Path zip, String sha1, long sizeBytes, int files, PackIndex index, List<String> notes) {
+        public Built {
+            notes = List.copyOf(notes);
+        }
+    }
 
     /** 팩에 든 item_model·소리 목록. */
     public record PackIndex(Set<String> models, Set<String> sounds) {
@@ -68,57 +73,98 @@ public final class PackBuilder {
 
     /** source를 압축해 out에 쓴다 (임시 파일에 쓴 뒤 바꿔 넣는다). */
     public static Built build(Path source, Path out, Meta meta) throws IOException {
-        return build(source, out, meta, Map.of());
+        return build(source, List.of(), out, meta, Map.of());
+    }
+
+    /** source + generated (합칠 팩 없음). */
+    public static Built build(Path source, Path out, Meta meta, Map<String, byte[]> generated)
+            throws IOException {
+        return build(source, List.of(), out, meta, generated);
     }
 
     /**
-     * source에 generated(팩 경로 → 내용, 서버가 만든 파일)를 더해 압축한다. 같은 경로면 generated가 이긴다.
+     * source(Harbor 팩)에 다른 리소스팩들(merges, 폴더 또는 zip)과 generated(서버가 만든 파일)를 합쳐 압축한다 (ItemsAdder의 팩
+     * 합치기와 같은 목적, 추가 제안).
      *
-     * @param generated 예: 커스텀 블록의 note_block.json·모델 ({@link FurnishingPack})
+     * <ul>
+     *   <li>같은 경로면 generated → source → merges 앞쪽 순서로 이긴다. pack.mcmeta·pack.png는 source 것만 쓴다
+     *   <li>합칠 수 있는 JSON은 합친다: sounds.json·lang/*.json은 키 단위(앞쪽이 이김), atlases/*.json은 sources를 합집합,
+     *       font/*.json은 providers를 앞쪽부터 이어 붙인다
+     *   <li>그 밖에 겹치는 파일은 앞쪽 것을 쓰고 notes에 남긴다. 읽지 못한 팩은 건너뛰고 notes에 남긴다
+     * </ul>
      */
-    public static Built build(Path source, Path out, Meta meta, Map<String, byte[]> generated)
+    public static Built build(
+            Path source, List<Path> merges, Path out, Meta meta, Map<String, byte[]> generated)
             throws IOException {
         if (!hasAssets(source)) {
             throw new IOException("assets 폴더가 없습니다: " + source.getFileName());
         }
-        Map<String, @Nullable Path> entries = new TreeMap<>();
-        for (Path file : files(source)) {
-            entries.put(relative(source, file), file);
-        }
-        generated.keySet().forEach(name -> entries.put(name, null));
-        Path parent = out.toAbsolutePath().getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
-        }
-        Path tmp = out.resolveSibling(out.getFileName() + ".tmp");
-        boolean hasMeta = entries.containsKey("pack.mcmeta");
-        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(tmp))) {
-            zip.setLevel(9);
-            if (!hasMeta) {
-                put(zip, "pack.mcmeta", mcmeta(meta).getBytes(StandardCharsets.UTF_8));
+        List<String> notes = new ArrayList<>();
+        List<PackSource> sources = new ArrayList<>();
+        try {
+            sources.add(PackSource.open(source));
+            for (Path merge : merges) {
+                try {
+                    sources.add(PackSource.open(merge));
+                } catch (IOException e) {
+                    notes.add("합칠 팩을 읽지 못했습니다: " + merge + " (" + e.getMessage() + ")");
+                }
             }
-            for (Map.Entry<String, @Nullable Path> e : entries.entrySet()) {
-                byte[] made = generated.get(e.getKey());
-                put(
-                        zip,
-                        e.getKey(),
-                        made != null
-                                ? made
-                                : Files.readAllBytes(Objects.requireNonNull(e.getValue())));
+            Map<String, List<PackSource>> owners = new TreeMap<>();
+            for (int i = 0; i < sources.size(); i++) {
+                PackSource s = sources.get(i);
+                for (String path : s.paths()) {
+                    if (i > 0 && (path.equals("pack.mcmeta") || path.equals("pack.png"))) {
+                        continue;
+                    }
+                    owners.computeIfAbsent(path, k -> new ArrayList<>()).add(s);
+                }
+            }
+            generated.keySet().forEach(name -> owners.putIfAbsent(name, List.of()));
+            Path parent = out.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Path tmp = out.resolveSibling(out.getFileName() + ".tmp");
+            boolean hasMeta = owners.containsKey("pack.mcmeta");
+            Set<String> models = new TreeSet<>();
+            Set<String> sounds = new TreeSet<>();
+            try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(tmp))) {
+                zip.setLevel(9);
+                if (!hasMeta) {
+                    put(zip, "pack.mcmeta", mcmeta(meta).getBytes(StandardCharsets.UTF_8));
+                }
+                for (Map.Entry<String, List<PackSource>> e : owners.entrySet()) {
+                    String path = e.getKey();
+                    byte[] made = generated.get(path);
+                    byte[] data =
+                            made != null ? made : PackMerge.resolve(path, e.getValue(), notes);
+                    put(zip, path, data);
+                    itemModelKey(path).ifPresent(models::add);
+                    soundsNamespace(path).ifPresent(ns -> PackMerge.soundKeys(ns, data, sounds));
+                }
+            }
+            Files.move(tmp, out, StandardCopyOption.REPLACE_EXISTING);
+            return new Built(
+                    out,
+                    sha1(out),
+                    Files.size(out),
+                    owners.size() + (hasMeta ? 0 : 1),
+                    new PackIndex(models, sounds),
+                    notes);
+        } finally {
+            for (PackSource s : sources) {
+                s.close();
             }
         }
-        Files.move(tmp, out, StandardCopyOption.REPLACE_EXISTING);
-        PackIndex scanned = scan(source);
-        Set<String> models = new TreeSet<>(scanned.models());
-        for (String name : generated.keySet()) {
-            itemModelKey(name).ifPresent(models::add);
-        }
-        return new Built(
-                out,
-                sha1(out),
-                Files.size(out),
-                entries.size() + (hasMeta ? 0 : 1),
-                new PackIndex(models, scanned.sounds()));
+    }
+
+    /** {@code assets/<ns>/sounds.json} → ns. */
+    private static Optional<String> soundsNamespace(String path) {
+        String[] parts = path.split("/", -1);
+        return parts.length == 3 && parts[0].equals("assets") && parts[2].equals("sounds.json")
+                ? Optional.of(parts[1])
+                : Optional.empty();
     }
 
     /** {@code assets/<ns>/items/<경로>.json} → {@code <ns>:<경로>}. */
@@ -209,15 +255,6 @@ public final class PackBuilder {
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
-        }
-    }
-
-    private static List<Path> files(Path source) throws IOException {
-        try (Stream<Path> walk = Files.walk(source)) {
-            return walk.filter(Files::isRegularFile)
-                    .filter(f -> include(relative(source, f)))
-                    .sorted((a, b) -> relative(source, a).compareTo(relative(source, b)))
-                    .toList();
         }
     }
 

@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -99,6 +100,11 @@ public final class PackManager {
                 Path readme = source.resolve("README.txt");
                 if (Files.notExists(readme)) {
                     Files.writeString(readme, README, StandardCharsets.UTF_8);
+                }
+                Files.createDirectories(mergeDir());
+                Path mergeReadme = mergeDir().resolve("README.txt");
+                if (Files.notExists(mergeReadme)) {
+                    Files.writeString(mergeReadme, MERGE_README, StandardCharsets.UTF_8);
                 }
             } catch (IOException e) {
                 log.warn("리소스팩 에셋 폴더를 만들지 못했습니다: {}", String.valueOf(e));
@@ -197,12 +203,20 @@ public final class PackManager {
                     && Files.isRegularFile(source.resolve(FurnishingPack.BLOCKSTATE))) {
                 log.warn("에셋 폴더의 {}는 커스텀 블록용 생성 파일로 바뀝니다", FurnishingPack.BLOCKSTATE);
             }
+            List<Path> merges = merges(config);
             PackBuilder.Built built =
                     PackBuilder.build(
                             source,
+                            merges,
                             out,
                             new PackBuilder.Meta(config.format(), config.description()),
                             furnishing.files());
+            if (!merges.isEmpty()) {
+                log.info(
+                        "리소스팩 합치기: {}",
+                        merges.stream().map(p -> String.valueOf(p.getFileName())).toList());
+            }
+            built.notes().forEach(n -> log.warn("리소스팩 합치기: {}", n));
             Optional<PublishedPack> stored = readStored();
             if (stored.isPresent() && stored.get().sha1().equals(built.sha1())) {
                 redis.sync().set(PublishedPack.SHA1_KEY, built.sha1());
@@ -229,6 +243,29 @@ public final class PackManager {
             Thread.currentThread().interrupt();
             return new Outcome.Failed("중단됨");
         }
+    }
+
+    /** 합칠 팩: harbor-infra.yml pack.merge (적은 순서) + plugins/Harbor/pack-merge/ 안의 폴더·zip (이름순). */
+    private List<Path> merges(InfraConfig.PackBuild config) throws IOException {
+        List<Path> list = new ArrayList<>(config.merge());
+        Path dir = mergeDir();
+        if (Files.isDirectory(dir)) {
+            try (var children = Files.list(dir)) {
+                children.filter(
+                                p ->
+                                        Files.isDirectory(p)
+                                                || String.valueOf(p.getFileName())
+                                                        .toLowerCase(java.util.Locale.ROOT)
+                                                        .endsWith(".zip"))
+                        .sorted()
+                        .forEach(list::add);
+            }
+        }
+        return list;
+    }
+
+    private Path mergeDir() {
+        return harborDir.resolve("pack-merge");
     }
 
     private Optional<PublishedPack> readStored() {
@@ -270,6 +307,19 @@ public final class PackManager {
             return children.findAny().isEmpty();
         }
     }
+
+    private static final String MERGE_README =
+            """
+            합칠 리소스팩 폴더 (자동 빌드, 추가 제안)
+
+            다른 플러그인·외부에서 받은 리소스팩(.zip 또는 압축을 푼 폴더)을 여기에 넣으면 /harbor pack build 때 Harbor 팩과 합친다.
+            다른 플러그인 폴더에 있는 팩을 그대로 쓰려면 harbor-infra.yml pack.merge에 경로를 적는다.
+
+            우선순위: Harbor 팩(plugins/Harbor/pack) > pack.merge에 적은 순서 > 이 폴더(이름순)
+            sounds.json · lang 은 키 단위로, atlases 는 sources 합집합으로, font 는 providers 를 이어 붙여 합친다.
+            그 밖에 같은 경로의 파일은 우선순위가 높은 팩 것을 쓰고 서버 로그에 겹친 파일을 남긴다.
+            pack.mcmeta · pack.png 는 Harbor 팩 것만 쓴다. zip 안에 폴더가 한 겹 더 있어도 assets를 찾아 쓴다.
+            """;
 
     private static final String README =
             """

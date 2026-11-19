@@ -44,6 +44,8 @@ resource_packs: []
 #   # source: /path/to/assets-folder      # 비우면 plugins/Harbor/pack
 #   format: "97.1"                          # pack.mcmeta가 없을 때 쓸 팩 형식
 #   description: 크리퍼 항구
+#   merge:                                # 같이 합칠 다른 리소스팩 (폴더·zip, 앞쪽 우선). plugins/Harbor/pack-merge/ 안의 팩은 자동
+#     - plugins/ModelEngine/resource pack
 #   cdn:
 #     url: https://cdn.creeper.wiki
 #     api_key: ""                           # CDN에서 발급한 키. 이 파일은 커밋하지 않는다
