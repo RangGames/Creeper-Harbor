@@ -182,7 +182,8 @@ public final class CraftManager implements CraftService {
                     api.messages()
                             .get(
                                     have ? "economy.craft.lore.have" : "economy.craft.lore.missing",
-                                    Placeholder.unparsed("name", ingredientName(need.ingredient())),
+                                    Placeholder.component(
+                                            "name", ingredientName(need.ingredient())),
                                     Placeholder.unparsed("count", String.valueOf(need.count()))));
         }
         if (recipe.gold() > 0) {
@@ -217,14 +218,20 @@ public final class CraftManager implements CraftService {
         return stack;
     }
 
-    private String ingredientName(RecipeDef.Ingredient ingredient) {
+    /** 재료 이름. 바닐라 재료는 번역 키라 클라이언트 언어(한국어)로 보인다. */
+    private Component ingredientName(RecipeDef.Ingredient ingredient) {
         ContentSnapshot snapshot = api.content().snapshot();
         return switch (ingredient) {
             case RecipeDef.Item(var id, var _) ->
-                    snapshot.get(ItemDef.TYPE, id.id()).map(ItemDef::name).orElse(id.toString());
+                    Component.text(
+                            snapshot.get(ItemDef.TYPE, id.id())
+                                    .map(ItemDef::name)
+                                    .orElse(id.toString()));
             case RecipeDef.Vanilla(var key, var _) -> {
                 Material material = Material.matchMaterial(key);
-                yield material == null ? key : material.name().toLowerCase(Locale.ROOT);
+                yield material == null
+                        ? Component.text(key)
+                        : Component.translatable(material.translationKey());
             }
             case RecipeDef.FishMatch match -> {
                 List<String> parts = new ArrayList<>();
@@ -251,7 +258,7 @@ public final class CraftManager implements CraftService {
                 if (grade != null) {
                     parts.add(plain("economy.craft.grade." + grade.key()));
                 }
-                yield String.join(" ", parts) + " " + plain("economy.craft.fish");
+                yield Component.text(String.join(" ", parts) + " " + plain("economy.craft.fish"));
             }
         };
     }

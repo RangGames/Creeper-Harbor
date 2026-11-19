@@ -7,7 +7,6 @@ import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -133,14 +132,16 @@ public final class ShopManager implements ShopService {
         return vanilla(entry).map(m -> ItemStack.of(m, amount));
     }
 
-    private String name(ShopDef.Entry entry) {
+    /** 항목 이름. 바닐라 재료는 번역 키라 클라이언트 언어(한국어)로 보인다. */
+    private Component name(ShopDef.Entry entry) {
         return def(entry)
-                .map(ItemDef::name)
+                .<Component>map(d -> Component.text(d.name()))
                 .orElseGet(
                         () ->
                                 vanilla(entry)
-                                        .map(m -> m.name().toLowerCase(Locale.ROOT))
-                                        .orElse("?"));
+                                        .<Component>map(
+                                                m -> Component.translatable(m.translationKey()))
+                                        .orElse(Component.text("?")));
     }
 
     long unitPrice(UUID player, ShopDef.Entry entry, @Nullable NpcId npc) {
@@ -269,7 +270,7 @@ public final class ShopManager implements ShopService {
         api.dialogs()
                 .choose(
                         player,
-                        Component.text(name(entry)),
+                        name(entry),
                         List.of(api.messages().get("economy.shop.choose")),
                         choices,
                         2,
@@ -384,7 +385,7 @@ public final class ShopManager implements ShopService {
                                                 .send(
                                                         player,
                                                         "economy.shop.bought",
-                                                        Placeholder.unparsed("name", name(entry)),
+                                                        Placeholder.component("name", name(entry)),
                                                         Placeholder.unparsed(
                                                                 "amount", String.valueOf(amount)),
                                                         Placeholder.unparsed(
