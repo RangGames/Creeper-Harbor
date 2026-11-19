@@ -131,7 +131,11 @@ public final class QuestDialogs {
                         1,
                         index -> {
                             if (index < shown.size()) {
-                                info(player, shown.get(index), () -> list(player, state));
+                                info(
+                                        player,
+                                        shown.get(index),
+                                        state == QuestState.COMPLETED,
+                                        () -> list(player, state));
                             } else {
                                 journal(player);
                             }
@@ -193,13 +197,13 @@ public final class QuestDialogs {
                         });
     }
 
-    /** 정보만 보기 (완료·수락 가능 목록). */
-    private void info(Player player, QuestDef def, Runnable back) {
+    /** 정보만 보기 (완료·수락 가능 목록). 완료한 퀘스트는 목표를 모두 채운 것으로 보여 준다 (진행 기록은 완료 때 지워진다). */
+    private void info(Player player, QuestDef def, boolean completed, Runnable back) {
         api.dialogs()
                 .choose(
                         player,
                         Component.text(def.name()),
-                        describe(player, def, Optional.empty()),
+                        describe(player, def, Optional.empty(), completed),
                         List.of(
                                 new Dialogs.Choice(
                                         msg().get("quest.dialog.back"), Component.empty())),
@@ -461,23 +465,29 @@ public final class QuestDialogs {
 
     // ------------------------------------------------------------------ 본문
 
-    /** 설명·목표(진행)·보상 줄. */
     List<Component> describe(Player player, QuestDef def, Optional<Progress> progress) {
+        return describe(player, def, progress, false);
+    }
+
+    /** 설명·목표(진행)·보상 줄. completed면 모든 목표를 채운 것으로 그린다. */
+    List<Component> describe(
+            Player player, QuestDef def, Optional<Progress> progress, boolean completed) {
         List<Component> body = new ArrayList<>();
         for (String line : def.description()) {
             body.add(msg().get("quest.dialog.description", Placeholder.unparsed("text", line)));
         }
         body.add(msg().get("quest.dialog.objectives"));
         for (Objective o : def.objectives()) {
-            int value = progress.map(p -> p.count(o.key())).orElse(0);
-            boolean done = o.tracked() && value >= o.count();
+            int value = completed ? o.count() : progress.map(p -> p.count(o.key())).orElse(0);
+            boolean done = completed || (o.tracked() && value >= o.count());
             body.add(
                     msg().get(
                                     done ? "quest.dialog.objective_done" : "quest.dialog.objective",
                                     Placeholder.unparsed(
                                             "text", engine().objectiveText(player, def, o)),
                                     Placeholder.unparsed(
-                                            "value", o.tracked() ? String.valueOf(value) : "-"),
+                                            "value",
+                                            o.tracked() || completed ? String.valueOf(value) : "-"),
                                     Placeholder.unparsed("count", String.valueOf(o.count()))));
         }
         Progress.Snapshot snap =
