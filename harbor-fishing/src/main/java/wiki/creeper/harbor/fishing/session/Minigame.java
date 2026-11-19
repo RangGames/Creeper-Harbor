@@ -156,6 +156,11 @@ public final class Minigame {
         directionTicks = 30 + random.nextInt(31);
     }
 
+    /** 지금 입력이 물고기 방향을 따르고 있는지 (감기 효율이 깎이지 않는 입력). UI 표시용. */
+    public boolean followsDirection(Input input) {
+        return directionFactor(input) >= 1.0;
+    }
+
     private double directionFactor(Input input) {
         return switch (direction) {
             case LEFT -> input.left() && !input.right() ? 1.0 : 0.4;

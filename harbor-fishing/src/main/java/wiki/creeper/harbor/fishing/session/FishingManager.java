@@ -39,6 +39,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDismountEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerFishEvent;
@@ -1177,7 +1178,10 @@ public final class FishingManager implements FishingService, Listener {
         }
     }
 
-    /** 방향 입력: 이동 키 또는 시점 회전 (탈것 위에서는 시점 회전). */
+    /**
+     * 방향 입력: 이동 키 또는 시점 회전 (설정). 배 위에서도 A·D 입력이 그대로 오므로 키를 쓴다 (예전에는 배 위를 시점 회전으로 바꿨는데, 배가 돌면 시점도 같이
+     * 돌아 시작 방향과의 차이가 계속 남아 한쪽으로 굳었다).
+     */
     private Minigame.Input input(
             Player player,
             boolean sneak,
@@ -1185,7 +1189,7 @@ public final class FishingManager implements FishingService, Listener {
             boolean right,
             boolean look,
             float baseYaw) {
-        if (look || player.isInsideVehicle()) {
+        if (look) {
             float delta = wrap(loc(player).getYaw() - baseYaw);
             return new Minigame.Input(sneak, delta < -LOOK_THRESHOLD, delta > LOOK_THRESHOLD);
         }
@@ -1209,15 +1213,15 @@ public final class FishingManager implements FishingService, Listener {
             return;
         }
         Minigame.Pattern warningBefore = game.warning();
-        MinigameResult result =
-                game.tick(
-                        input(
-                                player,
-                                s.inputSneak,
-                                s.inputLeft,
-                                s.inputRight,
-                                s.settings.lookMode(),
-                                s.baseYaw));
+        Minigame.Input input =
+                input(
+                        player,
+                        s.inputSneak,
+                        s.inputLeft,
+                        s.inputRight,
+                        s.settings.lookMode(),
+                        s.baseYaw);
+        MinigameResult result = game.tick(input);
         Minigame.Pattern warning = game.warning();
         if (warning != null && warningBefore == null) {
             api.ui()
@@ -1248,7 +1252,7 @@ public final class FishingManager implements FishingService, Listener {
         warnBorder(player, game.tension(), s.borderWarn, w -> s.borderWarn = w);
         s.reel = reelSound(player, s.inputSneak, s.reel);
         if (game.ticks() % 2 == 0) {
-            api.ui().actionBar(player, gauge(game));
+            api.ui().actionBar(player, gauge(game, input));
             BossBar bar = s.bar;
             if (bar != null) {
                 bar.progress((float) game.hpRatio());
@@ -1269,19 +1273,19 @@ public final class FishingManager implements FishingService, Listener {
             return;
         }
         Minigame game = t.game();
-        MinigameResult result =
-                game.tick(
-                        input(
-                                player,
-                                inputSneak(player),
-                                inputLeft(player),
-                                inputRight(player),
-                                FishingSettings.of(api.flags(), player.getUniqueId()).lookMode(),
-                                t.baseYaw));
+        Minigame.Input input =
+                input(
+                        player,
+                        inputSneak(player),
+                        inputLeft(player),
+                        inputRight(player),
+                        FishingSettings.of(api.flags(), player.getUniqueId()).lookMode(),
+                        t.baseYaw);
+        MinigameResult result = game.tick(input);
         warnBorder(player, game.tension(), t.borderWarn, w -> t.borderWarn = w);
         t.reel = reelSound(player, inputSneak(player), t.reel);
         if (game.ticks() % 2 == 0) {
-            api.ui().actionBar(player, gauge(game));
+            api.ui().actionBar(player, gauge(game, input));
             BossBar bar = t.bar;
             if (bar != null) {
                 bar.progress((float) game.hpRatio());
@@ -1393,8 +1397,11 @@ public final class FishingManager implements FishingService, Listener {
         return result;
     }
 
-    /** 텐션 게이지 (20칸): 안전 구간 초록, 위험(0.85+) 빨강, 바늘 ▼. 커스텀 폰트 글리프가 준비되면 Ui 글리프로 바꾼다. */
-    private static Component gauge(Minigame game) {
+    /**
+     * 텐션 게이지 (20칸): 안전 구간 초록, 위험(0.85+) 빨강, 바늘 ▼. 물고기가 도망치는 쪽에 ◀◀ / ▶▶ (따라가고 있으면 초록, 아니면 빨강). 가운데로
+     * 버틸 때 A·D를 누르고 있으면 누른 쪽에 빨간 화살표. 커스텀 폰트 글리프가 준비되면 Ui 글리프로 바꾼다.
+     */
+    static Component gauge(Minigame game, Minigame.Input input) {
         int needle = (int) Math.min(GAUGE_CELLS - 1, Math.floor(game.tension() * GAUGE_CELLS));
         Component bar = Component.empty();
         for (int i = 0; i < GAUGE_CELLS; i++) {
@@ -1411,13 +1418,23 @@ public final class FishingManager implements FishingService, Listener {
                                     i == needle ? "▼" : "|",
                                     i == needle ? NamedTextColor.WHITE : color));
         }
-        String arrow =
+        NamedTextColor cue =
+                game.followsDirection(input) ? NamedTextColor.GREEN : NamedTextColor.RED;
+        boolean left =
                 switch (game.direction()) {
-                    case LEFT -> "◀ ";
-                    case RIGHT -> " ▶";
-                    case CENTER -> " ● ";
+                    case LEFT -> true;
+                    case RIGHT -> false;
+                    case CENTER -> input.left();
                 };
-        return Component.text(arrow, NamedTextColor.AQUA).append(bar);
+        boolean right =
+                switch (game.direction()) {
+                    case LEFT -> false;
+                    case RIGHT -> true;
+                    case CENTER -> input.right();
+                };
+        return Component.text(left ? "◀◀ " : "    ", cue)
+                .append(bar)
+                .append(Component.text(right ? " ▶▶" : "    ", cue));
     }
 
     static BossBar.Color barColor(Grade grade) {
@@ -1725,6 +1742,14 @@ public final class FishingManager implements FishingService, Listener {
     }
 
     // ------------------------------------------------------------------ 입력 · 중단
+
+    /** 배 위에서 Shift(감기)를 누르면 내리게 되므로 미니게임 중에는 내리지 않게 한다. */
+    @EventHandler(ignoreCancelled = true)
+    public void onDismount(EntityDismountEvent event) {
+        if (event.getEntity() instanceof Player player && event.isCancellable() && locked(player)) {
+            event.setCancelled(true);
+        }
+    }
 
     @EventHandler
     public void onInput(PlayerInputEvent event) {

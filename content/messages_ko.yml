@@ -178,7 +178,7 @@ fishing:
   missed_big: "<gold>놓친 대어! <gray>더 높은 품질은 다음 전직 후에 잡을 수 있습니다"
   minigame:
     unknown: "???"
-    help: "<gray>Shift를 누르고 있으면 감기, 놓으면 풀기 · A/D로 물고기 방향을 따라가세요"
+    help: "<gray><white>Shift</white> 누르고 있기 = 감기, 떼기 = 풀기 · 물고기가 <aqua>◀◀</aqua>/<aqua>▶▶</aqua> 쪽으로 도망치면 <white>A</white>/<white>D</white>를 같은 쪽으로 누르고 있어야 제 속도로 감깁니다 (화살표가 <green>초록</green>이면 맞음, <red>빨강</red>이면 느리게 감김). 화살표가 없으면 아무 쪽도 누르지 마세요"
     phase: "<gold>물고기가 사나워졌다! <gray>(<phase>단계)"
   pattern:
     dash: "<red>돌진! 줄을 풀어요"
@@ -258,7 +258,7 @@ fishing:
     body: "바꿀 항목을 누르세요."
     direction_move: "방향 입력: A·D 이동 키"
     direction_look: "방향 입력: 시점 회전"
-    direction_tip: "미니게임에서 물고기 방향을 따라가는 방법 (배 위에서는 자동으로 시점 회전)"
+    direction_tip: "미니게임에서 물고기 방향을 따라가는 방법 (시점 회전: 고개를 물고기 쪽으로 돌림)"
     dialog_on: "포획 결과 화면: 켬"
     dialog_off: "포획 결과 화면: 끔"
     dialog_tip: "영웅 이상을 낚으면 결과 화면을 띄웁니다"
