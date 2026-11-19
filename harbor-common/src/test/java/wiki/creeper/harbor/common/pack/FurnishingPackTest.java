@@ -22,7 +22,15 @@ class FurnishingPackTest {
 
     private static CustomBlockDef tile(String name, int state, String texture) {
         return new CustomBlockDef(
-                HarborId.parse("block/" + name), name, state, null, texture, null, null, null);
+                HarborId.parse("block/" + name),
+                name,
+                state,
+                null,
+                texture,
+                null,
+                null,
+                null,
+                Map.of());
     }
 
     private static String text(Map<String, byte[]> files, String path) {

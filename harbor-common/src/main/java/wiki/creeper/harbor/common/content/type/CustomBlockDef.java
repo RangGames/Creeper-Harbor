@@ -1,7 +1,9 @@
 package wiki.creeper.harbor.common.content.type;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.ContentType;
@@ -20,6 +22,8 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * - {id: block/marble_tile, name: 대리석 타일, state: 1, texture: "harbor:block/marble_tile"}
  * - {id: block/crate, name: 나무 상자, state: 2, top: "harbor:block/crate_top", side: "harbor:block/crate_side"}
  * - {id: block/lantern_post, name: 등대 기둥, state: 3, model: "harbor:block/lantern_post"}
+ * - {id: block/dice, name: 주사위, state: 4, textures: {down: "harbor:block/d1", up: "harbor:block/d6",
+ *     north: "harbor:block/d2", south: "harbor:block/d5", east: "harbor:block/d3", west: "harbor:block/d4"}}
  * }</pre>
  *
  * @param state 노트블록 상태 번호 (1~399, 블록마다 달라야 한다)
@@ -28,6 +32,7 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * @param top 윗면 텍스처 (cube_bottom_top, side 필수)
  * @param side 옆면 텍스처
  * @param bottom 아랫면 텍스처 (없으면 top)
+ * @param faces 면마다 다른 텍스처 (down·up·north·south·east·west 여섯 개 모두, minecraft:block/cube)
  */
 public record CustomBlockDef(
         HarborId id,
@@ -37,9 +42,18 @@ public record CustomBlockDef(
         @Nullable String texture,
         @Nullable String top,
         @Nullable String side,
-        @Nullable String bottom) {
+        @Nullable String bottom,
+        Map<String, String> faces) {
 
     public static final String PREFIX = "block/";
+
+    /** textures에 적는 면 이름 (블록 모델 cube의 텍스처 변수). */
+    public static final List<String> FACES =
+            List.of("down", "up", "north", "south", "east", "west");
+
+    public CustomBlockDef {
+        faces = Map.copyOf(faces);
+    }
 
     /** 악기 16종 × 음 25개 - 바닐라 모양 1개. */
     public static final int MAX_STATE = 16 * 25 - 1;
@@ -107,7 +121,17 @@ public record CustomBlockDef(
     }
 
     static CustomBlockDef parse(YamlNode node, ParseContext ctx) {
-        node.allowOnly(Set.of("id", "name", "state", "model", "texture", "top", "side", "bottom"));
+        node.allowOnly(
+                Set.of(
+                        "id",
+                        "name",
+                        "state",
+                        "model",
+                        "texture",
+                        "top",
+                        "side",
+                        "bottom",
+                        "textures"));
         HarborId id =
                 node.require("id")
                         .flatMap(n -> n.asId(PREFIX))
@@ -121,9 +145,30 @@ public record CustomBlockDef(
         String top = key(node, "top");
         String side = key(node, "side");
         String bottom = key(node, "bottom");
-        int ways = (model != null ? 1 : 0) + (texture != null ? 1 : 0) + (side != null ? 1 : 0);
+        Map<String, String> faces = new TreeMap<>();
+        node.get("textures")
+                .ifPresent(
+                        t -> {
+                            t.allowOnly(Set.copyOf(FACES));
+                            for (String face : FACES) {
+                                String raw = key(t, face);
+                                if (raw == null) {
+                                    t.error(
+                                            "textures에는 "
+                                                    + String.join(" · ", FACES)
+                                                    + " 여섯 면이 모두 있어야 합니다");
+                                    return;
+                                }
+                                faces.put(face, raw);
+                            }
+                        });
+        int ways =
+                (model != null ? 1 : 0)
+                        + (texture != null ? 1 : 0)
+                        + (side != null ? 1 : 0)
+                        + (node.has("textures") ? 1 : 0);
         if (ways != 1) {
-            node.error("커스텀 블록은 model · texture · (top·side) 중 하나만 적습니다");
+            node.error("커스텀 블록은 model · texture · (top·side) · textures 중 하나만 적습니다");
         }
         if ((top != null || bottom != null) && side == null) {
             node.error("top·bottom을 쓰면 side도 적어야 합니다");
@@ -132,7 +177,7 @@ public record CustomBlockDef(
             node.error("side를 쓰면 top도 적어야 합니다 (모든 면이 같으면 texture)");
         }
         return new CustomBlockDef(
-                id, node.string("name"), state, model, texture, top, side, bottom);
+                id, node.string("name"), state, model, texture, top, side, bottom, faces);
     }
 
     private static @Nullable String key(YamlNode node, String field) {

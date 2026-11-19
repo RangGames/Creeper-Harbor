@@ -5,8 +5,12 @@
 #     texture: "harbor:block/x"                       여섯 면 같은 텍스처 (assets/harbor/textures/block/x.png)
 #     top: "...", side: "..." (bottom 생략 시 top)     윗면·옆면·아랫면 텍스처
 #     model: "harbor:block/x"                          직접 만든 블록 모델 (assets/harbor/models/block/x.json)
+#     textures: {down: …, up: …, north: …, south: …, east: …, west: …}   면마다 다른 텍스처 (여섯 면 모두)
 # 에셋 폴더에 텍스처·모델이 없으면 그 블록은 팩에 넣지 않는다 (서버 로그 경고, 바닐라 노트블록 모양).
-# 서버 설정: paper-global.yml block-updates.disable-noteblock-updates: true (아래 블록이 바뀌어도 모양이 그대로이게)
+# 서버 설정: paper-global.yml block-updates.disable-noteblock-updates: true (아래 블록이 바뀌어도 모양이 그대로이게).
+#   대신 노트블록 레드스톤 연주는 동작하지 않는다. 커스텀 블록이 하나라도 있으면 노트블록 음 바꾸기·연주도 막는다.
+# 기존 노트블록: 번호를 새로 배정하기 전부터 월드에 있던 노트블록이 마침 그 상태면 커스텀 블록 모양으로 보인다.
+#   청크가 로드될 때 한 번 찾아서 바닐라로 되돌린다 (balance.yml furniture.fix_glitched_noteblocks).
 # 지급: /harbor block give <대상> <블록> [개수] · 놓기·부수기는 바닐라 블록처럼
 #
 # 예:

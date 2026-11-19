@@ -50,6 +50,15 @@ class FurnishingDefsTest {
                                 errors),
                         new ParseContext());
         assertEquals("harbor:block/post", post.blockModel());
+        CustomBlockDef dice =
+                CustomBlockDef.parse(
+                        node(
+                                "{id: block/dice, name: 주사위, state: 5, textures: {down: \"harbor:b/1\", up: \"harbor:b/6\","
+                                        + " north: \"harbor:b/2\", south: \"harbor:b/5\", east: \"harbor:b/3\", west: \"harbor:b/4\"}}",
+                                errors),
+                        new ParseContext());
+        assertEquals("harbor:b/6", dice.faces().get("up"));
+        assertEquals(6, dice.faces().size());
         assertTrue(errors.isEmpty(), errors.format());
     }
 

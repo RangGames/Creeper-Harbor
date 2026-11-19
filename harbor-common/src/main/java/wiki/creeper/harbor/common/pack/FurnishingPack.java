@@ -126,6 +126,16 @@ public final class FurnishingPack {
                     + side
                     + "\"}}\n";
         }
+        Map<String, String> faces = block.faces();
+        if (!faces.isEmpty()) {
+            StringBuilder sb =
+                    new StringBuilder("{\"parent\":\"minecraft:block/cube\",\"textures\":{");
+            sb.append("\"particle\":\"").append(faces.get("north")).append('"');
+            for (String face : CustomBlockDef.FACES) {
+                sb.append(",\"").append(face).append("\":\"").append(faces.get(face)).append('"');
+            }
+            return sb.append("}}\n").toString();
+        }
         return null; // 직접 만든 모델
     }
 
@@ -140,8 +150,13 @@ public final class FurnishingPack {
         if (model != null) {
             paths.add(path(model, "models", ".json"));
         }
-        for (String tex :
-                new String[] {block.texture(), block.top(), block.side(), block.bottom()}) {
+        List<@Nullable String> textures = new ArrayList<>();
+        textures.add(block.texture());
+        textures.add(block.top());
+        textures.add(block.side());
+        textures.add(block.bottom());
+        textures.addAll(block.faces().values());
+        for (String tex : textures) {
             if (tex != null) {
                 paths.add(path(tex, "textures", ".png"));
             }

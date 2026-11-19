@@ -45,6 +45,7 @@ import wiki.creeper.harbor.core.furniture.CustomBlockManager;
 import wiki.creeper.harbor.core.furniture.FurnishingCommand;
 import wiki.creeper.harbor.core.furniture.FurnishingService;
 import wiki.creeper.harbor.core.furniture.FurnitureManager;
+import wiki.creeper.harbor.core.furniture.GlitchedNoteBlocks;
 import wiki.creeper.harbor.core.gui.MenuListener;
 import wiki.creeper.harbor.core.item.ItemManager;
 import wiki.creeper.harbor.core.item.ItemModelSync;
@@ -262,6 +263,8 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         pm.registerEvents(rigManager, this);
         pm.registerEvents(furnitureManager, this);
         pm.registerEvents(customBlocks, this);
+        GlitchedNoteBlocks glitched = new GlitchedNoteBlocks(content::snapshot, tasks, log);
+        pm.registerEvents(glitched, this);
         FurnishingCommand furnishing =
                 new FurnishingCommand(furnitureManager, customBlocks, msg, adminLog);
         command.addModuleCommand(furnishing.furniture());
@@ -302,6 +305,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         proxy.start();
         rigManager.start();
         customBlocks.start();
+        glitched.start();
         packManager.start();
         new LedgerAuditJob(database, balanceStore, locks, time, msg, tasks, log).schedule();
         log.info("Harbor-Core 준비 완료: 콘텐츠 {}", content.snapshot().counts());
