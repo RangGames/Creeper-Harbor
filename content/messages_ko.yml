@@ -1023,7 +1023,9 @@ quest:
     advance_ok: "<gold>전직 완료!"
   actionbar:
     progress: "<gold><quest></gold> <gray>·</gray> <white><objective></white> <yellow><value>/<count>"
-    waypoint: "<yellow><arrow></yellow> <white><target></white> <gray><distance>m"
+    waypoint: "<yellow><arrow></yellow> <white><target></white> <gray><distance>m</gray><height>"
+    waypoint_up: " <aqua>▲<height>m"
+    waypoint_down: " <aqua>▼<height>m"
   objective:
     catch: "<target> <count>마리 낚기"
     deliver: "<target> <count>개 납품"

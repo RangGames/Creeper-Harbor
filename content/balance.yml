@@ -310,6 +310,10 @@ quest:
   tracker:
     waypoint_actionbar: true       # 추적 목표 방향·거리 액션바 (위치 표시 막대 waypoint는 Phase 1 검증 뒤)
     waypoint_quiet_s: 3            # 다른 액션바(지역·배·보스 등)가 나간 뒤 이 시간 동안은 방향 액션바로 덮지 않음 (제안값)
+    waypoint_refresh_ticks: 5      # 방향 계산 주기 (화살표·거리가 바뀔 때만 보냄, 서버 시작 때 읽음, 제안값)
+    waypoint_keep_s: 1.5           # 바뀌지 않아도 이 간격으로 다시 보내 액션바가 사라지지 않게 함 (제안값)
+    waypoint_arrive_m: 3           # 이 수평 거리 안이면 화살표 대신 ● (제안값)
+    waypoint_vertical_m: 4         # 높이 차가 이 이상이면 ▲/▼ 높이 표시 (제안값)
 
 # Harbor-Boss (docs 20 10.4, '7. 밸런스 기획' 9장). 유형 표는 문서 값, 나머지는 제안값
 boss:

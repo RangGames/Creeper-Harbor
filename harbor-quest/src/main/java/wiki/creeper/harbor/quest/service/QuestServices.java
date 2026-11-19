@@ -58,13 +58,18 @@ public final class QuestServices {
         return board;
     }
 
-    /** 주기 작업: 액션바 묶음(20틱), 위치 판정(10틱), 추적 방향(40틱), 게시판 엔티티(600틱), 이벤트 기간 종료(1200틱), 클라이맥스. */
+    /**
+     * 주기 작업: 액션바 묶음(20틱), 위치 판정(10틱), 추적 방향(balance.yml, 기본 5틱), 게시판 엔티티(600틱), 이벤트 기간 종료(1200틱),
+     * 클라이맥스.
+     */
     public void start(java.util.function.Consumer<Player> openBoard) {
         board.setOpener(openBoard);
         board.cleanup();
         var _ = engine.tasks.timer(20, 20, tracker::flushBars);
         var _ = engine.tasks.timer(10, 10, tracker::pollPositions);
-        var _ = engine.tasks.timer(40, 40, tracker::showWaypoints);
+        long waypointTicks =
+                Math.max(1, engine.balance().integer("quest.tracker.waypoint_refresh_ticks", 5));
+        var _ = engine.tasks.timer(40, waypointTicks, tracker::showWaypoints);
         var _ = engine.tasks.timer(40, 600, board::ensureEntity);
         var _ = engine.tasks.timer(1200, 1200, engine::failExpiredEvents);
         progress.start();

@@ -45,6 +45,11 @@ public final class Tracker {
     private final Map<UUID, Pos> lastPos = new HashMap<>();
     private final Map<UUID, HarborId> lastRegion = new HashMap<>();
 
+    /** 마지막으로 보낸 방향 안내와 시각 (바뀌었거나 사라질 때가 됐을 때만 다시 보낸다). */
+    private final Map<UUID, Component> lastWaypoint = new HashMap<>();
+
+    private final Map<UUID, Long> lastWaypointAt = new HashMap<>();
+
     Tracker(QuestEngine engine) {
         this.engine = engine;
     }
@@ -53,6 +58,8 @@ public final class Tracker {
         pendingBar.remove(uuid);
         lastPos.remove(uuid);
         lastRegion.remove(uuid);
+        lastWaypoint.remove(uuid);
+        lastWaypointAt.remove(uuid);
     }
 
     /** 목표가 진행됐을 때 (액션바는 1초 묶음). */
@@ -74,6 +81,9 @@ public final class Tracker {
     void flushBars() {
         for (Map.Entry<UUID, Component> e : Map.copyOf(pendingBar).entrySet()) {
             Player player = Bukkit.getPlayer(e.getKey());
+            if (player != null && engine.deps.cutscenes().isPlaying(player)) {
+                continue; // 컷씬 대사(액션바)를 덮지 않게 끝난 뒤에 보낸다
+            }
             pendingBar.remove(e.getKey());
             if (player != null) {
                 engine.api.ui().actionBar(player, e.getValue());
@@ -81,7 +91,10 @@ public final class Tracker {
         }
     }
 
-    /** 40틱마다: 추적 목표 방향 (낚시 중이거나 다른 액션바가 떠 있으면 덮지 않고 건너뜀). */
+    /**
+     * balance.yml quest.tracker.waypoint_refresh_ticks마다: 추적 목표 방향. 화살표·거리가 바뀌었거나 액션바가 사라질 때가 됐을 때만
+     * 보낸다. 낚시·컷씬 중이거나 다른 액션바가 떠 있으면 덮지 않고 건너뛴다.
+     */
     void showWaypoints() {
         if (!engine.balance().bool("quest.tracker.waypoint_actionbar", true)) {
             return;
@@ -91,12 +104,34 @@ public final class Tracker {
                         Math.round(
                                 engine.balance().number("quest.tracker.waypoint_quiet_s", 3.0)
                                         * 1000));
+        long keepMillis =
+                Math.round(engine.balance().number("quest.tracker.waypoint_keep_s", 1.5) * 1000);
+        long now = System.currentTimeMillis();
         for (HarborPlayer hp : engine.api.players().online()) {
-            Player player = Bukkit.getPlayer(hp.uuid());
-            if (player == null || engine.deps.fishing().isFishing(hp.uuid())) {
+            UUID uuid = hp.uuid();
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null
+                    || engine.deps.fishing().isFishing(uuid)
+                    || engine.deps.cutscenes().isPlaying(player)) {
+                lastWaypoint.remove(uuid);
                 continue;
             }
-            waypoint(player, hp).ifPresent(c -> engine.api.ui().ambientActionBar(player, c, quiet));
+            Optional<Component> bar = waypoint(player, hp);
+            if (bar.isEmpty()) {
+                lastWaypoint.remove(uuid);
+                continue;
+            }
+            Component c = bar.get();
+            boolean changed = !c.equals(lastWaypoint.get(uuid));
+            if (!changed && now - lastWaypointAt.getOrDefault(uuid, 0L) < keepMillis) {
+                continue;
+            }
+            if (engine.api.ui().ambientActionBar(player, c, quiet)) {
+                lastWaypoint.put(uuid, c);
+                lastWaypointAt.put(uuid, now);
+            } else {
+                lastWaypoint.remove(uuid);
+            }
         }
     }
 
@@ -137,18 +172,42 @@ public final class Tracker {
         Location at = java.util.Objects.requireNonNull(player.getLocation());
         double dx = target.getX() - at.getX();
         double dz = target.getZ() - at.getZ();
+        double dy = target.getY() - at.getY();
         double distance = Math.sqrt(dx * dx + dz * dz);
-        double bearing = Math.toDegrees(Math.atan2(-dx, dz));
-        double rel = ((bearing - at.getYaw()) % 360 + 540) % 360 - 180;
+        double rel = relativeAngle(dx, dz, at.getYaw());
+        double near = engine.balance().number("quest.tracker.waypoint_arrive_m", 3.0);
+        double vertical = engine.balance().number("quest.tracker.waypoint_vertical_m", 4.0);
+        String arrow = distance <= near ? HERE : arrow(rel);
+        Component height =
+                Math.abs(dy) < vertical
+                        ? Component.empty()
+                        : engine.api
+                                .messages()
+                                .get(
+                                        dy > 0
+                                                ? "quest.actionbar.waypoint_up"
+                                                : "quest.actionbar.waypoint_down",
+                                        Placeholder.unparsed(
+                                                "height",
+                                                String.valueOf(Math.round(Math.abs(dy)))));
         return Optional.of(
                 engine.api
                         .messages()
                         .get(
                                 "quest.actionbar.waypoint",
-                                Placeholder.unparsed("arrow", arrow(rel)),
+                                Placeholder.unparsed("arrow", arrow),
+                                Placeholder.component("height", height),
                                 Placeholder.unparsed("target", label),
                                 Placeholder.unparsed(
                                         "distance", String.valueOf(Math.round(distance)))));
+    }
+
+    private static final String HERE = "●";
+
+    /** 바라보는 방향 기준 목표의 각도 (-180~180, 양수 = 오른쪽). 마인크래프트 yaw는 0 = +Z(남), 90 = -X(서)로 시계 방향이다. */
+    static double relativeAngle(double dx, double dz, double yaw) {
+        double bearing = Math.toDegrees(Math.atan2(-dx, dz));
+        return ((bearing - yaw) % 360 + 540) % 360 - 180;
     }
 
     /** -180~180도 → 8방향 화살표. */
@@ -167,7 +226,7 @@ public final class Tracker {
             }
             String worldId = wp.world();
             World world = worldId == null ? player.getWorld() : world(worldId);
-            return world == null ? null : new Location(world, wp.x(), wp.y(), wp.z());
+            return world == null ? null : blockCenter(world, wp.x(), wp.y(), wp.z());
         }
         if (o.type().equals("talk") || o.type().equals("deliver")) {
             return QuestEngine.npcOf(def, o)
@@ -178,9 +237,18 @@ public final class Tracker {
         if (p != null) {
             String worldId = p.world();
             World world = worldId == null ? player.getWorld() : world(worldId);
-            return world == null ? null : new Location(world, p.x(), p.y(), p.z());
+            return world == null ? null : blockCenter(world, p.x(), p.y(), p.z());
         }
         return null;
+    }
+
+    /** 콘텐츠의 정수 좌표는 블록 모서리라서 블록 가운데를 가리킨다 (소수 좌표는 그대로). */
+    private static Location blockCenter(World world, double x, double y, double z) {
+        return new Location(world, center(x), y, center(z));
+    }
+
+    private static double center(double v) {
+        return v == Math.rint(v) ? v + 0.5 : v;
     }
 
     /** 10틱마다: 블록 좌표가 바뀐 플레이어만 지역·지점 판정. */
