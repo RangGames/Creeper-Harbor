@@ -80,6 +80,11 @@ public final class MannequinBody implements NpcBody {
     }
 
     static ResolvableProfile profile(Skin skin) {
+        String player = skin.player();
+        if (player != null) {
+            // 이름만 있는 프로필: 서버가 Mojang에서 UUID·스킨을 찾아 채운다
+            return ResolvableProfile.resolvableProfile().name(player).build();
+        }
         ResolvableProfile.Builder builder =
                 ResolvableProfile.resolvableProfile()
                         .uuid(
@@ -111,7 +116,10 @@ public final class MannequinBody implements NpcBody {
     private static String key(Skin skin) {
         String texture = skin.texture();
         String value = skin.value();
-        return "harbor-npc:" + (texture != null ? texture : value != null ? value : "");
+        return "harbor-npc:"
+                + (texture != null
+                        ? texture
+                        : value != null ? value : String.valueOf(skin.player()));
     }
 
     @Override

@@ -1,5 +1,11 @@
 # NPC ('11. 데이터 설계' 2.5, docs 20 5.3). 인물은 '5. 서버 스토리' 2장, 역할은 '1. 기획서 본문' 4.1.
-# 좌표는 맵 확정 전 제안값이다 (harbor_main 기준). skin은 리소스팩 텍스처 키 (assets/harbor/textures/entity/npc/*.png).
+# 좌표는 맵 확정 전 제안값이다 (harbor_main 기준).
+# skin은 다음 중 하나 (컷씬 배우 skin도 같다):
+#   skin: harbor:entity/npc/hansol                     리소스팩 텍스처 키 (assets/harbor/textures/entity/npc/*.png)
+#   skin: Notch                                        플레이어 닉네임 (서버가 Mojang에서 스킨을 받아 옴)
+#   skin: http://textures.minecraft.net/texture/<해시>  스킨 URL (textures.minecraft.net만 됨)
+#   skin: {texture: …, model: slim} · {player: Notch} · {url: …, model: slim} · {hash: <해시>}
+#   skin: {value: <base64>, signature: <서명>}           textures 속성 (MineSkin 등에서 받은 값, 서명은 생략 가능)
 
 # ---------------------------------------------------------------- 크리퍼 항구
 - id: npc/hansol
