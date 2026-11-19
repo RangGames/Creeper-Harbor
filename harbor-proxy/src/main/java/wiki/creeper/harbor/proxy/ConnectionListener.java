@@ -224,6 +224,8 @@ final class ConnectionListener {
         Optional<RegisteredServer> lobby = proxy.getServer(config.lobby());
         if (lobby.isPresent()) {
             queue.grantGrace(event.getPlayer().getUniqueId());
+            // 로비로 돌려보내는 것은 승인된 이동이다 (onPreConnect가 막지 않게)
+            mover.approveFallback(event.getPlayer().getUniqueId(), config.lobby());
             event.setResult(
                     KickedFromServerEvent.RedirectPlayer.create(
                             lobby.get(), text.get("move.returned_lobby")));

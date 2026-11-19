@@ -111,6 +111,14 @@ final class MoveCoordinator {
         return approved.remove(player, server);
     }
 
+    /**
+     * 저장 절차 없이 바로 보내도 되는 이동을 승인한다. 로비(데이터를 쓰지 않는 서버)로 돌려보낼 때만 쓴다: 본 서버가 꺼지거나 내보낸 경우는 그 서버가 이미 저장·잠금
+     * 해제를 했거나(정상 종료) 잠금이 남아 다음 본 서버 입장이 기다린다(비정상 종료).
+     */
+    void approveFallback(UUID player, String lobby) {
+        approved.put(player, lobby);
+    }
+
     boolean isMoving(UUID player) {
         return inProgress.contains(player);
     }
