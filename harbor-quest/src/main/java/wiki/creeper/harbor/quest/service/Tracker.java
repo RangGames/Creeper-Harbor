@@ -1,5 +1,6 @@
 package wiki.creeper.harbor.quest.service;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +42,6 @@ public final class Tracker {
 
     private final QuestEngine engine;
     private final Map<UUID, Component> pendingBar = new HashMap<>();
-    private final Map<UUID, Long> lastBar = new HashMap<>();
     private final Map<UUID, Pos> lastPos = new HashMap<>();
     private final Map<UUID, HarborId> lastRegion = new HashMap<>();
 
@@ -51,7 +51,6 @@ public final class Tracker {
 
     void forget(UUID uuid) {
         pendingBar.remove(uuid);
-        lastBar.remove(uuid);
         lastPos.remove(uuid);
         lastRegion.remove(uuid);
     }
@@ -73,31 +72,31 @@ public final class Tracker {
 
     /** 20틱마다: 묶어 둔 진행 액션바. */
     void flushBars() {
-        long now = System.currentTimeMillis();
         for (Map.Entry<UUID, Component> e : Map.copyOf(pendingBar).entrySet()) {
             Player player = Bukkit.getPlayer(e.getKey());
             pendingBar.remove(e.getKey());
             if (player != null) {
                 engine.api.ui().actionBar(player, e.getValue());
-                lastBar.put(e.getKey(), now);
             }
         }
     }
 
-    /** 40틱마다: 추적 목표 방향 (낚시 중이거나 방금 진행 액션바를 띄웠으면 건너뜀). */
+    /** 40틱마다: 추적 목표 방향 (낚시 중이거나 다른 액션바가 떠 있으면 덮지 않고 건너뜀). */
     void showWaypoints() {
         if (!engine.balance().bool("quest.tracker.waypoint_actionbar", true)) {
             return;
         }
-        long now = System.currentTimeMillis();
+        Duration quiet =
+                Duration.ofMillis(
+                        Math.round(
+                                engine.balance().number("quest.tracker.waypoint_quiet_s", 3.0)
+                                        * 1000));
         for (HarborPlayer hp : engine.api.players().online()) {
             Player player = Bukkit.getPlayer(hp.uuid());
-            if (player == null
-                    || engine.deps.fishing().isFishing(hp.uuid())
-                    || now - lastBar.getOrDefault(hp.uuid(), 0L) < 3000) {
+            if (player == null || engine.deps.fishing().isFishing(hp.uuid())) {
                 continue;
             }
-            waypoint(player, hp).ifPresent(c -> engine.api.ui().actionBar(player, c));
+            waypoint(player, hp).ifPresent(c -> engine.api.ui().ambientActionBar(player, c, quiet));
         }
     }
 

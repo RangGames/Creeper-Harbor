@@ -309,6 +309,7 @@ quest:
   abandon_cooldown_minutes: 10     # 포기 후 같은 cycle 재수락 대기
   tracker:
     waypoint_actionbar: true       # 추적 목표 방향·거리 액션바 (위치 표시 막대 waypoint는 Phase 1 검증 뒤)
+    waypoint_quiet_s: 3            # 다른 액션바(지역·배·보스 등)가 나간 뒤 이 시간 동안은 방향 액션바로 덮지 않음 (제안값)
 
 # Harbor-Boss (docs 20 10.4, '7. 밸런스 기획' 9장). 유형 표는 문서 값, 나머지는 제안값
 boss:

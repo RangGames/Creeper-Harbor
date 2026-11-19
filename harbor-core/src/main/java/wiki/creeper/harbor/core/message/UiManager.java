@@ -1,7 +1,9 @@
 package wiki.creeper.harbor.core.message;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
@@ -15,6 +17,11 @@ import wiki.creeper.harbor.core.api.Ui;
 public final class UiManager implements Ui {
 
     private final Map<String, String> glyphs = new ConcurrentHashMap<>();
+
+    /** 마지막 일반 액션바 시각 (나간 Player 객체는 GC로 빠진다). */
+    private final Map<Player, Long> lastActionBar =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
     private final TagResolver glyphResolver =
             TagResolver.resolver(
                     "glyph",
@@ -29,7 +36,18 @@ public final class UiManager implements Ui {
 
     @Override
     public void actionBar(Player player, Component message) {
+        lastActionBar.put(player, System.nanoTime());
         player.sendActionBar(message);
+    }
+
+    @Override
+    public boolean ambientActionBar(Player player, Component message, Duration quiet) {
+        Long last = lastActionBar.get(player);
+        if (last != null && System.nanoTime() - last < quiet.toNanos()) {
+            return false;
+        }
+        player.sendActionBar(message);
+        return true;
     }
 
     @Override

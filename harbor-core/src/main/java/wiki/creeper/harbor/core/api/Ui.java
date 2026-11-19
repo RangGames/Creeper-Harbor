@@ -11,6 +11,14 @@ public interface Ui {
 
     void actionBar(Player player, Component message);
 
+    /**
+     * 늘 떠 있는 안내(퀘스트 방향 등)용 액션바 (추가 제안). 다른 액션바가 {@code quiet} 안에 나갔으면 보내지 않아서 그 문구를 덮지 않는다. 이 호출은
+     * 다른 액션바의 시각으로 치지 않는다.
+     *
+     * @return 보냈으면 true
+     */
+    boolean ambientActionBar(Player player, Component message, Duration quiet);
+
     void title(
             Player player,
             Component title,
