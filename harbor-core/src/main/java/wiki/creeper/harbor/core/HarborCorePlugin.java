@@ -50,6 +50,8 @@ import wiki.creeper.harbor.core.furniture.FurnishingService;
 import wiki.creeper.harbor.core.furniture.FurnitureManager;
 import wiki.creeper.harbor.core.furniture.GlitchedNoteBlocks;
 import wiki.creeper.harbor.core.gui.MenuListener;
+import wiki.creeper.harbor.core.inventory.InventoryCommand;
+import wiki.creeper.harbor.core.inventory.InventorySync;
 import wiki.creeper.harbor.core.item.ItemManager;
 import wiki.creeper.harbor.core.item.ItemModelSync;
 import wiki.creeper.harbor.core.ledger.LedgerAuditJob;
@@ -281,6 +283,22 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
 
         var pm = Bukkit.getPluginManager();
         pm.registerEvents(playerManager, this);
+        InventorySync inventorySync =
+                new InventorySync(
+                        playerManager,
+                        database,
+                        writeBehind,
+                        content::snapshot,
+                        msg,
+                        tasks,
+                        log,
+                        infra.serverId(),
+                        infra.role());
+        inventorySync.register();
+        pm.registerEvents(inventorySync, this);
+        command.addModuleCommand(
+                new InventoryCommand(inventorySync, playerManager, r, msg, tasks, adminLog)
+                        .build());
         pm.registerEvents(modifiers, this);
         pm.registerEvents(borders, this);
         pm.registerEvents(rigManager, this);

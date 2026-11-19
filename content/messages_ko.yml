@@ -653,6 +653,17 @@ chat:
   format: "<gray>[<server>]</gray> <white><name></white><gray>:</gray> <message>"
   party_format: "<aqua>[파티]</aqua> <white><name></white><gray>:</gray> <message>"
 
+inventory:
+  apply_failed: "<red>인벤토리를 불러오지 못했습니다. 이번 접속에서는 저장되지 않으니 운영진에게 알려 주세요."
+  unknown_player: "<red>플레이어를 찾지 못했습니다: <player>"
+  not_found: "<red>인벤토리 기록이 없습니다."
+  player_only: "<red>게임 안에서만 쓸 수 있습니다."
+  view_title: "<player>의 인벤토리 (읽기 전용)"
+  history_header: "<gold><player></gold><gray>의 인벤토리 기록 <white><count></white>개 (최근순)"
+  history_line: "<gray>#<white><id></white> <time> <yellow><reason></yellow> <dark_gray>@<server>"
+  online_elsewhere: "<red><player>님이 다른 서버에 접속 중입니다. 그 서버에서 복구하거나 나간 뒤에 하세요."
+  restored: "<green><player></green><gray>님의 인벤토리를 기록 #<white><id></white>로 되돌렸습니다."
+
 afk:
   warn: "<yellow>움직임이 없어 <white><seconds></white>초 뒤 로비로 이동합니다. <gray>(자리는 잠시 유지됩니다)"
   moved: "<gray>오래 움직이지 않아 로비로 이동합니다. 돌아오려면 <white>/출항</white>"

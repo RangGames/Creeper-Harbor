@@ -30,7 +30,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.config.InfraConfig;
-import wiki.creeper.harbor.common.config.ServerRole;
 import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.db.WriteBehindQueue;
 import wiki.creeper.harbor.common.model.Currency;
@@ -65,7 +64,8 @@ import wiki.creeper.harbor.core.task.Tasks;
  *   <li>서버 이동 (프록시의 TransferPrepare): 즉시 저장 → 잠금을 handoff로 → TransferReady. TransferAbort면 되돌린다
  * </ul>
  *
- * 로비 서버는 게임 데이터가 없는 대기 공간이라 읽기 전용이다 (잠금을 잡지 않고 저장하지 않는다).
+ * 로비도 본 서버와 똑같이 잠금을 잡고 저장한다 (인벤토리 동기화로 로비에서도 플레이어 데이터가 바뀌기 때문, 추가 제안. 예전에는 로비가 읽기 전용이었다). 저장 직전에
+ * {@link SaveHook}이 메인 스레드에서 Bukkit 상태(인벤토리 등)를 컴포넌트에 담는다.
  */
 public final class PlayerManager implements PlayerService, Listener {
 
@@ -91,8 +91,28 @@ public final class PlayerManager implements PlayerService, Listener {
     private final MessageService messages;
     private final Tasks tasks;
     private final Logger log;
-    private final boolean readOnly;
     private volatile boolean acceptingLogins = true;
+
+    /** 저장 이유 (SaveHook·기록용). */
+    public enum SaveReason {
+        AUTOSAVE,
+        QUIT,
+        HANDOFF,
+        SHUTDOWN,
+        NOW
+    }
+
+    /** 저장 직전 훅 (메인 스레드, 플레이어가 이 서버에 있을 때만). 컴포넌트에 값을 넣으면 같은 저장에 실린다. */
+    @FunctionalInterface
+    public interface SaveHook {
+        void beforeSave(Player player, HarborPlayer data, SaveReason reason);
+    }
+
+    private final List<SaveHook> saveHooks = new CopyOnWriteArrayList<>();
+
+    public void addSaveHook(SaveHook hook) {
+        saveHooks.add(hook);
+    }
 
     private final List<HandoffBlocker> handoffBlockers = new CopyOnWriteArrayList<>();
 
@@ -113,7 +133,6 @@ public final class PlayerManager implements PlayerService, Listener {
         this.messages = messages;
         this.tasks = tasks;
         this.log = log;
-        this.readOnly = infra.role() == ServerRole.LOBBY;
     }
 
     public void start() {
@@ -223,22 +242,18 @@ public final class PlayerManager implements PlayerService, Listener {
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("server.closing"));
             return;
         }
-        if (!readOnly) {
-            ClaimResult claim = locks.awaitClaim(uuid, infra.serverId(), SessionLocks.HANDOFF_WAIT);
-            if (!claim.isClaimed()) {
-                String key = claim == ClaimResult.BUSY ? "session.busy" : "session.unavailable";
-                event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get(key));
-                return;
-            }
+        ClaimResult claim = locks.awaitClaim(uuid, infra.serverId(), SessionLocks.HANDOFF_WAIT);
+        if (!claim.isClaimed()) {
+            String key = claim == ClaimResult.BUSY ? "session.busy" : "session.unavailable";
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get(key));
+            return;
         }
         try {
             PlayerState state = load(uuid, event.getName());
             pending.put(uuid, new Pending(state, System.nanoTime()));
         } catch (SQLException | ExecutionException | TimeoutException | RuntimeException e) {
             log.error("플레이어 데이터 로드 실패: {} ({})", event.getName(), uuid, e);
-            if (!readOnly) {
-                locks.release(uuid, infra.serverId());
-            }
+            locks.release(uuid, infra.serverId());
             event.disallow(
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("player.load_failed"));
             return;
@@ -248,10 +263,8 @@ public final class PlayerManager implements PlayerService, Listener {
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("player.load_failed"));
             return;
         }
-        if (!readOnly) {
-            Instant until = Instant.now().plus(SessionLocks.TTL);
-            var _ = db.asyncVoid(c -> SessionAudit.recordOwner(c, uuid, infra.serverId(), until));
-        }
+        Instant until = Instant.now().plus(SessionLocks.TTL);
+        var _ = db.asyncVoid(c -> SessionAudit.recordOwner(c, uuid, infra.serverId(), until));
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -270,17 +283,21 @@ public final class PlayerManager implements PlayerService, Listener {
     public void onQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
         Sequence.cancelAll(uuid);
-        PlayerState state = online.remove(uuid);
-        if (state == null || readOnly) {
+        PlayerState state = online.get(uuid);
+        if (state == null) {
             return;
         }
         String handoff = state.handoffRequest();
+        if (handoff == null) {
+            // 저장 훅이 Bukkit 상태를 뜰 수 있게 목록에서 빼기 전에 큐에 넣는다
+            enqueueSave(state, false, SaveReason.QUIT);
+        }
+        online.remove(uuid);
         if (handoff != null) {
             // 이동 중: 이미 저장했다. 도착 서버가 아직 가져가지 않았으면 (이동 중 접속 끊김) 그 요청의 잠금만 지운다
             var _ = tasks.async(() -> locks.releaseHandoff(uuid, handoff));
             return;
         }
-        enqueueSave(state, false);
         var _ =
                 tasks.async(
                         () -> {
@@ -305,8 +322,8 @@ public final class PlayerManager implements PlayerService, Listener {
     private void prepareTransfer(TransferPrepare request) {
         UUID uuid = request.player();
         PlayerState state = online.get(uuid);
-        if (state == null || state.handingOff() || readOnly) {
-            String reason = readOnly ? "lobby" : state == null ? "not_online" : "already_moving";
+        if (state == null || state.handingOff()) {
+            String reason = state == null ? "not_online" : "already_moving";
             bus.publish(
                     ProxyMessages.toProxy(TransferReady.class),
                     new TransferReady(request.requestId(), uuid, false, reason));
@@ -360,7 +377,7 @@ public final class PlayerManager implements PlayerService, Listener {
     private void beginTransfer(TransferPrepare request, PlayerState state) {
         UUID uuid = request.player();
         Sequence.cancelAll(uuid);
-        enqueueSave(state, false);
+        enqueueSave(state, false, SaveReason.HANDOFF);
         var _ =
                 tasks.async(
                         () -> {
@@ -439,12 +456,9 @@ public final class PlayerManager implements PlayerService, Listener {
     // ------------------------------------------------------------------ 저장
 
     private void autosave() {
-        if (readOnly) {
-            return;
-        }
         for (PlayerState state : online.values()) {
             if (!state.handingOff()) {
-                enqueueSave(state, false);
+                enqueueSave(state, false, SaveReason.AUTOSAVE);
             }
         }
     }
@@ -453,10 +467,10 @@ public final class PlayerManager implements PlayerService, Listener {
     @Override
     public CompletableFuture<Void> saveNow(UUID uuid) {
         PlayerState state = online.get(uuid);
-        if (state == null || readOnly) {
+        if (state == null) {
             return CompletableFuture.completedFuture(null);
         }
-        enqueueSave(state, false);
+        enqueueSave(state, false, SaveReason.NOW);
         return tasks.supplyAsync(
                 () -> {
                     try {
@@ -473,9 +487,19 @@ public final class PlayerManager implements PlayerService, Listener {
         var _ = tasks.async(queue::flush);
     }
 
-    /** 메인 스레드: 복사본을 만들어 지연 쓰기 큐에 넣는다. */
-    private void enqueueSave(PlayerState state, boolean allComponents) {
+    /** 메인 스레드: 저장 훅을 돌린 뒤 복사본을 만들어 지연 쓰기 큐에 넣는다. */
+    private void enqueueSave(PlayerState state, boolean allComponents, SaveReason reason) {
         UUID uuid = state.uuid();
+        Player player = Bukkit.getPlayer(uuid);
+        if (player != null) {
+            for (SaveHook hook : saveHooks) {
+                try {
+                    hook.beforeSave(player, state, reason);
+                } catch (RuntimeException e) {
+                    log.error("저장 훅 오류 (무시하고 저장): {} {}", uuid, reason, e);
+                }
+            }
+        }
         SeasonId season = state.season();
         PlayerState.BaseSnapshot base = state.snapshotBase();
         queue.enqueue(prefix(uuid) + "base", c -> PlayerRepository.saveBase(c, base));
@@ -500,13 +524,10 @@ public final class PlayerManager implements PlayerService, Listener {
     /** 서버 종료: 새 접속 차단 → 접속자 저장 → 큐 비우기는 호출한 쪽이 한다. */
     public void shutdown() {
         acceptingLogins = false;
-        if (readOnly) {
-            return;
-        }
         List<UUID> players = new ArrayList<>(online.keySet());
         for (PlayerState state : online.values()) {
             if (!state.handingOff()) {
-                enqueueSave(state, false);
+                enqueueSave(state, false, SaveReason.SHUTDOWN);
             }
         }
         for (UUID uuid : players) {
@@ -521,7 +542,7 @@ public final class PlayerManager implements PlayerService, Listener {
     }
 
     private void refreshLocks() {
-        if (readOnly || online.isEmpty()) {
+        if (online.isEmpty()) {
             return;
         }
         List<UUID> owned = new ArrayList<>();
@@ -541,7 +562,7 @@ public final class PlayerManager implements PlayerService, Listener {
                         entry -> {
                             boolean expired =
                                     now - entry.getValue().createdNanos() > PENDING_TIMEOUT_NANOS;
-                            if (expired && !readOnly) {
+                            if (expired) {
                                 UUID uuid = entry.getKey();
                                 var _ = tasks.async(() -> locks.release(uuid, infra.serverId()));
                             }

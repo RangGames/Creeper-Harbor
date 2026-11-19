@@ -139,8 +139,8 @@ final class MoveCoordinator {
     }
 
     /**
-     * 저장 절차 없이 바로 보내도 되는 이동을 승인한다. 로비(데이터를 쓰지 않는 서버)로 돌려보낼 때만 쓴다: 본 서버가 꺼지거나 내보낸 경우는 그 서버가 이미 저장·잠금
-     * 해제를 했거나(정상 종료) 잠금이 남아 다음 본 서버 입장이 기다린다(비정상 종료).
+     * 저장 절차 없이 바로 보내도 되는 이동을 승인한다. 본 서버가 내보낸(꺼진) 플레이어를 로비로 돌려보낼 때만 쓴다: 정상 종료면 그 서버가 이미 저장·잠금 해제를
+     * 했고, 비정상 종료면 잠금이 남아 로비 입장이 잠시(잠금 만료까지) 거부된다 (로비도 잠금을 잡으므로 복제는 없다).
      */
     void approveFallback(UUID player, String lobby) {
         approved.put(player, lobby);
@@ -235,9 +235,9 @@ final class MoveCoordinator {
                 : directory.canAccept(destination, 1);
     }
 
-    /** 로비는 잠금을 잡지 않으므로 로비에서 나갈 때는 핸드오프가 필요 없다. */
+    /** 모든 백엔드(로비 포함)가 잠금을 잡고 저장하므로, 출발 서버가 있으면 항상 저장 → 잠금 넘김을 거친다. */
     private boolean needsHandoff(@Nullable String origin) {
-        return origin != null && !origin.equals(config.lobby());
+        return origin != null;
     }
 
     private CompletableFuture<Boolean> prepare(

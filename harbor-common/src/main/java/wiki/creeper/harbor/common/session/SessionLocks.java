@@ -25,7 +25,7 @@ import wiki.creeper.harbor.common.redis.Redis;
  *   <li>도착 서버가 handoff 상태를 확인하고 소유권을 가져온 뒤 ({@link #awaitClaim}) 데이터를 로드한다
  * </ol>
  *
- * 로비는 게임 데이터가 없어서 잠금을 잡지 않는다. 모든 상태 변경은 Lua 스크립트로 비교 후 교체(CAS)한다. 모든 메서드는 블로킹이다.
+ * 로비를 포함한 모든 백엔드가 잠금을 잡는다 (인벤토리 동기화, 추가 제안). 모든 상태 변경은 Lua 스크립트로 비교 후 교체(CAS)한다. 모든 메서드는 블로킹이다.
  */
 public final class SessionLocks {
 
