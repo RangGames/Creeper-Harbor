@@ -29,6 +29,7 @@ import wiki.creeper.harbor.common.redis.Redis;
 import wiki.creeper.harbor.common.session.SessionLocks;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
+import wiki.creeper.harbor.common.yaml.YamlDefaults;
 
 /**
  * Harbor-Proxy (docs 20 1장): 접속 진입점(점검·제재·후원 등급·세션 잠금), 본 서버 대기열, 서버·인스턴스 이동 지휘, 서버 간 채팅·공지 중계, 접속
@@ -242,6 +243,14 @@ public final class HarborProxyPlugin {
                 Files.copy(in, file);
             }
             log.warn("기본 설정을 만들었습니다: {}", file);
+        } else {
+            // 새 버전에서 생긴 설정 항목을 채운다 (서버 값·주석은 그대로)
+            try (InputStream in = getClass().getClassLoader().getResourceAsStream(name)) {
+                YamlDefaults.Result filled = YamlDefaults.fillFile(file, in);
+                if (filled.changed()) {
+                    log.warn("{}에 새 설정 항목을 추가했습니다 (기본값, 원본은 .bak): {}", name, filled.added());
+                }
+            }
         }
         return file;
     }

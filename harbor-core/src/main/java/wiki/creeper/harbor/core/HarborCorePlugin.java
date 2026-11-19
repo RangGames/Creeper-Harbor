@@ -27,6 +27,7 @@ import wiki.creeper.harbor.common.session.SessionLocks;
 import wiki.creeper.harbor.common.time.HarborTime;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
+import wiki.creeper.harbor.common.yaml.YamlDefaults;
 import wiki.creeper.harbor.core.admin.AdminLog;
 import wiki.creeper.harbor.core.api.Harbor;
 import wiki.creeper.harbor.core.api.ModuleHost;
@@ -119,6 +120,16 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                 Files.copy(in, infraFile);
             }
             log.warn("기본 설정을 만들었습니다: {} (서버 ID·DB·Redis를 확인하세요)", infraFile);
+        } else {
+            // 새 버전에서 생긴 설정 항목을 채운다 (서버 값·주석은 그대로)
+            try (InputStream in = getResource("harbor-infra.yml")) {
+                YamlDefaults.Result filled = YamlDefaults.fillFile(infraFile, in);
+                if (filled.changed()) {
+                    log.warn(
+                            "harbor-infra.yml에 새 설정 항목을 추가했습니다 (기본값, 원본은 .bak): {}",
+                            filled.added());
+                }
+            }
         }
 
         // 1. 인프라 설정
@@ -170,6 +181,14 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         synced.keptModified().size(),
                         synced.keptModified());
             }
+            synced.filled()
+                    .forEach(
+                            (file, keys) ->
+                                    log.info(
+                                            "고친 콘텐츠 {}에 새 항목 {}개를 추가했습니다: {}",
+                                            file,
+                                            keys.size(),
+                                            keys));
         }
         HarborContent content = new HarborContent(contentRoot, tasks, log);
         Result<ContentSnapshot, ValidationErrors> contentResult = content.loadBlocking();

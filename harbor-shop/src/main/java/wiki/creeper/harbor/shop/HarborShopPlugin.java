@@ -8,6 +8,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.ServicePriority;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.collection.api.AquariumThemeOwnership;
+import wiki.creeper.harbor.common.yaml.YamlDefaults;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborModule;
 import wiki.creeper.harbor.core.api.ModuleContext;
@@ -62,6 +63,18 @@ public final class HarborShopPlugin extends HarborModule {
         ShopContent.registerChecks(ctx::contentCheck);
         ctx.playerComponent(ShopRuntime.COMPONENT);
         saveDefaultConfig();
+        // 새 버전에서 생긴 설정 항목을 채운다 (서버 값·주석은 그대로)
+        try (java.io.InputStream in = getResource("config.yml")) {
+            YamlDefaults.Result filled =
+                    YamlDefaults.fillFile(getDataFolder().toPath().resolve("config.yml"), in);
+            if (filled.changed()) {
+                getSLF4JLogger()
+                        .warn("config.yml에 새 설정 항목을 추가했습니다 (기본값, 원본은 .bak): {}", filled.added());
+                reloadConfig();
+            }
+        } catch (java.io.IOException e) {
+            getSLF4JLogger().warn("config.yml 새 항목을 채우지 못했습니다: {}", String.valueOf(e));
+        }
         FileConfiguration config = getConfig();
 
         ShopRuntime rt = new ShopRuntime(api, ctx.tasks(), getSLF4JLogger());
