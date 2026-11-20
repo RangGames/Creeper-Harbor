@@ -65,7 +65,14 @@ public final class HarborQuestPlugin extends HarborModule {
         s.registerHooks(this);
         s.start(dialogs::boardRoot);
 
-        QuestCommands commands = new QuestCommands(api, s, dialogs, new QuestBook(api, s, dialogs));
+        QuestCommands commands =
+                new QuestCommands(
+                        api,
+                        s,
+                        dialogs,
+                        new QuestBook(api, s, dialogs),
+                        new wiki.creeper.harbor.quest.editor.EditorStore(
+                                api.content(), ctx.tasks()));
         ctx.adminCommand(commands.adminCommand());
         getLifecycleManager()
                 .registerEventHandler(

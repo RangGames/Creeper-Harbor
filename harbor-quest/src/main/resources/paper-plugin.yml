@@ -46,7 +46,7 @@ permissions:
     description: '/연대기'
     default: true
   harbor.admin.quest.info:
-    description: '/harbor quest info'
+    description: '/harbor quest info · gui (관리 GUI는 set·complete 권한으로 버튼별 확인)'
     default: op
   harbor.admin.quest.set:
     description: '/harbor quest set · progress · reset'
@@ -59,4 +59,7 @@ permissions:
     default: op
   harbor.admin.quest.server:
     description: '/harbor quest server'
+    default: op
+  harbor.admin.quest.editor:
+    description: '/harbor quest editor (게임 안 퀘스트 편집기, content/quests/*.yml을 고친다)'
     default: op

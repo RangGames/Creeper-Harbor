@@ -35,4 +35,23 @@ public interface Dialogs {
             List<Choice> choices,
             int columns,
             Consumer<Integer> result);
+
+    /**
+     * 글 입력 화면 (추가 제안, 퀘스트 편집기 등). 확인을 누르면 입력값(앞뒤 공백 제거)을 메인 스레드에서 받는다. 취소·ESC면 결과가 오지 않는다.
+     *
+     * @param initial 처음 채워 둘 값
+     * @param maxLength 최대 글자 수
+     * @param multiline 여러 줄 입력 (줄바꿈은 그대로 받는다)
+     */
+    void input(
+            Player player,
+            Component title,
+            List<Component> body,
+            Component label,
+            String initial,
+            int maxLength,
+            boolean multiline,
+            Component confirm,
+            Component cancel,
+            Consumer<String> result);
 }

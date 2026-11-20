@@ -44,15 +44,21 @@ public final class QuestCommands {
     private final QuestBook book;
     private final AdminLog adminLog;
     private final QuestAdminMenu adminMenu;
+    private final QuestEditor editor;
 
     public QuestCommands(
-            HarborApi api, QuestServices services, QuestDialogs dialogs, QuestBook book) {
+            HarborApi api,
+            QuestServices services,
+            QuestDialogs dialogs,
+            QuestBook book,
+            wiki.creeper.harbor.quest.editor.EditorStore store) {
         this.api = api;
         this.services = services;
         this.dialogs = dialogs;
         this.book = book;
         this.adminLog = new AdminLog(api);
         this.adminMenu = new QuestAdminMenu(api, services, adminLog);
+        this.editor = new QuestEditor(api, services, store, adminLog);
     }
 
     private QuestEngine engine() {
@@ -181,6 +187,31 @@ public final class QuestCommands {
 
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {
         return Commands.literal("quest")
+                .then(
+                        Commands.literal("editor")
+                                .requires(perm("editor"))
+                                .executes(
+                                        ctx -> {
+                                            if (ctx.getSource().getExecutor()
+                                                    instanceof Player admin) {
+                                                editor.open(admin);
+                                            }
+                                            return Command.SINGLE_SUCCESS;
+                                        })
+                                .then(
+                                        questArgument(false)
+                                                .executes(
+                                                        ctx -> {
+                                                            if (ctx.getSource().getExecutor()
+                                                                    instanceof Player admin) {
+                                                                editor.open(
+                                                                        admin,
+                                                                        rawQuest(ctx)
+                                                                                .id()
+                                                                                .toString());
+                                                            }
+                                                            return Command.SINGLE_SUCCESS;
+                                                        })))
                 .then(
                         Commands.literal("gui")
                                 .requires(perm("info"))

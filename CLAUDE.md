@@ -86,6 +86,8 @@ Purpur 게임 모듈 11개와 Common·Core·Proxy·tools가 모두 있고 전체
 - 가구·커스텀 블록: Core `furniture/`(`FurnitureService`, content/furniture/*.yml). 가구 = ItemDisplay + Interaction(+방벽·빛 블록), 커스텀 블록 = 노트블록 상태(state 1~399, 바꾸지 않음)이고 팩 빌드가 note_block.json·모델을 생성한다 (`FurnishingPack`). 하우징 장식은 `furniture:`/`block:`으로 참조한다.
 - 모듈 간 연결은 각 모듈 `api` 패키지 + Bukkit ServicesManager로 한다. 선택 의존 모듈의 클래스는 그 모듈이 켜져 있을 때만 불러오는 bridge 클래스에 둔다. 의존 방향은 docs 20 0.3을 따른다 (World는 Quest·Collection·Shop에 의존하지 않고, 그쪽이 World api에 구현을 등록한다. Shop은 일부 이벤트를 클래스 이름으로 반사 구독한다).
 - 남은 것: 해저 유적 던전과 Phase 3 보스 4종(콘텐츠), 메인 4~7장 퀘스트(클라이맥스 조건), 리소스팩 모델·구조물(.nbt)·해도 이미지, 패킷 전용 표시 방식, Tebex 서명 형식 확인(법률 검토 항목), Core가 시즌 번호를 season_meta에서 읽기·프록시 점검 전환 API, 채팅에 이름 색·칭호 싣기.
+- 퀘스트 UX: `/퀘스트` 퀘스트북(상자 GUI)·추적 보스바·알림 형태(balance.yml quest.notify), 관리 GUI(`/harbor quest gui`), 게임 안 편집기(`/harbor quest editor`, `editor/QuestYaml`이 그 항목 블록만 바꿔 쓰고 리로드, 실패 시 되돌림), 목표 축약형(`{catch: fish/x}`). NPC 대화는 `style`/`dialog_style`로 Dialog·hologram·title·chat·actionbar (Npc `dialog/present`), 퀘스트 수락 제안도 따른다. 사용법은 harbor-quest/README.md.
+- 줄바꿈: Java 소스는 CRLF로 저장돼 있고 .gitattributes가 없다. macOS에서 `spotlessApply`는 파일을 LF로 바꾸므로 커밋 전에 고친 파일만 CRLF로 되돌린다 (spotlessCheck는 macOS에서 손대지 않은 CRLF 파일로도 실패한다).
 - 미니게임 조작은 Shift 감기 + A/D 방향 (consumable 방식은 Phase 1 검증 뒤). 모듈 콘텐츠 형식은 서버 API 없는 `XxxContent`로 모아 플러그인과 harbor-tools가 같이 등록한다. season 열이 있는 새 테이블은 content/season/reset_plan.yml에 넣어야 Season이 로드를 허용한다.
 
 로컬 실행: `plugins/Harbor/harbor-infra.yml`(처음 실행 때 기본값 생성)에 DB·Redis 접속 정보를 넣고 `./gradlew :harbor-core:runServer`. 콘텐츠는 Core jar에 기본값으로 들어 있고 시작 때 `plugins/Harbor/content`를 맞춘다 (`DefaultContent`: 없는 파일 생성, 서버에서 고치지 않은 파일은 새 기본값으로 갱신·기본값에서 빠지면 삭제, 고친 파일은 유지하고 경고. 기록은 `content/.harbor-defaults`. runServer는 저장소 content/를 동기화).

@@ -244,7 +244,7 @@ public record Objective(
     }
 
     /** 축약형 기본 key: 유형_대상이름 (ID 마지막 부분, 영숫자·밑줄만, 32자까지). */
-    static String autoKey(String type, String rawTarget) {
+    public static String autoKey(String type, String rawTarget) {
         String t = rawTarget.strip().toLowerCase(java.util.Locale.ROOT);
         int slash = t.lastIndexOf('/');
         if (slash >= 0) {

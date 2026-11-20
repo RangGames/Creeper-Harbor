@@ -5,6 +5,8 @@ import io.papermc.paper.registry.data.dialog.ActionButton;
 import io.papermc.paper.registry.data.dialog.DialogBase;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
+import io.papermc.paper.registry.data.dialog.input.DialogInput;
+import io.papermc.paper.registry.data.dialog.input.TextDialogInput;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -105,6 +107,59 @@ public final class DialogManager implements Dialogs {
                                                         .build()));
         player.showDialog(dialog);
     }
+
+    @Override
+    public void input(
+            Player player,
+            Component title,
+            List<Component> body,
+            Component label,
+            String initial,
+            int maxLength,
+            boolean multiline,
+            Component confirm,
+            Component cancel,
+            Consumer<String> result) {
+        TextDialogInput.Builder text =
+                DialogInput.text(INPUT_KEY, label)
+                        .initial(initial)
+                        .maxLength(Math.max(1, maxLength))
+                        .width(300);
+        if (multiline) {
+            text.multiline(TextDialogInput.MultilineOptions.create(8, 120));
+        }
+        ActionButton ok =
+                ActionButton.builder(confirm)
+                        .action(
+                                DialogAction.customClick(
+                                        (response, audience) -> {
+                                            String value = response.getText(INPUT_KEY);
+                                            String v = value == null ? "" : value.strip();
+                                            tasks.main().execute(() -> result.accept(v));
+                                        },
+                                        ONCE))
+                        .build();
+        ActionButton no = ActionButton.builder(cancel).build();
+        Dialog dialog =
+                Dialog.create(
+                        factory ->
+                                factory.empty()
+                                        .base(
+                                                DialogBase.builder(title)
+                                                        .canCloseWithEscape(true)
+                                                        .body(
+                                                                body.stream()
+                                                                        .map(
+                                                                                DialogBody
+                                                                                        ::plainMessage)
+                                                                        .toList())
+                                                        .inputs(List.of(text.build()))
+                                                        .build())
+                                        .type(DialogType.confirmation(ok, no)));
+        player.showDialog(dialog);
+    }
+
+    private static final String INPUT_KEY = "value";
 
     private static DialogBase base(Component title, List<Component> body) {
         return DialogBase.builder(title)
