@@ -69,7 +69,7 @@ public final class HarborBossPlugin extends HarborModule {
                 new InstanceManager(api, ctx.tasks(), getSLF4JLogger(), mgr, parties);
         mgr.setWorldHooks(worldBoss);
         mgr.setInstanceHooks(instances);
-        ctx.listen(mgr);
+        ctx.listen(mgr.listener());
         ctx.listen(instances);
         ctx.listen(worldBoss);
         ctx.handoffBlocker(
