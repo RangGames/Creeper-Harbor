@@ -17,6 +17,7 @@ import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSele
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.CommandSender;
@@ -27,11 +28,16 @@ import wiki.creeper.harbor.collection.api.DisplayCaseService;
 import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.api.RecordService;
 import wiki.creeper.harbor.collection.release.ReleaseManager;
+import wiki.creeper.harbor.collection.view.AquariumView;
+import wiki.creeper.harbor.collection.view.CodexView;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.core.api.FishArgs;
 import wiki.creeper.harbor.core.api.HarborApi;
 
-/** /도감, /기록, /수족관, /harbor collection … (docs 20 4.5). */
+/**
+ * /도감 [보상 · 최근], /기록 [어종 [채팅]], /수족관 [상태 · 기부 · 기부함], /harbor collection … (docs 20 4.5, GUI는 추가
+ * 제안).
+ */
 public final class CollectionCommands {
 
     private final HarborApi api;
@@ -56,12 +62,25 @@ public final class CollectionCommands {
     public void registerPlayerCommands(Commands commands) {
         commands.register(codexCommand(), "도감", List.of());
         commands.register(
-                Commands.literal("기록").then(fishArgument().executes(this::records)).build(),
+                Commands.literal("기록")
+                        .executes(
+                                ctx -> {
+                                    if (ctx.getSource().getExecutor() instanceof Player player) {
+                                        new RecordsMenu(api, codex).pick(player, 0);
+                                    }
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                        .then(
+                                fishArgument()
+                                        .executes(this::recordsMenu)
+                                        .then(Commands.literal("채팅").executes(this::records)))
+                        .build(),
                 "최대어 기록",
                 List.of());
         commands.register(
                 Commands.literal("수족관")
-                        .executes(this::aquariumStatus)
+                        .executes(this::aquariumMenu)
+                        .then(Commands.literal("상태").executes(this::aquariumStatus))
                         .then(
                                 Commands.literal("기부")
                                         .executes(
@@ -111,6 +130,35 @@ public final class CollectionCommands {
                             return Command.SINGLE_SUCCESS;
                         })
                 .then(
+                        Commands.literal("보상")
+                                .executes(
+                                        ctx -> {
+                                            if (ctx.getSource().getExecutor()
+                                                    instanceof Player player) {
+                                                UUID owner = player.getUniqueId();
+                                                new MilestoneMenu(api, codex)
+                                                        .open(
+                                                                player,
+                                                                owner,
+                                                                () -> codex.open(player, owner, 0));
+                                            }
+                                            return Command.SINGLE_SUCCESS;
+                                        }))
+                .then(
+                        Commands.literal("최근")
+                                .executes(
+                                        ctx -> {
+                                            if (ctx.getSource().getExecutor()
+                                                    instanceof Player player) {
+                                                new CodexMenu(api, codex)
+                                                        .open(
+                                                                player,
+                                                                player.getUniqueId(),
+                                                                CodexView.State.RECENT);
+                                            }
+                                            return Command.SINGLE_SUCCESS;
+                                        }))
+                .then(
                         Commands.argument("target", ArgumentTypes.player())
                                 .executes(
                                         ctx -> {
@@ -157,6 +205,30 @@ public final class CollectionCommands {
             }
         }
         return Command.SINGLE_SUCCESS;
+    }
+
+    /** /기록 <어종>: 플레이어는 GUI, 콘솔은 채팅 출력. */
+    private int recordsMenu(CommandContext<CommandSourceStack> ctx) {
+        if (!(ctx.getSource().getExecutor() instanceof Player player)) {
+            return records(ctx);
+        }
+        Optional<FishDef> fish = fish(ctx);
+        if (fish.isEmpty()) {
+            api.messages().send(player, "collection.unknown_fish");
+            return 0;
+        }
+        RecordsMenu menu = new RecordsMenu(api, codex);
+        menu.open(player, fish.get(), "all", () -> menu.pick(player, 0));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** /수족관: 플레이어는 진행 화면, 콘솔은 상태 한 줄. */
+    private int aquariumMenu(CommandContext<CommandSourceStack> ctx) {
+        if (ctx.getSource().getExecutor() instanceof Player player) {
+            new AquariumMenu(api, aquarium, codex).open(player, AquariumView.Filter.MISSING, 0);
+            return Command.SINGLE_SUCCESS;
+        }
+        return aquariumStatus(ctx);
     }
 
     private int aquariumStatus(CommandContext<CommandSourceStack> ctx) {

@@ -169,6 +169,10 @@ public final class CollectionManager
                         });
     }
 
+    SeasonLink seasonLink() {
+        return seasonLink;
+    }
+
     CodexRules rules() {
         return api.content().snapshot().single(CodexRules.TYPE);
     }

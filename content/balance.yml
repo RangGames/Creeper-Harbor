@@ -605,3 +605,8 @@ sounds:
   # 리소스팩 소리(harbor:…) 사용 ('15. 사운드'). true여도 resource_pack.yml(팩의 소리 목록)에 있는 소리만 내고,
   # 나머지는 sounds.yml의 바닐라 대체 소리(fallback)를 낸다. 키가 없으면 items.custom_models를 따른다 (추가 제안)
   custom: true
+
+# Harbor-Collection 화면 (추가 제안)
+collection:
+  menu:
+    bar_width: 10            # 도감·보상 트랙·수족관 진행 막대 칸 수 (제안값)
