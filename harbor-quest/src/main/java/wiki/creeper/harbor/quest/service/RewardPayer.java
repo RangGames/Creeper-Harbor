@@ -7,55 +7,30 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.jspecify.annotations.Nullable;
-import wiki.creeper.harbor.common.content.type.FishDef;
-import wiki.creeper.harbor.common.content.type.ItemDef;
-import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.common.id.RegionId;
-import wiki.creeper.harbor.common.ledger.LedgerError;
-import wiki.creeper.harbor.common.ledger.LedgerReason;
-import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.model.JobTier;
-import wiki.creeper.harbor.common.redis.Channels;
-import wiki.creeper.harbor.common.util.Result;
-import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.HarborPlayer;
-import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.item.FishLedger;
 import wiki.creeper.harbor.jobs.api.AdvanceResult;
-import wiki.creeper.harbor.jobs.api.ExpGrant;
-import wiki.creeper.harbor.jobs.api.ExpSource;
-import wiki.creeper.harbor.npc.api.AffinitySource;
 import wiki.creeper.harbor.npc.api.ReputationSource;
-import wiki.creeper.harbor.quest.api.QuestRewardSummary;
 import wiki.creeper.harbor.quest.api.QuestState;
-import wiki.creeper.harbor.quest.api.event.ChapterCompletedEvent;
-import wiki.creeper.harbor.quest.api.event.QuestCompletedEvent;
 import wiki.creeper.harbor.quest.api.event.QuestStateChangedEvent;
 import wiki.creeper.harbor.quest.content.BoardRules;
-import wiki.creeper.harbor.quest.content.ChronicleDef;
-import wiki.creeper.harbor.quest.content.CutsceneAt;
 import wiki.creeper.harbor.quest.content.QuestDef;
 import wiki.creeper.harbor.quest.content.QuestType;
 import wiki.creeper.harbor.quest.content.Rewards;
 import wiki.creeper.harbor.quest.data.QuestEntry;
 import wiki.creeper.harbor.quest.data.QuestRepository;
-import wiki.creeper.harbor.quest.logic.CatchFacts;
 import wiki.creeper.harbor.quest.logic.DeliverPlan;
 import wiki.creeper.harbor.quest.logic.Progress;
-import wiki.creeper.harbor.quest.logic.RefIds;
-import wiki.creeper.harbor.season.api.TitleId;
 
 /**
  * 보고·보상 (docs 20 6.4 수락 · 완료). 순서:
@@ -76,8 +51,25 @@ public final class RewardPayer {
     private final QuestEngine engine;
     private final Map<String, CompletableFuture<Boolean>> completing = new HashMap<>();
 
+    private final RewardGrants grants;
+    private final ItemDelivery delivery;
+    private final CompletionEffects effects;
+    private final DeliverCheck deliverCheck;
+
     RewardPayer(QuestEngine engine) {
         this.engine = engine;
+        this.grants = new RewardGrants(engine);
+        this.delivery = new ItemDelivery(engine);
+        this.effects = new CompletionEffects(engine);
+        this.deliverCheck = new DeliverCheck(engine);
+    }
+
+    ItemDelivery delivery() {
+        return delivery;
+    }
+
+    CompletionEffects effects() {
+        return effects;
     }
 
     private static String key(UUID uuid, QuestId quest) {
@@ -168,9 +160,9 @@ public final class RewardPayer {
             engine.api.messages().send(player, "quest.error.not_ready");
             return CompletableFuture.completedFuture(false);
         }
-        DeliverPlan.Result plan = plan(player, def);
+        DeliverPlan.Result plan = deliverCheck.plan(player, def);
         if (!plan.ok()) {
-            explainMissing(player, def, plan);
+            deliverCheck.explainMissing(player, def, plan);
             return CompletableFuture.completedFuture(false);
         }
         int advance = def.rewards().jobAdvance();
@@ -258,9 +250,9 @@ public final class RewardPayer {
             return CompletableFuture.completedFuture(false);
         }
         // 1단계: deliver 재검사·제거
-        DeliverPlan.Result plan = plan(player, def);
+        DeliverPlan.Result plan = deliverCheck.plan(player, def);
         if (!plan.ok() && reward) {
-            explainMissing(player, def, plan);
+            deliverCheck.explainMissing(player, def, plan);
             return CompletableFuture.completedFuture(false);
         }
         List<ItemStack> removed = new ArrayList<>();
@@ -334,7 +326,7 @@ public final class RewardPayer {
                                                 uuid,
                                                 quest,
                                                 String.valueOf(error.getMessage()));
-                                        giveBack(uuid, removed);
+                                        delivery.giveBack(uuid, removed);
                                         if (player.isOnline()) {
                                             engine.api
                                                     .messages()
@@ -365,13 +357,13 @@ public final class RewardPayer {
                                                             entry.state(),
                                                             QuestState.COMPLETED));
                                     if (reward) {
-                                        pay(uuid, def, completed, true);
+                                        grants.pay(uuid, def, completed, true);
                                     } else {
-                                        afterComplete(
+                                        effects.afterComplete(
                                                 uuid,
                                                 def,
                                                 completed,
-                                                summary(def, finished.snap(), List.of()));
+                                                effects.summary(def, finished.snap(), List.of()));
                                     }
                                     done.complete(true);
                                 });
@@ -387,460 +379,15 @@ public final class RewardPayer {
                         .ifPresent(
                                 d -> {
                                     engine.log.info("미지급 보상 복구: {} {}", player.getName(), d.id());
-                                    pay(hp.uuid(), d, e, false);
+                                    grants.pay(hp.uuid(), d, e, false);
                                 });
             }
         }
     }
 
-    /**
-     * 3~4단계.
-     *
-     * @param fresh 방금 완료한 것 (grant 묶음을 준다). 복구면 grant가 기록돼 있지 않을 때만 준다
-     */
-    private void pay(UUID uuid, QuestDef def, QuestEntry entry, boolean fresh) {
-        Progress progress = entry.progress();
-        Progress.Snapshot snap = progress.snap();
-        Rewards rewards = def.rewards();
-        String ref = RefIds.reward(def.id(), entry.season(), progress.cycle());
-        List<CompletableFuture<Boolean>> idempotent = new ArrayList<>();
-        // 3단계: 재화 (원장 참조 ID 유니크)
-        if (snap.gold() > 0) {
-            idempotent.add(
-                    engine.api
-                            .currency()
-                            .give(uuid, Currency.GOLD, snap.gold(), LedgerReason.QUEST_REWARD, ref)
-                            .thenApply(r -> r.isOk() || isDuplicate(r)));
-        }
-        if (snap.mulbineul() > 0) {
-            idempotent.add(
-                    engine.api
-                            .currency()
-                            .give(
-                                    uuid,
-                                    Currency.MULBINEUL,
-                                    snap.mulbineul(),
-                                    LedgerReason.QUEST_REWARD,
-                                    ref)
-                            .thenApply(r -> r.isOk() || isDuplicate(r)));
-        }
-        Player player = Bukkit.getPlayer(uuid);
-        // 4단계: 멱등 보상 (평판 refId, 플래그, 칭호, 연대기)
-        if (snap.reputation() > 0) {
-            idempotent.add(
-                    engine.deps
-                            .reputation()
-                            .add(uuid, snap.reputation(), source(def.type()), ref)
-                            .thenApply(
-                                    r ->
-                                            r.ok()
-                                                    || r.status()
-                                                            == wiki.creeper.harbor.npc.api
-                                                                    .ReputationResult.Status
-                                                                    .DUPLICATE
-                                                    || r.status()
-                                                            == wiki.creeper.harbor.npc.api
-                                                                    .ReputationResult.Status
-                                                                    .CAPPED));
-        }
-        idempotent.add(engine.setCompletionFlag(uuid, def).thenApply(v -> true));
-        for (Rewards.FlagReward f : rewards.flags()) {
-            CompletableFuture<Void> set =
-                    f.server()
-                            ? engine.api.flags().setServer(f.flag(), "1", f.seasonal())
-                            : engine.api
-                                    .flags()
-                                    .setPlayer(
-                                            uuid,
-                                            f.seasonal()
-                                                    ? FlagService.Scope.SEASON
-                                                    : FlagService.Scope.PERM,
-                                            f.flag());
-            idempotent.add(set.thenApply(v -> true));
-        }
-        String title = rewards.title();
-        if (title != null) {
-            idempotent.add(
-                    engine.deps
-                            .titles()
-                            .grant(uuid, TitleId.of(title), RefIds.title(def.id()))
-                            .thenApply(g -> g.owned()));
-        }
-        String piece = rewards.chronicle();
-        if (piece != null) {
-            idempotent.add(engine.chronicle().award(uuid, piece));
-        }
-        // grant 묶음: 경험치·호감도·힌트·아이템
-        List<String> itemNames = new ArrayList<>();
-        boolean grantNow = fresh || !progress.paid(Progress.PAID_GRANT);
-        CompletableFuture<Boolean> grantDone;
-        if (!grantNow) {
-            grantDone = CompletableFuture.completedFuture(true);
-        } else if (player == null) {
-            // 완료 트랜잭션 뒤 퇴장: grant 기록을 지워 다음 접속 때 준다
-            Progress undo =
-                    new Progress(
-                            progress.version(),
-                            progress.counts(),
-                            progress.index(),
-                            progress.cycle(),
-                            progress.snap(),
-                            progress.paid().stream()
-                                    .filter(p -> !p.equals(Progress.PAID_GRANT))
-                                    .toList(),
-                            progress.acceptedAt());
-            grantDone =
-                    engine.serial(
-                            uuid,
-                            c -> {
-                                QuestRepository.savePaid(c, uuid, entry.season(), def.id(), undo);
-                                return false;
-                            });
-        } else if (!fresh) {
-            // 복구: grant 기록을 먼저 커밋한 뒤 준다 (복제 방지)
-            Progress marked = progress.withPaid(Progress.PAID_GRANT);
-            grantDone =
-                    engine.serial(
-                                    uuid,
-                                    c -> {
-                                        QuestRepository.savePaid(
-                                                c, uuid, entry.season(), def.id(), marked);
-                                        return true;
-                                    })
-                            .thenApply(
-                                    ok -> {
-                                        if (player.isOnline()) {
-                                            grant(player, def, snap, ref, itemNames);
-                                        }
-                                        return true;
-                                    });
-        } else {
-            grant(player, def, snap, ref, itemNames);
-            grantDone = CompletableFuture.completedFuture(true);
-        }
-        idempotent.add(grantDone);
-        var _ =
-                CompletableFuture.allOf(idempotent.toArray(CompletableFuture[]::new))
-                        .handleAsync(
-                                (v, error) -> {
-                                    boolean all =
-                                            error == null
-                                                    && idempotent.stream()
-                                                            .allMatch(
-                                                                    f ->
-                                                                            Boolean.TRUE.equals(
-                                                                                    f.getNow(
-                                                                                            false)));
-                                    if (all) {
-                                        Progress paid =
-                                                progress.withPaid(Progress.PAID_GRANT)
-                                                        .withPaid(Progress.PAID_DONE);
-                                        QuestEntry finished = entry.withProgress(paid);
-                                        engine.api
-                                                .players()
-                                                .get(uuid)
-                                                .ifPresent(
-                                                        p ->
-                                                                p.set(
-                                                                        QuestEngine.COMPONENT,
-                                                                        p.get(QuestEngine.COMPONENT)
-                                                                                .with(finished)));
-                                        var _ =
-                                                engine.serial(
-                                                        uuid,
-                                                        c -> {
-                                                            QuestRepository.savePaid(
-                                                                    c,
-                                                                    uuid,
-                                                                    entry.season(),
-                                                                    def.id(),
-                                                                    paid);
-                                                            return true;
-                                                        });
-                                    } else {
-                                        engine.log.warn(
-                                                "퀘스트 보상 일부를 주지 못했습니다 (다음 접속 때 다시 시도): {} {}",
-                                                uuid,
-                                                def.id());
-                                    }
-                                    return null;
-                                },
-                                engine.tasks.main());
-        if (fresh) {
-            afterComplete(uuid, def, entry, summary(def, snap, itemNames));
-        }
-    }
-
-    private static boolean isDuplicate(Result<Long, LedgerError> r) {
-        return r instanceof Result.Err<Long, LedgerError> err
-                && err.error() == LedgerError.DUPLICATE;
-    }
-
-    /** 경험치·호감도·힌트·아이템 (메인 스레드, 접속 중). */
-    private void grant(
-            Player player,
-            QuestDef def,
-            Progress.Snapshot snap,
-            String ref,
-            List<String> itemNames) {
-        UUID uuid = player.getUniqueId();
-        Rewards rewards = def.rewards();
-        if (snap.exp() > 0) {
-            engine.deps.jobs().grantExp(uuid, new ExpGrant(ExpSource.QUEST, snap.exp(), null, ref));
-        }
-        for (Rewards.AffinityReward a : rewards.affinity()) {
-            engine.deps.affinity().add(uuid, a.npc(), a.value(), AffinitySource.QUEST);
-        }
-        for (Rewards.HintReward h : rewards.hints()) {
-            RegionId region =
-                    h.region() != null ? h.region() : engine.highestRegion(uuid).orElse(null);
-            for (int i = 0; i < h.count(); i++) {
-                if (engine.deps.hints().grantRandom(uuid, region, "quest").isEmpty()) {
-                    // 줄 힌트가 없으면 대체 골드 (docs 20 4.4 grantRandom 규칙, 제안값)
-                    long gold = engine.boardRules().hintFallbackGold();
-                    if (gold > 0) {
-                        var _ =
-                                engine.api
-                                        .currency()
-                                        .give(
-                                                uuid,
-                                                Currency.GOLD,
-                                                gold,
-                                                LedgerReason.QUEST_REWARD,
-                                                RefIds.fit(ref + ":h" + i));
-                    }
-                }
-            }
-        }
-        for (Rewards.ItemReward item : rewards.items()) {
-            Optional<ItemDef> idef = engine.snapshot().get(ItemDef.TYPE, item.item().id());
-            if (idef.isEmpty()) {
-                engine.log.warn("보상 아이템 정의가 없습니다: {}", item.item());
-                continue;
-            }
-            ItemStack stack = engine.api.items().create(idef.get(), item.amount());
-            itemNames.add(item.item() + " x" + item.amount());
-            deliverItem(player, stack, ref);
-        }
-    }
-
-    /** 인벤토리가 차면 우편함 (Core api MailService, 구현 Economy). 우편함이 없으면 발밑에 떨어뜨린다. */
-    private void deliverItem(Player player, ItemStack stack, String ref) {
-        Map<Integer, ItemStack> left = player.getInventory().addItem(stack);
-        if (left.isEmpty()) {
-            return;
-        }
-        for (ItemStack rest : left.values()) {
-            sendMail(player.getUniqueId(), rest, ref, player.getLocation());
-        }
-        engine.api.messages().send(player, "quest.reward.mailed");
-    }
-
-    private void sendMail(UUID uuid, ItemStack stack, String ref, @Nullable Location fallback) {
-        Optional<wiki.creeper.harbor.core.api.MailService> mail = engine.api.mail();
-        if (mail.isPresent()) {
-            var _ = mail.get().sendItem(uuid, stack, "quest", ref);
-            return;
-        }
-        if (fallback != null && fallback.getWorld() != null) {
-            fallback.getWorld().dropItemNaturally(fallback, stack);
-        } else {
-            engine.log.error("우편함이 없어 퀘스트 아이템을 줄 수 없습니다 (관리자 복구 필요): {} {}", uuid, stack);
-        }
-    }
-
-    /** 실패한 보고에서 뺀 아이템 반환 (오프라인이면 우편함). */
-    private void giveBack(UUID uuid, List<ItemStack> removed) {
-        Player player = Bukkit.getPlayer(uuid);
-        for (ItemStack stack : removed) {
-            if (player != null) {
-                player.getInventory()
-                        .addItem(stack)
-                        .values()
-                        .forEach(
-                                rest -> sendMail(uuid, rest, "quest_return", player.getLocation()));
-            } else {
-                sendMail(uuid, stack, "quest_return", null);
-            }
-        }
-    }
-
-    private QuestRewardSummary summary(QuestDef def, Progress.Snapshot snap, List<String> items) {
-        return new QuestRewardSummary(
-                snap.gold(),
-                snap.mulbineul(),
-                snap.exp(),
-                snap.reputation(),
-                items,
-                def.rewards().title(),
-                def.rewards().chronicle());
-    }
-
-    /** 5단계: 이벤트·효과음·컷씬·장 클리어·게시판·표시. */
-    private void afterComplete(
-            UUID uuid, QuestDef def, QuestEntry entry, QuestRewardSummary summary) {
-        Bukkit.getPluginManager()
-                .callEvent(
-                        new QuestCompletedEvent(
-                                uuid,
-                                def.id(),
-                                def.type().key(),
-                                entry.progress().cycle(),
-                                summary));
-        Player player = Bukkit.getPlayer(uuid);
-        if (player != null) {
-            engine.api
-                    .messages()
-                    .send(
-                            player,
-                            "quest.completed",
-                            Placeholder.unparsed("name", def.name()),
-                            Placeholder.unparsed("money", String.valueOf(summary.gold())),
-                            Placeholder.unparsed("mulbineul", String.valueOf(summary.mulbineul())),
-                            Placeholder.unparsed("exp", String.valueOf(summary.exp())));
-            HarborSounds.play(player, "harbor:ui.quest_complete"); // '15. 사운드' 4.5 의뢰 완료
-            HarborId cutscene = def.cutscene();
-            if (cutscene != null && def.cutsceneAt().kind() == CutsceneAt.Kind.COMPLETE) {
-                engine.playCutscene(player, cutscene);
-            }
-            engine.refreshMarkers(uuid);
-            engine.refreshGauges(player, null);
-        }
-        QuestEntry tracked = null;
-        Optional<HarborPlayer> hp = engine.api.players().get(uuid);
-        if (hp.isPresent() && def.id().equals(hp.get().get(QuestEngine.COMPONENT).tracked())) {
-            // 추적 중이던 퀘스트가 끝나면 진행 중인 다른 퀘스트(메인 우선)로
-            for (Map.Entry<QuestDef, QuestEntry> e : engine.open(hp.get())) {
-                if (tracked == null || e.getKey().main()) {
-                    tracked = e.getValue();
-                }
-            }
-            hp.get()
-                    .set(
-                            QuestEngine.COMPONENT,
-                            hp.get()
-                                    .get(QuestEngine.COMPONENT)
-                                    .withTracked(tracked == null ? null : tracked.quest()));
-        }
-        chapterCheck(uuid, def);
-    }
-
-    /** 장 마지막 퀘스트면 ChapterCompletedEvent, 서버 최초 클리어면 harbor:announce 공지. */
-    private void chapterCheck(UUID uuid, QuestDef def) {
-        if (!def.main()) {
-            return;
-        }
-        ChronicleDef chronicle = engine.chronicleDef();
-        Optional<ChronicleDef.Chapter> chapter =
-                chronicle.chapters().stream()
-                        .filter(c -> c.finalQuest().equals(def.id()))
-                        .findFirst();
-        if (chapter.isEmpty()) {
-            return;
-        }
-        int number = chapter.get().chapter();
-        Bukkit.getPluginManager().callEvent(new ChapterCompletedEvent(uuid, number, false));
-        int season = engine.season();
-        String name = Optional.ofNullable(Bukkit.getPlayer(uuid)).map(Player::getName).orElse("?");
-        var _ =
-                engine.api
-                        .database()
-                        .async(c -> QuestRepository.completedCount(c, def.id(), season))
-                        .thenAcceptAsync(
-                                count -> {
-                                    if (count == 1) {
-                                        Component msg =
-                                                engine.api
-                                                        .messages()
-                                                        .get(
-                                                                "quest.announce.first_chapter",
-                                                                Placeholder.unparsed(
-                                                                        "player", name),
-                                                                Placeholder.unparsed(
-                                                                        "chapter",
-                                                                        chapter.get().name()));
-                                        engine.api
-                                                .bus()
-                                                .publish(
-                                                        Channels.ANNOUNCEMENTS,
-                                                        new Channels.Announcement(
-                                                                MiniMessage.miniMessage()
-                                                                        .serialize(msg)));
-                                    }
-                                },
-                                engine.tasks.main());
-    }
-
     // ------------------------------------------------------------------ deliver
 
     DeliverPlan.Result plan(Player player, QuestDef def) {
-        List<DeliverPlan.Slot> slots = new ArrayList<>();
-        ItemStack[] contents = player.getInventory().getStorageContents();
-        for (int i = 0; i < contents.length; i++) {
-            ItemStack stack = contents[i];
-            if (stack == null || stack.isEmpty()) {
-                continue;
-            }
-            Optional<HarborItem> item = engine.api.items().read(stack);
-            if (item.isEmpty()) {
-                continue;
-            }
-            CatchFacts facts;
-            boolean precious;
-            switch (item.get()) {
-                case HarborItem.Fish fish -> {
-                    Optional<FishDef> fd = engine.snapshot().get(FishDef.TYPE, fish.species().id());
-                    if (fd.isEmpty()) {
-                        continue;
-                    }
-                    facts =
-                            CatchFacts.fish(
-                                    fish.species(),
-                                    fd.get().grade(),
-                                    fd.get().region(),
-                                    fish.quality().stars(),
-                                    fish.sizeCm(),
-                                    false);
-                    precious = fish.quality().isMax() || fish.uid() != null;
-                }
-                case HarborItem.Plain plain -> {
-                    facts = CatchFacts.item(plain.id());
-                    precious = false;
-                }
-            }
-            slots.add(new DeliverPlan.Slot(i, facts, stack.getAmount(), precious));
-        }
-        return DeliverPlan.plan(def.objectives(), slots);
-    }
-
-    private void explainMissing(Player player, QuestDef def, DeliverPlan.Result plan) {
-        engine.api
-                .messages()
-                .send(
-                        player,
-                        "quest.deliver.missing_header",
-                        Placeholder.unparsed("name", def.name()));
-        plan.missing()
-                .forEach(
-                        (key, n) ->
-                                def.objective(key)
-                                        .ifPresent(
-                                                o ->
-                                                        engine.api
-                                                                .messages()
-                                                                .send(
-                                                                        player,
-                                                                        "quest.deliver.missing_line",
-                                                                        Placeholder.unparsed(
-                                                                                "objective",
-                                                                                engine
-                                                                                        .objectiveText(
-                                                                                                player,
-                                                                                                def,
-                                                                                                o)),
-                                                                        Placeholder.unparsed(
-                                                                                "missing",
-                                                                                String.valueOf(
-                                                                                        n)))));
+        return deliverCheck.plan(player, def);
     }
 }
