@@ -2,7 +2,7 @@ name: Harbor-Skript
 version: '${version}'
 main: wiki.creeper.harbor.skript.HarborSkriptPlugin
 api-version: '${apiVersion}'
-description: 'Skript 애드온 (Harbor 재화·아이템·문구·가구를 Skript에서 안전하게)'
+description: 'Skript 애드온 (Harbor 재화·아이템·문구·퀘스트·도감·낚시 등을 Skript에서 안전하게)'
 dependencies:
   server:
     Harbor-Core:
@@ -13,3 +13,12 @@ dependencies:
       load: BEFORE
       required: false
       join-classpath: true
+    # 선택: 켜져 있는 모듈의 문법만 등록한다 (bridge/*Syntax)
+    Harbor-Jobs: {load: BEFORE, required: false, join-classpath: true}
+    Harbor-Fishing: {load: BEFORE, required: false, join-classpath: true}
+    Harbor-Collection: {load: BEFORE, required: false, join-classpath: true}
+    Harbor-Npc: {load: BEFORE, required: false, join-classpath: true}
+    Harbor-Quest: {load: BEFORE, required: false, join-classpath: true}
+    Harbor-Economy: {load: BEFORE, required: false, join-classpath: true}
+    Harbor-World: {load: BEFORE, required: false, join-classpath: true}
+    Harbor-Season: {load: BEFORE, required: false, join-classpath: true}
