@@ -54,6 +54,12 @@ public final class ContentSnapshot {
         return map != null && map.containsKey(id);
     }
 
+    /** 형식 이름으로 항목 하나 (형식 클래스를 모르는 쪽: 외부 이벤트의 ID → 이름 풀기 등). */
+    public Optional<Object> entry(String typeName, HarborId id) {
+        Map<HarborId, Object> map = entries.get(typeName);
+        return map == null ? Optional.empty() : Optional.ofNullable(map.get(id));
+    }
+
     public Set<HarborId> ids(String typeName) {
         Map<HarborId, Object> map = entries.get(typeName);
         return map == null ? Set.of() : map.keySet();

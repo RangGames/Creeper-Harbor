@@ -1,0 +1,50 @@
+package wiki.creeper.harbor.web.http;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
+import wiki.creeper.harbor.common.db.SqlFunction;
+import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.task.Tasks;
+
+/** REST 처리기(가상 스레드)에서 메인 스레드 전용 값 읽기와 DB 읽기. 오래 걸리면 503. */
+public final class Calls {
+
+    private static final long TIMEOUT_SECONDS = 5;
+
+    private final HarborApi api;
+    private final Tasks tasks;
+
+    public Calls(HarborApi api, Tasks tasks) {
+        this.api = api;
+        this.tasks = tasks;
+    }
+
+    public HarborApi api() {
+        return api;
+    }
+
+    /** 메인 스레드에서 읽는다 (모듈 캐시·서비스). */
+    public <T> T main(Supplier<T> read) throws Router.ApiException {
+        return await(CompletableFuture.supplyAsync(read, tasks.main()));
+    }
+
+    public <T> T db(SqlFunction<T> query) throws Router.ApiException {
+        return await(api.database().async(query));
+    }
+
+    public <T> T await(CompletableFuture<T> future) throws Router.ApiException {
+        try {
+            return future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            throw new Router.ApiException(503, "timeout", "서버가 바빠 답하지 못했습니다");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new Router.ApiException(503, "interrupted", "중단되었습니다");
+        } catch (ExecutionException e) {
+            throw new Router.ApiException(500, "internal", String.valueOf(e.getCause()));
+        }
+    }
+}

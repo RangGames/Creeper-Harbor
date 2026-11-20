@@ -279,6 +279,13 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         locks,
                         r);
         Harbor.install(api);
+        Bukkit.getServicesManager()
+                .register(
+                        wiki.creeper.harbor.core.api.ExternalEvents.class,
+                        new wiki.creeper.harbor.core.event.CoreExternalEvents(
+                                messageBus, infra.serverId(), log),
+                        this,
+                        org.bukkit.plugin.ServicePriority.Normal);
         ModuleHost.install(new ModuleRegistry(api, content, playerManager, command, log));
 
         var pm = Bukkit.getPluginManager();

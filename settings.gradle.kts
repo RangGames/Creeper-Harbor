@@ -36,5 +36,6 @@ include(
     "harbor-shop",
     "harbor-wildlife",
     "harbor-skript",
+    "harbor-web",
     "harbor-tools",
 )

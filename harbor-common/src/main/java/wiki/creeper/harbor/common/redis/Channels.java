@@ -11,6 +11,10 @@ public final class Channels {
     /** 서버 전체 공지 (희귀 포획, 신기록, 보스). message는 MiniMessage 문자열. */
     public record Announcement(String message) {}
 
+    /** 외부 연동 이벤트 (Harbor-Web 웹훅·REST, 외부 서비스가 구독, 추가 제안). */
+    public static final Channel<wiki.creeper.harbor.common.event.ExternalEvent> EVENTS =
+            new Channel<>("harbor:events", wiki.creeper.harbor.common.event.ExternalEvent.class);
+
     public static final Channel<Announcement> ANNOUNCEMENTS =
             new Channel<>(ANNOUNCE, Announcement.class);
 

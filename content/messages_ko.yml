@@ -2080,3 +2080,38 @@ pack:
   unchanged: "<gray>리소스팩이 바뀌지 않았습니다 (SHA-1 <sha1>)."
   no_assets: "<red>에셋이 없습니다. <white><source>/assets</white>에 리소스팩 내용을 넣으세요."
   failed: "<red>리소스팩 빌드 실패: <reason>"
+
+# Harbor-Web (외부 연동). web.discord.<이벤트 type>: 디스코드 웹훅 문구 (문구가 없는 type은 디스코드로 보내지 않는다).
+# 자리표시자: <player> <server> <type>와 data의 모든 칸 (점은 밑줄로: rewards.gold → <rewards_gold>, fish.name → <fish_name>). 목록은 harbor-web/README.md
+web:
+  admin:
+    status: "<gray>이벤트 발행 <white><events></white> · 웹훅 <white><webhooks></white> · REST <white><http>"
+    test_queued: "<green>웹훅 <target>에 테스트를 보냈습니다 (결과는 서버 로그)."
+    test_failed: "<red>웹훅 <target>을(를) 찾지 못했거나 웹훅이 꺼져 있습니다."
+    no_recent: "<gray>이 서버는 REST가 꺼져 있어 최근 이벤트를 모으지 않습니다."
+    event_line: "<gray>#<seq> <white><type></white> <dark_gray><server></dark_gray> <yellow><player>"
+  discord:
+    server:
+      started: "🟢 **<server>** 서버가 켜졌습니다"
+      stopping: "🔴 **<server>** 서버가 꺼집니다"
+      webhook_test: "🔧 Harbor 웹훅 테스트 (<player>)"
+    quest:
+      completed: "✅ **<player>** 퀘스트 완료: <quest_name>"
+      chapter_completed: "📜 **<player>**님이 메인 스토리 <chapter>장을 마쳤습니다!"
+    collection:
+      record_broken: "🏆 **<player>**님이 <fish_name> 서버 기록을 갱신했습니다! <size>cm (리그 <league>)"
+      codex_milestone: "📖 **<player>** 도감 <percent>% 달성"
+      aquarium_stage: "🐠 항구 수족관이 <stage>단계가 되었습니다"
+    fishing:
+      caught: "🎣 **<player>**님이 <fish_name>(<fish_grade>)을(를) 낚았습니다"
+    jobs:
+      advanced: "⚓ **<player>**님이 <tier>차 전직을 했습니다"
+    boss:
+      encounter_end: "⚔️ <boss_name> 전투 종료 · 결과 <result>"
+    world:
+      sea_event_start: "🌊 해상 이벤트가 시작되었습니다 (<server>)"
+    economy:
+      auction_sold: "💰 경매 낙찰: <item_id> · <price>G"
+      trade_flagged: "🚨 부정 거래 의심 (점수 <score>) · <ref_id>"
+    season:
+      title_granted: "🎖️ **<player>** 칭호 획득: <title_name>"

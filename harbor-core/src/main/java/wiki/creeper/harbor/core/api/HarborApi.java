@@ -65,6 +65,11 @@ public interface HarborApi {
         return Optional.ofNullable(Bukkit.getServicesManager().load(type));
     }
 
+    /** 외부 연동 이벤트 발행 (웹훅·REST, Harbor-Web). Core가 켜져 있으면 늘 있다. */
+    default ExternalEvents events() {
+        return service(ExternalEvents.class).orElse(ExternalEvents.NOOP);
+    }
+
     /** 우편함 (Economy가 구현). 없으면 호출한 쪽이 보류한다. */
     default Optional<MailService> mail() {
         return service(MailService.class);

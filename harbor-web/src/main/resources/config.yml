@@ -1,0 +1,38 @@
+# Harbor-Web 설정 (서버마다 plugins/Harbor-Web/config.yml). 웹훅 URL·토큰 같은 비밀은 여기에만 둔다 (저장소 content/에 넣지 않는다).
+#
+# 이벤트 발행은 모든 서버에서 켜 둔다 (각 서버의 게임 이벤트가 Redis harbor:events로 모인다).
+# 웹훅 발송·REST API는 한 서버(예: lobby)에서만 켜면 된다. 웹훅은 여러 서버에서 켜도 Redis 잠금으로 한 서버만 보낸다.
+
+events:
+  publish: true
+  # 내보내지 않을 이벤트 (glob: *는 아무 글자). 예: fishing.* , economy.currency_changed
+  exclude: []
+
+webhooks:
+  enabled: false
+  # 실패한 발송 재시도 횟수와 대기열 크기 (제안값)
+  retries: 3
+  queue_size: 1000
+  timeout_seconds: 10
+  targets: []
+  # - name: discord-announce
+  #   url: https://discord.com/api/webhooks/…
+  #   format: discord            # discord: messages_ko.yml web.discord.<type> 문구로 보냄 (문구가 없는 이벤트는 건너뜀)
+  #   events: [quest.chapter_completed, collection.record_broken, boss.encounter_end]
+  #   where: {}                  # data 값 조건 (모두 맞아야 보냄). 예: {grade: legendary}
+  # - name: my-backend
+  #   url: https://example.com/harbor/events
+  #   format: json               # json: 이벤트 전체를 POST. 헤더 X-Harbor-Event · X-Harbor-Id · X-Harbor-Timestamp · X-Harbor-Signature
+  #   secret: change-me          # X-Harbor-Signature = "sha256=" + hex(HMAC-SHA256(secret, timestamp + "." + body))
+  #   events: ["*"]
+
+http:
+  enabled: false
+  bind: 127.0.0.1              # 밖에서 받으려면 0.0.0.0 (앞에 HTTPS 리버스 프록시를 두세요)
+  port: 8765
+  rate_limit_per_minute: 120   # 토큰마다 (제안값)
+  recent_events: 500           # /v1/events가 들고 있는 최근 이벤트 수
+  cors_origins: []             # 브라우저에서 부를 사이트 (예: https://creeper.wiki)
+  tokens: []
+  # - name: website
+  #   token: 긴-임의-문자열      # 요청 헤더 Authorization: Bearer <token>
