@@ -231,7 +231,22 @@ public final class AquariumManager implements AquariumService, Listener {
 
     @Override
     public CompletableFuture<Boolean> donateHeld(Player player) {
-        ItemStack held = player.getInventory().getItemInMainHand();
+        return donateSlot(
+                player,
+                player.getInventory().getHeldItemSlot(),
+                "hand",
+                "collection.aquarium.changed");
+    }
+
+    /**
+     * 인벤토리 한 칸의 어종 한 마리를 기부한다 (확인 화면 후, 손에 든 것·수족관 진행 화면 공용). 확인하는 사이 그 칸의 아이템이 바뀌었으면 취소하고, 기부는
+     * {@link #donateItems}의 같은 트랜잭션으로 한다.
+     *
+     * @param changedKey 칸이 바뀌었을 때 문구 키
+     */
+    CompletableFuture<Boolean> donateSlot(
+            Player player, int slot, String source, String changedKey) {
+        ItemStack held = player.getInventory().getItem(slot);
         Optional<HarborItem.Fish> item = fishOf(held);
         Optional<FishDef> fish =
                 item.flatMap(i -> api.content().snapshot().get(FishDef.TYPE, i.species().id()));
@@ -272,20 +287,25 @@ public final class AquariumManager implements AquariumService, Listener {
                                 result.complete(false);
                                 return;
                             }
-                            // 손의 아이템이 확인 화면 사이에 바뀌었으면 취소
-                            ItemStack now = player.getInventory().getItemInMainHand();
-                            if (!fishOf(now).map(item.get()::equals).orElse(false)) {
-                                api.messages().send(player, "collection.aquarium.changed");
+                            // 그 칸의 아이템이 확인 화면 사이에 바뀌었으면 취소
+                            ItemStack now = player.getInventory().getItem(slot);
+                            if (now == null || !fishOf(now).map(item.get()::equals).orElse(false)) {
+                                api.messages().send(player, changedKey);
                                 result.complete(false);
                                 return;
                             }
                             ItemStack taken = now.asOne();
                             now.setAmount(now.getAmount() - 1);
                             var _ =
-                                    donateItems(player, List.of(taken), "hand")
+                                    donateItems(player, List.of(taken), source)
                                             .thenAccept(r -> result.complete(r.ok()));
                         });
         return result;
+    }
+
+    /** 이번 시즌 기부된 어종 (메모리 캐시, 진행 화면). */
+    Set<FishId> donatedSpecies() {
+        return donatedSpecies;
     }
 
     // ------------------------------------------------------------------ 기부함
@@ -607,7 +627,7 @@ public final class AquariumManager implements AquariumService, Listener {
         }
     }
 
-    private Optional<HarborItem.Fish> fishOf(@Nullable ItemStack stack) {
+    Optional<HarborItem.Fish> fishOf(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return Optional.empty();
         }

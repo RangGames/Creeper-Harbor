@@ -45,6 +45,24 @@ public final class SeasonLink {
         this.log = log;
     }
 
+    /** 칭호 표시 이름 (보상 트랙 화면). 키가 틀렸으면 키 그대로. */
+    public net.kyori.adventure.text.Component titleName(String key) {
+        try {
+            return SeasonServices.titles().display(TitleId.of(key));
+        } catch (IllegalArgumentException e) {
+            return net.kyori.adventure.text.Component.text(key);
+        }
+    }
+
+    /** 칭호를 가지고 있는지 (메인 스레드 캐시). */
+    public boolean owns(UUID player, String key) {
+        try {
+            return SeasonServices.titles().has(player, TitleId.of(key));
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
     /** 칭호를 준다 (메인 스레드). key는 codex.yml 칭호 키 (codex_25, codex_region/harbor). */
     public CompletableFuture<TitleService.Grant> grant(UUID player, String key) {
         TitleId title;
