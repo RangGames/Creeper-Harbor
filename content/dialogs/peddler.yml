@@ -10,5 +10,6 @@
         - {label: npc.dialog.option.bye, actions: [close]}
     rumor:
       pages: [npc.dialog.peddler.rumor.1]
+      style: title                     # 소문은 화면 가운데 타이틀로 (노드별 방식, 추가 제안)
       options:
         - {label: npc.dialog.option.back, goto: greet}

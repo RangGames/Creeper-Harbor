@@ -27,6 +27,7 @@ import wiki.creeper.harbor.npc.cutscene.CutsceneManager;
 import wiki.creeper.harbor.npc.dialog.BuiltinKeys;
 import wiki.creeper.harbor.npc.dialog.DialogManager;
 import wiki.creeper.harbor.npc.dialog.DialogRegistry;
+import wiki.creeper.harbor.npc.dialog.present.Presenters;
 import wiki.creeper.harbor.npc.entity.InteractionListener;
 import wiki.creeper.harbor.npc.entity.MannequinBody;
 import wiki.creeper.harbor.npc.entity.NpcManager;
@@ -44,6 +45,7 @@ public final class HarborNpcPlugin extends HarborModule implements Listener {
     private @Nullable NpcManager npcs;
     private @Nullable CutsceneManager cutscenes;
     private @Nullable DialogRegistry registry;
+    private @Nullable DialogManager dialogs;
 
     @Override
     public String moduleId() {
@@ -83,7 +85,14 @@ public final class HarborNpcPlugin extends HarborModule implements Listener {
         NpcManager npcs = new NpcManager(this, api, worlds, getSLF4JLogger(), main);
         this.npcs = npcs;
         DialogManager dialogs =
-                new DialogManager(api, ctx.tasks(), npcs, registry, getSLF4JLogger());
+                new DialogManager(
+                        api,
+                        ctx.tasks(),
+                        npcs,
+                        registry,
+                        new Presenters(this, api, ctx.tasks(), npcs),
+                        getSLF4JLogger());
+        this.dialogs = dialogs;
         AffinityManager affinity = new AffinityManager(api, npcs, getSLF4JLogger());
         ctx.playerComponent(affinity.component());
         ReputationManager reputation =
@@ -156,6 +165,10 @@ public final class HarborNpcPlugin extends HarborModule implements Listener {
 
     @Override
     protected void disable() {
+        DialogManager d = dialogs;
+        if (d != null) {
+            d.shutdown();
+        }
         CutsceneManager c = cutscenes;
         if (c != null) {
             c.shutdown();

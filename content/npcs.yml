@@ -64,6 +64,7 @@
   location: {world: harbor_main, x: 16.5, y: 64, z: 30.5, yaw: 0}
   skin: harbor:entity/npc/tackle_keeper
   dialog: dialog/tackle_keeper
+  dialog_style: chat                   # 채팅 대사 + 버튼 (추가 제안)
   shop: shop/tackle
 
 - id: npc/shipwright
@@ -123,6 +124,7 @@
   role: wanderer
   skin: harbor:entity/npc/peddler
   dialog: dialog/peddler
+  dialog_style: hologram               # 머리 위 말풍선 + 채팅 버튼 (재클릭으로 넘김, 추가 제안)
   schedule:
     slot_hours: 3
     announce: true                    # 도착을 harbor:announce로 알린다
