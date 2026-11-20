@@ -15,6 +15,7 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.npc.api.AffinityLevel;
+import wiki.creeper.harbor.npc.api.DialogStyle;
 import wiki.creeper.harbor.npc.api.GiftReaction;
 import wiki.creeper.harbor.npc.api.NpcRole;
 
@@ -32,6 +33,7 @@ import wiki.creeper.harbor.npc.api.NpcRole;
  * @param spawnFlag 이 서버 플래그가 서야 등장 (예: aquarium_stage_2)
  * @param hideFlag 이 서버 플래그가 서면 숨김
  * @param greet 하루 첫 대화 호감도를 줄지
+ * @param dialogStyle 대화 기본 방식 (없으면 balance.yml npc.dialog.default_style, 추가 제안)
  */
 public record NpcDef(
         NpcId id,
@@ -51,7 +53,8 @@ public record NpcDef(
         @Nullable String hideFlag,
         List<NameVariant> nameVariants,
         @Nullable Schedule schedule,
-        boolean greet) {
+        boolean greet,
+        @Nullable DialogStyle dialogStyle) {
 
     public static final ContentType.Entries<NpcDef> TYPE =
             new ContentType.Entries<>(
@@ -135,7 +138,8 @@ public record NpcDef(
                     "hide_flag",
                     "name_variants",
                     "schedule",
-                    "greet");
+                    "greet",
+                    "dialog_style");
 
     static NpcDef parse(YamlNode node, ParseContext ctx) {
         node.allowOnly(FIELDS);
@@ -191,7 +195,8 @@ public record NpcDef(
                 flag(node, "hide_flag"),
                 parseVariants(node),
                 schedule,
-                node.bool("greet", true));
+                node.bool("greet", true),
+                DialogDef.parseStyle(node, "dialog_style"));
     }
 
     private static @Nullable String flag(YamlNode node, String key) {

@@ -815,6 +815,19 @@ npc:
     unavailable: "<yellow>지금은 고를 수 없는 선택지입니다."
     error: "<red>대화를 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."
     nothing: "<gray>할 말이 없는 것 같다."
+    # 대화 방식 (dialogs/*.yml style·npcs.yml dialog_style, 추가 제안). <speaker>·<text>·<label>·<buttons>·<hint>
+    style:
+      chat: "<yellow><speaker></yellow><dark_gray> » </dark_gray><white><text>"
+      actionbar: "<yellow><speaker></yellow><dark_gray> » </dark_gray><white><text>"
+      title: "<yellow><speaker>"
+      subtitle: "<white><text>"
+      hologram: "<yellow><speaker></yellow><newline><white><text></white><newline><hint>"
+      hologram_next: "<dark_gray>우클릭 ▶"
+      hologram_choices: "<gray>▼ 채팅에서 고르세요"
+      choices: "<dark_gray>» </dark_gray><buttons>"
+      button: "<white>[<label><white>]"
+      separator: "  "
+      next_hint: "<gray>누르거나 NPC를 다시 우클릭하면 넘어갑니다"
     option:
       listen: "이야기를 듣는다"
       quests: "의뢰·이야기"

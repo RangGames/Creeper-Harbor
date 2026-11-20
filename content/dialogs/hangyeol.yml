@@ -4,6 +4,8 @@
   nodes:
     greet:
       pages: [npc.dialog.hangyeol.greet.1, npc.dialog.hangyeol.greet.2]
+      style: hologram                  # 등대 위 혼잣말: 말풍선으로 5초마다 넘김 (추가 제안)
+      auto: 5
       options:
         - {label: npc.dialog.option.gift, actions: [gift:open]}
         - {label: npc.dialog.option.bye, actions: [close]}
