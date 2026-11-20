@@ -33,7 +33,6 @@ import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.redis.Channel;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.MailService;
-import wiki.creeper.harbor.core.gui.PagedMenu;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
@@ -86,6 +85,12 @@ public final class MailManager implements MailService {
     private final Tasks tasks;
     private final Logger log;
     private final TradeGuard guard;
+
+    private final MailMenu menu = new MailMenu(this);
+
+    HarborApi api() {
+        return api;
+    }
 
     public MailManager(HarborApi api, Tasks tasks, Logger log, TradeGuard guard) {
         this.api = api;
@@ -332,51 +337,72 @@ public final class MailManager implements MailService {
                 hold == null ? null : hold.toInstant());
     }
 
-    /** /우편함: 안 받은 우편(보류 중 포함) 목록. 누르면 수령. */
+    /** /우편함: 안 받은 우편(보류 중 포함) 목록. 누르면 수령, "모두 받기"는 {@link #claimAll}. */
     public void open(Player player) {
-        UUID uuid = player.getUniqueId();
-        var _ =
-                api.database()
-                        .async(
-                                c -> {
-                                    List<Mail> mails = new ArrayList<>();
-                                    try (PreparedStatement ps =
-                                            c.prepareStatement(
-                                                    SELECT
-                                                            + " WHERE uuid = ? AND state IN ('UNCLAIMED', 'HELD') ORDER BY id LIMIT 270")) {
-                                        ps.setString(1, uuid.toString());
-                                        try (ResultSet rs = ps.executeQuery()) {
-                                            while (rs.next()) {
-                                                mails.add(read(rs));
-                                            }
-                                        }
-                                    }
-                                    return mails;
-                                })
-                        .thenAcceptAsync(mails -> show(player, mails), tasks.main());
+        var _ = load(player.getUniqueId()).thenAccept(mails -> menu.show(player, mails));
     }
 
-    private void show(Player player, List<Mail> mails) {
+    /** 안 받은 우편(보류 포함, 오래된 순, 270개까지). 메인 스레드에서 완료. */
+    private CompletableFuture<List<Mail>> load(UUID uuid) {
+        return api.database()
+                .async(
+                        c -> {
+                            List<Mail> mails = new ArrayList<>();
+                            try (PreparedStatement ps =
+                                    c.prepareStatement(
+                                            SELECT
+                                                    + " WHERE uuid = ? AND state IN ('UNCLAIMED', 'HELD') ORDER BY id LIMIT 270")) {
+                                ps.setString(1, uuid.toString());
+                                try (ResultSet rs = ps.executeQuery()) {
+                                    while (rs.next()) {
+                                        mails.add(read(rs));
+                                    }
+                                }
+                            }
+                            return mails;
+                        })
+                .thenApplyAsync(m -> m, tasks.main());
+    }
+
+    /**
+     * 모두 받기 (추가 제안): 보류가 아닌 우편을 오래된 순으로 하나씩 받는다 (같은 CLAIMED 트랜잭션). 아이템은 빈 칸이 있을 때만 받고, 칸이 모자라면 남겨
+     * 둔다. 끝나면 받은 수·남은 수를 알리고 우편함을 다시 연다. 메인 스레드.
+     */
+    public void claimAll(Player player) {
+        var _ =
+                load(player.getUniqueId())
+                        .thenAccept(mails -> claimNext(player, mails.iterator(), 0, 0));
+    }
+
+    private void claimNext(Player player, java.util.Iterator<Mail> it, int got, int left) {
         if (!player.isOnline()) {
             return;
         }
-        if (mails.isEmpty()) {
-            api.messages().send(player, "economy.mail.empty");
-            player.closeInventory();
+        while (it.hasNext()) {
+            Mail mail = it.next();
+            if (mail.held() || (mail.item() != null && player.getInventory().firstEmpty() < 0)) {
+                left++;
+                continue;
+            }
+            int g = got;
+            int l = left;
+            var _ =
+                    claim(player, mail, false, false)
+                            .thenAccept(
+                                    ok -> claimNext(player, it, ok ? g + 1 : g, ok ? l : l + 1));
             return;
         }
-        PagedMenu<Mail> menu =
-                new PagedMenu<>(
-                        api.messages().get("economy.mail.title"),
-                        6,
-                        mails,
-                        mail -> new PagedMenu.Entry(icon(mail), e -> claim(player, mail, true)),
-                        named(Material.ARROW, "economy.mail.previous"),
-                        named(Material.ARROW, "economy.mail.next"));
-        menu.show(player, 0);
+        api.messages()
+                .send(
+                        player,
+                        left > 0 ? "economy.mail.claim_all_partial" : "economy.mail.claim_all_done",
+                        Placeholder.unparsed("count", String.valueOf(got)),
+                        Placeholder.unparsed("left", String.valueOf(left)));
+        open(player);
     }
 
-    private ItemStack icon(Mail mail) {
+    /** 화면 아이콘 (MailMenu). */
+    ItemStack icon(Mail mail) {
         ItemStack item = mail.item();
         ItemStack icon;
         if (item != null) {
@@ -425,12 +451,6 @@ public final class MailManager implements MailService {
         return icon;
     }
 
-    private ItemStack named(Material material, String key) {
-        ItemStack stack = ItemStack.of(material);
-        stack.setData(DataComponentTypes.ITEM_NAME, api.messages().get(key));
-        return stack;
-    }
-
     // ------------------------------------------------------------------ 수령
 
     /** 경매 낙찰 직후 자동 수령: 구매자가 접속 중이고 칸이 있으면 바로 받는다. 칸이 없으면 우편함에 남는다. 메인 스레드. */
@@ -464,26 +484,32 @@ public final class MailManager implements MailService {
                                         api.messages().send(player, "economy.mail.arrived");
                                         return;
                                     }
-                                    claim(player, mail.get(), false);
+                                    var _ = claim(player, mail.get(), false, true);
                                 },
                                 tasks.main());
     }
 
-    private void claim(Player player, Mail mail, boolean reopen) {
+    /**
+     * 우편 하나 수령. 결과(받았는지)는 메인 스레드에서 완료된다.
+     *
+     * @param reopen 끝나면 우편함을 다시 연다
+     * @param notify 결과 문구를 보낸다 (모두 받기는 끝에 한 번만 알린다)
+     */
+    CompletableFuture<Boolean> claim(Player player, Mail mail, boolean reopen, boolean notify) {
         UUID uuid = player.getUniqueId();
         if (mail.held()) {
             api.messages().send(player, "economy.mail.held");
-            return;
+            return CompletableFuture.completedFuture(false);
         }
         ItemStack item = mail.item();
         if (item != null && player.getInventory().firstEmpty() < 0) {
             api.messages().send(player, "economy.mail.full");
-            return;
+            return CompletableFuture.completedFuture(false);
         }
         Optional<TradeGuard.Ticket> ticket = guard.begin(uuid);
         if (ticket.isEmpty()) {
             api.messages().send(player, "economy.busy");
-            return;
+            return CompletableFuture.completedFuture(false);
         }
         String update =
                 "UPDATE mailbox SET state = 'CLAIMED', claimed_at = CURRENT_TIMESTAMP(3) WHERE id = ? AND state = 'UNCLAIMED'";
@@ -550,29 +576,32 @@ public final class MailManager implements MailService {
                                     },
                                     tasks.main());
         }
-        var _ =
-                ticket.get()
-                        .track(claimed)
-                        .exceptionally(
-                                e -> {
-                                    log.warn("우편 수령 실패: {} {}", uuid, mail.id(), e);
-                                    return false;
-                                })
-                        .thenAcceptAsync(
-                                ok -> {
-                                    if (!player.isOnline()) {
-                                        return;
-                                    }
-                                    api.messages()
-                                            .send(
-                                                    player,
-                                                    ok
-                                                            ? "economy.mail.claimed"
-                                                            : "economy.mail.failed");
-                                    if (reopen) {
-                                        open(player);
-                                    }
-                                },
-                                tasks.main());
+        return ticket.get()
+                .track(claimed)
+                .exceptionally(
+                        e -> {
+                            log.warn("우편 수령 실패: {} {}", uuid, mail.id(), e);
+                            return false;
+                        })
+                .thenApplyAsync(
+                        ok -> {
+                            boolean done = Boolean.TRUE.equals(ok);
+                            if (!player.isOnline()) {
+                                return done;
+                            }
+                            if (notify) {
+                                api.messages()
+                                        .send(
+                                                player,
+                                                done
+                                                        ? "economy.mail.claimed"
+                                                        : "economy.mail.failed");
+                            }
+                            if (reopen) {
+                                open(player);
+                            }
+                            return done;
+                        },
+                        tasks.main());
     }
 }

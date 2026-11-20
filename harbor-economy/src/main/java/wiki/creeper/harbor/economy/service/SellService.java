@@ -14,6 +14,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.common.id.FishId;
@@ -45,8 +46,17 @@ import wiki.creeper.harbor.jobs.api.JobsService;
  */
 public final class SellService {
 
-    /** 판매 후보 한 줄 (인벤토리 칸 번호와 그때의 아이템). */
-    private record Line(int slot, ItemStack stack, HarborItem.Fish fish, long price) {}
+    /**
+     * 판매 후보 한 줄 (칸 번호와 그때의 아이템). 칸은 인벤토리 칸 또는 판매 상자 칸.
+     *
+     * @param protection 귀한 물고기 보호 이유 ({@link SellProtection})
+     */
+    record Line(
+            int slot,
+            ItemStack stack,
+            HarborItem.Fish fish,
+            long price,
+            SellProtection.Reason protection) {}
 
     private static final StatKey BULK_SLIP = StatKey.of("bulk_sell_slip");
     private static final SkillId BIG_DEAL = SkillId.parse("skill/capstone/big_deal");
@@ -67,6 +77,8 @@ public final class SellService {
     }
 
     /**
+     * /판매 손 · /판매 전부: 견적 확인 Dialog. 전부는 귀한 물고기(잠금·고유 번호·★5)를 빼고, 손에 든 것은 그대로 팔되 확인 문구에 알린다.
+     *
      * @param heldOnly 손에 든 것만
      */
     public void open(Player player, boolean heldOnly) {
@@ -76,18 +88,21 @@ public final class SellService {
             return;
         }
         long total = lines.stream().mapToLong(Line::price).sum();
+        List<net.kyori.adventure.text.Component> body = new ArrayList<>();
+        body.add(
+                api.messages()
+                        .get(
+                                "economy.sell.body",
+                                Placeholder.unparsed("count", String.valueOf(count(lines))),
+                                Placeholder.unparsed("total", String.valueOf(total))));
+        if (lines.stream().anyMatch(l -> l.protection().protects())) {
+            body.add(api.messages().get("economy.sell.protected_warning"));
+        }
         api.dialogs()
                 .confirm(
                         player,
                         api.messages().get("economy.sell.title"),
-                        List.of(
-                                api.messages()
-                                        .get(
-                                                "economy.sell.body",
-                                                Placeholder.unparsed(
-                                                        "count", String.valueOf(count(lines))),
-                                                Placeholder.unparsed(
-                                                        "total", String.valueOf(total)))),
+                        body,
                         api.messages().get("economy.sell.yes"),
                         api.messages().get("economy.sell.no"),
                         ok -> {
@@ -97,7 +112,7 @@ public final class SellService {
                         });
     }
 
-    private static int count(List<Line> lines) {
+    static int count(List<Line> lines) {
         return lines.stream().mapToInt(l -> l.stack().getAmount()).sum();
     }
 
@@ -111,15 +126,88 @@ public final class SellService {
             if (stack == null || stack.isEmpty()) {
                 continue;
             }
-            Optional<HarborItem> item = api.items().read(stack);
-            if (item.isPresent() && item.get() instanceof HarborItem.Fish fish) {
-                long unit = pricer.applyAsLong(fish);
-                if (unit > 0) {
-                    lines.add(new Line(slot, stack.clone(), fish, unit * stack.getAmount()));
-                }
-            }
+            line(slot, stack, pricer).ifPresent(lines::add);
         }
         return lines;
+    }
+
+    private Optional<Line> line(int slot, ItemStack stack, ToLongFunction<HarborItem.Fish> pricer) {
+        Optional<HarborItem> item = api.items().read(stack);
+        if (item.isPresent() && item.get() instanceof HarborItem.Fish fish) {
+            long unit = pricer.applyAsLong(fish);
+            if (unit > 0) {
+                return Optional.of(
+                        new Line(
+                                slot,
+                                stack.clone(),
+                                fish,
+                                unit * stack.getAmount(),
+                                protection(fish, stack)));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** 귀한 물고기 보호 이유 (잠금 → 고유 번호 → ★5). */
+    static SellProtection.Reason protection(HarborItem.Fish fish, ItemStack stack) {
+        return SellProtection.of(
+                fish.quality().stars(),
+                wiki.creeper.harbor.common.model.Quality.MAX,
+                fish.uid() != null,
+                ItemLock.locked(stack));
+    }
+
+    /**
+     * 판매 상자 칸들의 견적 (일괄 판매 미끄러짐 포함). 칸 번호는 상자 칸. 어종이 아니거나 값이 0인 칸은 빠진다.
+     *
+     * @param contents 상자 칸 (null·빈 칸 허용)
+     * @param slots 볼 칸 수 (앞에서부터)
+     */
+    List<Line> boxLines(Player player, @Nullable ItemStack[] contents, int slots) {
+        UUID uuid = player.getUniqueId();
+        List<Line> lines = new ArrayList<>();
+        for (int slot = 0; slot < Math.min(slots, contents.length); slot++) {
+            ItemStack stack = contents[slot];
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            line(slot, stack, f -> market.quote(uuid, f).orElse(0)).ifPresent(lines::add);
+        }
+        return slip(uuid, lines);
+    }
+
+    /** 이 아이템이 판매 상자에 넣을 수 있는 어종인지 (값과 상관없이). */
+    boolean isFish(ItemStack stack) {
+        return !stack.isEmpty()
+                && api.items().read(stack).filter(i -> i instanceof HarborItem.Fish).isPresent();
+    }
+
+    /** 이 아이템의 보호 이유 (어종이 아니면 NONE). */
+    SellProtection.Reason protectionOf(ItemStack stack) {
+        Optional<HarborItem> item = stack.isEmpty() ? Optional.empty() : api.items().read(stack);
+        return item.isPresent() && item.get() instanceof HarborItem.Fish fish
+                ? protection(fish, stack)
+                : SellProtection.Reason.NONE;
+    }
+
+    /**
+     * 판매 상자에서 꺼낸 줄을 판다 (상자 칸은 호출한 쪽이 이미 비웠다). 트랜잭션·실패 반환은 /판매와 같다.
+     *
+     * @return 거래를 시작했으면 true (처리 중이면 false, 그때는 호출한 쪽이 아이템을 돌려준다)
+     */
+    boolean sellTaken(Player player, List<Line> lines) {
+        long total = lines.stream().mapToLong(Line::price).sum();
+        if (lines.isEmpty() || total <= 0) {
+            return false;
+        }
+        return commit(
+                player,
+                lines,
+                total,
+                LedgerReason.FISH_SELL,
+                "sell:" + UUID.randomUUID(),
+                false,
+                false);
     }
 
     private List<Line> collect(Player player, boolean heldOnly) {
@@ -128,6 +216,15 @@ public final class SellService {
         int to = heldOnly ? inv.getHeldItemSlot() + 1 : 36;
         UUID uuid = player.getUniqueId();
         List<Line> lines = scan(player, from, to, f -> market.quote(uuid, f).orElse(0));
+        if (!heldOnly) {
+            // 전부 판매는 귀한 물고기를 건너뛴다 (판매 화면에서 직접 넣고 확인해야 판다)
+            lines = lines.stream().filter(l -> !l.protection().protects()).toList();
+        }
+        return slip(uuid, lines);
+    }
+
+    /** 일괄 판매 미끄러짐: 어종별 마릿수가 기준을 넘으면 그 어종 줄을 조정한 계수로 다시 계산. */
+    private List<Line> slip(UUID uuid, List<Line> lines) {
         // 일괄 판매 미끄러짐: 어종별 마릿수가 기준을 넘으면 그 어종 줄을 조정한 계수로 다시 계산
         Map<FishId, Integer> counts = new HashMap<>();
         for (Line line : lines) {
@@ -163,7 +260,8 @@ public final class SellService {
                                 line.slot(),
                                 line.stack(),
                                 line.fish(),
-                                unit.getAsLong() * line.stack().getAmount()));
+                                unit.getAsLong() * line.stack().getAmount(),
+                                line.protection()));
             }
         }
         return result;
@@ -181,28 +279,44 @@ public final class SellService {
             open(player, heldOnly);
             return;
         }
-        commit(player, lines, total, LedgerReason.FISH_SELL, "sell:" + UUID.randomUUID(), false);
+        var _ =
+                commit(
+                        player,
+                        lines,
+                        total,
+                        LedgerReason.FISH_SELL,
+                        "sell:" + UUID.randomUUID(),
+                        false,
+                        true);
     }
 
-    /** 보관 → 한 트랜잭션 (골드 + 장부 SOLD) → 커밋 후 판매량·이벤트, 실패하면 돌려준다. */
-    private void commit(
+    /**
+     * 보관 → 한 트랜잭션 (골드 + 장부 SOLD) → 커밋 후 판매량·이벤트, 실패하면 돌려준다.
+     *
+     * @param fromInventory true면 인벤토리 칸에서 꺼낸다. false면 호출한 쪽(판매 상자)이 이미 꺼냈다
+     * @return 거래를 시작했으면 true
+     */
+    private boolean commit(
             Player player,
             List<Line> lines,
             long total,
             LedgerReason reason,
             String ref,
-            boolean bigDeal) {
+            boolean bigDeal,
+            boolean fromInventory) {
         UUID uuid = player.getUniqueId();
         Optional<TradeGuard.Ticket> ticket = guard.begin(uuid);
         if (ticket.isEmpty()) {
             api.messages().send(player, "economy.busy");
-            return;
+            return false;
         }
         // 보관: 인벤토리에서 꺼낸다
         PlayerInventory inv = player.getInventory();
         List<ItemStack> custody = new ArrayList<>();
         for (Line line : lines) {
-            inv.setItem(line.slot(), null);
+            if (fromInventory) {
+                inv.setItem(line.slot(), null);
+            }
             custody.add(line.stack());
         }
         List<UUID> uids = lines.stream().map(l -> l.fish().uid()).filter(Objects::nonNull).toList();
@@ -289,6 +403,7 @@ public final class SellService {
                                                                 "total", String.valueOf(total)));
                                     }
                                 });
+        return true;
     }
 
     // ------------------------------------------------------------------ 큰손 거래
@@ -348,7 +463,15 @@ public final class SellService {
                                             + api.infra().season().value()
                                             + ":"
                                             + api.time().seasonWeek();
-                            commit(player, again, recheck, LedgerReason.BIG_DEAL_SELL, ref, true);
+                            var _ =
+                                    commit(
+                                            player,
+                                            again,
+                                            recheck,
+                                            LedgerReason.BIG_DEAL_SELL,
+                                            ref,
+                                            true,
+                                            true);
                         });
     }
 

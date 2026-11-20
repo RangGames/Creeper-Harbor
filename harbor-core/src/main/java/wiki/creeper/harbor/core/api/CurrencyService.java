@@ -59,6 +59,13 @@ public interface CurrencyService {
      */
     CompletableFuture<List<BalanceRank>> top(Currency currency, int offset, int limit);
 
+    /**
+     * 최근 원장 기록 (새 것부터, 추가 제안: 플레이어 거래 내역 화면). 시즌을 가리지 않는다. 메인 스레드에서 완료된다.
+     *
+     * @param limit 최대 줄 수 (1~200)
+     */
+    CompletableFuture<List<LedgerRecord>> history(UUID player, Currency currency, int limit);
+
     /** 상위 캐시 크기. */
     int TOP_CACHED = 100;
 

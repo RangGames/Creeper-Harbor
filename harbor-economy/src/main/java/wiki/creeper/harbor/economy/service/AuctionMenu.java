@@ -2,6 +2,7 @@ package wiki.creeper.harbor.economy.service;
 
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.ItemLore;
+import io.papermc.paper.datacomponent.item.TooltipDisplay;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -20,8 +21,28 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.gui.Menu;
 import wiki.creeper.harbor.economy.service.AuctionHouse.Row;
 
-/** 경매 목록 화면 (/경매 [분류] · /경매 검색 · /경매 내목록). 칸을 누르면 구매 또는 취소 확인 화면을 띄운다. 메인 스레드 전용. */
+/**
+ * 경매장 화면 (/경매 [분류] · /경매 검색 · /경매 내목록). 칸을 누르면 구매 또는 취소 확인 화면을 띄운다. 메인 스레드 전용.
+ *
+ * <p>배치 (추가 제안): 윗줄 분류 6개 · 정렬 · 검색, 가운데 4줄 등록품 36개, 아랫줄 이전 · 내 경매 · 쪽 정보(검색어 지우기) · 거래 기록 · 다음. 거래
+ * 기록은 내가 판 것 / 산 것 탭.
+ */
 final class AuctionMenu {
+
+    /** 목록 상태. */
+    record View(
+            String category, @Nullable String search, boolean mine, int page, AuctionSort sort) {
+
+        View with(int nextPage) {
+            return new View(category, search, mine, nextPage, sort);
+        }
+    }
+
+    static final int PAGE = 36;
+    private static final int FIRST = 9;
+    private static final int SORT = 7;
+    private static final int SEARCH = 8;
+    private static final int NAV = 45;
 
     private final HarborApi api;
     private final Logger log;
@@ -44,9 +65,19 @@ final class AuctionMenu {
 
     /** /경매 [분류] · /경매 검색 · /경매 내목록. 메인 스레드. */
     void open(Player player, String category, @Nullable String search, boolean mine, int page) {
+        open(player, new View(category, search, mine, page, AuctionSort.LATEST));
+    }
+
+    void open(Player player, View view) {
         var _ =
-                listings.page(category, search, mine ? player.getUniqueId() : null, page)
-                        .thenAccept(rows -> show(player, category, search, mine, page, rows))
+                listings.page(
+                                view.category(),
+                                view.search(),
+                                view.mine() ? player.getUniqueId() : null,
+                                view.page(),
+                                view.sort(),
+                                PAGE)
+                        .thenAccept(rows -> show(player, view, rows))
                         .exceptionally(
                                 e -> {
                                     log.warn("경매 목록을 읽지 못했습니다: {}", String.valueOf(e.getMessage()));
@@ -54,58 +85,260 @@ final class AuctionMenu {
                                 });
     }
 
-    private void show(
-            Player player,
-            String category,
-            @Nullable String search,
-            boolean mine,
-            int page,
-            List<Row> rows) {
+    private void show(Player player, View view, List<Row> rows) {
         if (!player.isOnline()) {
             return;
         }
         Component title =
                 api.messages()
                         .get(
-                                mine ? "economy.auction.title_mine" : "economy.auction.title",
+                                view.mine()
+                                        ? "economy.auction.title_mine"
+                                        : "economy.auction.title",
                                 Placeholder.component(
                                         "category",
-                                        api.messages().get("economy.auction.category." + category)),
-                                Placeholder.unparsed("page", String.valueOf(page + 1)));
+                                        api.messages()
+                                                .get(
+                                                        "economy.auction.category."
+                                                                + view.category())),
+                                Placeholder.unparsed("page", String.valueOf(view.page() + 1)));
         Menu menu = new Menu(title, 6);
-        for (int i = 0; i < rows.size() && i < AuctionListings.PAGE; i++) {
-            Row row = rows.get(i);
-            menu.button(i, icon(row, mine), e -> clicked(player, row, mine));
+        for (int slot = 0; slot < 9; slot++) {
+            menu.button(slot, filler(), null);
         }
-        int nav = 45;
-        if (page > 0) {
-            menu.button(
-                    nav,
-                    named(Material.ARROW, "economy.auction.previous"),
-                    e -> open(player, category, search, mine, page - 1));
+        for (int slot = NAV; slot < NAV + 9; slot++) {
+            menu.button(slot, filler(), null);
         }
-        for (int i = 0; i < AuctionHouse.CATEGORIES.size(); i++) {
+        // 윗줄: 분류 · 정렬 · 검색
+        for (int i = 0; i < AuctionHouse.CATEGORIES.size() && i < 6; i++) {
             String cat = AuctionHouse.CATEGORIES.get(i);
-            ItemStack button =
+            boolean selected = cat.equals(view.category()) && !view.mine();
+            menu.button(
+                    i,
                     named(
-                            cat.equals(category) && !mine
+                            selected
                                     ? Material.LIME_STAINED_GLASS_PANE
-                                    : Material.GRAY_STAINED_GLASS_PANE,
-                            "economy.auction.category." + cat);
-            menu.button(nav + 1 + i, button, e -> open(player, cat, null, false, 0));
+                                    : Material.WHITE_STAINED_GLASS_PANE,
+                            api.messages().get("economy.auction.category." + cat),
+                            List.of()),
+                    e -> open(player, new View(cat, view.search(), false, 0, view.sort())));
         }
         menu.button(
-                nav + 7,
-                named(Material.CHEST, "economy.auction.my_listings"),
-                e -> open(player, "all", null, true, 0));
-        if (rows.size() >= AuctionListings.PAGE) {
+                SORT,
+                named(
+                        Material.HOPPER,
+                        api.messages()
+                                .get(
+                                        "economy.auction.sort",
+                                        Placeholder.component(
+                                                "sort",
+                                                api.messages()
+                                                        .get(
+                                                                "economy.auction.sort_name."
+                                                                        + view.sort().key()))),
+                        List.of(api.messages().get("economy.auction.sort_hint"))),
+                e ->
+                        open(
+                                player,
+                                new View(
+                                        view.category(),
+                                        view.search(),
+                                        view.mine(),
+                                        0,
+                                        view.sort().next())));
+        menu.button(
+                SEARCH,
+                named(
+                        Material.NAME_TAG,
+                        api.messages().get("economy.auction.search"),
+                        List.of(
+                                api.messages()
+                                        .get(
+                                                view.search() == null
+                                                        ? "economy.auction.search_hint"
+                                                        : "economy.auction.search_current",
+                                                Placeholder.unparsed(
+                                                        "search",
+                                                        view.search() == null
+                                                                ? ""
+                                                                : view.search())))),
+                e -> askSearch(player, view));
+        // 가운데: 등록품
+        for (int i = 0; i < rows.size() && i < PAGE; i++) {
+            Row row = rows.get(i);
+            menu.button(FIRST + i, icon(row, view.mine()), e -> clicked(player, row, view.mine()));
+        }
+        if (rows.isEmpty()) {
             menu.button(
-                    nav + 8,
-                    named(Material.ARROW, "economy.auction.next"),
-                    e -> open(player, category, search, mine, page + 1));
+                    FIRST + 13,
+                    named(Material.PAPER, api.messages().get("economy.auction.empty"), List.of()),
+                    null);
+        }
+        // 아랫줄
+        if (view.page() > 0) {
+            menu.button(
+                    NAV,
+                    named(
+                            Material.ARROW,
+                            api.messages().get("economy.auction.previous"),
+                            List.of()),
+                    e -> open(player, view.with(view.page() - 1)));
+        }
+        menu.button(
+                NAV + 2,
+                named(Material.CHEST, api.messages().get("economy.auction.my_listings"), List.of()),
+                e -> open(player, new View("all", null, true, 0, AuctionSort.LATEST)));
+        menu.button(
+                NAV + 4,
+                named(
+                        Material.MAP,
+                        api.messages()
+                                .get(
+                                        "economy.auction.page_info",
+                                        Placeholder.unparsed(
+                                                "page", String.valueOf(view.page() + 1)),
+                                        Placeholder.unparsed("count", String.valueOf(rows.size()))),
+                        view.search() == null
+                                ? List.of()
+                                : List.of(api.messages().get("economy.auction.clear_search"))),
+                view.search() == null
+                        ? null
+                        : e ->
+                                open(
+                                        player,
+                                        new View(
+                                                view.category(),
+                                                null,
+                                                view.mine(),
+                                                0,
+                                                view.sort())));
+        menu.button(
+                NAV + 6,
+                named(
+                        Material.WRITABLE_BOOK,
+                        api.messages().get("economy.auction.history"),
+                        List.of()),
+                e -> history(player, true, view));
+        if (rows.size() >= PAGE) {
+            menu.button(
+                    NAV + 8,
+                    named(Material.ARROW, api.messages().get("economy.auction.next"), List.of()),
+                    e -> open(player, view.with(view.page() + 1)));
         }
         menu.open(player);
     }
+
+    private void askSearch(Player player, View view) {
+        player.closeInventory();
+        api.dialogs()
+                .input(
+                        player,
+                        api.messages().get("economy.auction.search"),
+                        List.of(api.messages().get("economy.auction.search_body")),
+                        api.messages().get("economy.auction.search_label"),
+                        view.search() == null ? "" : view.search(),
+                        32,
+                        false,
+                        api.messages().get("economy.auction.yes"),
+                        api.messages().get("economy.auction.no"),
+                        text ->
+                                open(
+                                        player,
+                                        new View(
+                                                view.category(),
+                                                text.isBlank() ? null : text,
+                                                view.mine(),
+                                                0,
+                                                view.sort())));
+    }
+
+    // ------------------------------------------------------------------ 거래 기록
+
+    private void history(Player player, boolean sold, View back) {
+        var _ =
+                listings.history(player.getUniqueId(), sold, PAGE)
+                        .thenAccept(rows -> showHistory(player, sold, back, rows))
+                        .exceptionally(
+                                e -> {
+                                    log.warn("경매 기록을 읽지 못했습니다: {}", String.valueOf(e.getMessage()));
+                                    return null;
+                                });
+    }
+
+    private void showHistory(
+            Player player, boolean sold, View back, List<AuctionListings.HistoryRow> rows) {
+        if (!player.isOnline()) {
+            return;
+        }
+        Menu menu =
+                new Menu(
+                        api.messages()
+                                .get(
+                                        sold
+                                                ? "economy.auction.history_sold"
+                                                : "economy.auction.history_bought"),
+                        6);
+        for (int slot = 0; slot < 9; slot++) {
+            menu.button(slot, filler(), null);
+        }
+        menu.button(
+                0,
+                named(
+                        sold ? Material.LIME_STAINED_GLASS_PANE : Material.WHITE_STAINED_GLASS_PANE,
+                        api.messages().get("economy.auction.history_tab_sold"),
+                        List.of()),
+                sold ? null : e -> history(player, true, back));
+        menu.button(
+                1,
+                named(
+                        sold ? Material.WHITE_STAINED_GLASS_PANE : Material.LIME_STAINED_GLASS_PANE,
+                        api.messages().get("economy.auction.history_tab_bought"),
+                        List.of()),
+                sold ? e -> history(player, false, back) : null);
+        menu.button(
+                8,
+                named(Material.ARROW, api.messages().get("economy.auction.back"), List.of()),
+                e -> open(player, back));
+        for (int i = 0; i < rows.size() && i < PAGE; i++) {
+            AuctionListings.HistoryRow row = rows.get(i);
+            TagResolver[] tags = {
+                Placeholder.unparsed("name", row.itemName()),
+                Placeholder.unparsed("amount", String.valueOf(row.amount())),
+                Placeholder.unparsed("price", String.valueOf(row.price())),
+                Placeholder.unparsed("fee", String.valueOf(row.fee())),
+                Placeholder.unparsed("net", String.valueOf(row.price() - row.fee())),
+                Placeholder.unparsed("time", AuctionHouse.formatTime(api, row.soldAt()))
+            };
+            List<Component> lore = new ArrayList<>();
+            lore.add(api.messages().get("economy.auction.history_price", tags));
+            if (row.sold()) {
+                lore.add(api.messages().get("economy.auction.history_net", tags));
+                if (row.held()) {
+                    lore.add(api.messages().get("economy.auction.history_held", tags));
+                }
+            }
+            lore.add(api.messages().get("economy.auction.history_time", tags));
+            menu.button(
+                    FIRST + i,
+                    named(
+                            row.sold() ? Material.GOLD_INGOT : Material.CHEST,
+                            api.messages().get("economy.auction.history_name", tags),
+                            lore),
+                    null);
+        }
+        if (rows.isEmpty()) {
+            menu.button(
+                    FIRST + 13,
+                    named(
+                            Material.PAPER,
+                            api.messages().get("economy.auction.history_empty"),
+                            List.of()),
+                    null);
+        }
+        menu.open(player);
+    }
+
+    // ------------------------------------------------------------------ 아이콘
 
     private ItemStack icon(Row row, boolean mine) {
         ItemStack icon = row.item();
@@ -117,12 +350,16 @@ final class AuctionMenu {
         Duration left = Duration.between(Instant.now(), row.expiresAt());
         TagResolver[] tags = {
             Placeholder.unparsed("price", String.valueOf(row.price())),
+            Placeholder.unparsed("unit", String.valueOf(row.price() / Math.max(1, row.amount()))),
             Placeholder.unparsed("seller", row.sellerName()),
             Placeholder.unparsed("hours", String.valueOf(Math.max(0, left.toHours()))),
             Placeholder.unparsed("minutes", String.valueOf(Math.max(0, left.toMinutesPart()))),
             Placeholder.unparsed("ref", String.valueOf(row.refPrice()))
         };
         lore.add(api.messages().get("economy.auction.lore.price", tags));
+        if (row.amount() > 1) {
+            lore.add(api.messages().get("economy.auction.lore.unit", tags));
+        }
         lore.add(api.messages().get("economy.auction.lore.seller", tags));
         lore.add(
                 api.messages()
@@ -136,22 +373,30 @@ final class AuctionMenu {
                         .get(
                                 mine ? "economy.auction.lore.cancel" : "economy.auction.lore.buy",
                                 tags));
-        icon.setData(
-                DataComponentTypes.LORE,
-                ItemLore.lore(
-                        lore.stream()
-                                .map(
-                                        c ->
-                                                c.decorationIfAbsent(
-                                                        TextDecoration.ITALIC,
-                                                        TextDecoration.State.FALSE))
-                                .toList()));
+        icon.setData(DataComponentTypes.LORE, ItemLore.lore(plain(lore)));
         return icon;
     }
 
-    private ItemStack named(Material material, String key) {
+    private static List<Component> plain(List<Component> lines) {
+        return lines.stream()
+                .map(c -> c.decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE))
+                .toList();
+    }
+
+    private static ItemStack named(Material material, Component name, List<Component> lore) {
         ItemStack stack = ItemStack.of(material);
-        stack.setData(DataComponentTypes.ITEM_NAME, api.messages().get(key));
+        stack.setData(DataComponentTypes.ITEM_NAME, name);
+        if (!lore.isEmpty()) {
+            stack.setData(DataComponentTypes.LORE, ItemLore.lore(plain(lore)));
+        }
+        return stack;
+    }
+
+    private static ItemStack filler() {
+        ItemStack stack = ItemStack.of(Material.GRAY_STAINED_GLASS_PANE);
+        stack.setData(
+                DataComponentTypes.TOOLTIP_DISPLAY,
+                TooltipDisplay.tooltipDisplay().hideTooltip(true).build());
         return stack;
     }
 

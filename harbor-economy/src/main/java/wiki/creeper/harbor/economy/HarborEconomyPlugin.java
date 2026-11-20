@@ -26,6 +26,7 @@ import wiki.creeper.harbor.economy.service.FraudMonitor;
 import wiki.creeper.harbor.economy.service.MailManager;
 import wiki.creeper.harbor.economy.service.MarketEngine;
 import wiki.creeper.harbor.economy.service.RepairManager;
+import wiki.creeper.harbor.economy.service.SellMenu;
 import wiki.creeper.harbor.economy.service.SellService;
 import wiki.creeper.harbor.economy.service.ShopManager;
 import wiki.creeper.harbor.economy.service.StationManager;
@@ -94,9 +95,12 @@ public final class HarborEconomyPlugin extends HarborModule {
                         dialogs ->
                                 DialogActions.register(this, dialogs, shops, craft, auction, mail));
 
+        SellMenu sellMenu = new SellMenu(api, ctx.tasks(), sell, mail);
+        ctx.listen(sellMenu);
         EconomyCommands commands =
                 new EconomyCommands(
-                        api, market, sell, mail, shops, repair, auction, craft, fraud, stations);
+                        api, market, sell, mail, shops, repair, auction, craft, fraud, stations,
+                        sellMenu);
         commands.adminCommands().forEach(ctx::adminCommand);
         getLifecycleManager()
                 .registerEventHandler(
