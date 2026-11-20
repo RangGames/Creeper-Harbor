@@ -179,7 +179,7 @@ public final class QuestDialogs {
                         i -> actions.get(i).run());
     }
 
-    private void confirmAbandon(Player player, QuestDef def) {
+    void confirmAbandon(Player player, QuestDef def) {
         api.dialogs()
                 .confirm(
                         player,

@@ -25,6 +25,7 @@ public final class QuestServices {
     private final RewardPayer payer;
     private final BoardManager board;
     private final Tracker tracker;
+    private final TrackerBar trackerBar;
     private final ChronicleManager chronicle;
     private final ServerProgressManager progress;
 
@@ -33,6 +34,7 @@ public final class QuestServices {
         this.payer = new RewardPayer(engine);
         this.board = new BoardManager(engine);
         this.tracker = new Tracker(engine);
+        this.trackerBar = new TrackerBar(engine);
         this.chronicle = new ChronicleManager(engine);
         this.progress = new ServerProgressManager(engine);
         engine.attach(payer, board, tracker, chronicle);
@@ -58,14 +60,19 @@ public final class QuestServices {
         return board;
     }
 
+    public TrackerBar trackerBar() {
+        return trackerBar;
+    }
+
     /**
-     * 주기 작업: 액션바 묶음(20틱), 위치 판정(10틱), 추적 방향(balance.yml, 기본 5틱), 게시판 엔티티(600틱), 이벤트 기간 종료(1200틱),
-     * 클라이맥스.
+     * 주기 작업: 액션바 묶음(20틱), 추적 보스바(20틱), 위치 판정(10틱), 추적 방향(balance.yml, 기본 5틱), 게시판 엔티티(600틱), 이벤트 기간
+     * 종료(1200틱), 클라이맥스.
      */
     public void start(java.util.function.Consumer<Player> openBoard) {
         board.setOpener(openBoard);
         board.cleanup();
         var _ = engine.tasks.timer(20, 20, tracker::flushBars);
+        var _ = engine.tasks.timer(20, 20, trackerBar::refresh);
         var _ = engine.tasks.timer(10, 10, tracker::pollPositions);
         long waypointTicks =
                 Math.max(1, engine.balance().integer("quest.tracker.waypoint_refresh_ticks", 5));
@@ -84,6 +91,7 @@ public final class QuestServices {
 
     public void stop() {
         board.cleanup();
+        trackerBar.clear();
     }
 
     public HandoffBlocker.Verdict handoff(Player player, String destination) {
@@ -127,6 +135,7 @@ public final class QuestServices {
     void forget(java.util.UUID uuid) {
         engine.forget(uuid);
         tracker.forget(uuid);
+        trackerBar.forget(uuid);
     }
 
     void expireBoards(Player player, java.util.Set<QuestType> kinds) {

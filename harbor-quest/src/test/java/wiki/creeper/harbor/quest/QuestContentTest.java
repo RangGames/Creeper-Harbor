@@ -149,6 +149,48 @@ class QuestContentTest {
     }
 
     @Test
+    void parsesShorthandObjectives() throws IOException {
+        write(
+                "quests/a.yml",
+                """
+                - id: quest/region/a
+                  name: A
+                  type: region
+                  end_npc: npc/bawi
+                  objectives:
+                    - {catch: "grade:rare+", count: 2}
+                    - {talk: npc/bawi}
+                    - {job_level: 5}
+                    - {key: custom, visit: "point:harbor_main,1,2,3,4"}
+                """);
+        Result<ContentSnapshot, ValidationErrors> r = load();
+        assertTrue(r.isOk(), errors(r));
+        QuestDef q = r.orThrow().get(QuestDef.TYPE, HarborId.parse("quest/region/a")).orElseThrow();
+        var o = q.objectives();
+        assertEquals("catch", o.get(0).type());
+        assertEquals("catch_grade_rare", o.get(0).key());
+        assertEquals(2, o.get(0).count());
+        assertEquals(Target.Kind.GRADE, o.get(0).target().kind());
+        assertEquals("talk_bawi", o.get(1).key());
+        assertEquals("job_level", o.get(2).key());
+        assertEquals(5, o.get(2).count());
+        assertEquals("custom", o.get(3).key());
+        assertEquals(Target.Kind.POINT, o.get(3).target().kind());
+    }
+
+    @Test
+    void rejectsShorthandWithTargetOrTwoTypes() throws IOException {
+        write(
+                "quests/a.yml",
+                "- {id: quest/region/a, name: A, type: region, objectives: [{catch: any, target: any}]}\n");
+        assertTrue(errors(load()).contains("축약형"));
+        write(
+                "quests/a.yml",
+                "- {id: quest/region/a, name: A, type: region, objectives: [{catch: any, boss: any}]}\n");
+        assertTrue(errors(load()).contains("두 개"));
+    }
+
+    @Test
     void rejectsUnknownObjectiveType() throws IOException {
         write(
                 "quests/a.yml",
