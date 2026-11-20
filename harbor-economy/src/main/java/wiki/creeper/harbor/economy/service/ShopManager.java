@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.Component;
@@ -16,6 +17,7 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -30,7 +32,6 @@ import wiki.creeper.harbor.common.ledger.LedgerException;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.util.Result;
-import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.HarborSounds;
@@ -52,7 +53,6 @@ import wiki.creeper.harbor.npc.api.NpcService;
 public final class ShopManager implements ShopService {
 
     private static final StatKey BUY_PRICE = StatKey.of("shop_buy_price");
-    private static final List<Integer> AMOUNTS = List.of(1, 8, 16, 64);
 
     private final HarborApi api;
     private final Tasks tasks;
@@ -88,7 +88,13 @@ public final class ShopManager implements ShopService {
                         entry ->
                                 new PagedMenu.Entry(
                                         icon(player, entry, seller),
-                                        e -> chooseAmount(player, shop.get(), entry, seller)),
+                                        e ->
+                                                chooseAmount(
+                                                        player,
+                                                        shop.get(),
+                                                        entry,
+                                                        seller,
+                                                        e.getClick())),
                         named(Material.ARROW, "economy.shop.previous"),
                         named(Material.ARROW, "economy.shop.next"));
         menu.show(player, 0);
@@ -218,6 +224,12 @@ public final class ShopManager implements ShopService {
                                     Placeholder.unparsed(
                                             "limit", String.valueOf(entry.dailyLimit()))));
         }
+        lore.add(
+                api.messages()
+                        .get(
+                                "economy.shop.click_hint",
+                                Placeholder.unparsed(
+                                        "stack", String.valueOf(stack.getMaxStackSize()))));
         stack.setData(
                 DataComponentTypes.LORE,
                 ItemLore.lore(
@@ -231,8 +243,13 @@ public final class ShopManager implements ShopService {
         return stack;
     }
 
+    /** 클릭 수량 (추가 제안): 좌클릭 1개 · Shift+좌클릭 한 묶음 · 우클릭 직접 입력(1~한 묶음). 칸이 모자라면 남는 것은 우편함. */
     private void chooseAmount(
-            Player player, ShopDef shop, ShopDef.Entry entry, @Nullable NpcId npc) {
+            Player player,
+            ShopDef shop,
+            ShopDef.Entry entry,
+            @Nullable NpcId npc,
+            @Nullable ClickType click) {
         Optional<ItemStack> sample = create(entry, 1);
         if (sample.isEmpty()) {
             return;
@@ -248,33 +265,56 @@ public final class ShopManager implements ShopService {
             return;
         }
         int maxStack = sample.get().getMaxStackSize();
-        List<Integer> amounts = AMOUNTS.stream().filter(a -> a <= maxStack).toList();
         long unit = unitPrice(player.getUniqueId(), entry, npc);
-        List<Dialogs.Choice> choices =
-                amounts.stream()
-                        .map(
-                                a ->
-                                        new Dialogs.Choice(
-                                                api.messages()
-                                                        .get(
-                                                                "economy.shop.amount",
-                                                                Placeholder.unparsed(
-                                                                        "amount",
-                                                                        String.valueOf(a)),
-                                                                Placeholder.unparsed(
-                                                                        "price",
-                                                                        String.valueOf(unit * a))),
-                                                Component.empty()))
-                        .toList();
+        ShopQuantity.Click kind =
+                click == null
+                        ? ShopQuantity.Click.OTHER
+                        : click == ClickType.LEFT
+                                ? ShopQuantity.Click.LEFT
+                                : click == ClickType.SHIFT_LEFT
+                                        ? ShopQuantity.Click.SHIFT_LEFT
+                                        : click.isRightClick()
+                                                ? ShopQuantity.Click.RIGHT
+                                                : ShopQuantity.Click.OTHER;
+        OptionalInt now = ShopQuantity.amount(kind, maxStack);
+        if (now.isPresent()) {
+            buy(player, shop, entry, now.getAsInt(), unit);
+            return;
+        }
+        if (kind != ShopQuantity.Click.RIGHT) {
+            return;
+        }
         player.closeInventory();
         api.dialogs()
-                .choose(
+                .input(
                         player,
                         name(entry),
-                        List.of(api.messages().get("economy.shop.choose")),
-                        choices,
-                        2,
-                        index -> buy(player, shop, entry, amounts.get(index), unit));
+                        List.of(
+                                api.messages()
+                                        .get(
+                                                "economy.shop.input_body",
+                                                Placeholder.unparsed("price", String.valueOf(unit)),
+                                                Placeholder.unparsed(
+                                                        "max", String.valueOf(maxStack)))),
+                        api.messages().get("economy.shop.input_label"),
+                        "1",
+                        4,
+                        false,
+                        api.messages().get("economy.shop.input_ok"),
+                        api.messages().get("economy.shop.input_cancel"),
+                        text -> {
+                            OptionalInt amount = ShopQuantity.parse(text, maxStack);
+                            if (amount.isEmpty()) {
+                                api.messages()
+                                        .send(
+                                                player,
+                                                "economy.shop.input_bad",
+                                                Placeholder.unparsed(
+                                                        "max", String.valueOf(maxStack)));
+                                return;
+                            }
+                            buy(player, shop, entry, amount.getAsInt(), unit);
+                        });
     }
 
     private void buy(Player player, ShopDef shop, ShopDef.Entry entry, int amount, long unit) {

@@ -438,6 +438,28 @@ public final class MarketEngine implements PriceService {
                 .thenApplyAsync(v -> v, tasks.main());
     }
 
+    /** 어느 정시의 모든 어종 계수 (시세판 24시간 비교, 추가 제안). 없으면 빈 지도. future는 메인 스레드에서 완료된다. */
+    CompletableFuture<java.util.Map<String, Double>> coefficientsAt(Instant hour) {
+        java.sql.Timestamp at = java.sql.Timestamp.from(hour.truncatedTo(ChronoUnit.HOURS));
+        return api.database()
+                .async(
+                        c -> {
+                            java.util.Map<String, Double> values = new java.util.HashMap<>();
+                            try (PreparedStatement ps =
+                                    c.prepareStatement(
+                                            "SELECT fish_id, coef FROM market_coef WHERE hour = ?")) {
+                                ps.setTimestamp(1, at);
+                                try (ResultSet rs = ps.executeQuery()) {
+                                    while (rs.next()) {
+                                        values.put(rs.getString(1), rs.getDouble(2));
+                                    }
+                                }
+                            }
+                            return java.util.Map.copyOf(values);
+                        })
+                .thenApplyAsync(v -> v, tasks.main());
+    }
+
     /** 관리자: 시세 수동 고정 (이번 시간 값으로 쓰고 모든 서버에 알린다). */
     public void override(FishId fish, double coef) {
         Instant hour = currentHour();

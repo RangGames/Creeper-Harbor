@@ -48,6 +48,9 @@ public final class EconomyCommands {
     private final CraftManager craft;
     private final FraudMonitor fraud;
     private final StationManager stations;
+    private final SellMenu sellMenu;
+    private final MarketBoard board;
+    private final LedgerHistoryMenu history;
 
     public EconomyCommands(
             HarborApi api,
@@ -59,8 +62,13 @@ public final class EconomyCommands {
             AuctionHouse auction,
             CraftManager craft,
             FraudMonitor fraud,
-            StationManager stations) {
+            StationManager stations,
+            SellMenu sellMenu) {
         this.api = api;
+        this.sellMenu = sellMenu;
+        this.board = new MarketBoard(api, market);
+        this.history =
+                new LedgerHistoryMenu(api, org.slf4j.LoggerFactory.getLogger("Harbor-Economy"));
         this.market = market;
         this.sell = sell;
         this.mail = mail;
@@ -80,12 +88,21 @@ public final class EconomyCommands {
         commands.register(
                 Commands.literal("판매")
                         .requires(src -> player(src, "harbor.economy.sell"))
-                        .executes(ctx -> run(ctx, p -> sell.open(p, false)))
+                        .executes(ctx -> run(ctx, sellMenu::open))
                         .then(
                                 Commands.literal("손")
                                         .executes(ctx -> run(ctx, p -> sell.open(p, true))))
+                        .then(
+                                Commands.literal("전부")
+                                        .executes(ctx -> run(ctx, p -> sell.open(p, false))))
                         .build(),
-                "어종 판매",
+                "어종 판매 (판매 상자 · 손 · 전부)",
+                List.of());
+        commands.register(
+                player("잠금", "harbor.economy.lock", this::toggleLock), "손에 든 아이템 잠금", List.of());
+        commands.register(
+                player("거래내역", "harbor.economy.history", history::open),
+                "내 골드·물비늘 거래 내역",
                 List.of());
         commands.register(player("우편함", "harbor.economy.mail", mail::open), "우편함", List.of());
         commands.register(player("수리", "harbor.economy.repair", repair::open), "장비 수리", List.of());
@@ -108,6 +125,7 @@ public final class EconomyCommands {
         commands.register(
                 Commands.literal("시세")
                         .requires(src -> src.getSender().hasPermission("harbor.economy.market"))
+                        .executes(ctx -> run(ctx, board::open))
                         .then(
                                 FishArgs.argument("fish", api.content()::snapshot)
                                         .executes(this::price))
@@ -204,6 +222,17 @@ public final class EconomyCommands {
                 .requires(src -> player(src, permission))
                 .executes(ctx -> run(ctx, action))
                 .build();
+    }
+
+    /** /잠금: 손에 든 아이템의 잠금을 켜고 끈다 (잠근 아이템은 일괄 판매·경매 등록에서 빠진다). */
+    private void toggleLock(Player player) {
+        org.bukkit.inventory.ItemStack held = player.getInventory().getItemInMainHand();
+        if (held.isEmpty()) {
+            api.messages().send(player, "economy.lock.hold_item");
+            return;
+        }
+        boolean locked = ItemLock.toggle(held);
+        api.messages().send(player, locked ? "economy.lock.locked" : "economy.lock.unlocked");
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx, Consumer<Player> action) {

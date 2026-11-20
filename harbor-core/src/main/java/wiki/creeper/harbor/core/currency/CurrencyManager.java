@@ -30,6 +30,7 @@ import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.core.api.BalanceRank;
 import wiki.creeper.harbor.core.api.CurrencyService;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.LedgerRecord;
 import wiki.creeper.harbor.core.api.event.CurrencyChangedEvent;
 import wiki.creeper.harbor.core.player.PlayerManager;
 import wiki.creeper.harbor.core.task.Tasks;
@@ -170,6 +171,42 @@ public final class CurrencyManager implements CurrencyService {
             return CompletableFuture.completedFuture(online.get().balance(currency));
         }
         return db.async(c -> dbBalance(c, player, currency)).thenApplyAsync(b -> b, tasks.main());
+    }
+
+    @Override
+    public CompletableFuture<List<LedgerRecord>> history(
+            UUID player, Currency currency, int limit) {
+        requireGameCurrency(currency);
+        if (limit < 1 || limit > 200) {
+            throw new IllegalArgumentException("limit 1~200: " + limit);
+        }
+        return db.async(
+                        c -> {
+                            List<LedgerRecord> rows = new ArrayList<>();
+                            try (PreparedStatement ps =
+                                    c.prepareStatement(
+                                            "SELECT id, delta, balance_after, reason, ref_id, created_at FROM ledger"
+                                                    + " WHERE uuid = ? AND currency = ? ORDER BY id DESC LIMIT ?")) {
+                                ps.setString(1, player.toString());
+                                ps.setString(2, currency.name());
+                                ps.setInt(3, limit);
+                                try (ResultSet rs = ps.executeQuery()) {
+                                    while (rs.next()) {
+                                        rows.add(
+                                                new LedgerRecord(
+                                                        rs.getLong(1),
+                                                        currency,
+                                                        rs.getLong(2),
+                                                        rs.getLong(3),
+                                                        rs.getString(4),
+                                                        rs.getString(5),
+                                                        rs.getTimestamp(6).toInstant()));
+                                    }
+                                }
+                            }
+                            return List.copyOf(rows);
+                        })
+                .thenApplyAsync(r -> r, tasks.main());
     }
 
     @Override

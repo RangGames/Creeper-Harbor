@@ -26,6 +26,12 @@ dependencies:
       required: true
       join-classpath: true
 permissions:
+  harbor.economy.lock:
+    description: '/잠금 (손에 든 아이템 잠금)'
+    default: true
+  harbor.economy.history:
+    description: '/거래내역'
+    default: true
   harbor.economy.sell:
     description: '/판매'
     default: true

@@ -175,6 +175,10 @@ final class AuctionLister {
             api.messages().send(player, "economy.auction.hold_item");
             return;
         }
+        if (ItemLock.locked(held)) {
+            api.messages().send(player, "economy.auction.locked");
+            return;
+        }
         if (!house.nearBoard(player)) {
             api.messages().send(player, "economy.auction.board_only");
             return;
@@ -218,27 +222,91 @@ final class AuctionLister {
         AuctionMath.Settlement settle = AuctionMath.settle(price, saleRate);
         ItemStack snapshot = held.clone();
         int slot = player.getInventory().getHeldItemSlot();
+        // 등록 전 참고 가격 (개당 최저가·최근 낙찰 평균)을 읽은 뒤 확인 화면을 띄운다
+        var _ =
+                listings.priceInfo(
+                                cand.itemId(),
+                                house.balance()
+                                        .balance()
+                                        .integer("economy.auction.price_info_days", 7))
+                        .exceptionally(
+                                e ->
+                                        new AuctionListings.PriceInfo(
+                                                java.util.OptionalLong.empty(),
+                                                java.util.OptionalLong.empty(),
+                                                0,
+                                                0))
+                        .thenAccept(
+                                info -> {
+                                    if (player.isOnline()) {
+                                        confirmListing(
+                                                player, slot, snapshot, cand, amount, price, ref,
+                                                fee, settle, saleRate, slots, info);
+                                    }
+                                });
+    }
+
+    private void confirmListing(
+            Player player,
+            int slot,
+            ItemStack snapshot,
+            Candidate cand,
+            int amount,
+            long price,
+            long ref,
+            long fee,
+            AuctionMath.Settlement settle,
+            double saleRate,
+            int slots,
+            AuctionListings.PriceInfo info) {
+        EconomyBalance b = balance();
+        List<net.kyori.adventure.text.Component> body = new java.util.ArrayList<>();
+        body.add(
+                api.messages()
+                        .get(
+                                "economy.auction.list_body",
+                                Placeholder.unparsed("name", cand.name()),
+                                Placeholder.unparsed("amount", String.valueOf(amount)),
+                                Placeholder.unparsed("price", String.valueOf(price)),
+                                Placeholder.unparsed("fee", String.valueOf(fee)),
+                                Placeholder.unparsed("sale_fee", String.valueOf(settle.fee())),
+                                Placeholder.unparsed("net", String.valueOf(settle.sellerNet())),
+                                Placeholder.unparsed(
+                                        "hours", String.valueOf(b.auctionDurationHours()))));
+        long unit = price / Math.max(1, amount);
+        body.add(
+                api.messages()
+                        .get(
+                                "economy.auction.price_ref.mine",
+                                Placeholder.unparsed("unit", String.valueOf(unit))));
+        body.add(
+                info.lowestUnit().isPresent()
+                        ? api.messages()
+                                .get(
+                                        "economy.auction.price_ref.lowest",
+                                        Placeholder.unparsed(
+                                                "unit",
+                                                String.valueOf(info.lowestUnit().getAsLong())))
+                        : api.messages().get("economy.auction.price_ref.no_listing"));
+        body.add(
+                info.averageUnit().isPresent()
+                        ? api.messages()
+                                .get(
+                                        "economy.auction.price_ref.average",
+                                        Placeholder.unparsed(
+                                                "unit",
+                                                String.valueOf(info.averageUnit().getAsLong())),
+                                        Placeholder.unparsed("count", String.valueOf(info.sold())),
+                                        Placeholder.unparsed("days", String.valueOf(info.days())))
+                        : api.messages()
+                                .get(
+                                        "economy.auction.price_ref.no_sales",
+                                        Placeholder.unparsed("days", String.valueOf(info.days()))));
         api.dialogs()
                 .confirm(
                         player,
                         api.messages().get("economy.auction.list_title"),
-                        List.of(
-                                api.messages()
-                                        .get(
-                                                "economy.auction.list_body",
-                                                Placeholder.unparsed("name", cand.name()),
-                                                Placeholder.unparsed(
-                                                        "amount", String.valueOf(amount)),
-                                                Placeholder.unparsed(
-                                                        "price", String.valueOf(price)),
-                                                Placeholder.unparsed("fee", String.valueOf(fee)),
-                                                Placeholder.unparsed(
-                                                        "sale_fee", String.valueOf(settle.fee())),
-                                                Placeholder.unparsed(
-                                                        "net", String.valueOf(settle.sellerNet())),
-                                                Placeholder.unparsed(
-                                                        "hours",
-                                                        String.valueOf(b.auctionDurationHours())))),
+                        body,
                         api.messages().get("economy.auction.yes"),
                         api.messages().get("economy.auction.no"),
                         ok -> {

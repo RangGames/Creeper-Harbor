@@ -23,6 +23,30 @@ final class AuctionListings {
 
     private record CachedPage(Instant at, List<Row> rows) {}
 
+    /**
+     * 등록 전 가격 참고 (추가 제안). 모두 개당 값.
+     *
+     * @param lowestUnit 지금 걸린 것 중 최저가
+     * @param averageUnit 최근 days일 낙찰 평균
+     * @param sold 최근 days일 낙찰 수
+     */
+    record PriceInfo(OptionalLong lowestUnit, OptionalLong averageUnit, int sold, int days) {}
+
+    /**
+     * 내 거래 기록 한 줄 (추가 제안).
+     *
+     * @param sold true면 내가 판 것, false면 산 것
+     * @param fee 판매 수수료 (판 것만)
+     */
+    record HistoryRow(
+            String itemName,
+            int amount,
+            long price,
+            long fee,
+            boolean held,
+            Instant soldAt,
+            boolean sold) {}
+
     static final int PAGE = 45;
     static final String COLUMNS =
             "id, seller, seller_name, item_uuid, item_id, item_name, category, grade, trap_src, item_data,"
@@ -71,7 +95,28 @@ final class AuctionListings {
      */
     CompletableFuture<List<Row>> page(
             String category, @Nullable String search, @Nullable UUID seller, int page) {
-        boolean cacheable = search == null && seller == null && page == 0;
+        return page(category, search, seller, page, AuctionSort.LATEST, PAGE);
+    }
+
+    /**
+     * 정렬·쪽 크기를 정한 목록. 캐시는 최신순 기본 쪽 크기 첫 페이지만.
+     *
+     * @param size 쪽 크기 (1~PAGE)
+     */
+    CompletableFuture<List<Row>> page(
+            String category,
+            @Nullable String search,
+            @Nullable UUID seller,
+            int page,
+            AuctionSort sort,
+            int size) {
+        int limit = Math.clamp(size, 1, PAGE);
+        boolean cacheable =
+                search == null
+                        && seller == null
+                        && page == 0
+                        && sort == AuctionSort.LATEST
+                        && limit == PAGE;
         if (cacheable) {
             CachedPage cached = cache.get(category);
             if (cached != null
@@ -98,10 +143,12 @@ final class AuctionListings {
             sql.append(" AND item_name LIKE ? ESCAPE '!'");
             args.add("%" + search.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%");
         }
-        sql.append(" ORDER BY created_at DESC LIMIT ")
-                .append(PAGE)
+        sql.append(" ORDER BY ")
+                .append(sort.orderBy())
+                .append(" LIMIT ")
+                .append(limit)
                 .append(" OFFSET ")
-                .append(page * PAGE);
+                .append(Math.max(0, page) * limit);
         return api.database()
                 .async(
                         c -> {
@@ -147,6 +194,92 @@ final class AuctionListings {
                                     return OptionalLong.empty();
                                 }
                             }
+                        })
+                .thenApplyAsync(v -> v, tasks.main());
+    }
+
+    /** 등록 전 참고 가격 (개당 최저가 · 최근 days일 낙찰 평균). 메인 스레드에서 완료. */
+    CompletableFuture<PriceInfo> priceInfo(String itemId, int days) {
+        int d = Math.clamp(days, 1, 90);
+        return api.database()
+                .async(
+                        c -> {
+                            OptionalLong lowest = OptionalLong.empty();
+                            try (PreparedStatement ps =
+                                    c.prepareStatement(
+                                            "SELECT MIN(FLOOR(price / amount)) FROM auction_listing"
+                                                    + " WHERE state = 'ACTIVE' AND item_id = ? AND expires_at > CURRENT_TIMESTAMP(3)")) {
+                                ps.setString(1, itemId);
+                                try (ResultSet rs = ps.executeQuery()) {
+                                    if (rs.next()) {
+                                        long v = rs.getLong(1);
+                                        lowest =
+                                                rs.wasNull()
+                                                        ? OptionalLong.empty()
+                                                        : OptionalLong.of(v);
+                                    }
+                                }
+                            }
+                            OptionalLong average = OptionalLong.empty();
+                            int sold = 0;
+                            try (PreparedStatement ps =
+                                    c.prepareStatement(
+                                            "SELECT AVG(s.price / l.amount), COUNT(*) FROM auction_sale s"
+                                                    + " JOIN auction_listing l ON l.id = s.listing_id"
+                                                    + " WHERE l.item_id = ? AND s.sold_at > CURRENT_TIMESTAMP(3) - INTERVAL ? DAY")) {
+                                ps.setString(1, itemId);
+                                ps.setInt(2, d);
+                                try (ResultSet rs = ps.executeQuery()) {
+                                    if (rs.next()) {
+                                        double v = rs.getDouble(1);
+                                        boolean none = rs.wasNull();
+                                        sold = rs.getInt(2);
+                                        average =
+                                                none || sold == 0
+                                                        ? OptionalLong.empty()
+                                                        : OptionalLong.of(Math.round(v));
+                                    }
+                                }
+                            }
+                            return new PriceInfo(lowest, average, sold, d);
+                        })
+                .thenApplyAsync(v -> v, tasks.main());
+    }
+
+    /**
+     * 내 최근 거래 (판 것 또는 산 것, 새 것부터). 메인 스레드에서 완료.
+     *
+     * @param sold true면 판 것 (seller), false면 산 것 (buyer)
+     */
+    CompletableFuture<List<HistoryRow>> history(UUID player, boolean sold, int limit) {
+        String who = sold ? "s.seller" : "s.buyer";
+        String sql =
+                "SELECT l.item_name, l.amount, s.price, s.fee, s.held, s.sold_at FROM auction_sale s"
+                        + " JOIN auction_listing l ON l.id = s.listing_id WHERE "
+                        + who
+                        + " = ? ORDER BY s.sold_at DESC LIMIT ?";
+        return api.database()
+                .async(
+                        c -> {
+                            List<HistoryRow> rows = new ArrayList<>();
+                            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                                ps.setString(1, player.toString());
+                                ps.setInt(2, Math.clamp(limit, 1, PAGE));
+                                try (ResultSet rs = ps.executeQuery()) {
+                                    while (rs.next()) {
+                                        rows.add(
+                                                new HistoryRow(
+                                                        rs.getString(1),
+                                                        rs.getInt(2),
+                                                        rs.getLong(3),
+                                                        rs.getLong(4),
+                                                        rs.getBoolean(5),
+                                                        rs.getTimestamp(6).toInstant(),
+                                                        sold));
+                                    }
+                                }
+                            }
+                            return List.copyOf(rows);
                         })
                 .thenApplyAsync(v -> v, tasks.main());
     }

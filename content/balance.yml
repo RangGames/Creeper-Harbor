@@ -71,6 +71,9 @@ economy:
     stale_h: 3             # 이 시간 넘게 갱신이 없으면 관리자 알림
     catches_per_hour: 80
     sell_ratio: 0.85
+    board:                 # /시세 시세판 (추가 제안, 제안값)
+      flat: 0.01           # 24시간 변화가 이 이하면 보합
+      top_movers: 5        # 급변 어종으로 강조할 수
   quality_mult: {1: 1.0, 2: 1.2, 3: 1.5, 4: 2.5, 5: 5.0}   # D2 확정값 (docs 20 0.6, 7.4)
   region_factor: {void_sea: 0.65}
   legend_cap: 3000
@@ -88,6 +91,7 @@ economy:
     mythic_ref: 6000    # D12 신화 어종 기준가 → 등록가 3,000~60,000G
     board_radius: 8     # 등록·취소 가능 반경 (docs 20 7.5)
     cache_s: 30
+    price_info_days: 7  # 등록 확인 화면의 낙찰 평균 기간 (추가 제안, 제안값)
   craft: {station_radius: 6, max_save: 0.5}   # 제안값
   fraud:                # 부정 거래 감시 (docs 20 7.4, 모두 제안값)
     linked_score: 60    # 같은 IP(공유 IP 제외)로 연결된 계정 사이
