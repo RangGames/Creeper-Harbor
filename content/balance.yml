@@ -328,6 +328,24 @@ quest:
     waypoint_keep_s: 1.5           # 바뀌지 않아도 이 간격으로 다시 보내 액션바가 사라지지 않게 함 (제안값)
     waypoint_arrive_m: 3           # 이 수평 거리 안이면 화살표 대신 ● (제안값)
     waypoint_vertical_m: 4         # 높이 차가 이 이상이면 ▲/▼ 높이 표시 (제안값)
+    bossbar: true                  # 추적 퀘스트 보스바 (플레이어는 /퀘스트 표시로 끔, 추가 제안)
+  journal:
+    style: gui                     # /퀘스트: gui(퀘스트북 상자 화면) 또는 dialog(예전 목록 화면). /퀘스트 목록은 늘 dialog (추가 제안)
+  book:
+    bar_width: 10                  # 퀘스트북 목표 진행 막대 칸 수 (제안값)
+    # icons: {main: minecraft:nether_star, region: minecraft:filled_map, ...}  # 아이콘 재료 바꾸기 (비우면 기본값)
+  # 알림 형태 (쉼표로 여러 개: chat · title · actionbar · none). <사건>_main은 메인 퀘스트 전용, 없으면 <사건>을 쓴다 (제안값)
+  notify:
+    title_seconds: 2.5
+    accepted: chat
+    accepted_main: chat, title
+    ready: chat, actionbar
+    ready_main: chat, title
+    completed: chat
+    completed_main: chat, title
+    abandoned: chat
+    failed: chat, title
+    tracking: actionbar
 
 # Harbor-Boss (docs 20 10.4, '7. 밸런스 기획' 9장). 유형 표는 문서 값, 나머지는 제안값
 boss:

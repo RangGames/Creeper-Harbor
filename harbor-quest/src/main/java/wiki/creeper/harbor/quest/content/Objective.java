@@ -105,17 +105,60 @@ public record Objective(
         return GAUGES.contains(type);
     }
 
+    /** 축약형에서 값이 대상이 아니라 수량인 유형 ({@code - job_level: 5}). */
+    private static final Set<String> VALUE_IS_COUNT = Set.of("job_level", "job_tier", "reputation");
+
+    /**
+     * 목표 한 줄. 두 가지로 쓸 수 있다:
+     *
+     * <pre>{@code
+     * - {key: mackerel, type: catch, target: fish/harbor_mackerel, count: 3}   # 기본형
+     * - {catch: fish/harbor_mackerel, count: 3}                                # 축약형 (추가 제안)
+     * - {talk: npc/bawi}
+     * - {job_level: 5}                                                         # 값이 수량인 유형
+     * }</pre>
+     *
+     * 축약형은 기본 유형 이름을 키로 쓰고 type·target을 생략한다. key를 비우면 유형·대상으로 만든다 (catch_harbor_mackerel). 기본형에서
+     * key를 비우면 순서 번호 o&lt;n&gt;이다 (기존 진행과 맞추려고 바꾸지 않는다).
+     */
     static Objective parse(YamlNode n, int index, ParseContext ctx) {
-        n.allowOnly(FIELDS);
-        String key = n.string("key", "o" + (index + 1));
-        if (!KEY.matcher(key).matches()) {
-            n.error("목표 key는 소문자·숫자·밑줄 1~32자여야 합니다: " + key);
+        String shorthand = shorthandType(n);
+        if (shorthand == null) {
+            n.allowOnly(FIELDS);
+        } else {
+            Set<String> allowed = new java.util.HashSet<>(FIELDS);
+            allowed.remove("type");
+            allowed.add(shorthand);
+            n.allowOnly(allowed);
         }
-        String type = n.string("type");
+        boolean valueIsCount = shorthand != null && VALUE_IS_COUNT.contains(shorthand);
+        String shortValue =
+                shorthand == null
+                        ? ""
+                        : n.get(shorthand).map(YamlNode::asString).orElse("").strip();
+        if (shorthand != null && !valueIsCount && n.has("target")) {
+            n.error("축약형(" + shorthand + ": …)에는 target을 따로 쓰지 않습니다");
+        }
+        if (valueIsCount && n.has("count")) {
+            n.error("축약형(" + shorthand + ": 수)에는 count를 따로 쓰지 않습니다");
+        }
+        String type = shorthand != null ? shorthand : n.string("type");
         if (!TYPE.matcher(type).matches()) {
             n.error("목표 type 형식이 틀렸습니다: " + type);
         }
-        String rawTarget = n.string("target", "any");
+        String rawTarget =
+                shorthand != null && !valueIsCount
+                        ? (shortValue.isEmpty() ? "any" : shortValue)
+                        : n.string("target", "any");
+        String key =
+                n.string(
+                        "key",
+                        shorthand != null
+                                ? autoKey(type, valueIsCount ? "" : rawTarget)
+                                : "o" + (index + 1));
+        if (!KEY.matcher(key).matches()) {
+            n.error("목표 key는 소문자·숫자·밑줄 1~32자여야 합니다: " + key);
+        }
         Target target;
         if (type.equals("flag")) {
             if (!FLAG.matcher(rawTarget).matches()) {
@@ -123,11 +166,14 @@ public record Objective(
             }
             target = Target.name(rawTarget);
         } else {
-            YamlNode targetNode = n.get("target").orElse(n);
+            YamlNode targetNode = n.get(shorthand != null ? shorthand : "target").orElse(n);
             target = Target.parse(rawTarget, targetNode.pos(), ctx, targetNode::error);
         }
         checkTarget(n, type, target);
-        int count = n.integer("count", 1, 1, 1_000_000);
+        int count =
+                valueIsCount
+                        ? n.integer(java.util.Objects.requireNonNull(shorthand), 1, 1, 1_000_000)
+                        : n.integer("count", 1, 1, 1_000_000);
         Quality quality = null;
         if (n.has("quality_min")) {
             int stars = n.integer("quality_min", 1, Quality.MIN, Quality.MAX);
@@ -177,6 +223,36 @@ public record Objective(
                 scope,
                 n.optString("node").orElse(null),
                 n.bool("server", false));
+    }
+
+    /** type 없이 기본 유형 이름이 키로 하나 있으면 그 유형 (축약형). */
+    static @Nullable String shorthandType(YamlNode n) {
+        if (!n.isMap() || n.has("type")) {
+            return null;
+        }
+        String found = null;
+        for (String k : n.entries().keySet()) {
+            if (BUILTIN.contains(k)) {
+                if (found != null) {
+                    n.error("목표 하나에 유형을 두 개 쓸 수 없습니다: " + found + ", " + k);
+                    return found;
+                }
+                found = k;
+            }
+        }
+        return found;
+    }
+
+    /** 축약형 기본 key: 유형_대상이름 (ID 마지막 부분, 영숫자·밑줄만, 32자까지). */
+    static String autoKey(String type, String rawTarget) {
+        String t = rawTarget.strip().toLowerCase(java.util.Locale.ROOT);
+        int slash = t.lastIndexOf('/');
+        if (slash >= 0) {
+            t = t.substring(slash + 1);
+        }
+        t = t.replaceAll("[^a-z0-9_]+", "_").replaceAll("_+", "_").replaceAll("^_|_$", "");
+        String key = t.isEmpty() || t.equals("any") ? type : type + "_" + t;
+        return key.length() > 32 ? key.substring(0, 32).replaceAll("_$", "") : key;
     }
 
     private static void checkTarget(YamlNode n, String type, Target target) {

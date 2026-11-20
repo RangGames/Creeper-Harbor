@@ -155,7 +155,7 @@ public final class QuestEngine
                 : new ChronicleDef(List.of(), List.of(), null, 3, 150, 27);
     }
 
-    Balance balance() {
+    public Balance balance() {
         return snapshot().single(Balance.TYPE);
     }
 
