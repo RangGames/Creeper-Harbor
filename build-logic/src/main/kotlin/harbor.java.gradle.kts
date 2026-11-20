@@ -56,6 +56,8 @@ tasks.withType<Test>().configureEach {
 }
 
 spotless {
+    // 주 개발 환경이 Windows라 Java 소스는 CRLF로 저장한다. 다른 OS에서도 같은 줄바꿈으로 고친다
+    lineEndings = com.diffplug.spotless.LineEnding.WINDOWS
     java {
         target("src/*/java/**/*.java")
         googleJavaFormat().aosp()
