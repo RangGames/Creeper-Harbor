@@ -1216,6 +1216,8 @@ quest:
   announce:
     first_chapter: "<gold>[항구 연대기]</gold> <yellow><player></yellow>님이 서버 최초로 <white><chapter></white>을(를) 마쳤습니다!"
     climax_ready: "<green><bold>[등대]</bold></green> <white>항구의 기억이 모였습니다. 뇌우가 치는 밤, 마지막 폭뢰어가 다가옵니다…"
+  offer:
+    intro: "<gold>[퀘스트]</gold> <yellow><name>"
   # /퀘스트 퀘스트북 (상자 GUI). 목록 Dialog는 /퀘스트 목록
   book:
     title: "퀘스트 · <tab>"
