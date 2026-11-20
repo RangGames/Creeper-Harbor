@@ -116,6 +116,7 @@ class QuestLogicTest {
                 true,
                 null,
                 null,
+                null,
                 list.size() * 31);
     }
 

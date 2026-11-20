@@ -32,7 +32,7 @@ import wiki.creeper.harbor.quest.data.QuestRepository;
 import wiki.creeper.harbor.quest.service.QuestEngine;
 import wiki.creeper.harbor.quest.service.QuestServices;
 
-/** /퀘스트 · /의뢰 · /연대기, /harbor quest … (docs 20 6.5). 관리 명령은 모두 admin_log에 남긴다. */
+/** /퀘스트 · /의뢰 · /연대기, /harbor quest … (docs 20 6.5, gui·편집기는 추가 제안). 관리 명령은 모두 admin_log에 남긴다. */
 public final class QuestCommands {
 
     private static final String PERM = "harbor.quest";
@@ -41,11 +41,24 @@ public final class QuestCommands {
     private final HarborApi api;
     private final QuestServices services;
     private final QuestDialogs dialogs;
+    private final QuestBook book;
+    private final AdminLog adminLog;
+    private final QuestAdminMenu adminMenu;
+    private final QuestEditor editor;
 
-    public QuestCommands(HarborApi api, QuestServices services, QuestDialogs dialogs) {
+    public QuestCommands(
+            HarborApi api,
+            QuestServices services,
+            QuestDialogs dialogs,
+            QuestBook book,
+            wiki.creeper.harbor.quest.editor.EditorStore store) {
         this.api = api;
         this.services = services;
         this.dialogs = dialogs;
+        this.book = book;
+        this.adminLog = new AdminLog(api);
+        this.adminMenu = new QuestAdminMenu(api, services, adminLog);
+        this.editor = new QuestEditor(api, services, store, adminLog);
     }
 
     private QuestEngine engine() {
@@ -79,13 +92,19 @@ public final class QuestCommands {
                 List.of());
     }
 
+    /**
+     * /퀘스트: 퀘스트북(GUI). balance.yml quest.journal.style이 dialog면 Dialog 목록. 하위: 목록(Dialog) · 표시(추적
+     * 보스바 켜기/끄기) · 추적 &lt;퀘스트&gt; · 포기 &lt;퀘스트&gt;.
+     */
     private LiteralCommandNode<CommandSourceStack> questCommand() {
         return Commands.literal("퀘스트")
                 .requires(
                         src ->
                                 src.getExecutor() instanceof Player
                                         && src.getSender().hasPermission(PERM))
-                .executes(ctx -> run(ctx, dialogs::journal))
+                .executes(ctx -> run(ctx, this::openJournal))
+                .then(Commands.literal("목록").executes(ctx -> run(ctx, dialogs::journal)))
+                .then(Commands.literal("표시").executes(ctx -> run(ctx, this::toggleBar)))
                 .then(
                         Commands.literal("추적")
                                 .then(
@@ -95,24 +114,8 @@ public final class QuestCommands {
                                                                 run(
                                                                         ctx,
                                                                         p ->
-                                                                                quest(ctx)
-                                                                                        .ifPresentOrElse(
-                                                                                                d -> {
-                                                                                                    if (!engine().track(
-                                                                                                                    p,
-                                                                                                                    d
-                                                                                                                            .id())) {
-                                                                                                        api.messages()
-                                                                                                                .send(
-                                                                                                                        p,
-                                                                                                                        "quest.error.not_active");
-                                                                                                    }
-                                                                                                },
-                                                                                                () ->
-                                                                                                        api.messages()
-                                                                                                                .send(
-                                                                                                                        p,
-                                                                                                                        "quest.error.unknown"))))))
+                                                                                trackCommand(
+                                                                                        ctx, p)))))
                 .then(
                         Commands.literal("포기")
                                 .then(
@@ -122,22 +125,54 @@ public final class QuestCommands {
                                                                 run(
                                                                         ctx,
                                                                         p ->
-                                                                                quest(ctx)
-                                                                                        .ifPresentOrElse(
-                                                                                                d -> {
-                                                                                                    var
-                                                                                                            _ =
-                                                                                                                    engine().abandon(
-                                                                                                                                    p,
-                                                                                                                                    d
-                                                                                                                                            .id());
-                                                                                                },
-                                                                                                () ->
-                                                                                                        api.messages()
-                                                                                                                .send(
-                                                                                                                        p,
-                                                                                                                        "quest.error.unknown"))))))
+                                                                                abandonCommand(
+                                                                                        ctx, p)))))
                 .build();
+    }
+
+    private void openJournal(Player player) {
+        String style =
+                engine().balance()
+                        .string("quest.journal.style")
+                        .orElse("gui")
+                        .toLowerCase(Locale.ROOT);
+        if (style.equals("dialog")) {
+            dialogs.journal(player);
+        } else {
+            book.open(player);
+        }
+    }
+
+    private void toggleBar(Player player) {
+        var _ =
+                services.trackerBar()
+                        .toggle(player)
+                        .thenAccept(
+                                on ->
+                                        api.messages()
+                                                .send(
+                                                        player,
+                                                        on
+                                                                ? "quest.bossbar.toggled_on"
+                                                                : "quest.bossbar.toggled_off"));
+    }
+
+    private void trackCommand(CommandContext<CommandSourceStack> ctx, Player p) {
+        Optional<QuestDef> d = quest(ctx);
+        if (d.isEmpty()) {
+            api.messages().send(p, "quest.error.unknown");
+        } else if (!engine().track(p, d.get().id())) {
+            api.messages().send(p, "quest.error.not_active");
+        }
+    }
+
+    private void abandonCommand(CommandContext<CommandSourceStack> ctx, Player p) {
+        Optional<QuestDef> d = quest(ctx);
+        if (d.isEmpty()) {
+            api.messages().send(p, "quest.error.unknown");
+        } else {
+            var _ = engine().abandon(p, d.get().id());
+        }
     }
 
     private static int run(
@@ -152,6 +187,43 @@ public final class QuestCommands {
 
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {
         return Commands.literal("quest")
+                .then(
+                        Commands.literal("editor")
+                                .requires(perm("editor"))
+                                .executes(
+                                        ctx -> {
+                                            if (ctx.getSource().getExecutor()
+                                                    instanceof Player admin) {
+                                                editor.open(admin);
+                                            }
+                                            return Command.SINGLE_SUCCESS;
+                                        })
+                                .then(
+                                        questArgument(false)
+                                                .executes(
+                                                        ctx -> {
+                                                            if (ctx.getSource().getExecutor()
+                                                                    instanceof Player admin) {
+                                                                editor.open(
+                                                                        admin,
+                                                                        rawQuest(ctx)
+                                                                                .id()
+                                                                                .toString());
+                                                            }
+                                                            return Command.SINGLE_SUCCESS;
+                                                        })))
+                .then(
+                        Commands.literal("gui")
+                                .requires(perm("info"))
+                                .then(
+                                        target().executes(
+                                                        ctx -> {
+                                                            if (ctx.getSource().getExecutor()
+                                                                    instanceof Player admin) {
+                                                                adminMenu.open(admin, player(ctx));
+                                                            }
+                                                            return Command.SINGLE_SUCCESS;
+                                                        })))
                 .then(
                         Commands.literal("info")
                                 .requires(perm("info"))
@@ -487,21 +559,7 @@ public final class QuestCommands {
     }
 
     private void log(CommandSender sender, String action, String target, String detail) {
-        String admin = sender instanceof Player p ? p.getUniqueId().toString() : "CONSOLE";
-        var _ =
-                api.database()
-                        .asyncVoid(
-                                c -> {
-                                    try (var ps =
-                                            c.prepareStatement(
-                                                    "INSERT INTO admin_log (admin, action, target, detail) VALUES (?, ?, ?, ?)")) {
-                                        ps.setString(1, admin);
-                                        ps.setString(2, "quest." + action);
-                                        ps.setString(3, target);
-                                        ps.setString(4, detail);
-                                        ps.executeUpdate();
-                                    }
-                                });
+        adminLog.log(sender, action, target, detail);
     }
 
     private RequiredArgumentBuilder<CommandSourceStack, Key> questArgument(boolean activeOnly) {
