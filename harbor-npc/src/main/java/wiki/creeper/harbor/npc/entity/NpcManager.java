@@ -96,7 +96,7 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         this.placement = placement;
     }
 
-    NpcBalance balance() {
+    public NpcBalance balance() {
         return new NpcBalance(
                 api.content()
                         .snapshot()
@@ -324,6 +324,8 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
                 e.remove();
             } else if (id == null && NpcKeys.get(e, NpcKeys.CUTSCENE) != null) {
                 e.remove();
+            } else if (NpcKeys.get(e, NpcKeys.SPEECH) != null) {
+                e.remove(); // 말풍선은 저장하지 않으므로 청크와 함께 읽히면 잔여물
             }
         }
         Chunk chunk = event.getChunk();

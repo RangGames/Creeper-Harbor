@@ -104,6 +104,9 @@ public final class InteractionListener implements Listener {
             api.messages().send(player, api.messages().has(key) ? key : "npc.busy.default");
             return;
         }
+        if (right && dialogs.advance(player, id)) {
+            return; // 말풍선·채팅 대화 중 재클릭 = 다음 쪽 (새 대화를 열지 않음)
+        }
         NpcInteractEvent event = new NpcInteractEvent(player, id, right);
         Bukkit.getPluginManager().callEvent(event);
         if (event.isCancelled()) {
