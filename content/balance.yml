@@ -614,3 +614,7 @@ sounds:
 collection:
   menu:
     bar_width: 10            # 도감·보상 트랙·수족관 진행 막대 칸 수 (제안값)
+
+# Harbor-Skript (추가 제안)
+skript:
+  title_seconds: 2.5          # harbor title 문법의 표시 시간 (제안값)
