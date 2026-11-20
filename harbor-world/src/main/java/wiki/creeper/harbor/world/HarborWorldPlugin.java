@@ -138,6 +138,7 @@ public final class HarborWorldPlugin extends HarborModule {
                     tournament,
                     ghosts,
                     housing,
+                    housing.protection(),
                     decor,
                     ride
                 }) {
