@@ -107,6 +107,15 @@ public final class QuestServices {
         return engine.deps.dialogs();
     }
 
+    public wiki.creeper.harbor.npc.api.NpcService npcs() {
+        return engine.deps.npcs();
+    }
+
+    /** 콘텐츠 월드 ID (balance.yml world_alias). */
+    public String worldId(org.bukkit.World world) {
+        return tracker.worldId(world);
+    }
+
     public Component npcName(Player viewer, NpcId npc) {
         return engine.deps.npcs().displayName(viewer, npc);
     }
