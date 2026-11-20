@@ -12,6 +12,16 @@ import org.skriptlang.skript.registration.DefaultSyntaxInfos;
 import org.skriptlang.skript.registration.SyntaxInfo;
 import org.skriptlang.skript.registration.SyntaxRegistry;
 import wiki.creeper.harbor.core.api.event.CurrencyChangedEvent;
+import wiki.creeper.harbor.skript.bridge.CollectionSyntax;
+import wiki.creeper.harbor.skript.bridge.CoreSyntax;
+import wiki.creeper.harbor.skript.bridge.EconomySyntax;
+import wiki.creeper.harbor.skript.bridge.FishingSyntax;
+import wiki.creeper.harbor.skript.bridge.JobsSyntax;
+import wiki.creeper.harbor.skript.bridge.NpcSyntax;
+import wiki.creeper.harbor.skript.bridge.QuestSyntax;
+import wiki.creeper.harbor.skript.bridge.SeasonSyntax;
+import wiki.creeper.harbor.skript.bridge.WorldSyntax;
+import wiki.creeper.harbor.skript.lambda.Registrar;
 
 /**
  * Harbor 문법 등록 (Skript 2.17 등록 API).
@@ -28,6 +38,9 @@ import wiki.creeper.harbor.core.api.event.CurrencyChangedEvent;
  * harbor server · harbor server role 이 서버 ID · 역할
  * on harbor currency change           골드·물비늘이 바뀐 뒤 (event-offlineplayer, event-number = 변화량, event-string = gold·mulbineul)
  * </pre>
+ *
+ * <p>그 밖의 문법(레벨·플래그·화면·우편, 모듈별 퀘스트·낚시·도감·NPC·시즌·시세·해역 이벤트)은 {@code bridge/*Syntax}가 람다 문법으로 등록한다.
+ * 전체 목록은 harbor-skript/README.md.
  */
 final class SkriptSyntax {
 
@@ -117,6 +130,30 @@ final class SkriptSyntax {
         values.register(
                 EventValue.simple(
                         CurrencyChangedEvent.class, String.class, e -> e.currency().key()));
-        return count;
+
+        // 람다 문법: Core는 늘, 게임 모듈은 그 모듈이 켜져 있을 때만 (bridge 클래스를 그때 불러온다)
+        Registrar r = new Registrar(registry, values);
+        CoreSyntax.register(r);
+        module(plugin, "Harbor-Npc", () -> NpcSyntax.register(r));
+        module(plugin, "Harbor-Jobs", () -> JobsSyntax.register(r));
+        module(plugin, "Harbor-Fishing", () -> FishingSyntax.register(r));
+        module(plugin, "Harbor-Collection", () -> CollectionSyntax.register(r));
+        module(plugin, "Harbor-Quest", () -> QuestSyntax.register(r));
+        module(plugin, "Harbor-Season", () -> SeasonSyntax.register(r));
+        module(plugin, "Harbor-Economy", () -> EconomySyntax.register(r));
+        module(plugin, "Harbor-World", () -> WorldSyntax.register(r));
+        return count + r.count();
+    }
+
+    /** 그 모듈이 켜져 있으면 문법을 등록한다. 한 모듈의 실패(버전 차이 등)가 나머지를 막지 않는다. */
+    private static void module(JavaPlugin plugin, String name, Runnable register) {
+        if (!Bukkit.getPluginManager().isPluginEnabled(name)) {
+            return;
+        }
+        try {
+            register.run();
+        } catch (LinkageError | RuntimeException e) {
+            plugin.getSLF4JLogger().warn("{} 문법 등록 실패: {}", name, String.valueOf(e));
+        }
     }
 }
