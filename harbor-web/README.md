@@ -105,6 +105,7 @@ webhooks:
 | `GET /v1/players/{uuid 또는 이름}` | 이름·접속 시각·플레이 시간 + 이번 시즌 레벨·직업·골드·물비늘·평판 |
 | `GET /v1/players/{id}/codex?scope=total\|season` | 도감 (등록 수·%·어종별 최대 크기·최고 품질·횟수) — Collection |
 | `GET /v1/players/{id}/quests` | 퀘스트 상태 (이번 시즌 + 메인) — Quest |
+| `GET /v1/players/{id}/ledger?currency=gold\|mulbineul&limit=50` | 재화 원장 최근 기록 (사유·증감·잔액·시각, 최대 200) |
 | `GET /v1/events?after=<seq>&type=<glob>&limit=100` | 최근 외부 이벤트 (`last`를 다음 요청의 `after`로) |
 | `GET /v1/content/fish` | 어종 목록 |
 | `GET /v1/market` | 어종 시세 계수와 다음 시간 예측 — Economy |

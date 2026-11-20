@@ -39,6 +39,15 @@ public final class CoreRoutes {
                                         r.query("type", ""),
                                         r.queryInt("limit", 100, 1, 500))));
         router.get("content/fish", "어종 목록 (ID·번호·이름·등급·지역)", r -> fish(calls));
+        router.get(
+                "players/{id}/ledger",
+                "재화 원장 최근 기록 (?currency=gold|mulbineul&limit=50, 최대 200)",
+                r ->
+                        ledger(
+                                calls,
+                                r.param("id"),
+                                r.query("currency", "gold"),
+                                r.queryInt("limit", 50, 1, 200)));
         if (enabled("Harbor-Collection")) {
             router.get(
                     "players/{id}/codex",
@@ -236,6 +245,20 @@ public final class CoreRoutes {
                                 .flatMap(qid -> EventRelay.contentName(calls.api(), qid))
                                 .ifPresent(n -> q.put("name", n)));
         return Map.of("quests", rows);
+    }
+
+    private static Object ledger(Calls calls, String id, String currencyKey, int limit)
+            throws Router.ApiException {
+        UUID uuid = resolve(calls, id);
+        wiki.creeper.harbor.common.model.Currency currency =
+                switch (currencyKey) {
+                    case "gold" -> wiki.creeper.harbor.common.model.Currency.GOLD;
+                    case "mulbineul" -> wiki.creeper.harbor.common.model.Currency.MULBINEUL;
+                    default ->
+                            throw new Router.ApiException(
+                                    400, "bad_currency", "currency는 gold 또는 mulbineul");
+                };
+        return calls.await(calls.api().currency().history(uuid, currency, limit));
     }
 
     private static Object fish(Calls calls) {
