@@ -4,7 +4,8 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 외부 연동(웹훅·웹사이트·봇)에 내보내는 게임 이벤트 (추가 제안). Redis {@code harbor:events}로 발행되고, 메시지 봉투의 payload가 이 레코드다.
+ * 외부 연동(웹훅·웹사이트·봇)에 내보내는 게임 이벤트 (추가 제안). Redis {@code harbor:events}로 발행되고, 메시지 봉투의 payload가 이
+ * 레코드다.
  *
  * <pre>{@code
  * {"type":"ExternalEvent","server":"main-1","sentAt":"…",
