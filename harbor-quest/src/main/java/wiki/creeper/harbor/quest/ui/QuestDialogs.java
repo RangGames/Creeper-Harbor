@@ -8,11 +8,15 @@ import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.entity.Player;
+import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.MessageService;
+import wiki.creeper.harbor.npc.api.DialogStyle;
+import wiki.creeper.harbor.npc.api.Speech;
+import wiki.creeper.harbor.npc.api.SpeechChoice;
 import wiki.creeper.harbor.quest.api.QuestState;
 import wiki.creeper.harbor.quest.content.BoardRules;
 import wiki.creeper.harbor.quest.content.Objective;
@@ -254,7 +258,7 @@ public final class QuestDialogs {
                                                                 : "quest.npc.offer",
                                                         Placeholder.unparsed("name", def.name())),
                                         Component.empty()));
-                        actions.add(() -> offer(player, def));
+                        actions.add(() -> offer(player, def, npc));
                     }
                 }
                 case ACTIVE -> {
@@ -299,6 +303,27 @@ public final class QuestDialogs {
         if (choices.isEmpty()) {
             return false;
         }
+        DialogStyle style = q.npcDialogs().styleOf(npc);
+        if (!style.modal()) {
+            // NPC가 말풍선·채팅 등으로 말하면 퀘스트 목록도 같은 방식으로 (선택지는 채팅 버튼)
+            q.npcDialogs()
+                    .present(
+                            player,
+                            npc,
+                            new Speech(
+                                    style,
+                                    null,
+                                    List.of(msg().get("quest.npc.body")),
+                                    choices.stream()
+                                            .map(c -> new SpeechChoice(c.label(), c.tooltip()))
+                                            .toList()),
+                            i -> {
+                                if (i >= 0 && i < actions.size()) {
+                                    actions.get(i).run();
+                                }
+                            });
+            return true;
+        }
         api.dialogs()
                 .choose(
                         player,
@@ -321,10 +346,24 @@ public final class QuestDialogs {
 
     /** 수락 제안: 설명·목표·보상을 보여주고 수락을 받는다. */
     public void offer(Player player, QuestDef def) {
-        offer(player, def, ok -> {});
+        offer(player, def, null, ok -> {});
+    }
+
+    /** NPC가 제안할 때. 방식은 퀘스트 offer_style → 그 NPC의 대화 방식 (Dialog면 확인 화면). */
+    public void offer(Player player, QuestDef def, @Nullable NpcId npc) {
+        offer(player, def, npc, ok -> {});
     }
 
     public void offer(Player player, QuestDef def, Consumer<Boolean> result) {
+        offer(player, def, null, result);
+    }
+
+    public void offer(Player player, QuestDef def, @Nullable NpcId npc, Consumer<Boolean> result) {
+        DialogStyle style = offerStyle(def, npc);
+        if (npc != null && !style.modal()) {
+            speakOffer(player, def, npc, style, result);
+            return;
+        }
         api.dialogs()
                 .confirm(
                         player,
@@ -334,6 +373,45 @@ public final class QuestDialogs {
                         msg().get("quest.dialog.decline"),
                         ok -> {
                             if (!ok) {
+                                result.accept(false);
+                                return;
+                            }
+                            var _ = engine().accept(player, def.id()).thenAccept(result);
+                        });
+    }
+
+    private DialogStyle offerStyle(QuestDef def, @Nullable NpcId npc) {
+        String raw = def.offerStyle();
+        if (raw != null) {
+            return DialogStyle.parse(raw).orElse(DialogStyle.DIALOG);
+        }
+        return npc == null ? DialogStyle.DIALOG : q.npcDialogs().styleOf(npc);
+    }
+
+    /** NPC 입으로 제안 (화자는 NPC): 퀘스트 이름, 설명 줄마다 한 쪽, 마지막 쪽은 목표·보상. 선택지는 수락·다음에. */
+    private void speakOffer(
+            Player player, QuestDef def, NpcId npc, DialogStyle style, Consumer<Boolean> result) {
+        List<Component> pages = new ArrayList<>();
+        pages.add(msg().get("quest.offer.intro", Placeholder.unparsed("name", def.name())));
+        for (String line : def.description()) {
+            pages.add(msg().get("quest.dialog.description", Placeholder.unparsed("text", line)));
+        }
+        List<Component> rest = describe(player, def, Optional.empty());
+        rest = rest.subList(Math.min(def.description().size(), rest.size()), rest.size());
+        pages.add(Component.join(net.kyori.adventure.text.JoinConfiguration.newlines(), rest));
+        q.npcDialogs()
+                .present(
+                        player,
+                        npc,
+                        new Speech(
+                                style,
+                                null,
+                                pages,
+                                List.of(
+                                        SpeechChoice.of(msg().get("quest.dialog.accept")),
+                                        SpeechChoice.of(msg().get("quest.dialog.decline")))),
+                        index -> {
+                            if (index != 0) {
                                 result.accept(false);
                                 return;
                             }

@@ -21,6 +21,8 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * {@code quest/main/ch<N>_<이름>} (DB에는 네임스페이스를 붙인 전체 ID).
  *
  * @param chapter 메인 스토리 장 (프롤로그 0, 1~7, 최종장 8). 메인이 아니면 -1
+ * @param offerStyle 수락 제안을 보여주는 방식 (dialog · hologram · title · chat · actionbar, 비우면 시작 NPC의 대화
+ *     방식, 추가 제안)
  * @param hash 목표 구성 해시 (progress JSON의 v, 리로드 때 바뀐 퀘스트 수 보고)
  */
 public record QuestDef(
@@ -42,6 +44,7 @@ public record QuestDef(
         boolean abandonable,
         @Nullable Pool pool,
         @Nullable TimeWindow timeWindow,
+        @Nullable String offerStyle,
         int hash) {
 
     public static final String PREFIX = QuestId.PREFIX;
@@ -77,7 +80,12 @@ public record QuestDef(
                     "donate_delivered",
                     "abandonable",
                     "pool",
-                    "time_window");
+                    "time_window",
+                    "offer_style");
+
+    /** offer_style에 쓸 수 있는 값 (Npc DialogStyle 키와 같다). */
+    public static final Set<String> OFFER_STYLES =
+            Set.of("dialog", "hologram", "title", "chat", "actionbar");
 
     public static final ContentType.Entries<QuestDef> TYPE =
             new ContentType.Entries<>(
@@ -189,6 +197,14 @@ public record QuestDef(
             node.error("pool.board(" + pool.board().key() + ")가 type(" + type.key() + ")과 다릅니다");
         }
         TimeWindow window = node.get("time_window").map(QuestDef::window).orElse(null);
+        String offerStyle = node.optString("offer_style").map(String::strip).orElse(null);
+        if (offerStyle != null && !OFFER_STYLES.contains(offerStyle)) {
+            node.error(
+                    "offer_style은 "
+                            + String.join(", ", new java.util.TreeSet<>(OFFER_STYLES))
+                            + " 중 하나여야 합니다: "
+                            + offerStyle);
+        }
         return new QuestDef(
                 new QuestId(rawId),
                 node.string("name"),
@@ -208,6 +224,7 @@ public record QuestDef(
                 abandonable,
                 pool,
                 window,
+                offerStyle,
                 hash(objectives));
     }
 

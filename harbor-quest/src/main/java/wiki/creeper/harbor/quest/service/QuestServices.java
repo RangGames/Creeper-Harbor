@@ -102,6 +102,11 @@ public final class QuestServices {
         return engine.open(hp);
     }
 
+    /** NPC 대화 엔진 (수락 제안·퀘스트 목록을 NPC 대화 방식으로 보여줄 때). */
+    public wiki.creeper.harbor.npc.api.DialogService npcDialogs() {
+        return engine.deps.dialogs();
+    }
+
     public Component npcName(Player viewer, NpcId npc) {
         return engine.deps.npcs().displayName(viewer, npc);
     }

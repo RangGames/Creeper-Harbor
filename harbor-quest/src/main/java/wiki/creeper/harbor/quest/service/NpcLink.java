@@ -60,7 +60,7 @@ public final class NpcLink {
                                 quest(args)
                                         .map(
                                                 def -> {
-                                                    dialogs.offer(ctx.player(), def);
+                                                    dialogs.offer(ctx.player(), def, ctx.npc());
                                                     return ActionResult.HANDOFF;
                                                 })
                                         .orElse(ActionResult.CLOSE),
