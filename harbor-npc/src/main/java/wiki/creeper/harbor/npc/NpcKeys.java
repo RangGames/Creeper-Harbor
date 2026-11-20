@@ -14,6 +14,9 @@ public final class NpcKeys {
     /** harbor:cutscene = 컷씬 ID (카메라·배우·대사). */
     public static final NamespacedKey CUTSCENE = new NamespacedKey("harbor", "cutscene");
 
+    /** harbor:npc_speech = 말풍선을 보는 플레이어 UUID (대화 방식 hologram, 추가 제안). */
+    public static final NamespacedKey SPEECH = new NamespacedKey("harbor", "npc_speech");
+
     private NpcKeys() {}
 
     public static void tag(Entity entity, NamespacedKey key, String value) {
@@ -27,6 +30,7 @@ public final class NpcKeys {
     public static boolean tagged(Entity entity) {
         var pdc = entity.getPersistentDataContainer();
         return pdc.has(NPC, PersistentDataType.STRING)
-                || pdc.has(CUTSCENE, PersistentDataType.STRING);
+                || pdc.has(CUTSCENE, PersistentDataType.STRING)
+                || pdc.has(SPEECH, PersistentDataType.STRING);
     }
 }

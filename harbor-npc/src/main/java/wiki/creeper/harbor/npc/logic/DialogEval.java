@@ -49,11 +49,20 @@ public final class DialogEval {
 
     /** 이 페이지에서 선택지를 보여줄지 (마지막 페이지만, 페이지가 없으면 바로). */
     public static boolean optionsOnPage(DialogDef.Node node, int page) {
-        return page >= node.pages().size() - 1;
+        return optionsOnPage(node.pages().size(), page);
     }
 
     /** 페이지 번호를 범위 안으로. */
     public static int clampPage(DialogDef.Node node, int page) {
-        return Math.clamp(page, 0, Math.max(0, node.pages().size() - 1));
+        return clampPage(node.pages().size(), page);
+    }
+
+    /** 쪽 수만으로 (다른 모듈이 연 대사 Speech도 같은 규칙). */
+    public static boolean optionsOnPage(int pageCount, int page) {
+        return page >= pageCount - 1;
+    }
+
+    public static int clampPage(int pageCount, int page) {
+        return Math.clamp(page, 0, Math.max(0, pageCount - 1));
     }
 }

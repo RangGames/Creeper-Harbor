@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.npc.api.AffinityLevel;
+import wiki.creeper.harbor.npc.api.DialogStyle;
 import wiki.creeper.harbor.npc.api.ReputationSource;
 import wiki.creeper.harbor.npc.api.ReputationTier;
 
@@ -148,6 +149,65 @@ public record NpcBalance(Balance balance) {
     /** 같은 플레이어의 중복 클릭 무시 (10틱). */
     public int clickCooldownTicks() {
         return balance.integer("npc.dialog.click_cooldown_ticks", 10);
+    }
+
+    // ------------------------------------------------------------------ 대화 방식 (추가 제안, 모두 제안값)
+
+    /** NPC에 dialog_style이 없을 때 방식 (dialog). */
+    public DialogStyle defaultStyle() {
+        return balance.string("npc.dialog.default_style")
+                .flatMap(DialogStyle::parse)
+                .orElse(DialogStyle.DIALOG);
+    }
+
+    /** DIALOG 밖의 세션: 거리·말풍선 확인 간격 (10틱). */
+    public int watchTicks() {
+        return Math.max(2, balance.integer("npc.dialog.watch_ticks", 10));
+    }
+
+    /** 말풍선 높이 (NPC 발 기준, 이름·표시보다 위). */
+    public double hologramOffset() {
+        return balance.number("npc.dialog.hologram.offset", 2.9);
+    }
+
+    /** 말풍선 한 줄 너비 (픽셀, TextDisplay line width). */
+    public int hologramLineWidth() {
+        return Math.max(40, balance.integer("npc.dialog.hologram.line_width", 180));
+    }
+
+    /** 한마디(say) 말풍선·타이틀이 떠 있는 시간 (초). */
+    public double barkSeconds() {
+        return Math.max(1, balance.number("npc.dialog.hologram.bark_seconds", 4));
+    }
+
+    /** 타자 효과: 틱당 글자 수 (0이면 한 번에). */
+    public int typewriterCharsPerTick() {
+        return Math.max(0, balance.integer("npc.dialog.hologram.typewriter_chars_per_tick", 2));
+    }
+
+    /** 말풍선 보이는 거리 배율 (TextDisplay view range, 1 = 64블록). */
+    public float hologramViewRange() {
+        return (float) balance.number("npc.dialog.hologram.view_range", 0.5);
+    }
+
+    /** 말풍선 배경 불투명도 (0~255). */
+    public int hologramBackgroundAlpha() {
+        return Math.clamp(balance.integer("npc.dialog.hologram.background_alpha", 96), 0, 255);
+    }
+
+    /** TITLE 방식에서 서브타이틀이 떠 있는 시간 (초). auto가 있으면 그 값. */
+    public double titleStaySeconds() {
+        return Math.max(1, balance.number("npc.dialog.title.stay_seconds", 8));
+    }
+
+    /** 서브타이틀이 이 글자 수를 넘으면 채팅에도 같이 보낸다 (잘려 보일 수 있어서). */
+    public int titleMaxChars() {
+        return Math.max(8, balance.integer("npc.dialog.title.max_chars", 40));
+    }
+
+    /** ACTIONBAR 방식: 액션바가 사라지지 않게 다시 보내는 간격 (40틱). */
+    public int actionBarRefreshTicks() {
+        return Math.max(10, balance.integer("npc.dialog.actionbar.refresh_ticks", 40));
     }
 
     public int lookIntervalTicks() {

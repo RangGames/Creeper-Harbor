@@ -16,6 +16,7 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.common.util.SourcePos;
 import wiki.creeper.harbor.common.yaml.YamlNode;
+import wiki.creeper.harbor.npc.api.DialogStyle;
 
 /**
  * 대화 트리 (dialogs/<npc>.yml, 추가 제안, docs 20 5.3). npcs.yml의 dialog가 ID로 가리킨다.
@@ -28,6 +29,8 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *   nodes:
  *     greet:
  *       pages: [npc.dialog.hansol.greet.1, npc.dialog.hansol.greet.2]   # messages_ko.yml 키
+ *       style: hologram            # 선택: dialog·hologram·title·chat·actionbar (없으면 NPC 기본)
+ *       auto: 4                    # 선택: DIALOG 밖의 방식에서 4초마다 다음 쪽
  *       options:
  *         - {label: npc.dialog.option.gift, actions: [gift:open]}
  *         - {label: npc.dialog.option.bye, actions: [close]}
@@ -58,6 +61,8 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
      * @param speaker 화자 이름 덮어쓰기 (없으면 NPC 이름, 이름 변형 반영)
      * @param pages 대사 messages_ko.yml 키. 여러 개면 '다음' 버튼으로 넘긴다
      * @param external 다른 모듈 액션·명령이 직접 여는 노드 (도달 검사 제외, 추가 제안)
+     * @param style 보여주는 방식 (없으면 NPC 기본, 추가 제안)
+     * @param autoSeconds DIALOG 밖의 방식에서 이 초가 지나면 다음 쪽으로 넘김 (0이면 넘기지 않음, 추가 제안)
      */
     public record Node(
             String id,
@@ -65,11 +70,23 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
             List<String> pages,
             List<Option> options,
             boolean external,
+            @Nullable DialogStyle style,
+            double autoSeconds,
             SourcePos pos) {
 
         public Node {
             pages = List.copyOf(pages);
             options = List.copyOf(options);
+        }
+
+        public Node(
+                String id,
+                @Nullable String speaker,
+                List<String> pages,
+                List<Option> options,
+                boolean external,
+                SourcePos pos) {
+            this(id, speaker, pages, options, external, null, 0, pos);
         }
     }
 
@@ -185,7 +202,7 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
             java.util.regex.Pattern.compile("[a-z0-9_]+");
 
     private static Node parseNode(String id, YamlNode n) {
-        n.allowOnly(Set.of("speaker", "pages", "page", "options", "external"));
+        n.allowOnly(Set.of("speaker", "pages", "page", "options", "external", "style", "auto"));
         List<String> pages = new ArrayList<>();
         n.get("page").ifPresent(p -> pages.add(p.asString()));
         pages.addAll(n.strings("pages"));
@@ -201,13 +218,35 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
                             o.optString("goto").orElse(null),
                             o.pos()));
         }
+        double auto = n.number("auto", 0);
+        if (auto < 0) {
+            n.get("auto").ifPresent(a -> a.error("auto는 0 이상(초)이어야 합니다"));
+            auto = 0;
+        }
         return new Node(
                 id,
                 n.optString("speaker").orElse(null),
                 pages,
                 options,
                 n.bool("external", false),
+                parseStyle(n, "style"),
+                auto,
                 n.pos());
+    }
+
+    /** {@code style:} 같은 방식 필드. 모르는 값이면 위치와 함께 오류를 남기고 null. */
+    public static @Nullable DialogStyle parseStyle(YamlNode parent, String key) {
+        Optional<YamlNode> raw = parent.get(key);
+        if (raw.isEmpty()) {
+            return null;
+        }
+        String value = raw.get().asString();
+        Optional<DialogStyle> style = DialogStyle.parse(value);
+        if (style.isEmpty()) {
+            raw.get().error("모르는 대화 방식입니다: '" + value + "' (가능: " + DialogStyle.keys() + ")");
+            return null;
+        }
+        return style.get();
     }
 
     private static void requireNode(Map<String, Node> nodes, String target, YamlNode at) {

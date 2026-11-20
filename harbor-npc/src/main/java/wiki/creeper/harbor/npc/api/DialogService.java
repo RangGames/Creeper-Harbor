@@ -1,8 +1,11 @@
 package wiki.creeper.harbor.npc.api;
 
 import java.util.Optional;
+import java.util.function.IntConsumer;
+import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.NpcId;
 
 /**
@@ -44,4 +47,22 @@ public interface DialogService {
     boolean hasAction(String key);
 
     boolean hasCondition(String key);
+
+    // ------------------------------------------------------------------ 보여주는 방식 (추가 제안)
+
+    /** NPC 기본 방식: npcs.yml dialog_style → balance.yml npc.dialog.default_style → DIALOG. */
+    DialogStyle styleOf(NpcId npc);
+
+    /**
+     * 대화 트리 없이 대사·선택지를 NPC 입으로 보여준다 (퀘스트 수락 제안 등). 세션·nonce·시간 제한·거리 검사는 대화 트리와 같다. 고른 선택지 번호(0부터)를
+     * 메인 스레드에서 받고, 닫기·만료·멀어짐·다른 대화로 바뀜이면 -1을 받는다. 결과는 꼭 한 번만 온다.
+     */
+    void present(Player player, NpcId npc, Speech speech, IntConsumer onChoice);
+
+    /**
+     * 세션 없는 한마디 (말풍선·타이틀·액션바·채팅으로 몇 초). 보고 완료 인사 같은 데 쓴다.
+     *
+     * @param style null이면 NPC 기본 방식. DIALOG면 안내 화면
+     */
+    void say(Player player, NpcId npc, Component line, @Nullable DialogStyle style);
 }
