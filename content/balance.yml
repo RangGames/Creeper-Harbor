@@ -619,3 +619,5 @@ collection:
 # Harbor-Skript (추가 제안)
 skript:
   title_seconds: 2.5          # harbor title 문법의 표시 시간 (제안값)
+  cache_seconds: 30           # 경매·우편·보스 기록처럼 DB를 읽는 식의 값 유지 시간. 지나면 다음 읽기 때 다시 불러온다 (제안값)
+  auction_limit: 100          # harbor auction listings가 불러오는 최대 매물 수 (제안값)
