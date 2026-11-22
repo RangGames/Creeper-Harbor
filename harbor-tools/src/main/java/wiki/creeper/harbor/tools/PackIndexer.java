@@ -12,12 +12,12 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.pack.PackBuilder;
 
 /**
- * 리소스팩(폴더 또는 zip)에서 item_model·소리 목록을 뽑아 content/resource_pack.yml을 만든다 ({@code harbor-tools
- * pack-index}).
+ * Extracts the item_model and sound lists from a resource pack (folder or zip) and generates
+ * content/resource_pack.yml ({@code harbor-tools pack-index}).
  *
  * <ul>
- *   <li>모델: {@code assets/<ns>/items/<경로>.json} → {@code <ns>:<경로>}
- *   <li>소리: {@code assets/<ns>/sounds.json}의 키 → {@code <ns>:<키>}
+ *   <li>Models: {@code assets/<ns>/items/<path>.json} → {@code <ns>:<path>}
+ *   <li>Sounds: keys of {@code assets/<ns>/sounds.json} → {@code <ns>:<key>}
  * </ul>
  */
 final class PackIndexer {
@@ -45,7 +45,10 @@ final class PackIndexer {
         return new Index(new TreeSet<>(index.models()), new TreeSet<>(index.sounds()));
     }
 
-    /** 팩 루트의 assets, 없으면 한 단계 아래 폴더(예: resourcepack/assets)에서 찾는다. */
+    /**
+     * Looks for assets at the pack root, otherwise in a folder one level down (e.g.
+     * resourcepack/assets).
+     */
     private static @Nullable Path findAssets(Path root) throws IOException {
         Path direct = root.resolve("assets");
         if (Files.isDirectory(direct)) {
@@ -62,7 +65,7 @@ final class PackIndexer {
         return null;
     }
 
-    /** resource_pack.yml 내용. 팩의 위치(로컬 경로)는 적지 않는다. */
+    /** resource_pack.yml content. The pack location (local path) is not written. */
     static String yaml(Index index, String packName) {
         StringBuilder out = new StringBuilder();
         out.append("# 리소스팩에 들어 있는 item_model·소리 목록 (Core ItemModels가 이 목록에 있는 모델만 쓴다).\n");

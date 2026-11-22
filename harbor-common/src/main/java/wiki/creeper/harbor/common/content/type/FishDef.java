@@ -13,7 +13,7 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
-/** 어종 정의 (fish/*.yml). 필드는 '11. 데이터 설계' 2.1을 따른다. */
+/** Fish species definition (fish/*.yml). Fields follow '11. Data design' 2.1. */
 public record FishDef(
         FishId id,
         int no,
@@ -64,7 +64,7 @@ public record FishDef(
             new ContentType.Entries<>(
                     "fish", List.of("fish/*.yml"), FishId.PREFIX, FishDef::parse, f -> f.id().id());
 
-    /** 신화 어종은 판매 불가라 기본 매입가가 0이어야 한다. */
+    /** Mythic fish cannot be sold, so their base buy price must be 0. */
     public boolean sellable() {
         return basePrice > 0;
     }

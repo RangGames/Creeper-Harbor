@@ -1,10 +1,11 @@
 package wiki.creeper.harbor.common.rig;
 
 /**
- * 이동·회전·크기 변환 (변경 불가). 점 p에 적용하면 translation + rotation(scale ⊙ p).
+ * Translation/rotation/scale transform (immutable). Applied to a point p: translation +
+ * rotation(scale ⊙ p).
  *
- * <p>계층 합성({@link #then})은 전단(shear)을 버리는 일반적인 게임 엔진 방식이다. Display 엔티티의 변환(이동 · 왼쪽 회전 · 크기 · 오른쪽
- * 회전)에 그대로 들어간다.
+ * <p>Hierarchical composition ({@link #then}) drops shear, as common game engines do. It maps
+ * directly onto a Display entity transform (translation · left rotation · scale · right rotation).
  */
 public record Xform(Vec3 translation, Quat rotation, Vec3 scale) {
 
@@ -14,7 +15,7 @@ public record Xform(Vec3 translation, Quat rotation, Vec3 scale) {
         return new Xform(Vec3.ZERO, Quat.IDENTITY, new Vec3(k, k, k));
     }
 
-    /** 이 변환(부모) 안에 child를 놓은 결과 (부모 ∘ 자식). */
+    /** Result of placing child inside this (parent) transform (parent ∘ child). */
     public Xform then(Xform child) {
         return new Xform(
                 translation.add(rotation.rotate(scale.mul(child.translation))),
@@ -26,7 +27,7 @@ public record Xform(Vec3 translation, Quat rotation, Vec3 scale) {
         return translation.add(rotation.rotate(scale.mul(point)));
     }
 
-    /** 클라이언트 보간과 같은 방식: 이동·크기는 선형, 회전은 구면 보간. */
+    /** Same as client interpolation: linear for translation/scale, spherical for rotation. */
     public static Xform interpolate(Xform a, Xform b, double f) {
         return new Xform(
                 Vec3.lerp(a.translation, b.translation, f),
@@ -34,7 +35,7 @@ public record Xform(Vec3 translation, Quat rotation, Vec3 scale) {
                 Vec3.lerp(a.scale, b.scale, f));
     }
 
-    /** 두 변환이 허용 오차 안에서 같은지 (키프레임 압축용). */
+    /** Whether two transforms are equal within tolerance (for keyframe compression). */
     public boolean near(Xform o, Tolerance tol) {
         return translation.distance(o.translation) <= tol.position()
                 && rotation.angleTo(o.rotation) <= tol.rotationDeg()
@@ -42,11 +43,11 @@ public record Xform(Vec3 translation, Quat rotation, Vec3 scale) {
     }
 
     /**
-     * 키프레임 압축 허용 오차.
+     * Keyframe compression tolerance.
      *
-     * @param position 이동 (블록)
-     * @param rotationDeg 회전 (도)
-     * @param scale 크기 (배율)
+     * @param position translation (blocks)
+     * @param rotationDeg rotation (degrees)
+     * @param scale scale (factor)
      */
     public record Tolerance(double position, double rotationDeg, double scale) {}
 }

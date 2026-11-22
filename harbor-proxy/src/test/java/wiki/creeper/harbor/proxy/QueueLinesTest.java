@@ -40,7 +40,8 @@ class QueueLinesTest {
         assertEquals(
                 List.of("p0", "p1", "p2", "n0", "p3", "p4", "p5", "n1", "p6", "p7", "p8", "n2"),
                 order);
-        // 어느 연속 4명을 잘라도 일반 줄이 최소 1명 (일반 줄이 남아 있는 동안)
+        // Any 4 consecutive entries include at least 1 from the normal line (while the normal line
+        // is non-empty)
         for (int i = 0; i + 4 <= order.size(); i++) {
             assertTrue(
                     order.subList(i, i + 4).stream().anyMatch(s -> s.startsWith("n")), "구간 " + i);

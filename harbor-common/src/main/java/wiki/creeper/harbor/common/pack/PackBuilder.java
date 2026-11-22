@@ -25,29 +25,32 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
- * 에셋 폴더 → 클라이언트 리소스팩 zip (ItemsAdder처럼 에셋만 넣으면 서버가 압축한다, 추가 제안).
+ * Asset folder → client resource pack zip (like ItemsAdder: drop in the assets and the server zips
+ * them, proposed).
  *
- * <p>폴더 구성: {@code assets/<ns>/...}, 선택 {@code pack.mcmeta}·{@code pack.png}. pack.mcmeta가 없으면 만든다.
- * 서버용 리그 데이터({@code assets/<ns>/rigs/})와 숨김·OS 파일은 넣지 않는다. 항목 순서와 시각을 고정해서 내용이 같으면 SHA-1도 같다 (같은 팩을
- * 다시 올리지 않음).
+ * <p>Folder layout: {@code assets/<ns>/...}, optional {@code pack.mcmeta} and {@code pack.png}.
+ * pack.mcmeta is generated if missing. Server-side rig data ({@code assets/<ns>/rigs/}) and
+ * hidden/OS files are left out. Entry order and timestamps are fixed, so the same content gives the
+ * same SHA-1 (the same pack is not uploaded again).
  */
 public final class PackBuilder {
 
-    /** 고정 항목 시각 (2000-01-01 UTC). zip의 DOS 시각 범위 안이어야 한다. */
+    /** Fixed entry timestamp (2000-01-01 UTC). Must be within the zip DOS time range. */
     private static final FileTime FIXED_TIME = FileTime.fromMillis(946_684_800_000L);
 
     private static final Set<String> SKIP_NAMES = Set.of(".DS_Store", "Thumbs.db", "desktop.ini");
 
     /**
-     * @param format pack.mcmeta가 없을 때 쓸 팩 형식 (예: "97.1" → min/max_format [97, 1])
-     * @param description pack.mcmeta가 없을 때 쓸 설명
+     * @param format pack format to use when there is no pack.mcmeta (e.g. "97.1" → min/max_format
+     *     [97, 1])
+     * @param description description to use when there is no pack.mcmeta
      */
     public record Meta(String format, String description) {}
 
     /**
-     * @param sha1 zip의 SHA-1 (16진수 40자리, 클라이언트 검증용)
-     * @param files 넣은 파일 수
-     * @param notes 합치면서 생긴 안내 (겹친 파일·읽지 못한 팩)
+     * @param sha1 SHA-1 of the zip (40 hex digits, for client verification)
+     * @param files number of files added
+     * @param notes notes produced while merging (overlapping files, unreadable packs)
      */
     public record Built(
             Path zip, String sha1, long sizeBytes, int files, PackIndex index, List<String> notes) {
@@ -56,7 +59,7 @@ public final class PackBuilder {
         }
     }
 
-    /** 팩에 든 item_model·소리 목록. */
+    /** item_model and sound lists contained in the pack. */
     public record PackIndex(Set<String> models, Set<String> sounds) {
         public PackIndex {
             models = Set.copyOf(models);
@@ -66,31 +69,35 @@ public final class PackBuilder {
 
     private PackBuilder() {}
 
-    /** 에셋 폴더에 assets가 있는지. */
+    /** Whether the asset folder contains assets. */
     public static boolean hasAssets(Path source) {
         return Files.isDirectory(source.resolve("assets"));
     }
 
-    /** source를 압축해 out에 쓴다 (임시 파일에 쓴 뒤 바꿔 넣는다). */
+    /** Zips source into out (writes to a temp file, then swaps it in). */
     public static Built build(Path source, Path out, Meta meta) throws IOException {
         return build(source, List.of(), out, meta, Map.of());
     }
 
-    /** source + generated (합칠 팩 없음). */
+    /** source + generated (no packs to merge). */
     public static Built build(Path source, Path out, Meta meta, Map<String, byte[]> generated)
             throws IOException {
         return build(source, List.of(), out, meta, generated);
     }
 
     /**
-     * source(Harbor 팩)에 다른 리소스팩들(merges, 폴더 또는 zip)과 generated(서버가 만든 파일)를 합쳐 압축한다 (ItemsAdder의 팩
-     * 합치기와 같은 목적, 추가 제안).
+     * Merges source (the Harbor pack) with other resource packs (merges, folders or zips) and
+     * generated (server-generated files) and zips them (same purpose as ItemsAdder's pack merging,
+     * proposed).
      *
      * <ul>
-     *   <li>같은 경로면 generated → source → merges 앞쪽 순서로 이긴다. pack.mcmeta·pack.png는 source 것만 쓴다
-     *   <li>합칠 수 있는 JSON은 합친다: sounds.json·lang/*.json은 키 단위(앞쪽이 이김), atlases/*.json은 sources를 합집합,
-     *       font/*.json은 providers를 앞쪽부터 이어 붙인다
-     *   <li>그 밖에 겹치는 파일은 앞쪽 것을 쓰고 notes에 남긴다. 읽지 못한 팩은 건너뛰고 notes에 남긴다
+     *   <li>For the same path, generated → source → earlier merges win, in that order. pack.mcmeta
+     *       and pack.png are taken from source only
+     *   <li>Mergeable JSON is merged: sounds.json and lang/*.json per key (earlier wins),
+     *       atlases/*.json as the union of sources, font/*.json by appending providers from the
+     *       earliest
+     *   <li>Other overlapping files use the earlier one and are noted in notes. Unreadable packs
+     *       are skipped and noted in notes
      * </ul>
      */
     public static Built build(
@@ -167,7 +174,7 @@ public final class PackBuilder {
                 : Optional.empty();
     }
 
-    /** {@code assets/<ns>/items/<경로>.json} → {@code <ns>:<경로>}. */
+    /** {@code assets/<ns>/items/<path>.json} → {@code <ns>:<path>}. */
     static Optional<String> itemModelKey(String path) {
         String[] parts = path.split("/", 4);
         if (parts.length < 4
@@ -180,7 +187,7 @@ public final class PackBuilder {
                 parts[1] + ":" + parts[3].substring(0, parts[3].length() - ".json".length()));
     }
 
-    /** 에셋 폴더(또는 압축을 푼 팩)의 item_model·소리 목록. */
+    /** item_model and sound lists of the asset folder (or an extracted pack). */
     public static PackIndex scan(Path root) throws IOException {
         Set<String> models = new TreeSet<>();
         Set<String> sounds = new TreeSet<>();
@@ -258,7 +265,10 @@ public final class PackBuilder {
         }
     }
 
-    /** 클라이언트 팩에 넣을 경로인지 (pack.mcmeta·pack.png·assets 아래, 리그·숨김 파일 제외). */
+    /**
+     * Whether a path goes into the client pack (pack.mcmeta, pack.png, under assets; excluding rigs
+     * and hidden files).
+     */
     static boolean include(String path) {
         String[] parts = path.split("/", -1);
         for (String part : parts) {

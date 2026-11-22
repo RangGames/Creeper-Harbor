@@ -33,14 +33,18 @@ import wiki.creeper.harbor.common.proxy.ProxyMessages;
 import wiki.creeper.harbor.common.redis.Redis;
 
 /**
- * 접속 흐름 (docs 20 1.4).
+ * Connection flow (docs 20 1.4).
  *
  * <ol>
- *   <li>PreLogin: 점검 중이면 거부 (여기 UUID는 클라이언트가 보낸 값이라 bypass 판단은 Login에서 다시 한다)
- *   <li>Login (EventTask, 가상 스레드 병렬): BAN 제재(DB, 실패하면 거부), 후원 등급(Redis), 남은 세션 잠금(Redis). 조회는 1초 안에
- *       안 끝나면 기본값
- *   <li>첫 서버는 항상 로비. join_log 기록 후 다계정 탐지 (비동기, 접속에 영향 없음)
- *   <li>백엔드 간 이동은 MoveCoordinator 승인분만. 본 서버·인스턴스가 죽으면 로비로 회수
+ *   <li>PreLogin: refuse during maintenance (the UUID here is client-supplied, so the bypass
+ *       decision is made again at Login)
+ *   <li>Login (EventTask, parallel on virtual threads): BAN sanctions (DB, refuse on failure),
+ *       donor tier (Redis), leftover session lock (Redis). Lookups fall back to defaults if not
+ *       done within 1 second
+ *   <li>The first server is always the lobby. join_log is recorded, then multi-account detection
+ *       (async, does not affect the connection)
+ *   <li>Backend-to-backend moves only when approved by MoveCoordinator. If the main server or an
+ *       instance dies, players are recovered to the lobby
  * </ol>
  */
 final class ConnectionListener {
@@ -120,7 +124,7 @@ final class ConnectionListener {
                         .handle(
                                 (check, error) -> {
                                     if (error != null) {
-                                        // DB 장애 시 신규 접속만 거부 (docs 20 1.6)
+                                        // On DB failure, refuse only new connections (docs 20 1.6)
                                         log.warn(
                                                 "제재 확인 실패, 접속 거부 {}: {}",
                                                 player.getUsername(),
@@ -173,7 +177,7 @@ final class ConnectionListener {
         proxy.getServer(config.lobby()).ifPresent(event::setInitialServer);
     }
 
-    /** 승인하지 않은 백엔드 간 이동은 모두 거부한다 (저장을 건너뛰는 길을 막는다). */
+    /** Refuses all unapproved backend-to-backend moves (closes the path that skips saving). */
     @Subscribe
     public void onPreConnect(ServerPreConnectEvent event) {
         RegisteredServer previous = event.getPreviousServer();
@@ -188,7 +192,10 @@ final class ConnectionListener {
         }
     }
 
-    /** 본 서버에 다시 들어오면 인스턴스 귀환 자리 예약을 푼다. 로비 밖으로 나가면 대기열에서 뺀다 (다른 길로 떠난 사람). */
+    /**
+     * Releases the instance return seat reservation when the player re-enters the main server.
+     * Removes them from the queue when they leave the lobby (left by another route).
+     */
     @Subscribe
     public void onConnected(ServerConnectedEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
@@ -202,7 +209,7 @@ final class ConnectionListener {
         }
     }
 
-    /** 처음 들어온 서버(로비)에 연결되면 일시정지 메뉴 서버 링크를 보낸다. */
+    /** Sends pause-menu server links once connected to the first server (lobby). */
     @Subscribe
     public void onPostConnect(ServerPostConnectEvent event) {
         if (event.getPreviousServer() != null || links.isEmpty()) {
@@ -211,12 +218,15 @@ final class ConnectionListener {
         try {
             event.getPlayer().setServerLinks(links);
         } catch (RuntimeException e) {
-            // 1.21 미만 클라이언트 등 지원하지 않는 연결
+            // Unsupported connection, e.g. clients older than 1.21
             log.debug("서버 링크를 보내지 못했습니다: {}", String.valueOf(e.getMessage()));
         }
     }
 
-    /** 본 서버·인스턴스가 죽거나 재시작하면 로비로 보내고 재접속 유예를 준다. */
+    /**
+     * When the main server or an instance dies or restarts, sends players to the lobby and grants a
+     * reconnect grace period.
+     */
     @Subscribe
     public void onKicked(KickedFromServerEvent event) {
         Component reason = event.getServerKickReason().orElse(Component.empty());
@@ -231,7 +241,7 @@ final class ConnectionListener {
         Optional<RegisteredServer> lobby = proxy.getServer(config.lobby());
         if (lobby.isPresent()) {
             queue.grantGrace(event.getPlayer().getUniqueId());
-            // 로비로 돌려보내는 것은 승인된 이동이다 (onPreConnect가 막지 않게)
+            // Sending back to the lobby is an approved move (so onPreConnect does not block it)
             mover.approveFallback(event.getPlayer().getUniqueId(), config.lobby());
             event.setResult(
                     KickedFromServerEvent.RedirectPlayer.create(
@@ -251,7 +261,8 @@ final class ConnectionListener {
         if (config.mainServers().containsKey(server)) {
             queue.grantGrace(uuid);
         } else if (!server.equals(config.lobby()) && seats.seatOf(uuid).isPresent()) {
-            // 인스턴스에서 끊김: 본 서버 자리는 유예 시간만큼 유지 (Boss 재접속 키로 돌아올 수 있음)
+            // Disconnected from an instance: keep the main server seat for the grace period (can
+            // return via the Boss rejoin key)
             seats.markOffline(uuid, Instant.now());
             queue.grantGrace(uuid);
         }
@@ -259,14 +270,15 @@ final class ConnectionListener {
         chat.forget(uuid);
         sanctions.forget(uuid);
         joinLog.left(uuid);
-        // 다음 접속 때는 리소스팩을 다시 받아야 한다 (클라이언트가 팩을 내려놓았다)
+        // The resource pack must be received again on the next connection (the client unloaded the
+        // pack)
         Thread.ofVirtual()
                 .start(
                         () -> {
                             try {
                                 redis.sync().del(ProxyMessages.PACK_APPLIED_PREFIX + uuid);
                             } catch (RuntimeException e) {
-                                // Redis 장애: TTL로 사라진다
+                                // Redis failure: expires via TTL
                             }
                         });
     }

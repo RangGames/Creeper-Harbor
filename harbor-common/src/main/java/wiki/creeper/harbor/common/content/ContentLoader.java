@@ -21,17 +21,18 @@ import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * YAML 콘텐츠 → 메모리 스냅샷.
+ * YAML content → in-memory snapshot.
  *
  * <ol>
- *   <li>파일을 모두 읽는다 (SnakeYAML 노드 단위, 줄 번호 유지)
- *   <li>레코드로 바꾼다 (필수 필드·타입·범위·ID 형식 검사)
- *   <li>참조를 검사한다 (어종의 region이 regions.yml에 있는지 등)
- *   <li>추가 검사({@link ContentCheck})를 실행한다
+ *   <li>Reads all files (as SnakeYAML nodes, keeping line numbers)
+ *   <li>Converts them to records (required fields, types, ranges, ID format checks)
+ *   <li>Checks references (whether a fish's region exists in regions.yml, etc.)
+ *   <li>Runs extra checks ({@link ContentCheck})
  * </ol>
  *
- * 오류가 하나도 없을 때만 새 스냅샷을 돌려준다. 이 클래스는 서버 API를 쓰지 않아서 harbor-tools(CI)에서도 같은 코드로 검사한다. 스레드 안전하지 않으므로
- * 등록은 시작할 때 한 스레드에서 한다.
+ * Returns a new snapshot only when there are no errors at all. This class uses no server API, so
+ * harbor-tools (CI) validates with the same code. It is not thread-safe, so registration happens on
+ * one thread at startup.
  */
 public final class ContentLoader {
 
@@ -57,16 +58,18 @@ public final class ContentLoader {
         return Optional.ofNullable(types.get(name));
     }
 
-    /** 등록된 모든 형식을 읽는다. */
+    /** Reads all registered types. */
     public Result<ContentSnapshot, ValidationErrors> load(Path root) {
         return reload(root, types.keySet(), ContentSnapshot.empty());
     }
 
     /**
-     * 일부 형식만 다시 읽고, 나머지는 이전 스냅샷 값을 그대로 쓴다. 참조 검사는 합친 결과 전체로 한다 (안 읽은 형식이 다시 읽은 형식을 가리키는 참조도 이전 스냅샷에
-     * 남겨 둔 참조로 다시 검사한다: 퀘스트를 지웠는데 NPC가 그 퀘스트를 가리키는 경우 등).
+     * Re-reads only some types and keeps the previous snapshot's values for the rest. Reference
+     * checks run on the whole merged result (references from types not re-read that point at
+     * re-read types are rechecked using the references kept in the previous snapshot: e.g. a quest
+     * was deleted but an NPC still points at it).
      *
-     * @param only 다시 읽을 형식 이름들
+     * @param only names of the types to re-read
      */
     public Result<ContentSnapshot, ValidationErrors> reload(
             Path root, Set<String> only, ContentSnapshot previous) {
@@ -106,7 +109,8 @@ public final class ContentLoader {
             references.put(type.name(), ctx.references());
         }
 
-        // 3단계: 참조 검사 (대상 형식이 등록된 경우만). 모든 형식의 참조를 합친 결과로 검사한다
+        // Step 3: reference checks (only when the target type is registered). Checked against the
+        // merged references of all types
         for (ContentType<?> type : types.values()) {
             for (ParseContext.Reference ref : references.getOrDefault(type.name(), List.of())) {
                 if (!types.containsKey(ref.targetType())) {
@@ -121,14 +125,14 @@ public final class ContentLoader {
 
         ContentSnapshot snapshot = new ContentSnapshot(entries, singles, references);
 
-        // 4단계: 추가 검사 (다시 읽은 형식만)
+        // Step 4: extra checks (re-read types only)
         if (errors.isEmpty()) {
             runChecks(only, snapshot, positions, singlePositions, errors);
         }
         return errors.isEmpty() ? Result.ok(snapshot) : Result.err(errors);
     }
 
-    // ------------------------------------------------------------------ 내부
+    // ------------------------------------------------------------------ internals
 
     private static List<String> listFiles(Path root) throws IOException {
         try (Stream<Path> stream = Files.walk(root)) {

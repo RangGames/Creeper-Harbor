@@ -4,13 +4,15 @@ import java.util.List;
 import wiki.creeper.harbor.common.redis.Channel;
 
 /**
- * 팩을 만든 서버가 CDN에 올린 뒤 모든 서버에 알리는 현재 리소스팩 (추가 제안).
+ * The current resource pack, announced to all servers after the building server uploads it to the
+ * CDN (proposed).
  *
- * <p>Redis 키 {@value #KEY}에 JSON으로, {@value #SHA1_KEY}에 SHA-1만 두고, 바뀌면 {@link #CHANNEL}로 SHA-1만 알린다
- * (모델 목록이 커서 메시지에 싣지 않는다). 받은 서버는 키를 읽는다. lobby는 이 주소·SHA-1로 팩을 보내고, 모든 서버는 models·sounds 목록으로 커스텀
- * 모델·소리를 쓸지 정한다.
+ * <p>Stored as JSON in Redis key {@value #KEY} and as SHA-1 only in {@value #SHA1_KEY}; on change
+ * only the SHA-1 is announced on {@link #CHANNEL} (the model list is too large for messages).
+ * Receiving servers read the key. The lobby sends the pack with this URL/SHA-1, and every server
+ * uses the models/sounds lists to decide whether to use custom models and sounds.
  *
- * @param builtAt 만든 시각 (epoch ms)
+ * @param builtAt build time (epoch ms)
  */
 public record PublishedPack(
         String url,
@@ -22,10 +24,10 @@ public record PublishedPack(
 
     public static final String KEY = "harbor:pack";
 
-    /** 지금 팩의 SHA-1만 (서버들이 주기적으로 싸게 비교한다). */
+    /** SHA-1 of the current pack only (servers compare it cheaply on a schedule). */
     public static final String SHA1_KEY = "harbor:pack:sha1";
 
-    /** 팩이 바뀌었다는 알림. */
+    /** Notification that the pack changed. */
     public record Changed(String sha1) {}
 
     public static final Channel<Changed> CHANNEL = new Channel<>(KEY, Changed.class);

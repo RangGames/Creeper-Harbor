@@ -6,9 +6,11 @@ import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
 
 /**
- * 모듈별 Flyway 마이그레이션. 마이그레이션 폴더는 {@code db/migration/<모듈>}, 이력 테이블은 {@code flyway_<모듈>}.
+ * Per-module Flyway migrations. Migration folder is {@code db/migration/<module>}, history table is
+ * {@code flyway_<module>}.
  *
- * <p>여러 모듈이 같은 스키마를 쓰므로 빈 스키마가 아니어도 시작할 수 있게 baseline 0으로 둔다. 운영 중에는 열을 지우거나 이름을 바꾸지 않고 추가만 한다.
+ * <p>Several modules share one schema, so baseline is 0 to allow starting on a non-empty schema. In
+ * production, columns are only added, never dropped or renamed.
  */
 public final class Migrations {
 
@@ -17,8 +19,9 @@ public final class Migrations {
     private Migrations() {}
 
     /**
-     * @param classLoader 마이그레이션 SQL이 들어 있는 jar의 클래스 로더 (플러그인 클래스 로더)
-     * @return 이번에 적용한 마이그레이션 수
+     * @param classLoader class loader of the jar containing the migration SQL (the plugin class
+     *     loader)
+     * @return number of migrations applied this time
      */
     public static int migrate(DataSource dataSource, String module, ClassLoader classLoader) {
         if (!MODULE.matcher(module).matches()) {

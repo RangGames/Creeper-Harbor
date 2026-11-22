@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.rig;
 
-/** 3차원 벡터 (변경 불가). 리그 계산 전용이라 서버 API(JOML)에 기대지 않는다. */
+/** 3D vector (immutable). For rig math only, so it does not rely on the server API (JOML). */
 public record Vec3(double x, double y, double z) {
 
     public static final Vec3 ZERO = new Vec3(0, 0, 0);
@@ -18,7 +18,7 @@ public record Vec3(double x, double y, double z) {
         return new Vec3(x * k, y * k, z * k);
     }
 
-    /** 성분별 곱 (축별 크기 적용). */
+    /** Component-wise product (applies per-axis scale). */
     public Vec3 mul(Vec3 o) {
         return new Vec3(x * o.x, y * o.y, z * o.z);
     }
@@ -39,7 +39,7 @@ public record Vec3(double x, double y, double z) {
         return sub(o).length();
     }
 
-    /** 가장 큰 성분 차이 (크기 비교용). */
+    /** Largest component difference (for size comparison). */
     public double maxDiff(Vec3 o) {
         return Math.max(Math.abs(x - o.x), Math.max(Math.abs(y - o.y), Math.abs(z - o.z)));
     }
@@ -48,7 +48,7 @@ public record Vec3(double x, double y, double z) {
         return new Vec3(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f, a.z + (b.z - a.z) * f);
     }
 
-    /** 균일 Catmull-Rom 스플라인. p1→p2 구간의 f(0~1) 지점. */
+    /** Uniform Catmull-Rom spline. The point at f (0~1) on the p1→p2 segment. */
     public static Vec3 catmullRom(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3, double f) {
         double f2 = f * f;
         double f3 = f2 * f;

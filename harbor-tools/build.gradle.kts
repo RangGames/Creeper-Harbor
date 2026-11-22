@@ -1,4 +1,4 @@
-// Harbor-Tools: 콘텐츠 검증 CLI (CI에서 실행). 서버 플러그인과 같은 로더 코드를 쓴다.
+// Harbor-Tools: content validation CLI (run in CI). Uses the same loader code as the server plugins.
 plugins {
     id("harbor.java")
     application
@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     implementation(project(":harbor-common"))
-    // 모듈 콘텐츠 형식 (서버 API를 쓰지 않는 클래스만 불러온다)
+    // Module content types (only classes that do not use the server API are loaded)
     implementation(project(":harbor-core"))
     implementation(project(":harbor-jobs"))
     implementation(project(":harbor-fishing"))
@@ -27,7 +27,7 @@ application {
     mainClass = "wiki.creeper.harbor.tools.HarborTools"
 }
 
-// ./gradlew validateContent → content/ 폴더를 검사. 오류가 있으면 실패
+// ./gradlew validateContent → validates the content/ folder. Fails on errors
 val validateContent by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "content/ YAML을 서버와 같은 로더로 검사한다"
@@ -36,7 +36,7 @@ val validateContent by tasks.registering(JavaExec::class) {
     args("validate", rootProject.layout.projectDirectory.dir("content").asFile.absolutePath)
 }
 
-// ./gradlew packIndex -Ppack=<리소스팩 폴더 또는 zip> → content/resource_pack.yml (팩에 있는 item_model·소리 목록)
+// ./gradlew packIndex -Ppack=<resource pack folder or zip> → content/resource_pack.yml (item_model and sound lists in the pack)
 val packIndex by tasks.registering(JavaExec::class) {
     group = "content"
     description = "리소스팩에서 content/resource_pack.yml을 만든다 (-Ppack=<폴더 또는 zip>)"
@@ -49,7 +49,7 @@ val packIndex by tasks.registering(JavaExec::class) {
     })
 }
 
-// ./gradlew rigImport -Prigs=<리소스팩 assets/harbor/rigs/fish 폴더> [-PrigStep=<틱>] → content/rigs/fish/<이름>.yml (어종 리그 변환)
+// ./gradlew rigImport -Prigs=<resource pack assets/harbor/rigs/fish folder> [-PrigStep=<ticks>] → content/rigs/fish/<name>.yml (fish rig conversion)
 val rigImport by tasks.registering(JavaExec::class) {
     group = "content"
     description = "리소스팩 어종 리그 JSON(harbor_rig_v1)을 content/rigs/fish/*.yml로 바꾼다 (-Prigs=<폴더>)"

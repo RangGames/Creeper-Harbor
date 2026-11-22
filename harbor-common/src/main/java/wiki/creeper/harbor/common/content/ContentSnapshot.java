@@ -11,7 +11,10 @@ import java.util.TreeSet;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.HarborId;
 
-/** 콘텐츠 전체의 변경 불가 스냅샷. 리로드는 새 스냅샷을 만들어 참조 하나를 바꾸는 방식이라, 읽는 쪽은 잠금 없이 써도 된다. */
+/**
+ * Immutable snapshot of all content. A reload builds a new snapshot and swaps a single reference,
+ * so readers can use it without locking.
+ */
 public final class ContentSnapshot {
 
     private static final ContentSnapshot EMPTY = new ContentSnapshot(Map.of(), Map.of());
@@ -19,7 +22,10 @@ public final class ContentSnapshot {
     private final Map<String, Map<HarborId, Object>> entries;
     private final Map<String, Object> singles;
 
-    /** 형식별로 파싱 때 모은 참조. 일부만 다시 읽을 때 안 읽은 형식의 참조도 다시 검사하려고 둔다. */
+    /**
+     * References collected per type during parsing. Kept so that a partial reload can recheck
+     * references of types that were not re-read.
+     */
     private final Map<String, List<ParseContext.Reference>> references;
 
     ContentSnapshot(Map<String, Map<HarborId, Object>> entries, Map<String, Object> singles) {
@@ -43,7 +49,7 @@ public final class ContentSnapshot {
         return EMPTY;
     }
 
-    /** 형식의 모든 항목 (ID 순). */
+    /** All entries of a type (by ID). */
     @SuppressWarnings("unchecked")
     public <T> Map<HarborId, T> all(ContentType.Entries<T> type) {
         return (Map<HarborId, T>) (Map<HarborId, ?>) entries.getOrDefault(type.name(), Map.of());
@@ -53,7 +59,7 @@ public final class ContentSnapshot {
         return Optional.ofNullable(all(type).get(id));
     }
 
-    /** 파일 하나짜리 형식의 값. 등록되지 않은 형식이면 IllegalStateException. */
+    /** Value of a single-file type. IllegalStateException if the type is not registered. */
     @SuppressWarnings("unchecked")
     public <T> T single(ContentType.Single<T> type) {
         @Nullable Object value = singles.get(type.name());
@@ -68,7 +74,10 @@ public final class ContentSnapshot {
         return map != null && map.containsKey(id);
     }
 
-    /** 형식 이름으로 항목 하나 (형식 클래스를 모르는 쪽: 외부 이벤트의 ID → 이름 풀기 등). */
+    /**
+     * One entry by type name (for callers that do not know the type class: resolving names from
+     * external event IDs, etc.).
+     */
     public Optional<Object> entry(String typeName, HarborId id) {
         Map<HarborId, Object> map = entries.get(typeName);
         return map == null ? Optional.empty() : Optional.ofNullable(map.get(id));
@@ -79,7 +88,7 @@ public final class ContentSnapshot {
         return map == null ? Set.of() : map.keySet();
     }
 
-    /** 이 스냅샷에 들어 있는 형식 이름들. */
+    /** Type names contained in this snapshot. */
     public Set<String> typeNames() {
         Set<String> names = new TreeSet<>(entries.keySet());
         names.addAll(singles.keySet());
@@ -98,7 +107,7 @@ public final class ContentSnapshot {
         return references;
     }
 
-    /** 형식별 항목 수 (상태 표시용). */
+    /** Entry count per type (for status display). */
     public Map<String, Integer> counts() {
         Map<String, Integer> counts = new TreeMap<>();
         entries.forEach((k, v) -> counts.put(k, v.size()));

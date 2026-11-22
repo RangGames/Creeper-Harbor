@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.id;
 
-/** 퀘스트 ID. 예: {@code harbor:quest/example}. */
+/** Quest ID. E.g. {@code harbor:quest/example}. */
 public record QuestId(HarborId id) implements TypedId {
 
     public static final String PREFIX = "quest/";

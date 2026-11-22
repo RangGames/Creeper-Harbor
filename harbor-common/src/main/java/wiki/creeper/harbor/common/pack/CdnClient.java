@@ -17,8 +17,9 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
- * Creeper CDN 업로드 (POST /api/web/files, multipart: file·namespace·version, 헤더 x-api-key). CDN은 파일
- * 이름을 내용 해시로 정하므로 같은 파일은 같은 주소, 다른 파일은 새 주소가 된다. API 키는 로그·예외 메시지에 넣지 않는다.
+ * Creeper CDN upload (POST /api/web/files, multipart: file, namespace, version; header x-api-key).
+ * The CDN names files by content hash, so the same file gets the same URL and a different file a
+ * new URL. The API key never goes into logs or exception messages.
  */
 public final class CdnClient {
 
@@ -30,7 +31,7 @@ public final class CdnClient {
     private final HttpClient http;
 
     /**
-     * @param base 예: https://cdn.creeper.wiki
+     * @param base e.g. https://cdn.creeper.wiki
      */
     public CdnClient(URI base, String apiKey) {
         this.base = base;
@@ -39,14 +40,14 @@ public final class CdnClient {
     }
 
     /**
-     * 업로드 결과.
+     * Upload result.
      *
-     * @param url 내려받을 주소
-     * @param hash CDN이 계산한 내용 해시
+     * @param url download URL
+     * @param hash content hash computed by the CDN
      */
     public record Uploaded(String url, String hash) {}
 
-    /** 블로킹 (가상 스레드에서 부른다). */
+    /** Blocking (call on a virtual thread). */
     public Uploaded upload(Path file, String namespace, String version)
             throws IOException, InterruptedException {
         if (!NAMESPACE.matcher(namespace).matches()) {

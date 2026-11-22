@@ -2,12 +2,15 @@ package wiki.creeper.harbor.common.content;
 
 import java.util.regex.Pattern;
 
-/** '/' 구분 경로용 glob. 운영체제와 상관없이 같은 결과를 내도록 직접 구현한다. */
+/** Glob for '/'-separated paths. Implemented by hand so it gives the same result on every OS. */
 final class Glob {
 
     private Glob() {}
 
-    /** {@code *}: 한 마디 안의 아무 문자열, {@code **}: 여러 마디, {@code ?}: 한 문자. */
+    /**
+     * {@code *}: any string within one segment, {@code **}: multiple segments, {@code ?}: one
+     * character.
+     */
     static Pattern compile(String glob) {
         StringBuilder regex = new StringBuilder();
         for (int i = 0; i < glob.length(); i++) {

@@ -28,12 +28,14 @@ import wiki.creeper.harbor.common.redis.Channels;
 import wiki.creeper.harbor.common.redis.MessageBus;
 
 /**
- * 프록시 명령 (docs 20 1.5). Velocity 기본 /server는 등록 해제한다 (모든 이동은 MoveCoordinator를 거쳐야 함). 모든 /hp 명령은
- * admin_log에 남긴다. 권한은 harbor.admin.proxy.&lt;명령&gt; (0.4). 제재·조회 명령은 {@link SanctionCommands}.
+ * Proxy commands (docs 20 1.5). Velocity's built-in /server is unregistered (every move must go
+ * through MoveCoordinator). Every /hp command is logged to admin_log. Permissions are
+ * harbor.admin.proxy.&lt;command&gt; (0.4). Sanction/lookup commands are in {@link
+ * SanctionCommands}.
  */
 final class ProxyCommands {
 
-    /** admin_log 기록 함수. */
+    /** admin_log writer function. */
     @FunctionalInterface
     interface AdminLogger {
         void record(CommandSource admin, String action, String target, String detail);
@@ -97,9 +99,12 @@ final class ProxyCommands {
                 manager.metaBuilder(command).aliases(aliases).plugin(plugin).build(), command);
     }
 
-    // ------------------------------------------------------------------ 플레이어 명령
+    // ------------------------------------------------------------------ Player commands
 
-    /** /로비: 로비로 가서 머문다 (/출항 전까지 대기열에 넣지 않는다). 로비에 있으면 대기열에서만 빠진다. */
+    /**
+     * /로비 (lobby): go to the lobby and stay (not queued until /출항). If already in the lobby, just
+     * leaves the queue.
+     */
     private LiteralArgumentBuilder<CommandSource> lobby() {
         return BrigadierCommand.literalArgumentBuilder("로비")
                 .requires(src -> src instanceof Player)
@@ -114,7 +119,7 @@ final class ProxyCommands {
                                 return Command.SINGLE_SUCCESS;
                             }
                             boolean onMain = config.mainServers().containsKey(current);
-                            // 팩 적용 결과(PackStatus)가 오기 전에 표시해 둔다
+                            // Mark it before the pack apply result (PackStatus) arrives
                             queue.stay(uuid);
                             var _ =
                                     mover.move(player, config.lobby(), "lobby")
@@ -131,7 +136,7 @@ final class ProxyCommands {
                         });
     }
 
-    /** /출항: 로비에 머물던 사람이 본 서버 대기열에 들어간다 (추가 제안). */
+    /** /출항 (depart): a player staying in the lobby joins the main server queue (proposed). */
     private LiteralArgumentBuilder<CommandSource> depart() {
         return BrigadierCommand.literalArgumentBuilder("출항")
                 .requires(src -> src instanceof Player)
@@ -233,7 +238,7 @@ final class ProxyCommands {
                                         }));
     }
 
-    // ------------------------------------------------------------------ /hp 관리 명령
+    // ------------------------------------------------------------------ /hp admin commands
 
     private LiteralArgumentBuilder<CommandSource> admin() {
         LiteralArgumentBuilder<CommandSource> root = baseAdmin();
@@ -477,7 +482,7 @@ final class ProxyCommands {
         return builder.buildFuture();
     }
 
-    /** /hp queue move <플레이어> <순번>. */
+    /** /hp queue move <player> <position>. */
     private int queueMove(CommandContext<CommandSource> ctx) {
         String target = StringArgumentType.getString(ctx, "target");
         int position = IntegerArgumentType.getInteger(ctx, "position");

@@ -9,9 +9,10 @@ import wiki.creeper.harbor.common.content.ParseContext;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * messages_ko.yml. 모든 출력 문구 (MiniMessage 형식). 코드에는 문구를 직접 쓰지 않고 키로 찾는다.
+ * messages_ko.yml. All output text (MiniMessage format). Code never writes text directly; it looks
+ * it up by key.
  *
- * <p>중첩 맵은 점으로 이은 키가 되고, 문자열 목록은 줄바꿈으로 합친다.
+ * <p>Nested maps become dot-joined keys, and string lists are joined with newlines.
  */
 public final class Messages {
 

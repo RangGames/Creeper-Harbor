@@ -3,15 +3,17 @@ package wiki.creeper.harbor.common.rig;
 import java.util.List;
 
 /**
- * 채널 하나(이동·회전·크기)의 키프레임 목록. 키는 시각 순서로 정렬되어 있어야 한다 (RigDef 파서가 검사).
+ * Keyframe list of one channel (translation, rotation or scale). Keys must be sorted by time
+ * (checked by the RigDef parser).
  *
- * <p>회전 채널의 값은 오일러 각(도)이고 성분별로 보간한 뒤 사원수로 바꾼다. Blockbench와 같은 방식이라 0→360° 한 바퀴 회전도 표현된다.
+ * <p>Rotation channel values are Euler angles (degrees), interpolated per component and then
+ * converted to a quaternion. Same as Blockbench, so a full 0→360° turn can be expressed.
  */
 public record Track(List<Keyframe> keys) {
 
     public static final Track EMPTY = new Track(List.of());
 
-    /** 키 하나. t는 애니메이션 시작부터의 틱. */
+    /** One key. t is ticks since the animation start. */
     public record Keyframe(double t, Vec3 value, Easing easing) {}
 
     public Track {
@@ -22,7 +24,10 @@ public record Track(List<Keyframe> keys) {
         return keys.isEmpty();
     }
 
-    /** 시각 t의 값. 키가 없으면 fallback, 첫 키 앞이면 첫 값, 마지막 키 뒤면 마지막 값. */
+    /**
+     * Value at time t. fallback if there are no keys, the first value before the first key, the
+     * last value after the last key.
+     */
     public Vec3 sample(double t, Vec3 fallback) {
         int n = keys.size();
         if (n == 0) {
@@ -47,7 +52,7 @@ public record Track(List<Keyframe> keys) {
         return Vec3.lerp(a.value(), b.value(), a.easing().apply(f));
     }
 
-    /** t가 들어 있는 구간의 시작 키 번호 (keys[i].t ≤ t < keys[i+1].t). */
+    /** Start key index of the interval containing t (keys[i].t ≤ t < keys[i+1].t). */
     private int segment(double t) {
         int lo = 0;
         int hi = keys.size() - 2;

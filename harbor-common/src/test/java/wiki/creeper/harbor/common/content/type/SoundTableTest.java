@@ -40,7 +40,7 @@ class SoundTableTest {
         assertEquals("player", reel.source());
         assertEquals(40, reel.loopTicks());
         assertNull(reel.fallback());
-        assertEquals(0.7f, reel.fallbackVolume(), 1e-6); // 대체 음량은 volume을 따른다
+        assertEquals(0.7f, reel.fallbackVolume(), 1e-6); // fallback volume follows volume
 
         SoundTable.Event coin = table.event("ui.coin").orElseThrow();
         assertEquals("minecraft:entity.experience_orb.pickup", coin.fallback());
@@ -72,7 +72,7 @@ class SoundTableTest {
                   gold: {sound: "harbor:ui.coin", reasons: [NOT_A_REASON]}
                 """,
                 errors);
-        // 이벤트 이름, 분류, 피치, 대체 소리, 재화, 사유
+        // event name, category, pitch, fallback sound, currency, reason
         assertEquals(6, errors.size(), errors.format());
     }
 

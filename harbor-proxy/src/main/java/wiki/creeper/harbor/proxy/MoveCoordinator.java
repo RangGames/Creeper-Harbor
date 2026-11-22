@@ -28,15 +28,17 @@ import wiki.creeper.harbor.common.session.SessionAudit;
 import wiki.creeper.harbor.common.session.SessionLocks;
 
 /**
- * 서버 이동 지휘 (docs 20 1.4, 세션 핸드오프 '16. 플러그인 설계' 4.5). 모든 백엔드 간 이동은 여기를 거친다.
+ * Server move orchestration (docs 20 1.4, session handoff '16. Plugin design' 4.5). Every
+ * backend-to-backend move goes through here.
  *
  * <ol>
- *   <li>목적지 상태 확인 (하트비트 15초 이상 끊김, 입장 불허, 수용 초과면 거절)
- *   <li>출발 서버가 로비가 아니면 TransferPrepare → 5초 안에 TransferReady
- *   <li>승인 표시 후 connect(). 실패하면 TransferAbort로 잠금을 되돌린다
+ *   <li>Check the destination state (refuse if heartbeat missing for 15+ seconds, entry disallowed,
+ *       or over capacity)
+ *   <li>If the source server is not the lobby, TransferPrepare → TransferReady within 5 seconds
+ *   <li>Mark as approved, then connect(). On failure, revert the lock with TransferAbort
  * </ol>
  *
- * 플레이어당 이동은 하나만 진행한다.
+ * Only one move per player is in progress at a time.
  */
 final class MoveCoordinator {
 
@@ -120,7 +122,7 @@ final class MoveCoordinator {
                 });
     }
 
-    /** 백엔드가 요청한 로비 이동 앞뒤 (대기열: 자동 출항 막기·자리 유예). */
+    /** Before/after a backend-requested lobby move (queue: block auto-departure, seat grace). */
     interface LobbyHook {
         void before(UUID player);
 
@@ -133,14 +135,20 @@ final class MoveCoordinator {
         this.lobbyHook = hook;
     }
 
-    /** ServerPreConnectEvent: 백엔드 간 연결은 여기서 승인한 것만 허용한다. 승인 표시는 한 번 쓰면 지운다. */
+    /**
+     * ServerPreConnectEvent: only backend-to-backend connections approved here are allowed. An
+     * approval mark is cleared once used.
+     */
     boolean consumeApproval(UUID player, String server) {
         return approved.remove(player, server);
     }
 
     /**
-     * 저장 절차 없이 바로 보내도 되는 이동을 승인한다. 본 서버가 내보낸(꺼진) 플레이어를 로비로 돌려보낼 때만 쓴다: 정상 종료면 그 서버가 이미 저장·잠금 해제를
-     * 했고, 비정상 종료면 잠금이 남아 로비 입장이 잠시(잠금 만료까지) 거부된다 (로비도 잠금을 잡으므로 복제는 없다).
+     * Approves a move that may be sent directly without the save procedure. Used only to send
+     * players kicked by a (shut down) main server back to the lobby: on a clean shutdown that
+     * server already saved and released the lock; on a crash the lock remains and lobby entry is
+     * refused briefly (until the lock expires) (the lobby also takes the lock, so there is no
+     * duplication).
      */
     void approveFallback(UUID player, String lobby) {
         approved.put(player, lobby);
@@ -169,7 +177,8 @@ final class MoveCoordinator {
         if (destination.equals(origin)) {
             return done(requestId, uuid, false, "already_there");
         }
-        // Redis 장애 시 이동 중단 (docs 20 1.6: 핸드오프 잠금을 못 다루면 복제 방지가 깨진다)
+        // Abort the move on Redis failure (docs 20 1.6: if the handoff lock cannot be handled,
+        // duplication protection breaks)
         if (!redisUp.getAsBoolean()) {
             return done(requestId, uuid, false, "redis_down");
         }
@@ -233,14 +242,20 @@ final class MoveCoordinator {
                         });
     }
 
-    /** 예약 자리로의 귀환은 수용 한도를 넘어도 받는다 (하트비트·입장 허용만 확인). */
+    /**
+     * A return to a reserved seat is accepted even over capacity (only heartbeat and entry
+     * permission are checked).
+     */
     private boolean destinationOpen(UUID player, String destination) {
         return seats.holds(player, destination)
                 ? directory.isAlive(destination)
                 : directory.canAccept(destination, 1);
     }
 
-    /** 모든 백엔드(로비 포함)가 잠금을 잡고 저장하므로, 출발 서버가 있으면 항상 저장 → 잠금 넘김을 거친다. */
+    /**
+     * Every backend (including the lobby) takes the lock and saves, so with a source server it
+     * always goes through save → lock handoff.
+     */
     private boolean needsHandoff(@Nullable String origin) {
         return origin != null;
     }
@@ -260,7 +275,8 @@ final class MoveCoordinator {
                         (reply, e) -> {
                             waitingReady.remove(requestId);
                             if (e != null || reply == null || !reply.ok()) {
-                                // 시간 초과면 출발 서버가 handoff로 바꿨을 수도 있으므로 되돌리게 한다
+                                // On timeout the source server may have switched to handoff, so
+                                // have it revert
                                 abort(origin, uuid, requestId);
                                 return false;
                             }

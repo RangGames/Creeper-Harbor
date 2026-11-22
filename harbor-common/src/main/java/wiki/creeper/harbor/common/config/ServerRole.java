@@ -2,7 +2,7 @@ package wiki.creeper.harbor.common.config;
 
 import wiki.creeper.harbor.common.model.Keyed;
 
-/** 서버 역할. 연결 풀 기본 크기가 다르다. */
+/** Server role. The default connection pool size differs per role. */
 public enum ServerRole implements Keyed {
     MAIN(20),
     LOBBY(8),

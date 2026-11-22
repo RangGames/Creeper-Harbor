@@ -1,4 +1,4 @@
-// Purpur에서 도는 Paper 플러그인 공통 설정. paper-plugin.yml의 ${version}, ${apiVersion}을 채운다.
+// Shared settings for Paper plugins running on Purpur. Fills ${version} and ${apiVersion} in paper-plugin.yml.
 plugins {
     id("harbor.java")
 }

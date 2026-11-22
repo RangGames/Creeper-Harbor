@@ -17,14 +17,15 @@ import java.util.function.BooleanSupplier;
 import javax.sql.DataSource;
 
 /**
- * HikariCP 연결 풀 + 트랜잭션 도구.
+ * HikariCP connection pool + transaction helpers.
  *
  * <ul>
- *   <li>{@link #tx}: 한 트랜잭션을 실행한다. 교착 상태(deadlock)면 최대 3번 다시 시도한다.
- *   <li>{@link #async}: 가상 스레드에서 실행하고 CompletableFuture를 돌려준다. 결과는 호출한 쪽이 메인 스레드로 넘겨 반영한다.
+ *   <li>{@link #tx}: runs one transaction. Retries up to 3 times on deadlock.
+ *   <li>{@link #async}: runs on a virtual thread and returns a CompletableFuture. The caller hands
+ *       the result back to the main thread to apply it.
  * </ul>
  *
- * 메인 스레드에서 DB를 쓰면 개발 모드에서 경고 로그를 남긴다 (스택 포함).
+ * Using the DB on the main thread logs a warning in dev mode (with stack trace).
  */
 public final class Database implements AutoCloseable {
 
@@ -46,10 +47,11 @@ public final class Database implements AutoCloseable {
     }
 
     /**
-     * 연결 풀을 연다. 연결에 실패하면 예외를 던진다 (서버 시작 중단).
+     * Opens the connection pool. Throws if the connection fails (aborting server startup).
      *
-     * @param isMainThread 지금 스레드가 서버 메인 스레드인지 (Purpur: Bukkit::isPrimaryThread, 그 밖: () -> false)
-     * @param warnOnMainThread 메인 스레드 입출력 감지 시 경고 (개발 빌드)
+     * @param isMainThread whether the current thread is the server main thread (Purpur:
+     *     Bukkit::isPrimaryThread, otherwise: () -> false)
+     * @param warnOnMainThread warn when main-thread I/O is detected (dev builds)
      */
     public static Database connect(
             DatabaseConfig config, BooleanSupplier isMainThread, boolean warnOnMainThread) {
@@ -69,7 +71,7 @@ public final class Database implements AutoCloseable {
         return new Database(new HikariDataSource(hikari), isMainThread, warnOnMainThread);
     }
 
-    /** 테스트·도구용: 이미 만든 DataSource로 연다. */
+    /** For tests/tools: opens with an existing DataSource. */
     public static Database wrap(HikariDataSource dataSource) {
         return new Database(dataSource, () -> false, false);
     }
@@ -78,12 +80,12 @@ public final class Database implements AutoCloseable {
         return dataSource;
     }
 
-    /** 가상 스레드 실행기. DB와 관계없는 무거운 일에도 쓸 수 있다. */
+    /** Virtual thread executor. Can also be used for heavy work unrelated to the DB. */
     public ExecutorService executor() {
         return executor;
     }
 
-    /** 한 트랜잭션을 실행하고 커밋한다. 예외가 나면 롤백한다. */
+    /** Runs and commits one transaction. Rolls back on exception. */
     public <T> T tx(SqlFunction<T> work) throws SQLException {
         checkThread();
         for (int attempt = 0; ; attempt++) {
@@ -94,7 +96,8 @@ public final class Database implements AutoCloseable {
                     connection.commit();
                     return result;
                 } catch (SQLException | RuntimeException e) {
-                    // 끊긴 연결에서 롤백이 실패해도 원래 예외(잔액 부족·중복·교착 판단의 근거)를 그대로 던진다
+                    // Even if rollback fails on a broken connection, rethrow the original exception
+                    // (the basis for insufficient-balance, duplicate and deadlock decisions)
                     try {
                         connection.rollback();
                     } catch (SQLException rollbackError) {
@@ -105,7 +108,7 @@ public final class Database implements AutoCloseable {
                     try {
                         connection.setAutoCommit(true);
                     } catch (SQLException ignored) {
-                        // 연결을 풀에 돌려줄 때 HikariCP가 정리한다
+                        // HikariCP cleans up when the connection is returned to the pool
                     }
                 }
             } catch (SQLException e) {
@@ -126,7 +129,7 @@ public final class Database implements AutoCloseable {
                 });
     }
 
-    /** 가상 스레드에서 트랜잭션을 실행한다. SQLException은 CompletionException으로 감싼다. */
+    /** Runs a transaction on a virtual thread. SQLException is wrapped in CompletionException. */
     public <T> CompletableFuture<T> async(SqlFunction<T> work) {
         return CompletableFuture.supplyAsync(
                 () -> {
@@ -148,7 +151,7 @@ public final class Database implements AutoCloseable {
                 .thenApply(ignored -> null);
     }
 
-    /** 풀 상태 (/harbor debug). */
+    /** Pool status (/harbor debug). */
     public PoolStats stats() {
         HikariPoolMXBean pool = dataSource.getHikariPoolMXBean();
         return new PoolStats(
@@ -159,7 +162,7 @@ public final class Database implements AutoCloseable {
                 dataSource.getMaximumPoolSize());
     }
 
-    /** 연결 풀 사용 현황. */
+    /** Connection pool usage. */
     public record PoolStats(int active, int idle, int total, int waiting, int max) {}
 
     @Override

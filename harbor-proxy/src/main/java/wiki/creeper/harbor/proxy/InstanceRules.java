@@ -10,15 +10,18 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/** 인스턴스 이동의 순수 규칙 (서버 API 없음, 단위 테스트 대상). */
+/** Pure rules for instance moves (no server API, unit-tested). */
 final class InstanceRules {
 
-    /** Boss 재접속 키 (docs 20 '17-4' 10.2, 만료 120초). 값은 인스턴스 서버 ID. */
+    /**
+     * Boss rejoin key (docs 20 '17-4' 10.2, expires in 120 seconds). The value is the instance
+     * server ID.
+     */
     static final String REJOIN_PREFIX = "harbor:boss:rejoin:";
 
     private static final Pattern SERVER_ID = Pattern.compile("[a-z0-9_-]{1,32}");
 
-    /** 파티원 한 명의 이동 결과. */
+    /** Move result of one party member. */
     record MemberResult(UUID player, boolean ok, String reason) {}
 
     private InstanceRules() {}
@@ -28,9 +31,10 @@ final class InstanceRules {
     }
 
     /**
-     * 재접속 키 값에서 서버 ID를 읽는다. Boss가 값 형식을 확정하기 전이라 세 가지를 받는다: 서버 ID 그대로({@code raid-1}), 구분자 뒤에 조우
-     * 정보가 붙은 형식({@code raid-1|<조우 ID>}), JSON({@code {"server":"raid-1",...}}). (추가 제안: 서버 ID 그대로를
-     * 권장)
+     * Reads the server ID from the rejoin key value. Boss has not finalized the value format yet,
+     * so three forms are accepted: the bare server ID ({@code raid-1}), a form with encounter info
+     * after a separator ({@code raid-1|<encounter ID>}), and JSON ({@code
+     * {"server":"raid-1",...}}). (Proposed: the bare server ID is recommended)
      */
     static Optional<String> parseRejoin(@Nullable String raw) {
         if (raw == null || raw.isBlank()) {
@@ -57,8 +61,9 @@ final class InstanceRules {
     }
 
     /**
-     * MoveResult.reason으로 돌려줄 요약. 전원 성공이면 {@code ok}, 아니면 {@code partial:<성공>/<전체>:<uuid>=<사유>;...}
-     * (이미 옮긴 인원은 그대로 두고 부분 실패를 알린다. 재시도 판단은 요청 모듈 몫).
+     * Summary returned as MoveResult.reason. {@code ok} if all succeeded, otherwise {@code
+     * partial:<succeeded>/<total>:<uuid>=<reason>;...} (those already moved stay and a partial
+     * failure is reported; retry decisions belong to the requesting module).
      */
     static String summarize(List<MemberResult> results) {
         long ok = results.stream().filter(MemberResult::ok).count();

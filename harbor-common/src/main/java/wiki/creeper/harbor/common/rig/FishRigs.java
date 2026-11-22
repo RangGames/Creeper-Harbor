@@ -5,9 +5,10 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RigId;
 
 /**
- * 어종 → 어종 리그 연결 (추가 제안). 어종 리그는 리소스팩 모델 이름을 따라 {@code rig/fish/<모델 이름>}이다. 어종 ID와 모델 이름이 다를 수
- * 있어서(예: {@code fish/calm_bay_gizzard_shad} → 모델 {@code harbor:fish/calm_bay_shad}) 항상
- * FishDef.model()에서 구한다. Wildlife·Fishing·Collection이 같은 규칙을 쓴다.
+ * Fish species → fish rig mapping (proposed). Fish rigs follow the resource pack model name: {@code
+ * rig/fish/<model name>}. The fish ID and model name can differ (e.g. {@code
+ * fish/calm_bay_gizzard_shad} → model {@code harbor:fish/calm_bay_shad}), so it is always derived
+ * from FishDef.model(). Wildlife, Fishing and Collection use the same rule.
  */
 public final class FishRigs {
 
@@ -16,8 +17,8 @@ public final class FishRigs {
     private FishRigs() {}
 
     /**
-     * 어종 리그 ID: model {@code <ns>:fish/<이름>} → {@code <ns>:rig/fish/<이름>}. 모델 키가 그 꼴이 아니면 어종 ID
-     * 이름으로.
+     * Fish rig ID: model {@code <ns>:fish/<name>} → {@code <ns>:rig/fish/<name>}. If the model key
+     * is not in that form, the fish ID name is used.
      */
     public static RigId rigOf(FishDef fish) {
         String model = fish.model();
@@ -28,26 +29,27 @@ public final class FishRigs {
                 return new RigId(new HarborId(key.namespace(), "rig/" + key.path()));
             }
         } catch (IllegalArgumentException e) {
-            // 모델 키가 HarborId 형식이 아니면 어종 ID로
+            // Model key is not in HarborId form: fall back to the fish ID
         }
         return byId(fish);
     }
 
-    /** 예전 규칙 (어종 ID 이름). {@link #rigOf}가 가리키는 리그가 없을 때만 대신 쓴다. */
+    /** Old rule (fish ID name). Used only when the rig {@link #rigOf} points at does not exist. */
     public static RigId byId(FishDef fish) {
         HarborId id = fish.id().id();
         return new RigId(new HarborId(id.namespace(), "rig/" + MODEL_PREFIX + id.name()));
     }
 
-    /** 어종 크기 범위 가운데 값 (블록, 1블록 = 1m). 범위가 없으면 0.4. */
+    /** Midpoint of the fish size range (blocks, 1 block = 1 m). 0.4 if there is no range. */
     public static double naturalLength(FishDef fish) {
         double cm = (fish.sizeMin() + fish.sizeMax()) / 2;
         return cm > 0 ? cm / 100.0 : 0.4;
     }
 
     /**
-     * 리그를 몸길이 lengthBlocks(블록)로 그릴 인스턴스 배율. 리그 length가 없으면 1 (리그 원래 크기). 리소스팩 안내의 "배율 = 크기(m) ÷
-     * model_length_blocks"와 같다 (리그 scale도 반영).
+     * Instance scale that draws the rig at body length lengthBlocks (blocks). 1 (the rig's original
+     * size) if the rig has no length. Same as the resource pack guide's "scale = size (m) ÷
+     * model_length_blocks" (also accounts for the rig scale).
      */
     public static double fitScale(RigDef rig, double lengthBlocks) {
         double own = rig.length() * rig.scale();

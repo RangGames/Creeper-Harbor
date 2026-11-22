@@ -3,23 +3,25 @@ package wiki.creeper.harbor.common.content;
 import wiki.creeper.harbor.common.util.SourcePos;
 
 /**
- * 파싱과 참조 검사가 끝난 뒤 실행하는 추가 검사. 다른 항목과 비교하는 검사(도감 번호 중복 등)나 서버 API가 필요한 검사(바닐라 아이템 ID 확인 등)를 여기에 둔다.
+ * Extra check run after parsing and reference checks. Checks that compare against other entries
+ * (duplicate codex numbers, etc.) or that need the server API (vanilla item ID validation, etc.) go
+ * here.
  */
 @FunctionalInterface
 public interface ContentCheck<T> {
 
     void check(T value, Context ctx);
 
-    /** 검사 중 쓸 수 있는 정보. */
+    /** Information available during the check. */
     interface Context {
 
-        /** 새로 만들어질 스냅샷 (아직 적용 전). */
+        /** The snapshot about to be created (not applied yet). */
         ContentSnapshot snapshot();
 
-        /** 검사 대상 항목의 위치. */
+        /** Location of the entry being checked. */
         SourcePos pos();
 
-        /** 검사 대상 항목 위치에 오류를 기록한다. */
+        /** Records an error at the location of the entry being checked. */
         void error(String message);
     }
 }

@@ -5,11 +5,12 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 재생용으로 미리 계산한 리그. 동작마다 부품별 압축 키프레임과 판정 상자 위치를 담는다. 변경 불가라 어느 스레드에서 읽어도 된다.
+ * Rig precomputed for playback. Holds compressed per-part keyframes and hitbox positions per
+ * animation. Immutable, so it can be read from any thread.
  *
- * @param parts 부품이 있는 뼈 (Display 엔티티 하나씩)
- * @param hitboxes 판정 상자가 있는 뼈 (Interaction 엔티티 하나씩)
- * @param rest 기본 자세 (길이 0, 키 하나)
+ * @param parts bones with parts (one Display entity each)
+ * @param hitboxes bones with hitboxes (one Interaction entity each)
+ * @param rest rest pose (length 0, one key)
  */
 public record BakedRig(
         RigDef def,
@@ -19,17 +20,20 @@ public record BakedRig(
         BakedAnimation rest,
         int ticksPerFrame) {
 
-    /** 부품 번호 → 뼈. */
+    /** Part index → bone. */
     public record PartRef(int bone, String name, RigDef.Part part) {}
 
-    /** 판정 상자 번호 → 뼈. */
+    /** Hitbox index → bone. */
     public record HitboxRef(int bone, String name, RigDef.Hitbox hitbox) {}
 
     public Optional<BakedAnimation> animation(String name) {
         return Optional.ofNullable(animations.get(name));
     }
 
-    /** 동작 하나 (구운 결과). 길이는 틱, 부품 번호 순서의 키 목록과 [프레임][판정 상자] 상자 중심(리그 원점 기준)을 담는다. */
+    /**
+     * One animation (baked result). Length in ticks; holds key lists in part index order and
+     * [frame][hitbox] box centers (relative to the rig origin).
+     */
     public static final class BakedAnimation {
 
         private final String name;
@@ -82,7 +86,7 @@ public record BakedRig(
             return hitboxFrames.length;
         }
 
-        /** 시각 t의 판정 상자 중심 (프레임 사이는 선형 보간). */
+        /** Hitbox centers at time t (linear interpolation between frames). */
         public Vec3 hitbox(int index, double t) {
             int frames = hitboxFrames.length;
             if (frames == 1 || length <= 0) {
@@ -94,7 +98,7 @@ public record BakedRig(
             return Vec3.lerp(hitboxFrames[a][index], hitboxFrames[b][index], Math.min(1, f - a));
         }
 
-        /** 키 수 합계 (압축 효과 확인용). */
+        /** Total key count (to check compression). */
         public int keyCount() {
             int n = 0;
             for (KeyTrack track : parts) {
@@ -104,7 +108,10 @@ public record BakedRig(
         }
     }
 
-    /** 부품 하나의 압축된 키. 시각은 오름차순이고 첫 키는 0, 마지막 키는 동작 길이다. 키 사이는 클라이언트가 선형·구면 보간한다. */
+    /**
+     * Compressed keys of one part. Times are ascending; the first key is 0 and the last is the
+     * animation length. The client interpolates linearly/spherically between keys.
+     */
     public static final class KeyTrack {
 
         private final int[] ticks;
@@ -130,7 +137,10 @@ public record BakedRig(
             return values[i];
         }
 
-        /** t가 들어 있는 구간의 시작 키 번호 (tick(i) ≤ t < tick(i+1)). 마지막 키 이후면 마지막 번호. */
+        /**
+         * Start key index of the interval containing t (tick(i) ≤ t < tick(i+1)). The last index if
+         * past the last key.
+         */
         public int segment(double t) {
             int n = ticks.length;
             if (n == 1 || t < ticks[0]) {
@@ -152,7 +162,7 @@ public record BakedRig(
             return lo;
         }
 
-        /** 시각 t의 값 (키 사이 보간, 클라이언트와 같은 방식). */
+        /** Value at time t (interpolated between keys, same as the client). */
         public Xform sample(double t) {
             int i = segment(t);
             if (i >= ticks.length - 1) {

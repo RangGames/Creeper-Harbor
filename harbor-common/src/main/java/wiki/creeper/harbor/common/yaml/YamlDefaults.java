@@ -18,11 +18,14 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 설정 파일에 새로 생긴 항목 채우기 (추가 제안). 서버의 YAML에 없는 키를 기본 YAML에서 찾아, 그 키의 줄(바로 위 주석 포함)을 같은 상위 섹션의 끝에 끼워
- * 넣는다. 파일을 다시 쓰지 않고 줄만 더하므로 서버에서 고친 값·주석·순서는 그대로다.
+ * Fills in newly added entries in config files (proposed). Finds keys missing from the server's
+ * YAML in the default YAML and inserts that key's lines (including the comments right above) at the
+ * end of the same parent section. It only adds lines without rewriting the file, so values,
+ * comments and order edited on the server stay as they are.
  *
- * <p>블록 형식 맵(키: 값, 들여쓰기로 하위 키)만 따라 들어간다. 목록·여러 줄 문자열·한 줄 맵({a: 1}) 값은 통째로 한 항목으로 본다 (안을 섞지 않는다).
- * 최상위가 목록인 파일(어종·아이템 목록 등)은 건드리지 않는다.
+ * <p>Only descends into block-style maps (key: value, child keys by indentation). Lists, multi-line
+ * strings and flow maps ({a: 1}) are treated as a single entry (their contents are not mixed).
+ * Files whose top level is a list (fish lists, item lists, etc.) are left untouched.
  */
 public final class YamlDefaults {
 
@@ -31,8 +34,8 @@ public final class YamlDefaults {
                     "^(\\s*)(\"[^\"]*\"|'[^']*'|[^\\s#\"'-][^:#]*?|-[^\\s:#][^:#]*?)\\s*:(\\s.*|)$");
 
     /**
-     * @param text 합친 내용 (바뀌지 않았으면 원래 내용)
-     * @param added 더한 키 경로 (점으로 이음)
+     * @param text merged content (the original content if unchanged)
+     * @param added added key paths (dot-joined)
      */
     public record Result(String text, List<String> added) {
         public Result {
@@ -47,10 +50,10 @@ public final class YamlDefaults {
     private YamlDefaults() {}
 
     /**
-     * 설정 파일에 기본값의 빠진 키를 모두 채운다 (harbor-infra.yml · harbor-proxy.yml 등). 바뀌면 원래 파일을 {@code
-     * <이름>.bak}으로 남기고 쓴다.
+     * Fills all keys missing from a config file with defaults (harbor-infra.yml, harbor-proxy.yml,
+     * etc.). If changed, keeps the original file as {@code <name>.bak} and writes.
      *
-     * @param defaults jar의 기본 파일 (null이면 아무것도 하지 않음)
+     * @param defaults default file from the jar (null means do nothing)
      */
     public static Result fillFile(Path file, @Nullable InputStream defaults) throws IOException {
         if (defaults == null || Files.notExists(file)) {
@@ -70,7 +73,7 @@ public final class YamlDefaults {
         return result;
     }
 
-    /** 기본 YAML의 모든 키 경로 (블록 맵 안쪽까지, 점으로 이음). */
+    /** All key paths of the default YAML (into block maps, dot-joined). */
     public static Set<String> keys(String yaml) {
         Set<String> out = new LinkedHashSet<>();
         collect(parse(lines(yaml)), "", out);
@@ -78,9 +81,10 @@ public final class YamlDefaults {
     }
 
     /**
-     * @param user 서버의 파일 내용
-     * @param defaults jar의 기본 내용
-     * @param shouldAdd 이 키 경로를 더할지 (예: 지난 기본값에 없던 새 키만)
+     * @param user the server's file content
+     * @param defaults the default content from the jar
+     * @param shouldAdd whether to add this key path (e.g. only keys new since the previous
+     *     defaults)
      */
     public static Result fill(String user, String defaults, Predicate<String> shouldAdd) {
         String nl = user.contains("\r\n") ? "\r\n" : "\n";
@@ -91,7 +95,7 @@ public final class YamlDefaults {
         if (defaultRoot.children.isEmpty()) {
             return new Result(user, List.of());
         }
-        // 끼울 자리(사용자 파일 줄 번호) → 끼울 줄들 (기본값 순서대로)
+        // Insertion point (user file line number) → lines to insert (in default order)
         Map<Integer, List<String>> inserts = new TreeMap<>();
         List<String> added = new ArrayList<>();
         merge(defaultRoot, userRoot, "", defaultLines, userLines, shouldAdd, inserts, added);
@@ -147,7 +151,9 @@ public final class YamlDefaults {
         }
     }
 
-    /** 이 섹션의 마지막 내용 줄 (뒤따르는 빈 줄 제외). 루트면 파일 끝. */
+    /**
+     * Last content line of this section (excluding trailing blank lines). End of file for the root.
+     */
     private static int lastContentLine(Node node, List<String> lines) {
         int last = node.indent < 0 ? lines.size() - 1 : node.end - 1;
         while (last > node.line && last >= 0 && isBlank(lines.get(last))) {
@@ -156,7 +162,7 @@ public final class YamlDefaults {
         return last;
     }
 
-    /** 키 바로 위에 붙은 주석 줄의 시작. */
+    /** Start of the comment lines attached right above a key. */
     private static int commentStart(Node node, List<String> lines) {
         int i = node.line;
         while (i - 1 >= 0 && lines.get(i - 1).strip().startsWith("#")) {
@@ -182,9 +188,9 @@ public final class YamlDefaults {
         return line.substring(strip);
     }
 
-    // ------------------------------------------------------------------ 줄 구조
+    // ------------------------------------------------------------------ Line structure
 
-    /** 맵 키 하나. line = 키 줄, end = 이 키 블록 다음 줄. */
+    /** One map key. line = key line, end = line after this key's block. */
     private static final class Node {
         final String key;
         final int indent;
@@ -208,7 +214,7 @@ public final class YamlDefaults {
         Node root = new Node("", -1, -1);
         root.end = lines.size();
         if (firstContentIsList(lines)) {
-            return root; // 최상위가 목록인 파일
+            return root; // file whose top level is a list
         }
         parseChildren(root, lines, 0, lines.size());
         return root;
@@ -225,7 +231,7 @@ public final class YamlDefaults {
         return false;
     }
 
-    /** from~to 줄에서 parent 바로 아래 키들을 읽는다. */
+    /** Reads the keys directly under parent in lines from~to. */
     private static void parseChildren(Node parent, List<String> lines, int from, int to) {
         int i = from;
         int childIndent = -1;
@@ -258,7 +264,10 @@ public final class YamlDefaults {
         }
     }
 
-    /** 들여쓰기가 indent보다 깊은 줄이 끝나는 곳 (빈 줄·주석은 다음 내용 줄을 따른다). */
+    /**
+     * Where lines indented deeper than indent end (blank/comment lines follow the next content
+     * line).
+     */
     private static int blockEnd(List<String> lines, int from, int to, int indent) {
         int end = from;
         int i = from;
@@ -325,7 +334,7 @@ public final class YamlDefaults {
         return key;
     }
 
-    /** 값 뒤 주석 (따옴표 밖의 " #") 을 뗀다. */
+    /** Strips a trailing comment (" #" outside quotes) after the value. */
     private static String stripComment(@Nullable String value) {
         if (value == null) {
             return "";

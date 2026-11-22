@@ -13,7 +13,7 @@ dependencyResolutionManagement {
         mavenCentral()
         maven("https://repo.papermc.io/repository/maven-public/")
         maven("https://repo.purpurmc.org/snapshots")
-        // Skript API (Harbor-Skript 컴파일 전용)
+        // Skript API (Harbor-Skript compile only)
         maven("https://repo.skriptlang.org/releases") {
             content { includeGroup("com.github.SkriptLang") }
         }

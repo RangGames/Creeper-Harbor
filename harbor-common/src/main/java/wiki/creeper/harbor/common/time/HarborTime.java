@@ -11,9 +11,10 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 
 /**
- * 서버 시간 (기본 Asia/Seoul). 시즌 주차, 일일·주간 초기화 시각을 계산한다.
+ * Server time (default Asia/Seoul). Computes season weeks and daily/weekly reset times.
  *
- * <p>"게임 날짜"는 일일 초기화 시각을 기준으로 바뀐다. 초기화가 06:00이면 05:59까지는 전날이다.
+ * <p>The "game date" changes at the daily reset time. If the reset is at 06:00, it is still the
+ * previous day until 05:59.
  */
 public final class HarborTime {
 
@@ -40,14 +41,14 @@ public final class HarborTime {
         return ZonedDateTime.now(clock);
     }
 
-    /** 일일 초기화 기준 게임 날짜. */
+    /** Game date based on the daily reset. */
     public LocalDate gameDay() {
         ZonedDateTime now = now();
         LocalDate date = now.toLocalDate();
         return now.toLocalTime().isBefore(dailyReset) ? date.minusDays(1) : date;
     }
 
-    /** 시즌 주차 (1부터). 시즌 시작 전이면 0. 주차 잠금 퀘스트에 쓴다. */
+    /** Season week (starting at 1). 0 before the season starts. Used for week-locked quests. */
     public int seasonWeek() {
         LocalDate day = gameDay();
         if (day.isBefore(seasonStart)) {
@@ -71,7 +72,7 @@ public final class HarborTime {
         return candidate.isAfter(now) ? candidate : candidate.plusWeeks(1);
     }
 
-    /** 다음에 오는 그 시각 (예: 원장 검사 04:00). */
+    /** The next occurrence of that time (e.g. ledger audit at 04:00). */
     public ZonedDateTime nextAt(LocalTime time) {
         ZonedDateTime now = now();
         ZonedDateTime today = now.with(time).truncatedTo(ChronoUnit.MINUTES);

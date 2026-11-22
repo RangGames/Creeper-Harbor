@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** sanctions 테이블 SQL (Proxy 소유). 연결은 호출한 쪽의 트랜잭션을 쓴다. */
+/** SQL for the sanctions table (Proxy-owned). Connections use the caller's transaction. */
 final class SanctionStore {
 
     private static final String COLUMNS =
@@ -21,7 +21,7 @@ final class SanctionStore {
 
     private SanctionStore() {}
 
-    /** 지금 유효한 제재 (해제되지 않았고 만료 전). */
+    /** Currently active sanctions (not lifted and not expired). */
     static List<Sanction> active(Connection c, UUID player, Instant now) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
@@ -35,7 +35,10 @@ final class SanctionStore {
         }
     }
 
-    /** 같은 종류의 기존 제재를 해제하고 새 제재를 넣는다 (한 사람당 종류별 유효 제재는 하나). */
+    /**
+     * Lifts the existing sanction of the same kind and inserts the new one (one active sanction per
+     * kind per person).
+     */
     static Sanction issue(
             Connection c,
             UUID player,
@@ -70,7 +73,7 @@ final class SanctionStore {
         }
     }
 
-    /** 유효한 제재를 해제한다. 해제한 건수. */
+    /** Lifts active sanctions. Returns the number lifted. */
     static int revoke(Connection c, UUID player, Sanction.Type type, String by, Instant now)
             throws SQLException {
         try (PreparedStatement ps =

@@ -25,7 +25,10 @@ import wiki.creeper.harbor.common.rig.Xform;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
-/** 리소스팩 리그 변환: 변환한 리그를 서버와 같은 코드로 다시 계산하면 원본 기본 자세·베이크 프레임과 같아야 한다. */
+/**
+ * Resource pack rig conversion: recomputing the converted rig with the server code must match the
+ * source rest pose and baked frames.
+ */
 class RigImporterTest {
 
     private static final double POS_TOL = 0.002;
@@ -60,7 +63,8 @@ class RigImporterTest {
                                 q.get(1).getAsDouble(),
                                 q.get(2).getAsDouble(),
                                 q.get(3).getAsDouble())
-                        .normalize(), // 원본은 소수 4자리라 길이가 1에서 조금 벗어난다
+                        .normalize(), // the source has 4 decimal places, so the length deviates
+                // slightly from 1
                 new Vec3(s.get(0).getAsDouble(), s.get(1).getAsDouble(), s.get(2).getAsDouble()));
     }
 
@@ -87,7 +91,7 @@ class RigImporterTest {
         for (JsonElement e : json.getAsJsonArray("bones")) {
             JsonObject b = e.getAsJsonObject();
             if (b.get("item_model").isJsonNull()) {
-                continue; // 모델 없는 본(root)은 빠진다
+                continue; // bones without a model (root) are dropped
             }
             String name = b.get("name").getAsString();
             int index = boneIndex(rig, name);
@@ -96,7 +100,7 @@ class RigImporterTest {
                     Objects.requireNonNull(rig.bones().get(index).part()).model());
             assertPose(name, xform(b.getAsJsonObject("rest")), pose[index]);
         }
-        // 지느러미 기본 회전 [0, 25, −10]이 그대로 들어간다
+        // The fin rest rotation [0, 25, −10] carries over as-is
         Vec3 fin = rig.bones().get(boneIndex(rig, "fin_pectoral_right")).rotation();
         assertEquals(25, fin.y(), 0.01);
         assertEquals(-10, fin.z(), 0.01);
@@ -119,7 +123,7 @@ class RigImporterTest {
                         .getAsJsonObject("swim")
                         .getAsJsonObject("baked")
                         .getAsJsonArray("frames");
-        // 틱 0·1은 원본 프레임, 틱 2(반복 끝)는 첫 프레임
+        // Ticks 0 and 1 are source frames, tick 2 (loop end) is the first frame
         int[][] checks = {{0, 0}, {1, 1}, {2, 0}};
         for (int[] check : checks) {
             Xform[] pose = RigSampler.pose(rig, swim, check[0]);
@@ -132,7 +136,8 @@ class RigImporterTest {
             }
         }
 
-        // 서버 굽기(20fps, 압축 없음)도 같은 값을 낸다. 부품 Display 변환 = 뼈 월드 변환 (offset 없음)
+        // The server bake (20fps, no compression) gives the same values too. Part Display transform
+        // = bone world transform (no offset)
         BakedRig baked =
                 RigBaker.bake(rig, new RigBaker.Settings(20, new Xform.Tolerance(0, 0, 0), 1));
         BakedRig.BakedAnimation b = baked.animation("swim").orElseThrow();
@@ -146,7 +151,7 @@ class RigImporterTest {
     @Test
     void stepMustDivideLengthOrFallsBackToOneTick() throws IOException {
         JsonObject json = sample();
-        // 길이 2틱 → 간격 2 그대로, 간격 4는 나뉘지 않아 1틱 간격으로
+        // Length 2 ticks → interval 2 as-is; interval 4 does not divide it, so a 1-tick interval
         assertTrue(RigImporter.convert(json, 2).yaml().contains("{step: 2, v: ["));
         assertTrue(RigImporter.convert(json, 4).yaml().contains("{step: 1, v: ["));
         parse(RigImporter.convert(json, 2).yaml());
@@ -164,7 +169,7 @@ class RigImporterTest {
             Quat q = Quat.euler(a);
             Quat back = Quat.euler(q.toEuler());
             assertTrue(q.angleTo(back) < 1e-3, () -> a + " → " + q.toEuler());
-            // 이어 붙이기: 360° 넘어간 앞 값에 가까운 해를 고른다
+            // Chaining: picks the solution closest to the previous value past 360°
             Vec3 near = q.eulerNear(a.add(new Vec3(360, 0, 0)));
             assertTrue(q.angleTo(Quat.euler(near)) < 1e-3);
             assertTrue(near.x() > 180 - 1e-6 || Math.abs(near.y()) > 89);

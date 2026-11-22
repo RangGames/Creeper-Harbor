@@ -16,7 +16,7 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
-/** 아이템 정의 (items/*.yml). 필드는 '11. 데이터 설계' 2.2를 따른다. */
+/** Item definition (items/*.yml). Fields follow '11. Data design' 2.2. */
 public record ItemDef(
         ItemId id,
         String name,
@@ -33,7 +33,7 @@ public record ItemDef(
         boolean tradeable,
         boolean seasonReset) {
 
-    /** 아이템 분류. */
+    /** Item category. */
     public enum Type implements Keyed {
         ROD,
         LINE,
@@ -55,7 +55,10 @@ public record ItemDef(
         }
     }
 
-    /** 바닐라 아이템 키 형식 (예: minecraft:fishing_rod). 실제 존재 여부는 Core가 서버 레지스트리로 검사한다. */
+    /**
+     * Vanilla item key format (e.g. minecraft:fishing_rod). Core checks actual existence against
+     * the server registry.
+     */
     private static final Pattern RESOURCE_KEY = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
 
     private static final Set<String> FIELDS =

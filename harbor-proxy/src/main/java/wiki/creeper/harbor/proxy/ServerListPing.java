@@ -9,7 +9,9 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 
 /**
- * 서버 목록 화면 MOTD (docs 20 1.4): 동접·대기 인원, 점검 중이면 점검 문구. 최대 인원은 본 서버 수용 한도 합계. 메모리 값만 읽는다 (핑은 자주 온다).
+ * Server list MOTD (docs 20 1.4): online and queued counts, or maintenance text during maintenance.
+ * Max players is the sum of main server capacities. Reads only in-memory values (pings are
+ * frequent).
  */
 final class ServerListPing {
 

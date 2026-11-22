@@ -10,24 +10,25 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 가구 (furniture/furniture.yml, 추가 제안). ItemDisplay(모델) + Interaction(클릭 판정)으로 놓는다. 모델은 리소스팩의 아이템
- * 모델이다.
+ * Furniture (furniture/furniture.yml, proposed). Placed as an ItemDisplay (model) + Interaction
+ * (click hitbox). The model is an item model from the resource pack.
  *
  * <pre>{@code
- * - {id: furniture/fishing_chair, name: 낚시 의자, model: "harbor:decor/fishing_chair", seat: 0.45, solid: true}
- * - {id: furniture/table_lamp, name: 탁상 등, model: "harbor:furniture/table_lamp", width: 0.5, height: 0.8, light: 12}
+ * - {id: furniture/fishing_chair, name: Fishing Chair, model: "harbor:decor/fishing_chair", seat: 0.45, solid: true}
+ * - {id: furniture/table_lamp, name: Table Lamp, model: "harbor:furniture/table_lamp", width: 0.5, height: 0.8, light: 12}
  * }</pre>
  *
- * @param model 아이템 모델 키 (팩에 없으면 base_item 모양)
- * @param baseItem 모델이 없을 때 보일 바닐라 아이템
- * @param width 클릭 판정 너비 (블록)
- * @param height 클릭 판정 높이 (블록)
- * @param seat 앉는 높이 (발 위치, 블록 바닥 기준). null이면 앉을 수 없다
- * @param solid 부딪히는지 (판정 높이만큼 방벽 블록을 채운다. 한 칸 너비)
- * @param light 밝기 0~15 (빛 블록. solid면 가구 바로 위 칸)
- * @param rotation 회전 단계 (4 = 90도, 8 = 45도, 16 = 22.5도)
- * @param scale 모델 크기 배율
- * @param offsetY 모델 높이 (블록 바닥 기준, 아이템 모델 가운데가 이 높이에 온다)
+ * @param model item model key (looks like base_item if missing from the pack)
+ * @param baseItem vanilla item shown when there is no model
+ * @param width click hitbox width (blocks)
+ * @param height click hitbox height (blocks)
+ * @param seat sitting height (feet position, from the block floor). null means it cannot be sat on
+ * @param solid whether it collides (fills barrier blocks up to the hitbox height; one block wide)
+ * @param light brightness 0~15 (light block; if solid, the block right above the furniture)
+ * @param rotation rotation steps (4 = 90 degrees, 8 = 45 degrees, 16 = 22.5 degrees)
+ * @param scale model scale factor
+ * @param offsetY model height (from the block floor; the center of the item model sits at this
+ *     height)
  */
 public record FurnitureDef(
         HarborId id,
@@ -57,7 +58,7 @@ public record FurnitureDef(
                     FurnitureDef::parse,
                     FurnitureDef::id);
 
-    /** solid일 때 방벽으로 채우는 칸 수 (판정 높이 올림, 최소 1). */
+    /** Number of blocks filled with barriers when solid (hitbox height rounded up, at least 1). */
     public int solidCells() {
         return solid ? Math.max(1, (int) Math.ceil(height - 1e-6)) : 0;
     }

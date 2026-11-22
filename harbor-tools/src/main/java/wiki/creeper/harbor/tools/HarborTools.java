@@ -32,15 +32,17 @@ import wiki.creeper.harbor.wildlife.content.WildlifeContent;
 import wiki.creeper.harbor.world.content.WorldContent;
 
 /**
- * 콘텐츠 검증 CLI. 서버와 같은 로더로 content/ YAML을 검사해서, 디자이너가 올린 YAML의 오류를 서버에 넣기 전에 CI에서 거른다.
+ * Content validation CLI. Validates content/ YAML with the same loader as the server, so CI catches
+ * errors in designer-submitted YAML before it reaches the server.
  *
  * <pre>
- * harbor-tools validate &lt;콘텐츠 폴더&gt;
- * harbor-tools pack-index &lt;리소스팩 폴더 또는 zip&gt; &lt;콘텐츠 폴더&gt;   (resource_pack.yml 생성)
- * harbor-tools rig-import &lt;리그 JSON 폴더&gt; &lt;콘텐츠 폴더&gt; [샘플 간격 틱]   (rigs/fish/*.yml 생성)
+ * harbor-tools validate &lt;content folder&gt;
+ * harbor-tools pack-index &lt;resource pack folder or zip&gt; &lt;content folder&gt;   (generates resource_pack.yml)
+ * harbor-tools rig-import &lt;rig JSON folder&gt; &lt;content folder&gt; [sample interval ticks]   (generates rigs/fish/*.yml)
  * </pre>
  *
- * 서버 API가 필요한 검사(바닐라 아이템 ID 등)는 서버에서만 한다. 모듈을 추가하면 그 모듈의 XxxContent도 여기에 등록한다.
+ * Checks that need the server API (vanilla item IDs, etc.) run only on the server. When adding a
+ * module, register its XxxContent here too.
  */
 public final class HarborTools {
 
@@ -102,7 +104,10 @@ public final class HarborTools {
         }
     }
 
-    /** 리소스팩 어종 리그 JSON → content/rigs/fish/*.yml. 간격이 없으면 balance.yml rig.fps에서 (20 / fps틱). */
+    /**
+     * Resource pack fish rig JSON → content/rigs/fish/*.yml. Without an interval, uses balance.yml
+     * rig.fps (20 / fps ticks).
+     */
     private static void rigImport(String[] args, PrintStream out) {
         Path contentDir = Path.of(args[2]);
         try {
@@ -133,7 +138,7 @@ public final class HarborTools {
         }
     }
 
-    /** balance.yml rig.fps (없으면 10). */
+    /** balance.yml rig.fps (10 if absent). */
     private static int rigFps(Path contentDir) throws IOException {
         Path balance = contentDir.resolve("balance.yml");
         if (!Files.isRegularFile(balance)) {

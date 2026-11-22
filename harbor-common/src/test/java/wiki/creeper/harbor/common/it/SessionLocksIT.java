@@ -24,7 +24,7 @@ import wiki.creeper.harbor.common.session.ClaimResult;
 import wiki.creeper.harbor.common.session.LockState;
 import wiki.creeper.harbor.common.session.SessionLocks;
 
-/** 실제 Redis 컨테이너로 세션 잠금 프로토콜을 검사한다. Docker가 없으면 건너뛴다. */
+/** Tests the session lock protocol against a real Redis container. Skipped without Docker. */
 @Testcontainers(disabledWithoutDocker = true)
 class SessionLocksIT {
 
@@ -68,12 +68,12 @@ class SessionLocksIT {
         assertTrue(locks.beginHandoff(player, "main-1", "inst-1", "req-1"));
         assertEquals(Optional.of(new LockState.Handoff("inst-1", "req-1")), locks.inspect(player));
 
-        // 출발 서버의 퇴장 처리가 넘긴 잠금을 owned 해제로 지우면 안 된다
+        // The source server's quit handling must not delete a handed-off lock as an owned release
         assertFalse(locks.release(player, "main-1"));
         assertEquals(ClaimResult.BUSY, locks.claim(player, "inst-2"));
         assertEquals(ClaimResult.HANDOFF_CLAIMED, locks.claim(player, "inst-1"));
         assertEquals(Optional.of(new LockState.Owned("inst-1")), locks.inspect(player));
-        // 도착 서버가 가져간 뒤에는 되돌릴 수 없다
+        // Cannot revert after the destination server has taken it
         assertFalse(locks.abortHandoff(player, "main-1", "req-1"));
     }
 

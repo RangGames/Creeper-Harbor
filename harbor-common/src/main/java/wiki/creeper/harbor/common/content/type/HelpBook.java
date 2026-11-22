@@ -10,17 +10,21 @@ import wiki.creeper.harbor.common.content.ParseContext;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * help.yml: 플레이어 /도움말 목록 (추가 제안). Core가 이 순서대로 보여 주고, 서버에 없는 명령(꺼진 모듈)이나 쓸 권한이 없는 명령은 감춘다. 파일이 없으면
- * 빈 목록.
+ * help.yml: the player /도움말 (help) list (proposed). Core shows it in this order and hides commands
+ * missing on the server (disabled modules) or ones the player lacks permission for. If the file is
+ * missing, the list is empty.
  *
- * @param sections 분류 (적은 순서대로)
+ * @param sections categories (in the order written)
  */
 public record HelpBook(List<Section> sections) {
 
     public static final ContentType.Single<HelpBook> TYPE =
             new ContentType.Single<>("help", "help.yml", false, HelpBook::parse);
 
-    /** 명령 줄 (앞의 / 없이, 공백으로 나눈 단어). 예: {@code 낚시 설정}, {@code 기록 <어종>}. */
+    /**
+     * Command line (without the leading /, words split by spaces). E.g. {@code 낚시 설정}, {@code 기록
+     * <어종>}.
+     */
     private static final Pattern COMMAND = Pattern.compile("[^\\s/][^\\s]*( [^\\s]+)*");
 
     public static final HelpBook EMPTY = new HelpBook(List.of());
@@ -30,10 +34,10 @@ public record HelpBook(List<Section> sections) {
     }
 
     /**
-     * 분류 하나.
+     * One category.
      *
-     * @param title 제목 (MiniMessage)
-     * @param entries 명령 목록
+     * @param title title (MiniMessage)
+     * @param entries command list
      */
     public record Section(String title, List<Entry> entries) {
 
@@ -43,21 +47,26 @@ public record HelpBook(List<Section> sections) {
     }
 
     /**
-     * 명령 하나.
+     * One command.
      *
-     * @param command 클릭 때 넣을 명령 (앞의 / 없이). 첫 단어가 서버에 등록된 명령이어야 보인다
-     * @param text 설명 (MiniMessage)
-     * @param run true면 클릭 즉시 실행, false면 입력창에 넣기만 한다 (인자가 필요한 명령). 비우면 &lt;가 들어 있을 때 false
+     * @param command command inserted on click (without the leading /). Shown only if the first
+     *     word is a command registered on the server
+     * @param text description (MiniMessage)
+     * @param run true runs it immediately on click, false only puts it in the chat box (commands
+     *     needing arguments). If empty, false when it contains &lt;
      */
     public record Entry(String command, String text, boolean run) {
 
-        /** 서버 명령 이름 (첫 단어). */
+        /** Server command name (first word). */
         public String root() {
             int space = command.indexOf(' ');
             return space < 0 ? command : command.substring(0, space);
         }
 
-        /** 클릭 때 넣을 명령 문자열. 입력용이면 &lt;인자&gt; 앞까지 자르고 공백을 붙인다. */
+        /**
+         * Command string inserted on click. For input, cut before &lt;argument&gt; and append a
+         * space.
+         */
         public String clickText() {
             if (run) {
                 return "/" + command;

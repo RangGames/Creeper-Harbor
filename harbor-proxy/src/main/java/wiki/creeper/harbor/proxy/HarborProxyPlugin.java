@@ -33,8 +33,10 @@ import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.common.yaml.YamlDefaults;
 
 /**
- * Harbor-Proxy (docs 20 1장): 접속 진입점(점검·제재·후원 등급·세션 잠금), 본 서버 대기열, 서버·인스턴스 이동 지휘, 서버 간 채팅·공지 중계, 접속
- * 기록·다계정 탐지, MOTD·서버 링크. Common을 품고 (DB 풀 5개, Redis 연결 1개) Paper API는 쓰지 않는다.
+ * Harbor-Proxy (docs 20 chapter 1): connection entry point (maintenance, sanctions, donor tier,
+ * session lock), main server queue, server/instance move orchestration, cross-server
+ * chat/announcement relay, connection logging and multi-account detection, MOTD and server links.
+ * Bundles Common (DB pool of 5, one Redis connection) and does not use the Paper API.
  */
 @Plugin(
         id = "harbor-proxy",
@@ -235,7 +237,10 @@ public final class HarborProxyPlugin {
                 config.mainServers().keySet());
     }
 
-    /** jar에 든 기본 harbor-proxy.yml의 문구 (서버 설정에 빠진 새 키를 채운다). */
+    /**
+     * Text of the default harbor-proxy.yml in the jar (fills new keys missing from the server
+     * config).
+     */
     private Map<String, String> bundledMessages() throws IOException {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream("harbor-proxy.yml")) {
             if (in == null) {
@@ -257,7 +262,8 @@ public final class HarborProxyPlugin {
             }
             log.warn("기본 설정을 만들었습니다: {}", file);
         } else {
-            // 새 버전에서 생긴 설정 항목을 채운다 (서버 값·주석은 그대로)
+            // Fill config entries added in the new version (server values and comments stay as they
+            // are)
             try (InputStream in = getClass().getClassLoader().getResourceAsStream(name)) {
                 YamlDefaults.Result filled = YamlDefaults.fillFile(file, in);
                 if (filled.changed()) {
@@ -268,7 +274,7 @@ public final class HarborProxyPlugin {
         return file;
     }
 
-    /** /hp 명령 기록 (admin_log, Common 소유 테이블). */
+    /** /hp command log (admin_log, a Common-owned table). */
     private void adminLog(CommandSource admin, String action, String target, String detail) {
         Database database = db;
         if (database == null) {

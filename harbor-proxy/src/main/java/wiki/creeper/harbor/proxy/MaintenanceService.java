@@ -20,8 +20,9 @@ import wiki.creeper.harbor.common.redis.Redis;
 import wiki.creeper.harbor.common.util.Json;
 
 /**
- * 점검 모드 (docs 20 1.4 MaintenanceService). 상태는 Redis 키 harbor:maintenance(JSON)에 두어 프록시를 재시작해도 유지된다.
- * Season 모듈의 시즌 전환도 같은 키를 쓴다.
+ * Maintenance mode (docs 20 1.4 MaintenanceService). State lives in the Redis key
+ * harbor:maintenance (JSON), so it survives proxy restarts. The Season module's season transition
+ * uses the same key.
  */
 final class MaintenanceService {
 
@@ -30,7 +31,7 @@ final class MaintenanceService {
     private static final DateTimeFormatter TIME =
             DateTimeFormatter.ofPattern("MM-dd HH:mm").withZone(ZoneId.of("Asia/Seoul"));
 
-    /** 점검 상태. until은 epoch 밀리초 (0이면 미정). */
+    /** Maintenance state. until is epoch milliseconds (0 means undetermined). */
     record State(boolean on, String reason, long until, List<UUID> bypass) {
         static final State OFF = new State(false, "", 0, List.of());
     }
@@ -45,7 +46,9 @@ final class MaintenanceService {
     private volatile State state = State.OFF;
     private volatile boolean kicked;
 
-    /** Redis에서 한 번이라도 읽었는지. 읽은 뒤의 장애에는 마지막 상태를 유지한다. */
+    /**
+     * Whether Redis has been read at least once. On failures after that, the last state is kept.
+     */
     private volatile boolean known;
 
     MaintenanceService(
@@ -66,8 +69,10 @@ final class MaintenanceService {
     }
 
     /**
-     * 시작할 때와 주기적으로 Redis에서 다시 읽는다. 시작 때 Redis가 없으면 설정 파일의 fallback 값을 쓴다 (종료 시각 미정이라 새 접속만 막고 내보내지는
-     * 않는다). 읽은 뒤의 일시 장애로 접속자를 내보내지 않게 그때는 마지막 상태를 유지한다.
+     * Re-reads from Redis at startup and periodically. Without Redis at startup, uses the fallback
+     * value from the config file (end time undetermined, so it only blocks new connections and does
+     * not kick anyone). After a successful read, temporary failures keep the last state so players
+     * are not kicked.
      */
     void refresh() {
         State next;
@@ -82,7 +87,8 @@ final class MaintenanceService {
             }
             next = new State(true, "maintenance", 0, List.of());
         }
-        // 다른 곳(다른 프록시 명령·Season)에서 바뀐 점검도 다시 카운트다운·퇴장하게 한다
+        // Maintenance changed elsewhere (other proxy commands, Season) also gets the countdown and
+        // kick again
         if (!next.equals(state)) {
             kicked = false;
         }
@@ -93,7 +99,10 @@ final class MaintenanceService {
         return state;
     }
 
-    /** 점검이 켜지면 바로 새 접속을 막는다 (기존 접속자는 카운트다운이 끝날 때 내보낸다). */
+    /**
+     * Blocks new connections as soon as maintenance turns on (existing players are kicked when the
+     * countdown ends).
+     */
     boolean blocks(@Nullable UUID player) {
         State s = state;
         if (!s.on()) {
@@ -131,10 +140,14 @@ final class MaintenanceService {
         kicked = false;
     }
 
-    /** 1초마다: 남은 시간 공지, 0초에 저장 신호 → 3초 뒤 bypass 외 전원 퇴장. */
+    /**
+     * Every second: announce the remaining time; at 0 seconds send the save signal → 3 seconds
+     * later kick everyone except bypass.
+     */
     void tick() {
         State s = state;
-        // until 0은 종료 시각 미정 (fallback 등): 새 접속만 막고 카운트다운·퇴장은 하지 않는다
+        // until 0 means the end time is undetermined (fallback, etc.): only block new connections,
+        // no countdown or kick
         if (!s.on() || kicked || s.until() == 0) {
             return;
         }

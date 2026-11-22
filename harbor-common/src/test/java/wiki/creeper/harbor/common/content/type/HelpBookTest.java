@@ -39,13 +39,13 @@ class HelpBookTest {
         assertEquals("<aqua>낚시", book.sections().getFirst().title());
 
         HelpBook.Entry settings = book.sections().getFirst().entries().get(0);
-        assertEquals("낚시 설정", settings.command()); // 앞의 /는 떼고 저장
+        assertEquals("낚시 설정", settings.command()); // stored without the leading /
         assertEquals("낚시", settings.root());
         assertTrue(settings.run());
         assertEquals("/낚시 설정", settings.clickText());
 
         HelpBook.Entry records = book.sections().getFirst().entries().get(1);
-        assertFalse(records.run()); // <인자>가 있으면 입력창에 넣기만
+        assertFalse(records.run()); // with an <argument>, only put into the chat box
         assertEquals("/기록 ", records.clickText());
 
         HelpBook.Entry party = book.sections().getFirst().entries().get(2);
@@ -65,7 +65,7 @@ class HelpBookTest {
                               - {command: "", text: "이름 없음"}
                         """,
                         errors);
-        assertEquals(2, errors.size()); // 빈 명령 + 빈 commands
+        assertEquals(2, errors.size()); // empty command + empty commands
         assertTrue(book.sections().isEmpty());
     }
 

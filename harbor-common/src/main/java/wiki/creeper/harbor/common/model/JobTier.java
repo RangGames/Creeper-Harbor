@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.model;
 
-/** 직업 단계 (1차·2차·3차). */
+/** Job tier (1st, 2nd, 3rd). */
 public enum JobTier {
     FIRST(1),
     SECOND(2),

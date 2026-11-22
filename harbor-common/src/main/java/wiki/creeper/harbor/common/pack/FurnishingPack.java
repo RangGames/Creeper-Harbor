@@ -13,27 +13,32 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.CustomBlockDef;
 
 /**
- * 커스텀 블록용 리소스팩 파일 생성 (추가 제안). 리소스팩 자동 빌드가 에셋 폴더 위에 덮어 넣는다.
+ * Generates resource pack files for custom blocks (proposed). The automatic resource pack build
+ * overlays them on the asset folder.
  *
  * <ul>
- *   <li>{@code assets/minecraft/blockstates/note_block.json}: 노트블록 상태 800개 전부. 커스텀 블록에 쓰인
- *       상태(powered 두 상태 모두)는 그 모델, 나머지는 바닐라 노트블록 모델
- *   <li>texture·top/side로 적은 블록의 블록 모델 ({@code <ns>:generated/block/<이름>})
- *   <li>모든 커스텀 블록의 아이템 정의 ({@code assets/<ns>/items/generated/block/<이름>.json})
+ *   <li>{@code assets/minecraft/blockstates/note_block.json}: all 800 note block states. States
+ *       used by custom blocks (both powered states) get that model; the rest get the vanilla note
+ *       block model
+ *   <li>Block models for blocks written with texture or top/side ({@code
+ *       <ns>:generated/block/<name>})
+ *   <li>Item definitions for all custom blocks ({@code
+ *       assets/<ns>/items/generated/block/<name>.json})
  * </ul>
  *
- * 에셋 폴더에 텍스처·모델이 없는 블록은 넣지 않고 경고한다 (클라이언트에 보라·검정 상자로 보이지 않게, 그 상태는 바닐라 모양).
+ * Blocks whose textures/models are missing from the asset folder are left out with a warning (so
+ * clients do not see purple-black boxes; that state keeps the vanilla look).
  */
 public final class FurnishingPack {
 
-    /** 바닐라 노트블록 모델. */
+    /** Vanilla note block model. */
     static final String VANILLA = "minecraft:block/note_block";
 
     public static final String BLOCKSTATE = "assets/minecraft/blockstates/note_block.json";
 
     /**
-     * @param files 팩 경로 → 내용
-     * @param warnings 넣지 못한 블록 안내
+     * @param files pack path → content
+     * @param warnings notes on blocks that could not be added
      */
     public record Result(Map<String, byte[]> files, List<String> warnings) {
         public Result {
@@ -45,7 +50,7 @@ public final class FurnishingPack {
     private FurnishingPack() {}
 
     /**
-     * @param exists 에셋 폴더에 그 팩 경로 파일이 있는지 (null이면 검사하지 않음)
+     * @param exists whether the asset folder has a file at that pack path (null means no check)
      */
     public static Result generate(
             Collection<CustomBlockDef> blocks, @Nullable Predicate<String> exists) {
@@ -92,10 +97,10 @@ public final class FurnishingPack {
         return new Result(files, warnings);
     }
 
-    /** 상태 하나의 모델과 회전 (도). */
+    /** Model and rotation (degrees) of one state. */
     record Variant(String model, int x, int y) {}
 
-    /** 노트블록 상태 파일 (상태 → 모델·회전, 없는 상태는 바닐라). */
+    /** Note block blockstate file (state → model/rotation; missing states are vanilla). */
     static String blockstate(Map<Integer, Variant> stateModels) {
         Variant vanilla = new Variant(VANILLA, 0, 0);
         StringBuilder sb = new StringBuilder("{\n  \"variants\": {");
@@ -152,10 +157,13 @@ public final class FurnishingPack {
             }
             return sb.append("}}\n").toString();
         }
-        return null; // 직접 만든 모델
+        return null; // custom-made model
     }
 
-    /** 에셋 폴더에 없는 참조 파일 (첫 하나). minecraft 네임스페이스는 바닐라라 검사하지 않는다. */
+    /**
+     * Referenced file missing from the asset folder (the first one). The minecraft namespace is
+     * vanilla and not checked.
+     */
     private static @Nullable String missing(
             CustomBlockDef block, @Nullable Predicate<String> exists) {
         if (exists == null) {
@@ -186,7 +194,8 @@ public final class FurnishingPack {
     }
 
     /**
-     * {@code harbor:block/x} → {@code assets/harbor/<kind>/block/x<ext>}. minecraft 네임스페이스면 null.
+     * {@code harbor:block/x} → {@code assets/harbor/<kind>/block/x<ext>}. null for the minecraft
+     * namespace.
      */
     static @Nullable String path(String key, String kind, String ext) {
         int colon = key.indexOf(':');

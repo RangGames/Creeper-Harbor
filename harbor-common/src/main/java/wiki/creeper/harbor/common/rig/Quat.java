@@ -1,17 +1,18 @@
 package wiki.creeper.harbor.common.rig;
 
 /**
- * 단위 사원수 회전 (변경 불가). 성분 순서는 JOML·마인크래프트와 같은 (x, y, z, w).
+ * Unit quaternion rotation (immutable). Component order is (x, y, z, w), same as JOML and
+ * Minecraft.
  *
- * <p>오일러 각은 도 단위 [x, y, z]이고 X축을 먼저, 그다음 Y, Z 순서로 돌린다 (q = qZ · qY · qX).
+ * <p>Euler angles are [x, y, z] in degrees, applied X first, then Y, then Z (q = qZ · qY · qX).
  */
 public record Quat(double x, double y, double z, double w) {
 
     public static final Quat IDENTITY = new Quat(0, 0, 0, 1);
 
     /**
-     * item_display가 아이템을 Y축으로 180° 돌려 그리는 것을 되돌리는 회전 ('16. 플러그인 설계' 5.10, 시제품 right_rotation [0, 1,
-     * 0, 0]).
+     * Rotation that undoes item_display drawing items rotated 180° around Y ('16. Plugin design'
+     * 5.10, prototype right_rotation [0, 1, 0, 0]).
      */
     public static final Quat ITEM_FLIP = new Quat(0, 1, 0, 0);
 
@@ -40,14 +41,15 @@ public record Quat(double x, double y, double z, double w) {
         return new Quat(0, 0, Math.sin(half), Math.cos(half));
     }
 
-    /** 오일러 각 (도, X → Y → Z 순서로 적용). */
+    /** Euler angles (degrees, applied X → Y → Z). */
     public static Quat euler(Vec3 degrees) {
         return rotZ(degrees.z()).mul(rotY(degrees.y())).mul(rotX(degrees.x()));
     }
 
     /**
-     * {@link #euler}의 역: 이 회전을 만드는 오일러 각 (도, X → Y → Z 순서). y는 −90~90이고, y가 ±90°에 가까우면(짐벌 잠금) x를
-     * 0으로 둔다. 같은 회전을 만드는 다른 해({@code [x+180, 180−y, z+180]})는 {@link #eulerNear}로 고른다.
+     * Inverse of {@link #euler}: Euler angles that produce this rotation (degrees, X → Y → Z
+     * order). y is −90~90; when y is near ±90° (gimbal lock) x is set to 0. The other solution for
+     * the same rotation ({@code [x+180, 180−y, z+180]}) is picked by {@link #eulerNear}.
      */
     public Vec3 toEuler() {
         Quat q = normalize();
@@ -73,8 +75,9 @@ public record Quat(double x, double y, double z, double w) {
     }
 
     /**
-     * 이 회전을 만드는 오일러 각 중 previous에 가장 가까운 것 (도). 두 해와 성분별 ±360°를 모두 따져 고른다. 프레임마다 뽑은 각을 이어 붙일 때 (선형
-     * 보간이 반대쪽으로 돌지 않게) 쓴다.
+     * The Euler angles producing this rotation that are closest to previous (degrees). Considers
+     * both solutions and ±360° per component. Used when chaining angles extracted per frame (so
+     * linear interpolation does not spin the wrong way).
      */
     public Vec3 eulerNear(Vec3 previous) {
         Vec3 a = toEuler();
@@ -93,14 +96,15 @@ public record Quat(double x, double y, double z, double w) {
     }
 
     /**
-     * 엔티티 방향 (마인크래프트 yaw·pitch, 도). Display 엔티티가 그릴 때 쓰는 회전과 같다 (rotationYXZ(−yaw, pitch, 0)). 모델의
-     * +Z가 yaw 방향을 향하고, pitch가 양수면 아래를 본다.
+     * Entity orientation (Minecraft yaw/pitch, degrees). Same rotation Display entities use when
+     * rendering (rotationYXZ(−yaw, pitch, 0)). The model's +Z faces the yaw direction, and positive
+     * pitch looks down.
      */
     public static Quat entity(double yaw, double pitch) {
         return rotY(-yaw).mul(rotX(pitch));
     }
 
-    /** 해밀턴 곱 this · o (o를 먼저 적용). */
+    /** Hamilton product this · o (o applied first). */
     public Quat mul(Quat o) {
         return new Quat(
                 w * o.x + x * o.w + y * o.z - z * o.y,
@@ -125,7 +129,7 @@ public record Quat(double x, double y, double z, double w) {
         return new Quat(x / len, y / len, z / len, w / len);
     }
 
-    /** 벡터를 돌린다. */
+    /** Rotates a vector. */
     public Vec3 rotate(Vec3 v) {
         // v' = v + 2w(u×v) + 2u×(u×v)
         Vec3 u = new Vec3(x, y, z);
@@ -133,13 +137,16 @@ public record Quat(double x, double y, double z, double w) {
         return v.add(t.mul(w)).add(u.cross(t));
     }
 
-    /** 두 회전 사이의 각도 (도, 0~180). q와 −q는 같은 회전으로 본다. */
+    /** Angle between two rotations (degrees, 0~180). q and −q are treated as the same rotation. */
     public double angleTo(Quat o) {
         double d = Math.min(1, Math.abs(dot(o)));
         return Math.toDegrees(2 * Math.acos(d));
     }
 
-    /** 구면 선형 보간 (가까운 쪽으로). 클라이언트가 Display 회전을 보간하는 방식과 같다. */
+    /**
+     * Spherical linear interpolation (the shorter way). Same as how the client interpolates Display
+     * rotations.
+     */
     public static Quat slerp(Quat a, Quat b, double f) {
         double cos = a.dot(b);
         Quat end = b;

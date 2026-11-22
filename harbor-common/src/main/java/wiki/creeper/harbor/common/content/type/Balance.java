@@ -10,8 +10,8 @@ import wiki.creeper.harbor.common.content.ParseContext;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * balance.yml. '7. 밸런스 기획'의 모든 수치를 점으로 이은 경로로 읽는다 (예: {@code fishing.legend.pity_start}). 서버 재시작 없이
- * 리로드한다.
+ * balance.yml. Reads every number from '7. Balance design' by dot-joined path (e.g. {@code
+ * fishing.legend.pity_start}). Reloads without a server restart.
  */
 public final class Balance {
 
@@ -45,7 +45,7 @@ public final class Balance {
         return string(path).map(Boolean::parseBoolean).orElse(fallback);
     }
 
-    /** 경로 바로 아래 키들. {@code section("stats")} → rare_weight, bite_wait ... */
+    /** Keys directly under a path. {@code section("stats")} → rare_weight, bite_wait ... */
     public List<String> keys(String section) {
         String prefix = section + ".";
         TreeSet<String> keys = new TreeSet<>();

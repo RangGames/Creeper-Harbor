@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.UUID;
 
-/** 공용 JSON 변환기 (Gson). record를 그대로 직렬화하고 Instant·UUID는 문자열로 쓴다. */
+/** Shared JSON converter (Gson). Serializes records directly and writes Instant/UUID as strings. */
 public final class Json {
 
     public static final Gson GSON =

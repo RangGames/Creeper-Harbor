@@ -15,23 +15,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** 여러 팩에 같은 경로가 있을 때 고르기·합치기 ({@link PackBuilder#build}). owners는 우선순위가 높은 순서. */
+/**
+ * Picking/merging when several packs have the same path ({@link PackBuilder#build}). owners are in
+ * descending priority.
+ */
 final class PackMerge {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
-    /** notes에 하나씩 남기는 겹친 파일 수 상한 (나머지는 개수만). */
+    /** Max overlapping files noted individually in notes (the rest only as a count). */
     private static final int NOTE_LIMIT = 30;
 
     private PackMerge() {}
 
     enum Kind {
         PLAIN,
-        /** 최상위 키 합치기 (sounds.json, lang). */
+        /** Merge top-level keys (sounds.json, lang). */
         KEYS,
-        /** sources 배열 합집합 (atlases). */
+        /** Union of the sources array (atlases). */
         ATLAS,
-        /** providers 배열 이어 붙이기 (font). */
+        /** Append the providers array (font). */
         FONT
     }
 
@@ -87,7 +90,7 @@ final class PackMerge {
         return owners.getFirst().read(path);
     }
 
-    /** docs는 우선순위 높은 순서. */
+    /** docs are in descending priority. */
     static JsonObject merge(Kind kind, List<JsonObject> docs) {
         return switch (kind) {
             case KEYS -> {
@@ -105,7 +108,10 @@ final class PackMerge {
         };
     }
 
-    /** 배열 필드를 앞쪽부터 이어 붙이고 같은 항목은 한 번만. 다른 최상위 키는 앞쪽이 이긴다. */
+    /**
+     * Appends array fields from the earliest, keeping identical items once. Other top-level keys:
+     * earlier wins.
+     */
     private static JsonObject union(List<JsonObject> docs, String field) {
         JsonObject out = new JsonObject();
         for (int i = docs.size() - 1; i >= 0; i--) {
@@ -132,7 +138,7 @@ final class PackMerge {
         return out;
     }
 
-    /** sounds.json 내용의 소리 키 → {@code ns:키}. */
+    /** Sound keys in sounds.json content → {@code ns:key}. */
     static void soundKeys(String namespace, byte[] data, Set<String> out) {
         try {
             JsonElement json = JsonParser.parseString(new String(data, StandardCharsets.UTF_8));
@@ -142,7 +148,7 @@ final class PackMerge {
                 }
             }
         } catch (JsonParseException e) {
-            // 깨진 sounds.json: 소리 목록에서 빠질 뿐
+            // Broken sounds.json: it is just left out of the sound list
         }
     }
 

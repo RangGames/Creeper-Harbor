@@ -22,35 +22,48 @@ import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.common.rig.Xform;
 
 /**
- * 리소스팩 어종 리그 JSON(harbor_rig_v1)을 플러그인 리그 형식(content/rigs/fish/&lt;이름&gt;.yml)으로 바꾼다 ({@code
- * harbor-tools rig-import}, 추가 제안).
+ * Converts resource pack fish rig JSON (harbor_rig_v1) into the plugin rig format
+ * (content/rigs/fish/&lt;name&gt;.yml) ({@code harbor-tools rig-import}, proposed).
  *
- * <p>원본 키프레임(Blockbench 오일러·catmullrom)을 다시 계산하지 않고 원본의 {@code baked.frames}(20tps, 엔티티 기준 본별
- * translation·left_rotation·scale)를 그대로 옮긴다. 프레임의 월드 변환을 부모 본 기준 지역 변환으로 풀고, 회전은 기본 자세 오일러 각에 더할
- * 값(X → Y → Z 순서, 프레임 사이 각이 튀지 않게 이어 붙임)으로 바꿔 고른 간격 샘플 채널({@code {step, v}})에 넣는다. 서버는 샘플 시각에서 원본
- * 프레임과 같은 자세를 다시 만든다 (반올림 오차만 남는다).
+ * <p>Instead of recomputing the source keyframes (Blockbench Euler, catmullrom), it copies the
+ * source's {@code baked.frames} (20tps, per-bone translation/left_rotation/scale relative to the
+ * entity) as-is. Frame world transforms are resolved into local transforms relative to the parent
+ * bone, and rotations become values added to the rest pose Euler angles (X → Y → Z order, chained
+ * so angles do not jump between frames), stored in evenly spaced sample channels ({@code {step,
+ * v}}). The server rebuilds the same pose as the source frame at each sample time (only rounding
+ * error remains).
  *
  * <ul>
- *   <li>모델이 없는 본(root 등)은 베이크 프레임에 값이 없어 빼고, 그 자식은 모델이 있는 가장 가까운 조상(없으면 리그 원점)에 붙인다.
- *   <li>기본 자세는 원본 {@code bones[].rest}(월드)를 같은 방식으로 지역 변환으로 푼다.
- *   <li>샘플 간격 step은 서버 굽기 간격(balance.yml rig.fps → 20/fps틱)과 맞춘다. 반복 동작의 마지막 샘플(length틱)은 첫 프레임, 한
- *       번 재생 동작은 마지막 프레임을 쓴다.
- *   <li>item_display 뒤집힘은 플러그인 기본(flip: true, 오른쪽 회전 Y 180°)을 그대로 둔다. 본 모델은 머리가 −Z인 Blockbench 좌표
- *       그대로라 그 보정이 있어야 원본과 같은 방향으로 그려진다.
+ *   <li>Bones without a model (root, etc.) have no values in the baked frames, so they are dropped
+ *       and their children attach to the nearest ancestor with a model (or the rig origin).
+ *   <li>The rest pose resolves the source {@code bones[].rest} (world) into local transforms the
+ *       same way.
+ *   <li>The sample interval step matches the server bake interval (balance.yml rig.fps → 20/fps
+ *       ticks). The last sample (tick length) of a looping animation uses the first frame; a
+ *       one-shot animation uses its last frame.
+ *   <li>The item_display flip keeps the plugin default (flip: true, right rotation Y 180°). Bone
+ *       models keep Blockbench coordinates with the head toward −Z, so that correction is needed
+ *       for them to render facing the same way as the source.
  * </ul>
  */
 final class RigImporter {
 
-    /** 회전 채널을 뺄 기준 (도). 원본이 소수 4자리라 그보다 작은 흔들림은 반올림 잡음이다. */
+    /**
+     * Threshold for dropping a rotation channel (degrees). The source has 4 decimal places, so
+     * smaller wobble is rounding noise.
+     */
     private static final double ROT_EPS = 0.05;
 
-    /** 이동 채널을 뺄 기준 (블록). */
+    /** Threshold for dropping a translation channel (blocks). */
     private static final double POS_EPS = 0.0005;
 
-    /** 크기 채널을 뺄 기준. */
+    /** Threshold for dropping a scale channel. */
     private static final double SCALE_EPS = 0.001;
 
-    /** 채널 값 소수 자리: 회전 0.1°, 위치·크기 0.001 (서버 압축 허용 오차 1.2°·0.005블록보다 충분히 작다). */
+    /**
+     * Channel value precision: rotation 0.1°, position/scale 0.001 (well below the server
+     * compression tolerance of 1.2° and 0.005 blocks).
+     */
     private static final int ROT_DIGITS = 1;
 
     private static final int POS_DIGITS = 3;
@@ -61,12 +74,15 @@ final class RigImporter {
             # 동작은 원본 베이크 프레임(20tps)을 고른 틱 간격(step) 샘플로 옮긴 것이다. 회전은 기본 자세 오일러 각(X → Y → Z)에 더하는 값(도), 위치는 pivot에 더하는 값(블록).
             """;
 
-    /** 변환 결과 하나. */
+    /** One conversion result. */
     record Converted(String name, String yaml, int bones, int animations, List<String> events) {}
 
     private RigImporter() {}
 
-    /** rigsDir의 *.json을 모두 바꿔 contentDir/rigs/fish/&lt;이름&gt;.yml로 쓴다. 그 폴더의 예전 yml은 지운다. */
+    /**
+     * Converts every *.json in rigsDir and writes contentDir/rigs/fish/&lt;name&gt;.yml. Old yml
+     * files in that folder are deleted.
+     */
     static List<Converted> run(Path rigsDir, Path contentDir, int step) throws IOException {
         List<Path> sources;
         try (Stream<Path> files = Files.list(rigsDir)) {
@@ -104,12 +120,12 @@ final class RigImporter {
         return out;
     }
 
-    // ------------------------------------------------------------------ 변환
+    // ------------------------------------------------------------------ Conversion
 
     private record SrcBone(
             String name, @Nullable String parent, @Nullable String model, Xform rest) {}
 
-    /** 출력 본: 모델 있는 본만, 부모는 모델 있는 가장 가까운 조상. */
+    /** Output bones: only bones with a model; the parent is the nearest ancestor with a model. */
     private record OutBone(
             String name,
             @Nullable String parent,
@@ -151,7 +167,8 @@ final class RigImporter {
                             xform(b.getAsJsonObject("rest"))));
         }
 
-        // 출력 본과 기본 자세 (지역 변환, 반올림한 값을 기준으로 채널을 계산한다)
+        // Output bones and rest pose (local transforms; channels are computed from the rounded
+        // values)
         List<OutBone> bones = new ArrayList<>();
         for (SrcBone b : src.values()) {
             String model = b.model();
@@ -229,7 +246,8 @@ final class RigImporter {
         if (length < 1) {
             throw new IllegalArgumentException("동작 '" + anim + "'의 길이가 1틱보다 짧습니다");
         }
-        // 서버가 굽는 간격과 샘플 간격이 맞도록, 길이가 step으로 안 나뉘면 1틱 간격으로
+        // So the sample interval matches the server bake interval, use a 1-tick interval if the
+        // length is not divisible by step
         int s = length % step == 0 ? step : 1;
         boolean loop = !"once".equals(optString(a, "loop"));
         JsonObject baked = a.getAsJsonObject("baked");
@@ -242,7 +260,7 @@ final class RigImporter {
         }
         int samples = length / s + 1;
 
-        // [본][샘플] 채널 값
+        // [bone][sample] channel values
         int n = bones.size();
         Vec3[][] rot = new Vec3[n][samples];
         Vec3[][] pos = new Vec3[n][samples];
@@ -340,9 +358,9 @@ final class RigImporter {
         y.append("]}\n");
     }
 
-    // ------------------------------------------------------------------ 변환 수학
+    // ------------------------------------------------------------------ Transform math
 
-    /** child(월드) = parent(월드) ∘ 결과. parent가 null이면 리그 원점. */
+    /** child (world) = parent (world) ∘ result. parent null means the rig origin. */
     static Xform relative(@Nullable Xform parent, Xform child) {
         if (parent == null) {
             return child;
@@ -401,7 +419,7 @@ final class RigImporter {
                                 s.get(2).getAsDouble()));
     }
 
-    // ------------------------------------------------------------------ 출력 도우미
+    // ------------------------------------------------------------------ Output helpers
 
     private static String string(JsonObject o, String key) {
         String v = optString(o, key);
@@ -442,7 +460,7 @@ final class RigImporter {
                 + "]";
     }
 
-    /** 소수 digits자리, 뒤 0과 −0 정리. */
+    /** digits decimal places, trimming trailing zeros and −0. */
     static String num(double v, int digits) {
         BigDecimal d =
                 new BigDecimal(v).setScale(digits, RoundingMode.HALF_UP).stripTrailingZeros();

@@ -33,7 +33,7 @@ import wiki.creeper.harbor.common.ledger.LedgerWriter;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.util.Result;
 
-/** 실제 MariaDB 컨테이너로 원장·지연 쓰기를 검사한다. Docker가 없으면 건너뛴다. */
+/** Tests the ledger and write-behind against a real MariaDB container. Skipped without Docker. */
 @Testcontainers(disabledWithoutDocker = true)
 class LedgerWriterIT {
 
@@ -42,7 +42,7 @@ class LedgerWriterIT {
     static Database db;
     static LedgerWriter writer;
 
-    /** 테스트용 잔액 저장소 (test_wallet 테이블). */
+    /** Test balance store (test_wallet table). */
     static final class TestWallet implements BalanceStore {
         @Override
         public long lockBalance(Connection c, UUID player, Currency currency) throws SQLException {
@@ -174,7 +174,7 @@ class LedgerWriterIT {
                                         "sale-1")));
 
         assertEquals(Result.err(LedgerError.INSUFFICIENT_FUNDS), result);
-        // 판매자 지급도 취소되어야 한다
+        // The seller payout must be cancelled too
         assertEquals(
                 Result.ok(30L),
                 writer.post(

@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.id;
 
-/** NPC ID. 예: {@code harbor:npc/example}. */
+/** NPC ID. E.g. {@code harbor:npc/example}. */
 public record NpcId(HarborId id) implements TypedId {
 
     public static final String PREFIX = "npc/";

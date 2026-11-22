@@ -31,10 +31,12 @@ import wiki.creeper.harbor.common.util.SourcePos;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 
 /**
- * 줄 번호를 기억하는 YAML 노드. SnakeYAML 노드 단위로 읽어서 오류 위치("42행 3열")를 알려준다.
+ * YAML node that remembers line numbers. Reads at the SnakeYAML node level to report error
+ * positions ("42행 3열", line 42 column 3).
  *
- * <p>값을 꺼내는 메서드는 오류가 나도 예외를 던지지 않고 오류 목록에 기록한 뒤 기본값을 돌려준다. 파일 하나를 끝까지 읽어서 오류를 모두 모은 다음, 오류가 하나라도
- * 있으면 결과를 버리는 방식으로 쓴다.
+ * <p>Value getters never throw on errors; they record the error in the error list and return a
+ * default. The intended use is to read a whole file, collect all errors, and discard the result if
+ * there is even one error.
  */
 public final class YamlNode {
 
@@ -49,9 +51,12 @@ public final class YamlNode {
         this.errors = errors;
     }
 
-    // ------------------------------------------------------------------ 읽기
+    // ------------------------------------------------------------------ Reading
 
-    /** 파일을 읽는다. 문법 오류나 빈 파일이면 오류를 기록하고 빈 Optional. */
+    /**
+     * Reads a file. On a syntax error or an empty file, records an error and returns an empty
+     * Optional.
+     */
     public static Optional<YamlNode> read(Path path, String displayName, ValidationErrors errors) {
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             return parse(displayName, reader, errors);
@@ -86,7 +91,7 @@ public final class YamlNode {
         }
     }
 
-    // ------------------------------------------------------------------ 기본 정보
+    // ------------------------------------------------------------------ Basic info
 
     public SourcePos pos() {
         Mark mark = node.getStartMark();
@@ -115,7 +120,7 @@ public final class YamlNode {
         return node instanceof ScalarNode;
     }
 
-    /** null·~·빈 값인지. */
+    /** Whether it is null, ~ or empty. */
     public boolean isNull() {
         return node instanceof ScalarNode scalar
                 && (scalar.getValue().isEmpty()
@@ -123,14 +128,14 @@ public final class YamlNode {
                         || scalar.getValue().equals("null"));
     }
 
-    /** 이 노드 위치에 오류를 기록한다. */
+    /** Records an error at this node's position. */
     public void error(String message) {
         errors.add(pos(), message);
     }
 
-    // ------------------------------------------------------------------ 맵
+    // ------------------------------------------------------------------ Maps
 
-    /** 맵의 항목 (입력 순서 유지). 맵이 아니면 오류를 기록하고 빈 맵. */
+    /** Map entries (input order kept). If not a map, records an error and returns an empty map. */
     public Map<String, YamlNode> entries() {
         if (mapCache != null) {
             return mapCache;
@@ -164,7 +169,7 @@ public final class YamlNode {
         return get(key).isPresent();
     }
 
-    /** 필수 필드. 없으면 오류를 기록하고 빈 Optional. */
+    /** Required field. If missing, records an error and returns an empty Optional. */
     public Optional<YamlNode> require(String key) {
         Optional<YamlNode> value = get(key);
         if (value.isEmpty()) {
@@ -173,7 +178,7 @@ public final class YamlNode {
         return value;
     }
 
-    /** 허용된 키 외의 키가 있으면 오류 (오타 방지). */
+    /** Error if there are keys other than the allowed ones (catches typos). */
     public void allowOnly(Set<String> allowed) {
         if (node instanceof MappingNode mapping) {
             for (NodeTuple tuple : mapping.getValue()) {
@@ -185,7 +190,7 @@ public final class YamlNode {
         }
     }
 
-    // ------------------------------------------------------------------ 스칼라 (이 노드)
+    // ------------------------------------------------------------------ Scalars (this node)
 
     public String asString() {
         if (node instanceof ScalarNode scalar) {
@@ -263,7 +268,7 @@ public final class YamlNode {
         return id;
     }
 
-    /** 접두사가 정해진 ID (예: {@code region/}). */
+    /** ID with a fixed prefix (e.g. {@code region/}). */
     public Optional<HarborId> asId(String prefix) {
         return asId().filter(
                         id -> {
@@ -291,7 +296,7 @@ public final class YamlNode {
         return List.of();
     }
 
-    /** 문자열 하나 또는 문자열 목록을 목록으로 읽는다 (설명 문구 등). */
+    /** Reads a single string or a string list as a list (description text, etc.). */
     public List<String> asStringOrList() {
         if (isList()) {
             return asList().stream().map(YamlNode::asString).toList();
@@ -299,7 +304,10 @@ public final class YamlNode {
         return List.of(asString());
     }
 
-    /** 일반 Java 값으로 바꾼다 (Map, List, String). 밸런스 표처럼 형식을 모르는 데이터용. */
+    /**
+     * Converts to plain Java values (Map, List, String). For data of unknown shape, like balance
+     * tables.
+     */
     public Object toPlain() {
         if (node instanceof MappingNode) {
             Map<String, Object> map = new LinkedHashMap<>();
@@ -312,7 +320,7 @@ public final class YamlNode {
         return asString();
     }
 
-    // ------------------------------------------------------------------ 필드 접근 도우미
+    // ------------------------------------------------------------------ Field access helpers
 
     public String string(String key) {
         return require(key).map(YamlNode::asString).orElse("");
@@ -334,7 +342,7 @@ public final class YamlNode {
         return get(key).map(YamlNode::asInt).orElse(fallback);
     }
 
-    /** 범위 검사를 포함한 정수. */
+    /** Integer with a range check. */
     public int integer(String key, int fallback, int min, int max) {
         Optional<YamlNode> value = get(key);
         if (value.isEmpty()) {
@@ -379,7 +387,7 @@ public final class YamlNode {
         return list(key).stream().map(YamlNode::asString).toList();
     }
 
-    // ------------------------------------------------------------------ 내부
+    // ------------------------------------------------------------------ Internals
 
     private YamlNode child(Node child) {
         return new YamlNode(file, child, errors);

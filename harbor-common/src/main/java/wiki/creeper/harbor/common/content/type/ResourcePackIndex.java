@@ -8,13 +8,16 @@ import wiki.creeper.harbor.common.content.ParseContext;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * resource_pack.yml: 배포 중인 리소스팩에 실제로 들어 있는 item_model·소리 목록 (추가 제안). 손으로 쓰지 않고 {@code harbor-tools
- * pack-index}로 리소스팩에서 만든다.
+ * resource_pack.yml: the item_model and sound lists actually contained in the deployed resource
+ * pack (proposed). Not written by hand; generated from the resource pack with {@code harbor-tools
+ * pack-index}.
  *
- * <p>팩에 없는 모델을 아이템에 넣으면 보라·검정 상자로 깨지므로, 목록에 있는 모델만 쓴다. 파일이 없거나 목록이 비면 검사하지 않는다 (모든 모델을 있다고 본다).
+ * <p>An item with a model missing from the pack renders as a broken purple-black box, so only
+ * listed models are used. If the file is missing or the list is empty, nothing is checked (all
+ * models are assumed present).
  *
- * @param models {@code harbor:fish/harbor_mackerel} 형식의 item_model 키
- * @param sounds {@code harbor:fishing.cast} 형식의 소리 키
+ * @param models item_model keys like {@code harbor:fish/harbor_mackerel}
+ * @param sounds sound keys like {@code harbor:fishing.cast}
  */
 public record ResourcePackIndex(Set<String> models, Set<String> sounds) {
 
@@ -27,7 +30,7 @@ public record ResourcePackIndex(Set<String> models, Set<String> sounds) {
         sounds = Set.copyOf(sounds);
     }
 
-    /** 목록이 있으면 그 안에 있는지, 목록이 없으면 true. */
+    /** If there is a list, whether it is in it; if there is no list, true. */
     public boolean hasModel(String key) {
         return models.isEmpty() || models.contains(key);
     }

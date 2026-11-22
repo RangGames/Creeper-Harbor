@@ -3,7 +3,7 @@ package wiki.creeper.harbor.common.model;
 import java.util.Locale;
 import java.util.Optional;
 
-/** YAML·DB에 소문자 키로 저장되는 enum. */
+/** Enum stored in YAML/DB as a lowercase key. */
 public interface Keyed {
 
     String key();

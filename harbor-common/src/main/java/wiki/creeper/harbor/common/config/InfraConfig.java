@@ -23,13 +23,16 @@ import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 인프라 설정 (harbor-infra.yml). 서버마다 다른 값(서버 ID, DB·Redis 주소)만 둔다. 게임 수치는 콘텐츠의 balance.yml에 둔다.
+ * Infrastructure config (harbor-infra.yml). Holds only per-server values (server ID, DB/Redis
+ * addresses). Game numbers live in the content's balance.yml.
  *
- * @param serverId 서버 ID (세션 잠금·메시지 발신자). 프록시에 등록한 서버 이름과 같아야 한다.
- * @param dev 개발 모드: 메인 스레드 입출력 감지 경고 등
- * @param contentDir 콘텐츠 폴더 (null이면 plugins/Harbor/content)
- * @param lobbyServer 리소스팩 거절·세션 대기 때 보낼 로비 서버 이름
- * @param packBuild 이 서버가 에셋 폴더로 리소스팩을 만들어 CDN에 올릴지 (null이면 만들지 않음, 추가 제안)
+ * @param serverId server ID (session locks, message sender). Must match the server name registered
+ *     in the proxy.
+ * @param dev dev mode: warnings on detected main-thread I/O, etc.
+ * @param contentDir content folder (null means plugins/Harbor/content)
+ * @param lobbyServer lobby server name to send players to on resource pack refusal or session wait
+ * @param packBuild whether this server builds the resource pack from the asset folder and uploads
+ *     it to the CDN (null means no build, proposed)
  */
 public record InfraConfig(
         String serverId,
@@ -47,21 +50,23 @@ public record InfraConfig(
         List<ResourcePack> resourcePacks,
         @Nullable PackBuild packBuild) {
 
-    /** 접속 때 보내는 필수 리소스팩. sha1은 40자리 16진수. */
+    /** Required resource pack sent on join. sha1 is 40 hex digits. */
     public record ResourcePack(String id, String url, String sha1) {}
 
     /**
-     * 리소스팩 자동 빌드·업로드 (harbor-infra.yml pack:).
+     * Automatic resource pack build and upload (harbor-infra.yml pack:).
      *
-     * @param source 에셋 폴더 (null이면 plugins/Harbor/pack)
-     * @param cdnUrl CDN 주소 (예: https://cdn.creeper.wiki)
-     * @param apiKey CDN API 키 (로그에 남기지 않는다)
-     * @param namespace CDN 네임스페이스 (소문자·숫자·-)
-     * @param version CDN 버전 칸 (예: 1.0). 주소는 내용 해시로 바뀌므로 팩을 바꿔도 그대로 둬도 된다
-     * @param format pack.mcmeta가 없을 때 쓸 팩 형식 (예: 97.1)
-     * @param fileName 올릴 파일 이름 (확장자 포함)
-     * @param merge 같이 합칠 다른 리소스팩 (폴더 또는 zip, 서버 폴더 기준 경로, 앞쪽이 우선. plugins/Harbor/pack-merge/ 안의 팩은
-     *     자동으로 뒤에 붙는다, 추가 제안)
+     * @param source asset folder (null means plugins/Harbor/pack)
+     * @param cdnUrl CDN address (e.g. https://cdn.creeper.wiki)
+     * @param apiKey CDN API key (never logged)
+     * @param namespace CDN namespace (lowercase letters, digits, -)
+     * @param version CDN version slot (e.g. 1.0). The URL changes with the content hash, so it can
+     *     stay the same when the pack changes
+     * @param format pack format to use when there is no pack.mcmeta (e.g. 97.1)
+     * @param fileName name of the uploaded file (with extension)
+     * @param merge other resource packs to merge in (folder or zip, path relative to the server
+     *     folder, earlier wins. Packs in plugins/Harbor/pack-merge/ are appended automatically,
+     *     proposed)
      */
     public record PackBuild(
             @Nullable Path source,

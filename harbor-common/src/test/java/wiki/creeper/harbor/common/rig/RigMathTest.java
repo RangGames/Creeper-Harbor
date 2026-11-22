@@ -19,11 +19,11 @@ class RigMathTest {
 
     @Test
     void quaternionRotatesLikeRightHandRule() {
-        // Y축 +90°: +X → −Z
+        // Y axis +90°: +X → −Z
         assertVec(new Vec3(0, 0, -1), Quat.rotY(90).rotate(new Vec3(1, 0, 0)), 1e-12);
-        // X축 +90°: +Y → +Z
+        // X axis +90°: +Y → +Z
         assertVec(new Vec3(0, 0, 1), Quat.rotX(90).rotate(new Vec3(0, 1, 0)), 1e-12);
-        // Z축 +90°: +X → +Y
+        // Z axis +90°: +X → +Y
         assertVec(new Vec3(0, 1, 0), Quat.rotZ(90).rotate(new Vec3(1, 0, 0)), 1e-12);
     }
 
@@ -37,11 +37,11 @@ class RigMathTest {
     @Test
     void entityRotationMatchesMinecraftYawConvention() {
         Vec3 forward = new Vec3(0, 0, 1);
-        // yaw 0 = 남쪽(+Z), 90 = 서쪽(−X), −90 = 동쪽(+X)
+        // yaw 0 = south (+Z), 90 = west (−X), −90 = east (+X)
         assertVec(new Vec3(0, 0, 1), Quat.entity(0, 0).rotate(forward), 1e-12);
         assertVec(new Vec3(-1, 0, 0), Quat.entity(90, 0).rotate(forward), 1e-12);
         assertVec(new Vec3(1, 0, 0), Quat.entity(-90, 0).rotate(forward), 1e-12);
-        // pitch 양수 = 아래
+        // positive pitch = down
         Vec3 down = Quat.entity(0, 30).rotate(forward);
         assertTrue(down.y() < 0);
     }
@@ -59,7 +59,7 @@ class RigMathTest {
         assertEquals(0, Quat.slerp(a, b, 0).angleTo(a), 1e-4);
         assertEquals(0, Quat.slerp(a, b, 1).angleTo(b), 1e-4);
         assertEquals(0, Quat.slerp(a, b, 0.5).angleTo(Quat.rotY(45)), 1e-4);
-        // −q는 같은 회전: 반대 부호로 줘도 짧은 쪽으로 간다
+        // −q is the same rotation: even with the opposite sign it takes the short way
         Quat negB = new Quat(-b.x(), -b.y(), -b.z(), -b.w());
         assertEquals(0, Quat.slerp(a, negB, 0.5).angleTo(Quat.rotY(45)), 1e-4);
     }
@@ -71,7 +71,8 @@ class RigMathTest {
         Vec3 p = new Vec3(0, 1, 0);
         Vec3 viaChain = parent.apply(child.apply(p));
         assertVec(viaChain, parent.then(child).apply(p), 1e-12);
-        // 자식 원점은 부모 공간에서 (0,0,1)×2를 Y 90° 돌린 (2,0,0)에 부모 이동 (1,0,0)
+        // Child origin: (0,0,1)×2 in parent space rotated Y 90° = (2,0,0), plus parent translation
+        // (1,0,0)
         assertVec(new Vec3(3, 0, 0), parent.then(child).translation(), 1e-12);
     }
 
@@ -114,7 +115,7 @@ class RigMathTest {
                                 new Track.Keyframe(10, new Vec3(0, 4, 0), Easing.CATMULLROM),
                                 new Track.Keyframe(20, new Vec3(0, 0, 0), Easing.CATMULLROM)));
         assertVec(new Vec3(0, 4, 0), spline.sample(10, Vec3.ZERO), EPS);
-        // 꼭짓점 근처가 선형보다 둥글다 (선형이면 t=15에서 2)
+        // Near the vertex it is rounder than linear (linear would give 2 at t=15)
         assertTrue(spline.sample(15, Vec3.ZERO).y() > 2);
     }
 
@@ -129,13 +130,13 @@ class RigMathTest {
         }
         Xform.Tolerance tol = new Xform.Tolerance(0.005, 1.2, 0.005);
         BakedRig.KeyTrack keys = RigBaker.compress(ticks, values, tol, 8);
-        // 직선 운동이라 최대 간격(8프레임)마다만 키: 0, 8, 16, 20
+        // Straight-line motion, so keys only every max gap (8 frames): 0, 8, 16, 20
         assertEquals(4, keys.size());
         assertEquals(0, keys.tick(0));
         assertEquals(16, keys.tick(1));
         assertEquals(32, keys.tick(2));
         assertEquals(40, keys.tick(3));
-        // 보간 결과는 원래 프레임과 같다
+        // Interpolated result equals the original frames
         for (int i = 0; i < ticks.length; i++) {
             assertTrue(keys.sample(ticks[i]).near(values[i], tol));
         }

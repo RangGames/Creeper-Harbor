@@ -36,7 +36,7 @@ class HarborTimeTest {
 
     @Test
     void nextWeeklyResetIsMonday0600() {
-        // 2027-09-08은 수요일
+        // 2027-09-08 is a Wednesday
         assertEquals(
                 ZonedDateTime.parse("2027-09-13T06:00+09:00[Asia/Seoul]"),
                 at("2027-09-08T12:00").nextWeeklyReset());

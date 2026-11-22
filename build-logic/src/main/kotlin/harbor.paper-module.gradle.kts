@@ -1,4 +1,4 @@
-// Harbor-Core에 기대는 게임 모듈 (Jobs, Fishing, ...). Core의 클래스(Common 포함)를 같이 쓴다.
+// Game modules that rely on Harbor-Core (Jobs, Fishing, ...). They share Core's classes (including Common).
 plugins {
     id("harbor.paper-plugin")
 }

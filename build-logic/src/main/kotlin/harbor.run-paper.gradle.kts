@@ -1,4 +1,4 @@
-// 로컬 테스트 서버 (./gradlew :harbor-core:runServer)
+// Local test server (./gradlew :harbor-core:runServer)
 plugins {
     id("xyz.jpenilla.run-paper")
 }

@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.model;
 
-/** 품질 ★1~★5. */
+/** Quality ★1~★5. */
 public record Quality(int stars) implements Comparable<Quality> {
 
     public static final int MIN = 1;
@@ -20,7 +20,7 @@ public record Quality(int stars) implements Comparable<Quality> {
         return stars == MAX;
     }
 
-    /** ★★★☆☆ 형식. */
+    /** ★★★☆☆ form. */
     public String display() {
         return "★".repeat(stars) + "☆".repeat(MAX - stars);
     }

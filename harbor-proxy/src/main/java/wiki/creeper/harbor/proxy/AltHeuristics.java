@@ -6,38 +6,42 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * 다계정 판정 규칙 (docs 20 1.4 AltDetector). 서버 API·DB 없는 순수 로직.
+ * Multi-account decision rules (docs 20 1.4 AltDetector). Pure logic without server API or DB.
  *
  * <ul>
- *   <li>같은 ip_hash로 최근 window_days(30일, 제안값) 안에 들어온 다른 계정이 연결 계정 후보
- *   <li>그 IP의 계정 수(자신 포함)가 alert_accounts(3, 제안값) 이상이고 공유 IP가 아니면 운영진 경보
- *   <li>자동 차단은 하지 않는다 (PC방 공유 IP 오탐 방지)
- *   <li>같은 IP에 대해 경보는 계정 수가 늘었을 때만 다시 보낸다 (로그인마다 반복하지 않음)
+ *   <li>Other accounts that joined from the same ip_hash within window_days (30 days, proposed
+ *       value) are linked-account candidates
+ *   <li>If the account count for that IP (including self) is at least alert_accounts (3, proposed
+ *       value) and it is not a shared IP, staff are alerted
+ *   <li>No automatic bans (avoids false positives on internet cafe shared IPs)
+ *   <li>For the same IP, an alert is resent only when the account count grows (not on every login)
  * </ul>
  */
 final class AltHeuristics {
 
     private AltHeuristics() {}
 
-    /** 같은 IP로 들어온 계정 중 자신을 뺀 연결 후보 (중복 제거, 순서 유지). */
+    /**
+     * Link candidates among accounts from the same IP, excluding self (deduplicated, order kept).
+     */
     static Set<UUID> partners(UUID self, Collection<UUID> sameIp) {
         Set<UUID> result = new LinkedHashSet<>(sameIp);
         result.remove(self);
         return result;
     }
 
-    /** 그 IP의 계정 수 (자신 포함). */
+    /** Account count for that IP (including self). */
     static int accounts(UUID self, Collection<UUID> sameIp) {
         return partners(self, sameIp).size() + 1;
     }
 
     /**
-     * 경보를 보낼지.
+     * Whether to send an alert.
      *
-     * @param accounts 그 IP의 계정 수 (자신 포함)
-     * @param sharedIp ip_shared 등록 여부
-     * @param lastAlerted 이 IP로 마지막 경보 때의 계정 수 (없으면 0)
-     * @param threshold 경보 기준 계정 수
+     * @param accounts account count for that IP (including self)
+     * @param sharedIp whether registered in ip_shared
+     * @param lastAlerted account count at the last alert for this IP (0 if none)
+     * @param threshold alert threshold account count
      */
     static boolean shouldAlert(int accounts, boolean sharedIp, int lastAlerted, int threshold) {
         return !sharedIp && accounts >= threshold && accounts > lastAlerted;

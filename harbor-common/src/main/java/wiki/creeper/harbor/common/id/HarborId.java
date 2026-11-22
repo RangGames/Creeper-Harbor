@@ -4,9 +4,10 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * 네임스페이스:경로 형식의 ID. 예: {@code harbor:fish/harbor_mackerel}.
+ * ID in namespace:path form. E.g. {@code harbor:fish/harbor_mackerel}.
  *
- * <p>소문자 영문·숫자·밑줄만 쓴다. 네임스페이스를 생략하면 {@code harbor}로 본다. ID는 한 번 정하면 바꾸지 않는다.
+ * <p>Only lowercase letters, digits and underscores. An omitted namespace means {@code harbor}.
+ * Once set, an ID never changes.
  */
 public record HarborId(String namespace, String path) implements Comparable<HarborId> {
 
@@ -24,7 +25,7 @@ public record HarborId(String namespace, String path) implements Comparable<Harb
         }
     }
 
-    /** {@code harbor:fish/x} 또는 {@code fish/x}를 읽는다. 형식이 틀리면 IllegalArgumentException. */
+    /** Parses {@code harbor:fish/x} or {@code fish/x}. IllegalArgumentException on a bad format. */
     public static HarborId parse(String raw) {
         int colon = raw.indexOf(':');
         if (colon < 0) {
@@ -41,13 +42,13 @@ public record HarborId(String namespace, String path) implements Comparable<Harb
         }
     }
 
-    /** 경로의 첫 마디. {@code fish/harbor_mackerel} → {@code fish}. */
+    /** First path segment. {@code fish/harbor_mackerel} → {@code fish}. */
     public String category() {
         int slash = path.indexOf('/');
         return slash < 0 ? path : path.substring(0, slash);
     }
 
-    /** 경로의 마지막 마디. {@code item/rod/coral_carbon} → {@code coral_carbon}. */
+    /** Last path segment. {@code item/rod/coral_carbon} → {@code coral_carbon}. */
     public String name() {
         return path.substring(path.lastIndexOf('/') + 1);
     }
