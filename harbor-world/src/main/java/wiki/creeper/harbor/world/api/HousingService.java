@@ -9,26 +9,27 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 /**
- * 하우징 (개인 부두, docs 20 8.2 HousingService). 플롯·권한·방문 정책·장식은 World, 개인 어항 전시는 Collection이 맡는다.
- * Collection은 {@link #displayAnchors}로 수조 자리를 받고, {@link
- * wiki.creeper.harbor.world.api.event.DisplayAnchorChangedEvent}로 수조가 놓이거나 치워진 것을 안다. 메인 스레드 전용
- * (CompletableFuture 결과는 메인 스레드에서 완료).
+ * Housing (personal dock, docs 20 8.2 HousingService). Plots, permissions, visit policy and decor
+ * belong to World; personal aquarium displays belong to Collection. Collection gets tank slots from
+ * {@link #displayAnchors} and learns about tanks being placed or removed via {@link
+ * wiki.creeper.harbor.world.api.event.DisplayAnchorChangedEvent}. Main thread only
+ * (CompletableFuture results complete on the main thread).
  */
 public interface HousingService {
 
     boolean isHousingWorld(World world);
 
-    /** 위치의 플롯 (적재된 플롯만). */
+    /** Plot at the location (loaded plots only). */
     Optional<PlotInfo> plotAt(Location location);
 
-    /** 적재된 플롯 (주인이 접속 중이거나 누가 방문 중). */
+    /** Loaded plot (the owner is online or someone is visiting). */
     Optional<PlotInfo> plotOf(UUID owner);
 
-    /** DB에서 읽는다 (없으면 빈 값, 새로 만들지 않는다). */
+    /** Reads from the DB (empty if none; does not create one). */
     CompletableFuture<Optional<PlotInfo>> loadPlot(UUID owner);
 
     boolean can(Player player, PlotInfo plot, PlotPermission permission);
 
-    /** 적재된 플롯의 수조 자리 (slot 순서). */
+    /** Tank slots of a loaded plot (slot order). */
     List<DisplayAnchor> displayAnchors(long plotId);
 }

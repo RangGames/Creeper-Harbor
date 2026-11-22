@@ -13,7 +13,10 @@ import wiki.creeper.harbor.economy.api.RepairService;
 import wiki.creeper.harbor.economy.api.ShopService;
 import wiki.creeper.harbor.world.WorldKit;
 
-/** Economy ShopService.charge·RepairService를 쓰는 결제 (Harbor-Economy가 켜져 있을 때만 이 클래스를 불러온다). */
+/**
+ * Payments via Economy ShopService.charge and RepairService (this class is loaded only when
+ * Harbor-Economy is enabled).
+ */
 final class EconomyPayments implements Payments {
 
     private final WorldKit kit;

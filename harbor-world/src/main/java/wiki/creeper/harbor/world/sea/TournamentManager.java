@@ -27,14 +27,16 @@ import wiki.creeper.harbor.world.api.SeaEventType;
 import wiki.creeper.harbor.world.content.SeaEventDef;
 
 /**
- * 주간 낚시 대회 (docs 20 0.1: 일정은 World 해상 이벤트 스케줄러, 순위 집계는 Season RankingService). 대회 중 낚싯대로 잡은 어종마다 등급
- * 점수 × (1 + 품질 보너스 × (★ − 1))를 tournament_score에 바로 더한다 (서버를 옮겨도 이어지도록 절댓값이 아닌 증가분). 순위표는 Season이
- * 원천 {@code tournament}로 읽고, 끝나면 스케줄러 서버가 순위 보상(원장 TOURNAMENT_REWARD, 참조 ID tour:&lt;실행 ID&gt;)을
- * 준다.
+ * Weekly fishing tournament (docs 20 0.1: scheduled by the World sea event scheduler, ranked by the
+ * Season RankingService). For each species caught with a rod during the tournament, adds rarity
+ * score × (1 + quality bonus × (★ − 1)) directly to tournament_score (an increment rather than an
+ * absolute value so it carries over across servers). Season reads the leaderboard as the source
+ * {@code tournament}, and when it ends the scheduler server pays rank rewards (ledger
+ * TOURNAMENT_REWARD, reference ID tour:&lt;run ID&gt;).
  */
 public final class TournamentManager implements Listener {
 
-    /** 순위 원천 (Season RankingSource가 부른다, 가상 스레드). */
+    /** Ranking source (called by Season RankingSource, virtual thread). */
     public record Row(UUID uuid, String name, int score, int catches, Instant updatedAt) {}
 
     private final WorldKit kit;
@@ -48,7 +50,7 @@ public final class TournamentManager implements Listener {
         running.put(event.runId(), event);
     }
 
-    /** 끝: 보상은 스케줄러를 돌린 서버가 준다 ({@link #payRewards}). */
+    /** End: rewards are paid by the server that ran the scheduler ({@link #payRewards}). */
     void end(ActiveSeaEvent event, boolean finished) {
         running.remove(event.runId());
     }
@@ -116,7 +118,7 @@ public final class TournamentManager implements Listener {
         }
     }
 
-    /** 이번 시즌 가장 최근 대회의 상위 limit명 (schema가 있으면 아카이브). */
+    /** Top limit players of the most recent tournament this season (archive if schema is given). */
     public static List<Row> top(Connection c, int season, @Nullable String schema, int limit)
             throws SQLException {
         String table = (schema == null ? "" : schema + ".") + "tournament_score";
@@ -165,7 +167,10 @@ public final class TournamentManager implements Listener {
         return rows;
     }
 
-    /** 순위 보상 (스케줄러 서버, 다른 서버의 마지막 점수 기록이 끝나도록 30초 뒤). 참조 ID가 실행마다 유니크라 두 번 지급되지 않는다. */
+    /**
+     * Rank rewards (scheduler server, after 30 seconds so other servers finish recording their last
+     * scores). The reference ID is unique per run, so nothing is paid twice.
+     */
     void payRewards(String runId, SeaEventDef def) {
         SeaEventDef.Tournament cfg = def.tournament();
         if (cfg == null || cfg.rewards().isEmpty()) {

@@ -8,13 +8,13 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.fishing.api.SeaEventMessage.FishEffect;
 
 /**
- * 예고 중이거나 진행 중인 해상 이벤트 한 번.
+ * One sea event that is announced or in progress.
  *
- * @param runId 실행 ID (예: great_migration_202611181930). harbor:event의 eventId와 같다
- * @param eventId 이벤트 정의 ID (event/great_migration)
- * @param region 해역 (null = 서버 전체)
- * @param area 지역 안 세부 구역 (null = 지역 전체)
- * @param wildlifeBoost Wildlife 밀도 배율 (1 = 없음)
+ * @param runId run ID (e.g. great_migration_202611181930). Same as the eventId of harbor:event
+ * @param eventId event definition ID (event/great_migration)
+ * @param region waters (null = whole server)
+ * @param area sub-area within the region (null = whole region)
+ * @param wildlifeBoost Wildlife density multiplier (1 = none)
  */
 public record ActiveSeaEvent(
         String runId,
@@ -29,7 +29,7 @@ public record ActiveSeaEvent(
         double wildlifeBoost,
         List<FishEffect> fishEffects) {
 
-    /** 단계. */
+    /** Phase. */
     public enum Phase {
         WARN,
         ACTIVE

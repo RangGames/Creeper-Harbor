@@ -29,17 +29,23 @@ import wiki.creeper.harbor.world.api.ShipState;
 import wiki.creeper.harbor.world.api.event.ShipSummonEvent;
 import wiki.creeper.harbor.world.content.ShipDef;
 
-/** 선박 소환. 재사용 대기시간, 근처 물 찾기, 보트 엔티티와 장식 리그(후원 등급 리그 포함) 띄우기를 맡는다. 메인 스레드 전용. */
+/**
+ * Ship summoning. Handles the cooldown, finding nearby water, and spawning the boat entity and
+ * decoration rig (including donor tier rigs). Main thread only.
+ */
 final class ShipSummoner {
 
-    // 선박 소리 ('15. 사운드' 4.4)
+    // Ship sounds ('15. sound' 4.4)
     private static final String BELL = "harbor:ship.bell";
 
     private final WorldKit kit;
     private final ShipFleet fleet;
     private final Map<UUID, Instant> cooldown = new HashMap<>();
 
-    /** 후원 등급 캐시는 Shop이 Redis에 둔다. 메인 스레드에서 Redis를 부르지 않으려고 접속 때 읽어 둔 값을 쓴다. */
+    /**
+     * The donor tier cache is kept in Redis by Shop. To avoid calling Redis on the main thread, the
+     * value read at join is used.
+     */
     private final Map<UUID, DonorTier> donors = new HashMap<>();
 
     ShipSummoner(WorldKit kit, ShipFleet fleet) {
@@ -56,9 +62,10 @@ final class ShipSummoner {
     }
 
     /**
-     * 띄운다. shipId가 0 이하면 파손되지 않은 마지막 선박 (가장 늦게 산 배).
+     * Launches a ship. If shipId is 0 or less, the last ship that is not wrecked (the most recently
+     * bought).
      *
-     * @return 띄웠으면 true
+     * @return true if launched
      */
     boolean summon(Player player, long shipId) {
         UUID uuid = player.getUniqueId();
@@ -144,7 +151,7 @@ final class ShipSummoner {
                                 c ->
                                         ShipRepository.updateState(
                                                 c, id, durability, ShipState.AFLOAT));
-        HarborSounds.playAt(WorldKit.loc(boat), BELL); // 출항 종
+        HarborSounds.playAt(WorldKit.loc(boat), BELL); // Departure bell
         kit.send(player, "world.ship.summoned", Placeholder.unparsed("name", def.get().name()));
         return true;
     }
@@ -152,7 +159,7 @@ final class ShipSummoner {
     private @Nullable RigInstance spawnDecor(Player owner, ShipDef def, Boat boat) {
         ShipSkinProvider skins = Bukkit.getServicesManager().load(ShipSkinProvider.class);
         if (skins != null && skins.hasBoatSkin(owner.getUniqueId())) {
-            return null; // 선박 스킨은 Shop이 탑승 때 태운다
+            return null; // Ship skins are mounted by Shop on boarding
         }
         RigId rigId = def.decor();
         RigId donor = def.decorDonor();

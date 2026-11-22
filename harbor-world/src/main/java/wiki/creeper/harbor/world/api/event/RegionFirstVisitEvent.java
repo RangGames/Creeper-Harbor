@@ -6,7 +6,10 @@ import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.world.api.RegionInfo;
 
-/** 이번 시즌 처음 들어간 지역 (region_visit 기록). Quest visit 목표, Economy 레시피 '방문' 해금, 비행선 노선 개방. */
+/**
+ * First entry into a region this season (region_visit record). Quest visit objectives, Economy
+ * recipe 'visit' unlocks, opening airship routes.
+ */
 public final class RegionFirstVisitEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -18,12 +21,12 @@ public final class RegionFirstVisitEvent extends PlayerEvent {
         this.info = info;
     }
 
-    /** 지역 ID (Quest가 반사로 읽는 접근자). */
+    /** Region ID (accessor Quest reads via reflection). */
     public RegionId region() {
         return info.id();
     }
 
-    /** 지역 요약. */
+    /** Region summary. */
     public RegionInfo info() {
         return info;
     }

@@ -55,10 +55,14 @@ import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.region.WorldIndex;
 
 /**
- * 보물 지도 (docs 20 8.4 '보물 지도'). Fishing이 잡템으로 보물 지도를 뽑으면 등록한 {@link TreasureDropHook}으로 지도를 만든다 (확률은
- * Fishing 몫). 지도에는 uid·지역·장소·등급과 최대 48블록 어긋난 점을 custom_data에 넣고, 들고 있으면 액션바로 방향과 거리를 보여 준다 (위치 표시
- * 막대 waypoint는 Paper API가 없어 액션바로 대신, Phase 1 검증 항목). 64블록 안이면 정확한 위치, 3블록 안에서 쓰면 3초 파는 연출 뒤 개인
- * 보물상자가 열린다. treasure_claim 삽입(지도 uid 유니크)과 골드 지급(TREASURE, 참조 ID = uid)이 한 트랜잭션이라 복사한 지도는 보상이 없다.
+ * Treasure maps (docs 20 8.4 'treasure maps'). When Fishing draws a treasure map as junk, the map
+ * is made by the registered {@link TreasureDropHook} (the chance is Fishing's job). The map stores
+ * uid, region, location, tier and a point offset by up to 48 blocks in custom_data, and while held
+ * it shows direction and distance on the action bar (the locator bar waypoint has no Paper API, so
+ * the action bar stands in, Phase 1 verification item). Within 64 blocks it shows the exact
+ * position, and using it within 3 blocks opens a personal treasure chest after a 3-second digging
+ * animation. The treasure_claim insert (map uid unique) and the gold payment (TREASURE, reference
+ * ID = uid) are one transaction, so copied maps give no reward.
  */
 public final class TreasureManager implements TreasureService, TreasureDropHook, Listener {
 
@@ -82,7 +86,7 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
         return kit.api().content().snapshot().single(TreasureTable.TYPE);
     }
 
-    // ------------------------------------------------------------------ 만들기
+    // ------------------------------------------------------------------ creation
 
     @Override
     public void onTreasureMap(Player player, Location bobber, RegionId region) {
@@ -134,7 +138,7 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
                     pdc.set(kit.key("map_tier"), PersistentDataType.STRING, tier.get().id());
                     pdc.set(kit.key("map_fx"), PersistentDataType.DOUBLE, fx);
                     pdc.set(kit.key("map_fz"), PersistentDataType.DOUBLE, fz);
-                    // 처음 찾은 사람 (감사용, 지도는 거래해도 된다)
+                    // First finder (for auditing; maps may be traded)
                     pdc.set(
                             kit.key("map_finder"),
                             PersistentDataType.STRING,
@@ -212,7 +216,7 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
                                                 }));
     }
 
-    // ------------------------------------------------------------------ 안내
+    // ------------------------------------------------------------------ guidance
 
     private void hints() {
         WorldBalance b = kit.balance();
@@ -254,7 +258,7 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
         }
     }
 
-    /** 바라보는 방향 기준 화살표. */
+    /** Arrow relative to the facing direction. */
     static String arrow(float yaw, double dx, double dz) {
         double target = Math.toDegrees(Math.atan2(-dx, dz));
         double diff = ((target - yaw) % 360 + 540) % 360 - 180;
@@ -263,7 +267,7 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
         return arrows[Math.floorMod(index, 8)];
     }
 
-    // ------------------------------------------------------------------ 수령
+    // ------------------------------------------------------------------ claiming
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onUse(PlayerInteractEvent event) {
@@ -293,7 +297,7 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
         dig(player, data.get(), site.get(), at, kit.balance().treasureDigTicks(), 0);
     }
 
-    /** 파는 연출 (Sequence 대신 1초 간격 단계, 움직이면 취소). */
+    /** Digging animation (1-second steps instead of a Sequence; cancelled on movement). */
     private void dig(
             Player player, MapData data, Location site, Location start, int total, int done) {
         if (!player.isOnline() || WorldKit.loc(player).distanceSquared(start) > 2.25) {
@@ -344,7 +348,8 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
                                 LedgerError.DUPLICATE, "이미 수령한 지도");
                     }
                 };
-        // 골드가 0이면 원장 기록이 없어 atomic()을 쓸 수 없다 (빈 목록은 예외). 수령 기록만 쓴다
+        // With 0 gold there is no ledger entry, so atomic() cannot be used (an empty list throws).
+        // Write only the claim record
         CompletableFuture<Result<List<Long>, LedgerError>> work =
                 roll.gold() > 0
                         ? kit.api()
@@ -391,8 +396,11 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
             Result<List<Long>, LedgerError> result) {
         digging.remove(player.getUniqueId());
         if (!player.isOnline() || kit.api().players().frozen(player.getUniqueId())) {
-            // 수령 기록은 커밋됐는데 그사이 나갔거나 서버를 옮기는 중이다: 아이템 보상은 우편으로 보낸다 (골드는 이미 지급됐다).
-            // 지도는 인벤토리에 남지만 다시 쓰면 이미 수령한 지도로 처리된다
+            // The claim record is committed, but the player left or is moving servers in the
+            // meantime: item
+            // rewards are sent by mail (gold was already paid). The map stays in the inventory, but
+            // using
+            // it again is treated as an already claimed map
             if (result.isOk()) {
                 mailRewards(player.getUniqueId(), data, roll);
             }
@@ -414,7 +422,9 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
             kit.createItem(e.getKey().id(), e.getValue())
                     .ifPresent(stack -> kit.give(player, stack));
         }
-        // 수령 기록은 커밋됐다: 지도가 빠지고 보상을 받은 인벤토리도 곧 저장한다 (골드가 있으면 재화 이벤트로도 저장된다)
+        // The claim record is committed: save the inventory, now without the map and with the
+        // rewards,
+        // soon too (with gold it is also saved by the currency event)
         kit.api().players().saveSoon(player.getUniqueId());
         showChest(player, site);
         kit.send(
@@ -432,7 +442,10 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
                                 roll.hint()));
     }
 
-    /** 접속해 있지 않은 사람의 보물 아이템 보상을 우편으로 (참조 ID가 지도마다 같아서 다시 불러도 한 번만 간다). */
+    /**
+     * Mails treasure item rewards to someone who is not online (the reference ID is the same per
+     * map, so calling it again sends only once).
+     */
     private void mailRewards(UUID uuid, MapData data, TreasureTable.Roll roll) {
         Optional<MailService> mail = kit.api().mail();
         int i = 0;
@@ -477,7 +490,7 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
         }
     }
 
-    /** 개인 보물상자 (본인에게만 보이는 BlockDisplay, 3초). */
+    /** Personal treasure chest (BlockDisplay visible only to that player, 3 seconds). */
     private void showChest(Player player, Location site) {
         World world = site.getWorld();
         if (world == null) {

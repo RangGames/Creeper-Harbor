@@ -5,7 +5,10 @@ import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.world.api.FishingSpot;
 
-/** 물고기 떼가 새 자리로 옮겼을 때 (이 서버의 지역만). previous는 이전 자리 (처음이면 null). Wildlife가 무리를 옮긴다. */
+/**
+ * When a fish school moved to a new spot (regions on this server only). previous is the old spot
+ * (null the first time). Wildlife moves the shoal.
+ */
 public final class FishingSpotMovedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

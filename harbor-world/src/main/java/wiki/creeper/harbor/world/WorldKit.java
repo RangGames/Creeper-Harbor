@@ -25,8 +25,9 @@ import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.region.WorldIndex;
 
 /**
- * World 모듈 공용 도구: Core API, 예약 작업, 지역 색인(리로드 때 통째로 교체), 월드 이름 대응(balance.yml world_alias), 아이템 확인.
- * 메인 스레드에서 쓴다 ({@link #index()}·{@link #balance()}는 어디서나).
+ * Shared tools of the World module: Core API, scheduled tasks, region index (replaced wholesale on
+ * reload), world name mapping (balance.yml world_alias), item checks. Use on the main thread
+ * ({@link #index()} and {@link #balance()} from anywhere).
  */
 public final class WorldKit {
 
@@ -79,7 +80,10 @@ public final class WorldKit {
         return api.infra().season().value();
     }
 
-    /** Bukkit 월드 → 콘텐츠 월드 이름 (balance.yml world_alias, 개발 서버의 world → harbor_main). */
+    /**
+     * Bukkit world → content world name (balance.yml world_alias, e.g. world → harbor_main on a dev
+     * server).
+     */
     public String worldId(World world) {
         return balance().worldAlias(world.getName());
     }
@@ -89,7 +93,7 @@ public final class WorldKit {
         return world == null ? "" : worldId(world);
     }
 
-    /** 콘텐츠 월드 이름 → 이 서버의 Bukkit 월드 (없으면 null = 다른 서버에 있다). */
+    /** Content world name → this server's Bukkit world (null = it lives on another server). */
     public @Nullable World bukkitWorld(String worldId) {
         World direct = Bukkit.getWorld(worldId);
         if (direct != null) {
@@ -103,7 +107,7 @@ public final class WorldKit {
         return null;
     }
 
-    /** 살아 있는 엔티티는 항상 위치가 있다 (Paper가 null 가능으로 표시). */
+    /** A living entity always has a location (Paper marks it as nullable). */
     public static Location loc(Entity entity) {
         return Objects.requireNonNull(entity.getLocation());
     }
@@ -112,7 +116,7 @@ public final class WorldKit {
         return api.modifiers().apply(player.getUniqueId(), StatKey.of(key), base);
     }
 
-    /** Harbor 일반 아이템 ID (어종·바닐라 아이템이면 빈 값). */
+    /** Harbor general item ID (empty for fish species and vanilla items). */
     public Optional<ItemId> itemId(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return Optional.empty();
@@ -123,7 +127,10 @@ public final class WorldKit {
                 .map(i -> ((HarborItem.Plain) i).id());
     }
 
-    /** 인벤토리나 장비 칸에 그 아이템이 있는지 ('1. 기획서 본문' 2장 아이템 조건). */
+    /**
+     * Whether the item is in the inventory or an equipment slot ('1. design doc' chapter 2 item
+     * conditions).
+     */
     public boolean hasItem(Player player, ItemId item) {
         for (ItemStack stack : player.getInventory().getContents()) {
             if (itemId(stack).filter(item::equals).isPresent()) {
@@ -133,7 +140,7 @@ public final class WorldKit {
         return false;
     }
 
-    /** 장비 칸(갑옷)에 입고 있는지. */
+    /** Whether it is worn in an equipment (armor) slot. */
     public boolean wearing(Player player, ItemId item) {
         for (ItemStack stack : player.getInventory().getArmorContents()) {
             if (itemId(stack).filter(item::equals).isPresent()) {
@@ -158,7 +165,7 @@ public final class WorldKit {
                 .map(def -> api.items().create(def, amount));
     }
 
-    /** 가방에 넣고 넘치면 발밑에 떨어뜨린다. */
+    /** Puts it in the inventory and drops the overflow at the player's feet. */
     public void give(Player player, ItemStack stack) {
         player.getInventory()
                 .addItem(stack)

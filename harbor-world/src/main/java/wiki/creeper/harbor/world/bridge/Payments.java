@@ -16,14 +16,17 @@ import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.world.WorldKit;
 
 /**
- * 골드 결제 (선박·업그레이드·장식·수리). Economy가 있으면 ShopService.charge·RepairService(처리 중 거래 표시로 서버 이동을 미룸)를 쓰고,
- * 없으면 Core CurrencyService.atomic으로 원장과 World 테이블 갱신을 한 트랜잭션으로 처리한다 (docs 20 8.1 '골드 차감 규칙은
- * Economy'). 메인 스레드에서 부르고 future는 메인 스레드에서 완료된다.
+ * Gold payments (ships, upgrades, decor, repairs). With Economy it uses ShopService.charge and
+ * RepairService (marks the trade as in progress to delay server moves); without it, Core
+ * CurrencyService.atomic applies the ledger entry and the World table update in one transaction
+ * (docs 20 8.1 'gold deduction rules belong to Economy'). Call on the main thread; the future
+ * completes on the main thread.
  */
 public interface Payments {
 
     /**
-     * @param extra 같은 트랜잭션에서 실행할 SQL. 업무 규칙 위반이면 {@link LedgerException}(REJECTED)을 던진다
+     * @param extra SQL to run in the same transaction. Throws {@link LedgerException} (REJECTED) on
+     *     a business rule violation
      */
     CompletableFuture<Result<Long, LedgerError>> charge(
             Player player,
@@ -32,14 +35,14 @@ public interface Payments {
             String refId,
             @Nullable SqlConsumer extra);
 
-    /** 수리비 견적 (Economy RepairService: 가격 × 비율 × repair_cost 보정). */
+    /** Repair cost quote (Economy RepairService: price × ratio × repair_cost modifier). */
     long repairQuote(UUID player, long price, boolean broken);
 
-    /** 수리비 결제 (사유 REPAIR). */
+    /** Repair payment (reason REPAIR). */
     CompletableFuture<Result<Long, LedgerError>> repair(
             Player player, long cost, String refId, @Nullable SqlConsumer extra);
 
-    /** 결제 실패 메시지 키. */
+    /** Message key for a failed payment. */
     static String failKey(Result<Long, LedgerError> result) {
         if (result instanceof Result.Err<Long, LedgerError>(LedgerError error)) {
             return switch (error) {
@@ -58,7 +61,7 @@ public interface Payments {
         return new CorePayments(kit);
     }
 
-    /** Core만 쓰는 결제. */
+    /** Payments using Core only. */
     final class CorePayments implements Payments {
 
         private final WorldKit kit;
@@ -105,7 +108,7 @@ public interface Payments {
             return charge(player, cost, LedgerReason.REPAIR, refId, extra);
         }
 
-        /** 가격 0 (나룻배 수리 등): 원장 없이 추가 SQL만. */
+        /** Price 0 (e.g. rowboat repair): only the extra SQL, no ledger entry. */
         private CompletableFuture<Result<Long, LedgerError>> free(
                 UUID uuid, @Nullable SqlConsumer extra) {
             long balance =

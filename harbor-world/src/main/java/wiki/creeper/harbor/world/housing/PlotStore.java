@@ -25,8 +25,9 @@ import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.housing.HousingManager.PlotState;
 
 /**
- * 적재된 플롯 저장소. 플롯 행을 DB에서 읽어 올리고(평판 등급에 따른 확장 포함), 주인 없는 빈 플롯을 내리고, 좌표 → 플롯을 찾는다. 관리 명령의 초기화·주인 바꾸기도
- * 여기서 캐시를 비운다. 메인 스레드 전용.
+ * Store of loaded plots. Loads plot rows from the DB (including expansion by reputation tier),
+ * unloads empty plots whose owner is absent, and finds the plot at a position. Admin reset and
+ * owner change also clear the cache here. Main thread only.
  */
 final class PlotStore {
 
@@ -37,8 +38,9 @@ final class PlotStore {
     private final Set<Long> loading = new HashSet<>();
 
     /**
-     * 플롯 설정이 바뀌었다는 알림 (harbor:housing, 추가 제안). 다른 서버도 적재한 플롯을 계속 들고 있으므로, 받은 서버는 그 플롯 정보를 DB에서 다시
-     * 읽는다 (drop이면 캐시에서 내리고 다음 조회 때 다시 읽는다).
+     * Notice that plot settings changed (harbor:housing, proposed). Other servers keep holding
+     * their loaded plots, so a receiving server re-reads that plot from the DB (on drop it unloads
+     * it from the cache and re-reads it on the next lookup).
      */
     public record PlotChanged(long plotId, boolean drop) {}
 
@@ -49,7 +51,7 @@ final class PlotStore {
         this.bestTier = bestTier;
     }
 
-    // ------------------------------------------------------------------ 월드
+    // ------------------------------------------------------------------ world
 
     String worldId() {
         return kit.balance().housingWorld();
@@ -63,7 +65,7 @@ final class PlotStore {
         return kit.bukkitWorld(worldId());
     }
 
-    // ------------------------------------------------------------------ 서버 간 동기화
+    // ------------------------------------------------------------------ cross-server sync
 
     void subscribe() {
         kit.api()
@@ -79,7 +81,7 @@ final class PlotStore {
                         });
     }
 
-    /** DB에 커밋한 뒤 부른다 (어느 스레드든 된다). */
+    /** Call after committing to the DB (any thread). */
     void publishChanged(long plotId, boolean drop) {
         kit.api().bus().publish(CHANGED, new PlotChanged(plotId, drop));
     }
@@ -101,7 +103,7 @@ final class PlotStore {
                         .thenAcceptAsync(
                                 row -> {
                                     if (loaded.get(plotId) != state) {
-                                        return; // 그사이 내려가거나 다시 올라왔다
+                                        return; // It was unloaded or reloaded in the meantime
                                     }
                                     if (row.isEmpty()
                                             || !row.get().owner().equals(state.info.owner())) {
@@ -118,7 +120,7 @@ final class PlotStore {
         byOwner.remove(state.info.owner(), state.info.plotId());
     }
 
-    // ------------------------------------------------------------------ 적재
+    // ------------------------------------------------------------------ loading
 
     PlotInfo info(HousingRepository.PlotRow row) {
         WorldBalance b = kit.balance();
@@ -147,7 +149,7 @@ final class PlotStore {
                 row.members());
     }
 
-    /** 플롯 행을 읽어 올린다 (이미 있으면 그대로). */
+    /** Loads the plot row (unchanged if already loaded). */
     CompletableFuture<Optional<PlotState>> loadById(long plotId) {
         PlotState existing = loaded.get(plotId);
         if (existing != null) {
@@ -210,7 +212,9 @@ final class PlotStore {
         return Optional.of(state);
     }
 
-    /** 시즌 간 최고 평판 등급이 기준 이상이면 넓힌다 (줄이지 않음, D11). */
+    /**
+     * Expands if the best cross-season reputation tier meets the threshold (never shrinks, D11).
+     */
     private void growIfNeeded(PlotState state) {
         WorldBalance b = kit.balance();
         var _ =
@@ -218,7 +222,7 @@ final class PlotStore {
                         .thenAcceptAsync(
                                 tier -> {
                                     if (loaded.get(state.info.plotId()) != state) {
-                                        return; // 그사이 내려갔다
+                                        return; // It was unloaded in the meantime
                                     }
                                     int size =
                                             PlotGrid.size(
@@ -276,7 +280,7 @@ final class PlotStore {
                                 kit.tasks().main());
     }
 
-    /** 1분마다: 주인이 없고 안에 아무도 없는 플롯을 내린다. */
+    /** Every minute: unloads plots whose owner is absent and that have nobody inside. */
     void unloadIdle() {
         World world = world();
         for (PlotState state : List.copyOf(loaded.values())) {
@@ -301,7 +305,7 @@ final class PlotStore {
         }
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ lookup
 
     Optional<PlotState> stateAt(Location location) {
         World w = location.getWorld();
@@ -327,7 +331,7 @@ final class PlotStore {
         return Optional.ofNullable(loaded.get(plotId));
     }
 
-    /** 주인의 적재된 플롯 (없으면 null). */
+    /** The owner's loaded plot (null if none). */
     @Nullable PlotState ofOwner(UUID owner) {
         Long id = byOwner.get(owner);
         return id == null ? null : loaded.get(id);
@@ -337,9 +341,9 @@ final class PlotStore {
         return loaded.size();
     }
 
-    // ------------------------------------------------------------------ 관리 명령
+    // ------------------------------------------------------------------ admin commands
 
-    /** 관리 명령: 초기화 (공동 건축자·수조·좋아요). */
+    /** Admin command: reset (co-builders, tanks, likes). */
     CompletableFuture<Boolean> adminReset(UUID owner) {
         return kit.api()
                 .database()
@@ -365,7 +369,7 @@ final class PlotStore {
                         kit.tasks().main());
     }
 
-    /** 관리 명령: 주인 바꾸기 (받는 쪽에 플롯이 없을 때만). */
+    /** Admin command: change owner (only if the recipient has no plot). */
     CompletableFuture<Boolean> adminTransfer(UUID from, UUID to) {
         return kit.api()
                 .database()

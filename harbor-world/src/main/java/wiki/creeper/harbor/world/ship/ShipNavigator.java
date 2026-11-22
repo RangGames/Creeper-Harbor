@@ -33,18 +33,19 @@ import wiki.creeper.harbor.world.region.RegionManager;
 import wiki.creeper.harbor.world.region.WorldIndex;
 
 /**
- * 항해. 틱마다 속도 보정·장식 따라가기·항해 소리·쇄빙(녹인 얼음 되돌리기), 1초마다 폭풍 내구도 피해와 파손, 폭풍 해역 진입 차단, 탑승 때 장식 자리 맞추기를 맡는다.
- * 메인 스레드 전용.
+ * Sailing. Every tick: speed correction, decoration following, sailing sound and icebreaking
+ * (restoring melted ice); every second: storm durability damage and wrecking; also blocks entry
+ * into storm waters and fixes the decoration seat on boarding. Main thread only.
  */
 final class ShipNavigator {
 
     private static final Set<Material> ICE =
             Set.of(Material.ICE, Material.PACKED_ICE, Material.BLUE_ICE, Material.FROSTED_ICE);
 
-    // 선박 소리 ('15. 사운드' 4.4)
+    // Ship sounds ('15. sound' 4.4)
     private static final String HULL_HIT = "harbor:ship.hull_hit";
 
-    /** 이 속도(블록/틱) 이상으로 움직일 때만 항해 소리를 낸다 (제안값). */
+    /** Sailing sound plays only when moving at least this speed (blocks/tick) (proposed value). */
     private static final double ENGINE_MIN_SPEED = 0.05;
 
     private record Melt(Location at, Material type, long restoreAt) {}
@@ -65,7 +66,7 @@ final class ShipNavigator {
         this.seaEvents = service;
     }
 
-    /** 서버 종료: 녹인 얼음을 모두 되돌린다. */
+    /** Server shutdown: restores all melted ice. */
     void restoreAll() {
         while (!melted.isEmpty()) {
             Melt m = melted.poll();
@@ -73,7 +74,7 @@ final class ShipNavigator {
         }
     }
 
-    // ------------------------------------------------------------------ 속도·폭풍
+    // ------------------------------------------------------------------ speed and storms
 
     double speed(Player driver, Afloat a) {
         Optional<ShipDef> def = fleet.def(a.row.type());
@@ -96,7 +97,7 @@ final class ShipNavigator {
                 .map(SeaEventDef::storm);
     }
 
-    // ------------------------------------------------------------------ 틱
+    // ------------------------------------------------------------------ tick
 
     void tick() {
         double accel = kit.balance().boatAcceleration();
@@ -123,7 +124,9 @@ final class ShipNavigator {
                 continue;
             }
             if (!crew(a, driver)) {
-                // 주인이 내려 남은 승객이 조종석으로 옮겨졌다: 남의 배는 몰 수 없다
+                // The owner got off and a remaining passenger moved into the driver's seat: nobody
+                // may drive
+                // someone else's boat
                 a.boat.removePassenger(driver);
                 kit.actionBar(driver, "world.ship.not_crew");
                 engineSound(a, false);
@@ -160,7 +163,10 @@ final class ShipNavigator {
         }
     }
 
-    /** 항해 반복 소리를 켜고 끈다. 배를 따라가며 근처 플레이어에게 들린다. */
+    /**
+     * Turns the looping sailing sound on and off. It follows the boat and is heard by nearby
+     * players.
+     */
     private void engineSound(Afloat a, boolean on) {
         if (on && !a.engine.active()) {
             Optional<ShipDef> def = fleet.def(a.row.type());
@@ -232,7 +238,7 @@ final class ShipNavigator {
         }
     }
 
-    /** 1초마다: 폭풍 내구도 피해. */
+    /** Every second: storm durability damage. */
     void slowTick() {
         for (Afloat a : fleet.afloatList()) {
             if (!a.boat.isValid()) {
@@ -283,9 +289,9 @@ final class ShipNavigator {
         }
     }
 
-    // ------------------------------------------------------------------ 이벤트
+    // ------------------------------------------------------------------ events
 
-    /** 폭풍 해역 진입 차단 (원양 탐사선이 아니면). */
+    /** Blocks entry into storm waters (unless it is an ocean explorer). */
     void onVehicleMove(VehicleMoveEvent event) {
         Long id = fleet.shipIdOf(event.getVehicle().getUniqueId());
         if (id == null) {
@@ -307,7 +313,7 @@ final class ShipNavigator {
         }
     }
 
-    /** 주인이거나 주인의 파티원 (파티 구현이 없으면 주인만). */
+    /** The owner or a member of the owner's party (owner only without a party implementation). */
     private boolean crew(Afloat a, Player player) {
         UUID owner = a.row.owner();
         UUID uuid = player.getUniqueId();
@@ -315,7 +321,10 @@ final class ShipNavigator {
                 || kit.api().parties().map(p -> p.sameParty(owner, uuid)).orElse(false);
     }
 
-    /** 조종석(첫 플레이어 승객)은 주인·파티원만. 이미 선원이 탔으면 나머지 자리는 누구나 탄다. */
+    /**
+     * The driver's seat (first player passenger) is for the owner and party members only. Once a
+     * crew member is aboard, anyone may take the remaining seats.
+     */
     void onBoard(VehicleEnterEvent event) {
         Long id = fleet.shipIdOf(event.getVehicle().getUniqueId());
         if (id == null || !(event.getEntered() instanceof Player player)) {
@@ -343,7 +352,9 @@ final class ShipNavigator {
         if (a == null || rig == null || a.follow) {
             return;
         }
-        // 첫 승객이 조종자라서 장식을 내렸다가 다시 태워 두 번째 자리로 보낸다
+        // The first passenger is the driver, so dismount the decoration and remount it into the
+        // second
+        // seat
         rig.dismount();
         var _ =
                 kit.tasks()

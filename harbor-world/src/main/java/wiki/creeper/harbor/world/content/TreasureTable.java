@@ -17,21 +17,22 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 보물 지도 보상 표 (world/treasure.yml, docs 20 8.3 treasure.yml, 추가 제안). 서버 API 없음.
+ * Treasure map reward table (world/treasure.yml, docs 20 8.3 treasure.yml, proposed). No server
+ * API.
  *
- * @param regionMult 지역 골드 배율
+ * @param regionMult regional gold multiplier
  */
 public record TreasureTable(Map<RegionId, Double> regionMult, List<Tier> tiers) {
 
-    /** 보상 품목. */
+    /** Reward item. */
     public record Loot(ItemId item, int weight, int minCount, int maxCount) {}
 
     /**
-     * 등급.
+     * Tier.
      *
-     * @param region 지역 전용이면 그 지역 (null = 모든 지역)
-     * @param weight 지도를 만들 때 뽑힐 가중치 (0 = 이벤트 전용)
-     * @param picks 품목을 몇 번 뽑는지
+     * @param region the region if region-only (null = all regions)
+     * @param weight weight for being drawn when making a map (0 = event only)
+     * @param picks how many times items are drawn
      */
     public record Tier(
             String id,
@@ -43,7 +44,7 @@ public record TreasureTable(Map<RegionId, Double> regionMult, List<Tier> tiers) 
             double hintChance,
             List<Loot> items) {}
 
-    /** 굴린 결과. */
+    /** Roll result. */
     public record Roll(long gold, Map<ItemId, Integer> items, boolean hint) {}
 
     public static final TreasureTable EMPTY = new TreasureTable(Map.of(), List.of());
@@ -62,7 +63,10 @@ public record TreasureTable(Map<RegionId, Double> regionMult, List<Tier> tiers) 
                 : tiers.stream().filter(t -> t.id().equals(id) && t.region() == null).findFirst();
     }
 
-    /** 지도를 만들 때 등급을 고른다 (지역 전용 등급이 있으면 같은 ID의 공용 등급 대신 쓴다). */
+    /**
+     * Picks a tier when making a map (a region-only tier replaces the common tier with the same
+     * ID).
+     */
     public Optional<Tier> pickTier(RegionId region, RandomGenerator random) {
         Map<String, Tier> byId = new HashMap<>();
         for (Tier t : tiers) {
@@ -95,7 +99,7 @@ public record TreasureTable(Map<RegionId, Double> regionMult, List<Tier> tiers) 
         return regionMult.getOrDefault(region, 1.0);
     }
 
-    /** 보상을 굴린다 (수령 트랜잭션 전에 메인 스레드에서 한 번). */
+    /** Rolls the rewards (once on the main thread, before the claim transaction). */
     public Roll roll(Tier tier, RegionId region, RandomGenerator random) {
         long span = Math.max(0, tier.maxGold() - tier.minGold());
         long base = tier.minGold() + (span == 0 ? 0 : random.nextLong(span + 1));

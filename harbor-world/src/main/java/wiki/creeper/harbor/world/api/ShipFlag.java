@@ -2,13 +2,13 @@ package wiki.creeper.harbor.world.api;
 
 import wiki.creeper.harbor.common.model.Keyed;
 
-/** 선박 능력 (world/ships.yml flags). */
+/** Ship ability (world/ships.yml flags). */
 public enum ShipFlag implements Keyed {
-    /** 쇄빙: 서리 협만 얼음 구역에서 앞쪽 얼음을 깬다. */
+    /** Icebreaking: breaks the ice ahead in the Frost Fjord ice zone. */
     ICE_BREAK,
-    /** 폭풍 해역 진입. */
+    /** Entering storm waters. */
     STORM,
-    /** 원양 항해. */
+    /** Ocean voyages. */
     OCEAN;
 
     @Override

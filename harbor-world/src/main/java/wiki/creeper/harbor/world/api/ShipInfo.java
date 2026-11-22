@@ -6,11 +6,11 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.id.HarborId;
 
 /**
- * 선박 한 척 (ships 행).
+ * One ship (ships row).
  *
- * @param type 선박 정의 ID (ship/harbor_trawler …)
- * @param upgrades 갈래별 단계 (0~3)
- * @param maxDurability 선체 업그레이드를 반영한 최대 내구도
+ * @param type ship definition ID (ship/harbor_trawler …)
+ * @param upgrades step per path (0–3)
+ * @param maxDurability max durability including hull upgrades
  */
 public record ShipInfo(
         long shipId,

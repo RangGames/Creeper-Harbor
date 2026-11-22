@@ -4,7 +4,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.world.api.PlotInfo;
 
-/** 하우징 플롯을 메모리에 올렸을 때 (주인 접속·방문). */
+/** When a housing plot is loaded into memory (owner join, visit). */
 public final class PlotLoadedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

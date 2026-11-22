@@ -46,22 +46,31 @@ import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.region.RegionManager;
 
 /**
- * 선박 (docs 20 8.4 '선박'). 바닐라 보트 + 장식 리그(Core RigInstance). 엔티티는 저장하지 않고(setPersistent false) 접속
- * 종료·서버 종료·탑승자 없는 청크 언로드·서버 이동 때 회수해 내구도와 적재물을 저장한다. 시작할 때와 청크 적재 때 PDC 태그가 남은 보트를 지운다.
+ * Ships (docs 20 8.4 'ships'). Vanilla boat + decoration rig (Core RigInstance). Entities are not
+ * saved (setPersistent false); they are recalled on quit, server shutdown, unload of a chunk
+ * without riders and server moves, saving durability and cargo. Boats left with a PDC tag are
+ * removed at startup and on chunk load.
  *
  * <ul>
- *   <li>속도: 조종자가 앞으로 누르는 동안 틱마다 앞으로 가속 × (배율 − 1)을 더한다 (주기적 속도 보정, Phase 1 검증 항목). 배율 = 선박 속도 × 속도
- *       업그레이드 × boat_speed 스탯 × 폭풍
- *   <li>장식: 일반 보트는 장식 루트가 두 번째 승객 자리에 타고, 플레이어가 타면 내렸다가 다시 태워 순서를 맞춘다. 상자 보트(자리 1개)는 틱마다 따라간다
- *   <li>폭풍: 폭풍 해역에서 5초마다 내구도 −damage × boat_damage, 속도 ×0.7 (폭풍 항해 1랭크면 없음). 원양 탐사선(storm)이 아니면 폭풍
- *       해역에 들어갈 수 없다. 내구도 0이면 승객을 내리고 WRECKED
- *   <li>쇄빙: 쇄빙선이 협만 얼음 구역에서 앞쪽 얼음을 물로 바꾸고 60초 뒤 되돌린다 (구역 밖은 건드리지 않음)
- *   <li>적재: 화물 칸은 상자 GUI로 열고(상자 보트를 열거나 /선박 화물), 닫을 때 지연 쓰기로 저장한다
+ *   <li>Speed: while the driver presses forward, adds forward acceleration × (multiplier − 1) each
+ *       tick (periodic speed correction, Phase 1 verification item). Multiplier = ship speed ×
+ *       speed upgrade × boat_speed stat × storm
+ *   <li>Decoration: on a regular boat the decoration root rides in the second passenger seat; when
+ *       a player boards, it dismounts and remounts to keep the order. A chest boat (1 seat) follows
+ *       every tick
+ *   <li>Storm: in storm waters, durability −damage × boat_damage every 5 seconds and speed ×0.7
+ *       (none with storm sailing rank 1). Only the ocean explorer (storm) may enter storm waters.
+ *       At durability 0 passengers are dismounted and the ship becomes WRECKED
+ *   <li>Icebreaking: the icebreaker turns the ice ahead into water in the fjord ice zone and
+ *       restores it after 60 seconds (nothing outside the zone is touched)
+ *   <li>Cargo: the cargo hold opens as a chest GUI (opening a chest boat or /선박 화물) and is saved
+ *       write-behind on close
  * </ul>
  *
- * <p>상태는 {@link ShipFleet}, 소환은 {@link ShipSummoner}, 항해·폭풍·쇄빙은 {@link ShipNavigator}, 화물은 {@link
- * ShipCargo}, 수리 키트는 {@link ShipRepairKit}, 조선소 거래는 {@link ShipyardService}가 맡고, 이 클래스는
- * ShipService·접속·이벤트 연결을 맡는다.
+ * <p>State is handled by {@link ShipFleet}, summoning by {@link ShipSummoner}, sailing, storms and
+ * icebreaking by {@link ShipNavigator}, cargo by {@link ShipCargo}, repair kits by {@link
+ * ShipRepairKit} and shipyard trades by {@link ShipyardService}; this class handles ShipService,
+ * join/quit and event wiring.
  */
 public final class ShipManager implements ShipService, Listener {
 
@@ -104,7 +113,7 @@ public final class ShipManager implements ShipService, Listener {
         }
     }
 
-    /** 서버 종료: 모두 회수하고 저장을 기다린다 (최대 3초). */
+    /** Server shutdown: recalls everything and waits for the saves (up to 3 seconds). */
     public void shutdown() {
         List<CompletableFuture<Void>> saves = new ArrayList<>();
         for (Afloat a : fleet.afloatList()) {
@@ -119,7 +128,7 @@ public final class ShipManager implements ShipService, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ lookup
 
     public Optional<ShipDef> def(HarborId type) {
         return fleet.def(type);
@@ -156,7 +165,7 @@ public final class ShipManager implements ShipService, Listener {
         return fleet.byEntity(boat).map(a -> info(a.row));
     }
 
-    /** 지금 타고 있는 선박 종류 (지역 탈것 조건). */
+    /** Type of the ship currently ridden (region vehicle condition). */
     public @Nullable HarborId shipType(Player player) {
         return fleet.aboardAfloat(player).map(a -> a.row.type()).orElse(null);
     }
@@ -170,7 +179,7 @@ public final class ShipManager implements ShipService, Listener {
         return navigator.speed(driver, a.get());
     }
 
-    // ------------------------------------------------------------------ 적재·접속
+    // ------------------------------------------------------------------ loading and join
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
@@ -256,7 +265,10 @@ public final class ShipManager implements ShipService, Listener {
         summoner.forgetDonor(uuid);
     }
 
-    /** 서버 이동 전: 띄운 배를 회수한다 (선박·탈것은 이동 전에 회수, docs 20 8.4 '서버 이동'). */
+    /**
+     * Before a server move: recalls the launched boat (ships and rides are recalled before moving,
+     * docs 20 8.4 'server moves').
+     */
     public HandoffBlocker handoffBlocker() {
         return (player, destination) -> {
             UUID uuid = player.getUniqueId();
@@ -273,18 +285,19 @@ public final class ShipManager implements ShipService, Listener {
         };
     }
 
-    // ------------------------------------------------------------------ 소환·회수
+    // ------------------------------------------------------------------ summon and recall
 
     /**
-     * 띄운다. shipId가 0 이하면 파손되지 않은 마지막 선박 (가장 늦게 산 배).
+     * Launches a ship. If shipId is 0 or less, the last ship that is not wrecked (the most recently
+     * bought).
      *
-     * @return 띄웠으면 true
+     * @return true if launched
      */
     public boolean summon(Player player, long shipId) {
         return summoner.summon(player, shipId);
     }
 
-    /** 주인의 띄운 배를 회수한다 (/선박 회수). */
+    /** Recalls the owner's launched boat (/선박 회수). */
     public boolean recallOwned(UUID owner) {
         boolean any = false;
         for (Afloat a : fleet.afloatList()) {
@@ -296,9 +309,9 @@ public final class ShipManager implements ShipService, Listener {
         return any;
     }
 
-    // ------------------------------------------------------------------ 이벤트
+    // ------------------------------------------------------------------ events
 
-    /** 폭풍 해역 진입 차단 (원양 탐사선이 아니면). */
+    /** Blocks entry into storm waters (unless it is an ocean explorer). */
     @EventHandler(ignoreCancelled = true)
     public void onVehicleMove(VehicleMoveEvent event) {
         navigator.onVehicleMove(event);
@@ -352,13 +365,13 @@ public final class ShipManager implements ShipService, Listener {
         return e.getPersistentDataContainer().has(kit.key("ship"), PersistentDataType.LONG);
     }
 
-    /** 상자 보트를 열면 화물 GUI. */
+    /** Opening a chest boat opens the cargo GUI. */
     @EventHandler(ignoreCancelled = true)
     public void onOpen(InventoryOpenEvent event) {
         cargo.onOpen(event);
     }
 
-    /** /선박 화물: 타고 있거나 8블록 안에 있는 자기 배. */
+    /** /선박 화물: your own boat that you ride or that is within 8 blocks. */
     public void openCargo(Player player) {
         cargo.open(player);
     }
@@ -368,7 +381,7 @@ public final class ShipManager implements ShipService, Listener {
         cargo.onClose(event);
     }
 
-    /** 증서·수리 키트 사용. */
+    /** Using a deed or repair kit. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onUse(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND
@@ -413,7 +426,8 @@ public final class ShipManager implements ShipService, Listener {
         summon(player, shipId);
     }
 
-    // ------------------------------------------------------------------ 조선소 (구매·업그레이드·수리)
+    // ------------------------------------------------------------------ shipyard (purchase,
+    // upgrade, repair)
 
     public void openYard(Player player) {
         yard.open(player);
@@ -423,7 +437,10 @@ public final class ShipManager implements ShipService, Listener {
         shipyard.giveDeed(player, def, shipId);
     }
 
-    /** 구매 조건 (레벨·직업 단계·플래그, D3 원양 탐사선 = 2차 전직 후 Lv50). 못 채우면 메시지 키. */
+    /**
+     * Purchase conditions (level, job tier, flags; D3 ocean explorer = Lv50 after the 2nd job
+     * advancement). Returns a message key if unmet.
+     */
     @Nullable String requirement(Player player, ShipDef def) {
         return shipyard.requirement(player, def);
     }
@@ -444,12 +461,12 @@ public final class ShipManager implements ShipService, Listener {
         shipyard.repair(player, row);
     }
 
-    /** 관리 명령: 선박 지급 (조선소 구매와 같은 행, 결제 없음). */
+    /** Admin command: give a ship (same row as a shipyard purchase, no payment). */
     public CompletableFuture<Boolean> adminGive(Player player, ShipDef def) {
         return shipyard.adminGive(player, def);
     }
 
-    /** 관리 명령: 모든 선박 완전 수리. */
+    /** Admin command: fully repair all ships. */
     public void adminRepair(Player player) {
         shipyard.adminRepair(player);
     }

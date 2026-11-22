@@ -45,8 +45,10 @@ import wiki.creeper.harbor.world.api.PlotPermission;
 import wiki.creeper.harbor.world.housing.HousingManager.PlotState;
 
 /**
- * 플롯 보호 (하우징 월드). 블록 설치·파괴·상호작용, 피스톤, 액체 흐름, 폭발, 엔티티 생성을 플롯 경계로 막는다. 엔티티 30개 · 레드스톤 부품 20개 제한 (플러그인
- * 장식 Display·Interaction은 제외). 레드스톤 수는 지연 쓰기로 저장한다. 메인 스레드 전용.
+ * Plot protection (housing world). Block place/break/interact, pistons, liquid flow, explosions and
+ * entity spawns are confined to the plot bounds. Limits of 30 entities · 20 redstone components
+ * (plugin decor Display·Interaction excluded). The redstone count is saved write-behind. Main
+ * thread only.
  */
 public final class PlotProtection implements Listener {
 
@@ -231,14 +233,16 @@ public final class PlotProtection implements Listener {
         Entity target = event.getRightClicked();
         Location at = WorldKit.loc(target);
         if (!housing(at.getWorld()) || target instanceof Interaction) {
-            return; // 개인 어항·가구 클릭(Interaction)은 Collection·장식이 처리한다
+            return; // Personal aquarium and furniture clicks (Interaction) are handled by
+            // Collection and decor
         }
         if (!allowedAt(event.getPlayer(), at)) {
             event.setCancelled(true);
         }
     }
 
-    // 아래 두 이벤트는 PlayerInteractEntityEvent를 상속하지만 HandlerList가 따로라 위 처리기로 오지 않는다
+    // The two events below extend PlayerInteractEntityEvent but have their own HandlerList, so they
+    // do not reach the handler above
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityInteractAt(PlayerInteractAtEntityEvent event) {
         onEntityInteract(event);
@@ -249,7 +253,7 @@ public final class PlotProtection implements Listener {
         onEntityInteract(event);
     }
 
-    /** 배·광산 수레는 EntityDamageByEntityEvent가 아니라 탈것 이벤트로 온다. */
+    /** Boats and minecarts arrive as vehicle events, not EntityDamageByEntityEvent. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onVehicleDamage(VehicleDamageEvent event) {
         if (deniedVehicle(event.getVehicle(), event.getAttacker())) {
@@ -291,7 +295,7 @@ public final class PlotProtection implements Listener {
         }
         switch (event.getSpawnReason()) {
             case CUSTOM, COMMAND, DEFAULT -> {
-                // 플러그인 연출 (개인 어항 리그 등)
+                // Plugin visuals (personal aquarium rigs etc.)
             }
             case SPAWNER_EGG -> {
                 if (store.stateAt(at).isEmpty() || overEntityLimit(at)) {
@@ -368,7 +372,9 @@ public final class PlotProtection implements Listener {
         }
     }
 
-    /** 플롯 안 엔티티 수 (플레이어·저장하지 않는 엔티티·플러그인 장식 제외). */
+    /**
+     * Number of entities in the plot (excluding players, non-persistent entities and plugin decor).
+     */
     private boolean overEntityLimit(Location at) {
         Optional<PlotState> s = store.stateAt(at);
         World world = at.getWorld();

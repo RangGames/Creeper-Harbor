@@ -5,7 +5,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.world.api.PlotInfo;
 
-/** 방문객이 좋아요를 눌렀을 때 (커밋 후). player는 누른 사람. */
+/** When a visitor liked a plot (after commit). player is the one who liked it. */
 public final class PlotLikedEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();

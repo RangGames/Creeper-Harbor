@@ -19,8 +19,9 @@ import wiki.creeper.harbor.world.api.event.PlotLikedEvent;
 import wiki.creeper.harbor.world.housing.HousingManager.PlotState;
 
 /**
- * 플롯 설정 명령 (/부두 설정·건축자·입구·좋아요). 방문 정책, 공동 건축자, 입장 지점을 바꾸고 좋아요를 센다. 좋아요는 방문객 1명이 플롯 1곳에 하루 1회이고, 주인과
- * 같은 IP 계정(Common AccountLinkReader)의 좋아요는 세지 않는다 (제안). 메인 스레드 전용.
+ * Plot settings commands (/부두 설정·건축자·입구·좋아요). Changes the visit policy, co-builders and entry
+ * point, and counts likes. Likes are once a day per visitor per plot, and likes from accounts
+ * sharing the owner's IP (Common AccountLinkReader) are not counted (proposed). Main thread only.
  */
 final class PlotActions {
 
@@ -113,7 +114,7 @@ final class PlotActions {
                 Placeholder.unparsed("policy", plain("world.housing.policy." + policy.key())));
     }
 
-    /** /부두 건축자 추가·제거 &lt;이름&gt;. */
+    /** /부두 건축자 추가·제거 &lt;name&gt; (add/remove builder). */
     void member(Player player, String name, boolean add) {
         PlotState s = store.ofOwner(player.getUniqueId());
         if (s == null) {
@@ -141,7 +142,8 @@ final class PlotActions {
                                                 Placeholder.unparsed("name", name));
                                         return;
                                     }
-                                    // 커밋 뒤: 다른 서버의 캐시도 맞춘다 (뺀 건축자가 그쪽에서 계속 짓지 않게)
+                                    // After commit: sync other servers' caches too (so a removed
+                                    // builder cannot keep building there)
                                     store.publishChanged(plotId, false);
                                     Set<UUID> members = new HashSet<>(s.info.members());
                                     if (add) {
@@ -181,7 +183,7 @@ final class PlotActions {
                                 kit.tasks().main());
     }
 
-    /** /부두 입구: 내 플롯 안 지금 위치를 입장 지점으로. */
+    /** /부두 입구: sets the current position inside my plot as the entry point. */
     void setSpawn(Player player) {
         Location at = WorldKit.loc(player);
         Optional<PlotState> s = store.stateAt(at);
@@ -228,7 +230,7 @@ final class PlotActions {
         kit.send(player, "world.housing.spawn_set");
     }
 
-    /** /부두 좋아요: 지금 서 있는 남의 플롯. */
+    /** /부두 좋아요: likes the other player's plot the player is standing in. */
     void like(Player player) {
         Optional<PlotState> s = store.stateAt(WorldKit.loc(player));
         if (s.isEmpty()) {

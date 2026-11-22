@@ -16,13 +16,17 @@ import wiki.creeper.harbor.world.api.WorldFlags;
 import wiki.creeper.harbor.world.content.RegionExt;
 
 /**
- * 진입 조건 판정 ('1. 기획서 본문' 2장, docs 20 8.4 '진입 조건'). 서버 API 없이 플레이어 사실만 받아 판정한다 (단위 테스트).
+ * Entry condition checks ('1. design doc' chapter 2, docs 20 8.4 'entry conditions'). Decides from
+ * player facts only, without the server API (unit tests).
  *
  * <ul>
- *   <li>아이템은 인벤토리나 장비 칸에 있으면 통과 (들어간 뒤 버리는 것은 환경 디버프로 대가를 치른다)
- *   <li>퀘스트는 Quest가 세운 플래그만 본다 ({@link WorldFlags#questDone}, 장 진입 플래그는 unlock.flags)
- *   <li>탈것: first_entry_only면 이번 시즌 첫 방문에만, 아니면 늘 지정 선박에 타고 있어야 한다
- *   <li>평판은 진입 조건으로 쓰지 않는다 (docs 20 8.8)
+ *   <li>Items pass if they are in the inventory or an equipment slot (dropping them after entering
+ *       is paid for with environment debuffs)
+ *   <li>Quests only look at flags set by Quest ({@link WorldFlags#questDone}; chapter entry flags
+ *       are unlock.flags)
+ *   <li>Vehicle: with first_entry_only only on the first visit this season, otherwise the given
+ *       ship must always be ridden
+ *   <li>Reputation is not used as an entry condition (docs 20 8.8)
  * </ul>
  */
 public final class UnlockRules {
@@ -30,9 +34,9 @@ public final class UnlockRules {
     private UnlockRules() {}
 
     /**
-     * 플레이어 사실.
+     * Player facts.
      *
-     * @param ship 지금 타고 있는 선박 종류 (없으면 null)
+     * @param ship type of the ship currently ridden (null if none)
      */
     public record Facts(
             int level,
@@ -43,9 +47,9 @@ public final class UnlockRules {
             @Nullable HarborId ship) {}
 
     /**
-     * @param itemName 아이템 표시 이름 (Dialog 문구)
-     * @param shipName 선박 표시 이름
-     * @param ignoreVehicle 탈것 조건을 보지 않는다 ('해금한 가장 높은 지역' 판정)
+     * @param itemName item display name (Dialog text)
+     * @param shipName ship display name
+     * @param ignoreVehicle ignore the vehicle condition ('highest unlocked region' check)
      */
     public static UnlockStatus check(
             RegionDef region,

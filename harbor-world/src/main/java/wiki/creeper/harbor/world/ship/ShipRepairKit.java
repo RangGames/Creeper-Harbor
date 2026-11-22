@@ -12,12 +12,15 @@ import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.world.WorldKit;
 import wiki.creeper.harbor.world.api.ShipState;
 
-/** 수리 키트. 타고 있는 배에서 1초마다 진행하고, 내리거나 키트를 놓으면 취소한다. 메인 스레드 전용. */
+/**
+ * Repair kit. Progresses every second on the boat being ridden; cancelled on dismount or when the
+ * kit is put away. Main thread only.
+ */
 final class ShipRepairKit {
 
     static final HarborId REPAIR_KIT = HarborId.parse("item/boat/repair_kit");
 
-    // 선박 소리 ('15. 사운드' 4.4)
+    // Ship sounds ('15. sound' 4.4)
     private static final String REPAIR = "harbor:ship.repair";
 
     private final WorldKit kit;
@@ -88,7 +91,9 @@ final class ShipRepairKit {
                                         return;
                                     }
                                     hand.setAmount(hand.getAmount() - 1);
-                                    // 수리 결과는 바로 DB에 쓰므로 키트를 쓴 인벤토리도 곧 저장한다 (서버가 죽으면 키트 복제)
+                                    // The repair result is written to the DB immediately, so save
+                                    // the inventory that used the kit
+                                    // soon too (a crash would duplicate the kit)
                                     kit.api().players().saveSoon(uuid);
                                     int max = fleet.info(a.row).maxDurability();
                                     int value =

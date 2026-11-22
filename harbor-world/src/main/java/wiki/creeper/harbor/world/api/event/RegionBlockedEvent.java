@@ -7,7 +7,7 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.world.api.RegionInfo;
 import wiki.creeper.harbor.world.api.UnlockStatus;
 
-/** 진입 조건을 못 채워 밀려났을 때 (docs 20 8.4 '밀어내기'). */
+/** When pushed back for not meeting entry conditions (docs 20 8.4 'push-back'). */
 public final class RegionBlockedEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -21,12 +21,12 @@ public final class RegionBlockedEvent extends PlayerEvent {
         this.status = status;
     }
 
-    /** 지역 ID (Quest가 반사로 읽는 접근자). */
+    /** Region ID (accessor Quest reads via reflection). */
     public RegionId region() {
         return info.id();
     }
 
-    /** 지역 요약. */
+    /** Region summary. */
     public RegionInfo info() {
         return info;
     }

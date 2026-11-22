@@ -12,12 +12,15 @@ import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/** sea_event_log (가상 스레드). 재시작 때 진행 중 이벤트 복구, 최소 간격·시즌당 횟수 판정. */
+/**
+ * sea_event_log (virtual threads). Recovers in-progress events on restart; checks the minimum
+ * interval and runs per season.
+ */
 public final class SeaEventRepository {
 
     private SeaEventRepository() {}
 
-    /** 실행 기록 한 줄. */
+    /** One run record. */
     public record Row(
             String runId,
             String eventId,
@@ -56,7 +59,10 @@ public final class SeaEventRepository {
         }
     }
 
-    /** 상태 전이. from 상태일 때만 바꾸고, 바꿨으면 true (여러 서버가 동시에 해도 한 번만). */
+    /**
+     * State transition. Changes only when in the from state and returns true if changed (only once
+     * even if several servers do it at the same time).
+     */
     public static boolean transition(
             Connection c, String runId, List<String> from, String to, @Nullable Instant endsAt)
             throws SQLException {
@@ -78,7 +84,7 @@ public final class SeaEventRepository {
         }
     }
 
-    /** 예고·진행 중 기록. */
+    /** Announced and in-progress records. */
     public static List<Row> open(Connection c) throws SQLException {
         List<Row> rows = new ArrayList<>();
         try (PreparedStatement ps =
@@ -102,7 +108,7 @@ public final class SeaEventRepository {
         return rows;
     }
 
-    /** 이벤트별 마지막 시작 시각 (취소 제외). */
+    /** Last start time per event (excluding cancelled). */
     public static Map<String, Instant> lastStarts(Connection c) throws SQLException {
         Map<String, Instant> result = new HashMap<>();
         try (PreparedStatement ps =
@@ -120,7 +126,7 @@ public final class SeaEventRepository {
         return result;
     }
 
-    /** 이번 시즌 이벤트별 실행 수 (취소 제외). */
+    /** Number of runs per event this season (excluding cancelled). */
     public static Map<String, Integer> seasonCounts(Connection c, int season) throws SQLException {
         Map<String, Integer> result = new HashMap<>();
         try (PreparedStatement ps =

@@ -4,7 +4,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.world.api.ActiveSeaEvent;
 
-/** 해상 이벤트 시작 (모든 서버). Wildlife는 물고기 대이동 때 wildlifeBoost로 밀도를 올린다. */
+/**
+ * Sea event started (all servers). Wildlife raises density by wildlifeBoost during a great fish
+ * migration.
+ */
 public final class SeaEventStartEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

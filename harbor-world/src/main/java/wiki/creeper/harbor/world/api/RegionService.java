@@ -12,58 +12,70 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.fishing.api.RegionKeyResolver;
 
 /**
- * 지역 (docs 20 8.2 RegionService). 지역 판정은 청크 색인으로 하고, 진입 조건·밀어내기·첫 방문 기록은 World가 처리한다.
- * ServicesManager에서 찾는다. 메인 스레드에서 쓴다 (CompletableFuture를 돌려주는 메서드는 어디서나, 결과는 메인 스레드에서 완료).
+ * Regions (docs 20 8.2 RegionService). Region detection uses the chunk index; entry conditions,
+ * push-back and first-visit records are handled by World. Look it up in the ServicesManager. Use on
+ * the main thread (methods returning a CompletableFuture from anywhere; results complete on the
+ * main thread).
  *
- * <p>Economy(레시피 '방문' 해금, 지역별 체류 인원), Quest(visit 목표), Wildlife(지역·세부 구역)가 쓴다.
+ * <p>Used by Economy (recipe 'visit' unlocks, per-region occupancy), Quest (visit objectives) and
+ * Wildlife (regions and sub-areas).
  */
 public interface RegionService {
 
-    /** 해금 순서대로. */
+    /** In unlock order. */
     List<RegionInfo> regions();
 
     Optional<RegionInfo> region(RegionId id);
 
-    /** 위치의 지역 (월드 이름은 balance.yml world_alias 적용). */
+    /** Region at the location (world name with balance.yml world_alias applied). */
     Optional<RegionInfo> regionAt(Location location);
 
-    /** 위치의 세부 구역 ID (어종 area와 같은 값). */
+    /** Sub-area IDs at the location (same values as the fish species area). */
     List<String> areasAt(Location location);
 
-    /** 찌 위치의 낚시 키 (Fishing에 등록한 RegionKeyResolver와 같은 결과). */
+    /**
+     * Fishing key at the bobber position (same result as the RegionKeyResolver registered with
+     * Fishing).
+     */
     Optional<RegionKeyResolver.RegionKey> fishingKey(Location bobber);
 
-    /** 접속 중인 플레이어가 지금 있는 지역. */
+    /** The region an online player is currently in. */
     Optional<RegionId> current(UUID player);
 
-    /** 이번 시즌 방문한 지역 (접속 중일 때). */
+    /** Regions visited this season (while online). */
     Set<RegionId> visited(UUID player);
 
-    /** 이번 시즌 방문 여부 (접속 중일 때, 아니면 false). */
+    /** Whether visited this season (while online, otherwise false). */
     boolean hasVisited(UUID player, RegionId region);
 
-    /** 오프라인 플레이어도 DB에서 확인한다. */
+    /** Checks the DB for offline players too. */
     CompletableFuture<Boolean> loadVisited(UUID player, RegionId region);
 
-    /** 진입 조건 판정. */
+    /** Entry condition check. */
     UnlockStatus unlockStatus(Player player, RegionId region);
 
     /**
-     * 해금한 가장 높은 지역 (탈것 조건은 보지 않는다). Quest 의뢰 보상·Fishing 통발 상한처럼 "해금한 가장 높은 지역" 기준에 쓴다 ('13. 제작 · 상점
-     * 가격' 6장).
+     * Highest unlocked region (ignores the vehicle condition). Used for "highest unlocked region"
+     * criteria such as Quest request rewards and the Fishing trap cap ('13. crafting · shop prices'
+     * chapter 6).
      */
     RegionInfo highestUnlocked(Player player);
 
-    /** 이 서버에 있는 지역별 인원. */
+    /** Player count per region on this server. */
     int occupancy(RegionId region);
 
-    /** 모든 서버의 지역별 인원 (Redis, 1분 주기 집계). Economy 시세 S₀용. */
+    /**
+     * Player count per region across all servers (Redis, aggregated every minute). For the Economy
+     * price S₀.
+     */
     CompletableFuture<Map<RegionId, Integer>> occupancyAll();
 
     /**
-     * 지역의 안전 지점으로 보낸다 (그 지역 월드가 다른 서버에 있으면 ProxyBridge로 서버 이동 후 도착 서버가 옮긴다). 진입 조건은 보지 않는다.
+     * Sends the player to the region's safe point (if the region's world is on another server,
+     * moves servers via ProxyBridge and the arrival server places them). Entry conditions are not
+     * checked.
      *
-     * @return 이동을 시작했으면 true
+     * @return true if the move started
      */
     boolean travel(Player player, RegionId region, String reason);
 }

@@ -4,13 +4,14 @@ import java.util.List;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * 지역 진입 조건 판정 결과 ('1. 기획서 본문' 2장, docs 20 8.4 '진입 조건'). 밀어내기 Dialog가 "Lv 18 / 20"처럼 진행도를 보여 준다.
+ * Result of a region entry condition check ('1. design doc' chapter 2, docs 20 8.4 'entry
+ * conditions'). The push-back Dialog shows progress like "Lv 18 / 20".
  *
- * @param missing 못 채운 조건 (비면 들어갈 수 있다)
+ * @param missing unmet conditions (empty means entry is allowed)
  */
 public record UnlockStatus(RegionId region, List<Requirement> missing) {
 
-    /** 조건 종류. */
+    /** Condition kind. */
     public enum Kind {
         LEVEL,
         JOB_TIER,
@@ -21,11 +22,11 @@ public record UnlockStatus(RegionId region, List<Requirement> missing) {
     }
 
     /**
-     * 못 채운 조건 하나.
+     * One unmet condition.
      *
-     * @param detail 대상 (아이템 이름, 플래그, 선박 이름 …)
-     * @param have 지금 값 (레벨·단계, 그 밖에는 0)
-     * @param need 필요한 값 (레벨·단계, 그 밖에는 1)
+     * @param detail target (item name, flag, ship name …)
+     * @param have current value (level or tier, otherwise 0)
+     * @param need required value (level or tier, otherwise 1)
      */
     public record Requirement(Kind kind, String detail, int have, int need) {}
 
@@ -37,7 +38,7 @@ public record UnlockStatus(RegionId region, List<Requirement> missing) {
         return missing.isEmpty();
     }
 
-    /** 탈것 조건만 빠졌는지 (비행선으로는 못 가지만 배로는 갈 수 있는 상태). */
+    /** Whether only the vehicle condition is missing (cannot go by airship but can go by ship). */
     public boolean onlyVehicleMissing() {
         return !missing.isEmpty() && missing.stream().allMatch(r -> r.kind() == Kind.VEHICLE);
     }

@@ -4,13 +4,14 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * 하우징 플롯 (housing_plot). harbor_homes 월드의 40×40 칸 하나 안에 크기 size의 정사각형 (가운데 정렬).
+ * Housing plot (housing_plot). A square of size size inside one 40×40 cell of the harbor_homes
+ * world (centered).
  *
- * @param plotId 나선 순서 번호
- * @param gridX 칸 좌표
- * @param minX 플롯 경계 (블록, 포함)
- * @param maxX 플롯 경계 (블록, 포함)
- * @param members 공동 건축자
+ * @param plotId spiral order index
+ * @param gridX cell coordinate
+ * @param minX plot bound (blocks, inclusive)
+ * @param maxX plot bound (blocks, inclusive)
+ * @param members co-builders
  */
 public record PlotInfo(
         long plotId,

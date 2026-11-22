@@ -10,15 +10,17 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 하우징 장식 (world/housing_decor.yml, docs 20 8.3 housing_decor.yml, 추가 제안). 서버 API 없음 (블록 이름 확인은
- * 플러그인의 ContentCheck).
+ * Housing decor (world/housing_decor.yml, docs 20 8.3 housing_decor.yml, proposed). No server API
+ * (block names are checked by the plugin's ContentCheck).
  *
- * @param material 블록 (block · tank)
- * @param model 가구 외형 아이템 모델 (furniture · tank 표시용)
- * @param furniture Core 가구 정의 (furniture/furniture.yml, 추가 제안). 있으면 앉기·충돌·빛까지 Core 가구로 놓는다
- * @param block Core 커스텀 블록 정의 (furniture/blocks.yml, 추가 제안). block 장식에서 material 대신
- * @param amount 한 번 살 때 받는 개수
- * @param reputationMin 시즌 간 최고 평판 등급 조건 (0 = 없음)
+ * @param material block (block · tank)
+ * @param model furniture appearance item model (for furniture · tank display)
+ * @param furniture Core furniture definition (furniture/furniture.yml, proposed). If set, placed as
+ *     Core furniture including sitting, collision and light
+ * @param block Core custom block definition (furniture/blocks.yml, proposed). Used instead of
+ *     material for block decor
+ * @param amount number received per purchase
+ * @param reputationMin best cross-season reputation tier required (0 = none)
  */
 public record DecorDef(
         HarborId id,
@@ -33,13 +35,13 @@ public record DecorDef(
         int reputationMin,
         String category) {
 
-    /** 장식 종류. */
+    /** Decor kind. */
     public enum Kind {
-        /** 블록 하나. */
+        /** A single block. */
         BLOCK,
-        /** ItemDisplay 가구 (Interaction으로 회수). */
+        /** ItemDisplay furniture (recovered via Interaction). */
         FURNITURE,
-        /** 개인 어항 수조 블록 (Collection 전시 칸 자리, DisplayAnchor). */
+        /** Personal aquarium tank block (a Collection display slot, DisplayAnchor). */
         TANK
     }
 

@@ -6,14 +6,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 월드 하나의 청크 → 지역 색인 (docs 20 8.4 '지역 판정'). 콘텐츠 로드 때 가상 스레드에서 만들고, 만든 뒤에는 변경 불가라 어느 스레드에서 읽어도 된다.
- * 청크가 한 지역 안에 통째로 들어가면 배열 조회 한 번으로 끝나고, 경계에 걸친 청크만 후보 지역의 다각형 판정을 한다.
+ * Chunk → region index of one world (docs 20 8.4 'region detection'). Built on a virtual thread at
+ * content load and immutable afterwards, so any thread may read it. A chunk fully inside one region
+ * resolves with a single array lookup; only chunks on a boundary run the polygon test for candidate
+ * regions.
  *
- * <p>지역이 겹치면 목록 앞의 지역이 이긴다 (regions.yml 순서).
+ * <p>When regions overlap, the earlier one in the list wins (regions.yml order).
  */
 public final class RegionIndex {
 
-    /** 지역이 없는 칸. */
+    /** Cell with no region. */
     public static final int NONE = -1;
 
     private static final short EMPTY = 0;
@@ -44,13 +46,13 @@ public final class RegionIndex {
         this.mixed = mixed;
     }
 
-    /** 빈 색인 (지역이 없는 월드). */
+    /** Empty index (a world with no regions). */
     public static RegionIndex empty() {
         return new RegionIndex(List.of(), 0, 0, 0, 0, new short[0], Map.of());
     }
 
     /**
-     * @param polygons 지역 경계 (번호 = 목록 순서)
+     * @param polygons region bounds (index = list order)
      */
     public static RegionIndex build(List<Polygon> polygons) {
         if (polygons.isEmpty()) {
@@ -92,7 +94,7 @@ public final class RegionIndex {
                     candidates.add(r);
                     if (cover == Polygon.Cover.INSIDE) {
                         full = r;
-                        // 앞 지역이 통째로 덮으면 뒤 지역은 볼 필요가 없다
+                        // If an earlier region covers it fully, later regions need not be checked
                         break;
                     }
                 }
@@ -112,7 +114,7 @@ public final class RegionIndex {
                 List.copyOf(polygons), cx0, cz0, width, depth, cells, Map.copyOf(mixed));
     }
 
-    /** 블록 좌표의 지역 번호. 없으면 {@link #NONE}. */
+    /** Region index at block coordinates. {@link #NONE} if none. */
     public int lookup(double x, double z) {
         int cx = Math.floorDiv((int) Math.floor(x), 16);
         int cz = Math.floorDiv((int) Math.floor(z), 16);
@@ -140,7 +142,10 @@ public final class RegionIndex {
         return NONE;
     }
 
-    /** 청크가 한 지역에 통째로 들어가면 그 번호, 아니면 {@link #NONE} (청크 캐시용). */
+    /**
+     * The region index if the chunk lies fully inside one region, otherwise {@link #NONE} (for the
+     * chunk cache).
+     */
     public int wholeChunk(int cx, int cz) {
         int dx = cx - originX;
         int dz = cz - originZ;
@@ -151,7 +156,7 @@ public final class RegionIndex {
         return cell > 0 ? cell - 1 : NONE;
     }
 
-    /** 경계에 걸친 청크 수 (/harbor world region info 통계). */
+    /** Number of chunks straddling a boundary (/harbor world region info stats). */
     public int mixedChunks() {
         return mixed.size();
     }

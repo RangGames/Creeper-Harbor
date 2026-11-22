@@ -55,9 +55,13 @@ import wiki.creeper.harbor.world.spot.SpotManager;
 import wiki.creeper.harbor.world.treasure.TreasureManager;
 
 /**
- * Harbor-World (docs 20 8장): 장소와 이동의 규칙. 지역 판정·진입 조건·밀어내기, 해도, 환경 디버프, 선박·탈것, 물고기 떼, 보물 지도, 해상 이벤트
- * 스케줄러(폭풍·유령선·물고기 대이동·주간 낚시 대회), 하우징(플롯·권한·방문·좋아요·장식·개인 어항 자리). Fishing 확장 지점 RegionKeyResolver·
- * TreasureDropHook을 구현해 등록하고, 다른 모듈은 {@code wiki.creeper.harbor.world.api}의 서비스·이벤트만 쓴다.
+ * Harbor-World (docs 20 chapter 8): rules of places and movement. Region detection, entry
+ * conditions and push-back, sea charts, environment debuffs, ships and rides, fish schools,
+ * treasure maps, the sea event scheduler (storms, ghost ships, great fish migrations, weekly
+ * fishing tournaments), and housing (plots, permissions, visits, likes, decor, personal aquarium
+ * slots). Implements and registers the Fishing extension points RegionKeyResolver and
+ * TreasureDropHook; other modules use only the services and events in {@code
+ * wiki.creeper.harbor.world.api}.
  */
 public final class HarborWorldPlugin extends HarborModule {
 
@@ -132,6 +136,7 @@ public final class HarborWorldPlugin extends HarborModule {
                 new Listener[] {
                     router,
                     regions,
+                    regions.barrier(),
                     charts,
                     ship,
                     env,
@@ -142,6 +147,7 @@ public final class HarborWorldPlugin extends HarborModule {
                     housing,
                     housing.protection(),
                     decor,
+                    decor.placement(),
                     ride
                 }) {
             ctx.listen(l);
@@ -149,13 +155,15 @@ public final class HarborWorldPlugin extends HarborModule {
         ctx.listen(new ReloadListener(kit, regions, charts, spots));
         ctx.handoffBlocker(ship.handoffBlocker());
         ctx.handoffBlocker(ride.handoffBlocker());
-        // 장식 정리는 저장 직전에 (부작용이 있으므로 거부 판단 뒤 마지막)
+        // Decor cleanup right before the save (it has side effects, so last, after the deny checks)
         ctx.handoffBlocker(decor.handoffBlocker());
 
         fishing.registerRegionResolver(regions);
         fishing.registerTreasureHook(treasure);
 
-        // 지역 색인: 모듈 형식이 들어간 콘텐츠는 enable 뒤에 다시 읽히므로 다음 틱에도 한 번 만든다
+        // Region index: content with module types is re-read after enable, so build it once more on
+        // the
+        // next tick
         kit.setIndex(WorldIndex.build(api.content().snapshot()));
         var _ =
                 ctx.tasks()
@@ -207,7 +215,7 @@ public final class HarborWorldPlugin extends HarborModule {
         }
     }
 
-    /** 서버 API가 필요한 콘텐츠 검사 (블록·엔티티 이름). */
+    /** Content checks that need the server API (block and entity names). */
     private static void registerChecks(ModuleContext ctx) {
         ctx.contentCheck(
                 DecorDef.TYPE,
@@ -253,7 +261,10 @@ public final class HarborWorldPlugin extends HarborModule {
         }
     }
 
-    /** 콘텐츠 리로드: 새 색인을 가상 스레드에서 다 만든 뒤 교체하고 모든 플레이어 지역을 다시 계산한다 (막힌 지역이어도 다음 이동부터). */
+    /**
+     * Content reload: builds the new index fully on a virtual thread, swaps it in and recomputes
+     * every player's region (even inside a locked region, enforcement starts from the next move).
+     */
     public static final class ReloadListener implements Listener {
 
         private final WorldKit kit;

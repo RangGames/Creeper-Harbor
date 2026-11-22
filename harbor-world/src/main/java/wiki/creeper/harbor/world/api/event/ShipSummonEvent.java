@@ -6,7 +6,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.world.api.ShipInfo;
 
-/** 선박을 띄우기 직전 (취소하면 띄우지 않는다). */
+/** Right before a ship is launched (cancel to not launch it). */
 public final class ShipSummonEvent extends PlayerEvent implements Cancellable {
 
     private static final HandlerList HANDLERS = new HandlerList();

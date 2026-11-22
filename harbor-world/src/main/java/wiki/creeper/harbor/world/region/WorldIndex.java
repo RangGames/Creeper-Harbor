@@ -19,12 +19,13 @@ import wiki.creeper.harbor.world.geo.Polygon;
 import wiki.creeper.harbor.world.geo.RegionIndex;
 
 /**
- * 콘텐츠 스냅샷에서 만든 지역 색인 묶음 (지역 경계·세부 구역·청크 색인·해도 마스크). 가상 스레드에서 만들고 참조 교체만 메인 스레드에서 한다 (docs 20 8.4
- * '스레드'). 변경 불가라 어느 스레드에서 읽어도 된다. 서버 API 없음.
+ * Bundle of region indexes built from a content snapshot (region bounds, sub-areas, chunk index,
+ * chart masks). Built on a virtual thread; only the reference swap happens on the main thread (docs
+ * 20 8.4 'threads'). Immutable, so any thread may read it. No server API.
  */
 public final class WorldIndex {
 
-    /** 세부 구역 도형. */
+    /** Sub-area shape. */
     public record AreaShape(RegionExt.Area area, Polygon polygon) {
 
         public boolean contains(double x, double y, double z) {
@@ -32,7 +33,7 @@ public final class WorldIndex {
         }
     }
 
-    /** 지역 하나. */
+    /** One region. */
     public record Entry(
             int index,
             RegionDef def,
@@ -85,7 +86,7 @@ public final class WorldIndex {
         this.byWorld = byWorld;
     }
 
-    /** 스냅샷에서 만든다 (수 MB, 약 0.1초 — 가상 스레드에서). */
+    /** Builds from a snapshot (a few MB, about 0.1 s — on a virtual thread). */
     public static WorldIndex build(ContentSnapshot snapshot) {
         List<RegionDef> defs = new ArrayList<>(snapshot.all(RegionDef.TYPE).values());
         Map<HarborId, RegionExt> exts =
@@ -172,7 +173,7 @@ public final class WorldIndex {
     }
 
     /**
-     * @param worldId 콘텐츠 월드 이름 (alias 적용 후)
+     * @param worldId content world name (after alias)
      */
     public Optional<Entry> at(String worldId, double x, double z) {
         WorldRegions w = byWorld.get(worldId);
@@ -183,7 +184,7 @@ public final class WorldIndex {
         return r == RegionIndex.NONE ? Optional.empty() : Optional.of(w.entries().get(r));
     }
 
-    /** 청크가 한 지역에 통째로 들어가면 그 지역 (이동 판정 캐시용). */
+    /** The region if the chunk lies fully inside one region (for the movement check cache). */
     public Optional<Entry> wholeChunk(String worldId, int cx, int cz) {
         WorldRegions w = byWorld.get(worldId);
         if (w == null) {
@@ -193,7 +194,7 @@ public final class WorldIndex {
         return r == RegionIndex.NONE ? Optional.empty() : Optional.of(w.entries().get(r));
     }
 
-    /** 통계 (/harbor world region list): 월드별 [청크 수, 경계 청크 수]. */
+    /** Stats (/harbor world region list): per world [chunk count, boundary chunk count]. */
     public Map<String, int[]> stats() {
         Map<String, int[]> result = new LinkedHashMap<>();
         byWorld.forEach(

@@ -42,17 +42,22 @@ import wiki.creeper.harbor.world.region.RegionManager;
 import wiki.creeper.harbor.world.region.WorldIndex;
 
 /**
- * 탈것 (docs 20 8.4 '탈것').
+ * Rides (docs 20 8.4 'rides').
  *
  * <ul>
- *   <li>항구 비행선 (해피 가스트): 해금 지역 정류장끼리 노선. 그 지역을 배로 한 번 방문해야(region_visit) 노선이 열린다. 3분마다 출발(정각 기준),
- *       가스트 1마리에 4명, 넘치면 한 마리 더. AI를 끄고 서버가 경로(상승 → 순항 → 하강)를 따라 옮기며 비행 중 하차는 막는다. 경로 앞 3청크에 청크 티켓.
- *       서버가 꺼지면 탑승자를 도착지로 옮긴다. 제어 방식은 Phase 1 검증 항목
- *   <li>심해 탈것 (노틸러스): 잿빛 해구 잠수 정류장에서 무료 대여. 하차 후 30초 또는 해구를 벗어나면 회수. 노틸러스 갑옷이면 산소 소모 ×0.5
+ *   <li>Harbor airship (happy ghast): routes between stations of unlocked regions. A route opens
+ *       only after visiting that region once by ship (region_visit). Departs every 3 minutes (on
+ *       the clock), 4 riders per ghast, another ghast if it overflows. AI is off and the server
+ *       moves it along the path (ascend → cruise → descend), blocking dismount in flight. Chunk
+ *       tickets 3 chunks ahead on the path. If the server shuts down, riders are moved to the
+ *       destination. The control scheme is a Phase 1 verification item
+ *   <li>Deep-sea ride (nautilus): free rental at the Ashen Trench dive station. Recalled 30 seconds
+ *       after dismounting or when leaving the trench. With nautilus armor, oxygen drain ×0.5
  *       (EnvironmentManager)
  * </ul>
  *
- * 모든 엔티티는 저장하지 않고(setPersistent false) PDC 태그로 남은 것을 지운다. 메인 스레드 전용.
+ * No entity is saved (setPersistent false); leftovers are removed by their PDC tag. Main thread
+ * only.
  */
 public final class RideManager implements Listener {
 
@@ -72,7 +77,7 @@ public final class RideManager implements Listener {
         int segment;
         final Set<Long> tickets = new java.util.HashSet<>();
 
-        /** 비행 반복 소리 (travel.airship, '15. 사운드' 4.4). */
+        /** Looping flight sound (travel.airship, '15. sound' 4.4). */
         HarborSounds.Loop sound = HarborSounds.Loop.NONE;
 
         Flight(HappyGhast ghast, List<Location> path, Location arrival) {
@@ -96,13 +101,15 @@ public final class RideManager implements Listener {
     private final WorldKit kit;
     private final RegionManager regions;
 
-    /** (출발 정류장 키 → 목적 지역 → 대기 승객). */
+    /** (departure station key → destination region → waiting passengers). */
     private final Map<String, Map<RegionId, List<UUID>>> queue = new LinkedHashMap<>();
 
     private final List<Flight> flights = new ArrayList<>();
     private final Map<UUID, Rental> rentals = new HashMap<>();
 
-    /** 퇴장 중이라 비행 중에도 내리게 둘 플레이어 (onQuit 동안만). */
+    /**
+     * Players allowed to dismount even in flight because they are quitting (only during onQuit).
+     */
     private final Set<UUID> leaving = new java.util.HashSet<>();
 
     public RideManager(WorldKit kit, RegionManager regions) {
@@ -134,7 +141,7 @@ public final class RideManager implements Listener {
         return e.getPersistentDataContainer().has(kit.key("ride"), PersistentDataType.BYTE);
     }
 
-    // ------------------------------------------------------------------ 비행선
+    // ------------------------------------------------------------------ airship
 
     private List<Stop> stops(RegionExt.DockKind kind) {
         List<Stop> result = new ArrayList<>();
@@ -163,7 +170,10 @@ public final class RideManager implements Listener {
         return Optional.empty();
     }
 
-    /** 이 플레이어가 지금 정류장에서 갈 수 있는 노선 (같은 월드, 방문한 지역, 탈것 조건 외 진입 조건 충족). */
+    /**
+     * Routes this player can take from the current station (same world, visited region, entry
+     * conditions met apart from the vehicle condition).
+     */
     private List<WorldIndex.Entry> destinations(Player player, Stop from) {
         List<WorldIndex.Entry> result = new ArrayList<>();
         for (Stop s : stops(RegionExt.DockKind.AIRSHIP)) {
@@ -178,7 +188,7 @@ public final class RideManager implements Listener {
         return result;
     }
 
-    /** /비행선 [지역]: 정류장 근처에서 노선을 골라 다음 출발을 기다린다. */
+    /** /비행선 [region]: picks a route near a station and waits for the next departure. */
     public void board(Player player, @Nullable RegionId target) {
         Optional<Stop> from = nearStop(player, RegionExt.DockKind.AIRSHIP);
         if (from.isEmpty()) {
@@ -231,7 +241,7 @@ public final class RideManager implements Listener {
                 Placeholder.unparsed("seconds", String.valueOf(wait)));
     }
 
-    /** 매초: 출발 시각이면 대기 승객을 태운다, 노틸러스 회수. */
+    /** Every second: boards waiting passengers at departure time, recalls nautiluses. */
     private void second() {
         long interval = Math.max(10, kit.balance().airshipIntervalSeconds());
         if (Instant.now().getEpochSecond() % interval == 0) {
@@ -327,7 +337,7 @@ public final class RideManager implements Listener {
         flights.add(flight);
     }
 
-    /** 매 틱: 경로를 따라 옮긴다 (텔레포트, 승객은 함께 간다). */
+    /** Every tick: moves along the path (teleport, passengers come along). */
     private void fly() {
         double speed = kit.balance().airshipSpeed();
         for (Flight f : List.copyOf(flights)) {
@@ -357,8 +367,9 @@ public final class RideManager implements Listener {
                 to.setDirection(flat);
                 to.setPitch(0);
             }
-            // 텔레포트가 거부되면 (월드 경계·이벤트 취소 등) 비행선이 제자리에 멈추고 탑승자는 내릴 수도 이동할 수도 없다:
-            // 그 자리에 내려 준다
+            // If the teleport is denied (world border, cancelled event, etc.) the airship stops in
+            // place and
+            // riders can neither dismount nor move: let them off right there
             if (!f.ghast.teleport(to)) {
                 land(f);
                 return;
@@ -437,9 +448,9 @@ public final class RideManager implements Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 노틸러스
+    // ------------------------------------------------------------------ nautilus
 
-    /** /노틸러스: 잠수 정류장 근처에서 무료 대여. */
+    /** /노틸러스: free rental near a dive station. */
     public void rent(Player player) {
         Optional<Stop> stop = nearStop(player, RegionExt.DockKind.DIVE);
         if (stop.isEmpty()) {
@@ -508,7 +519,9 @@ public final class RideManager implements Listener {
         }
         for (Flight f : List.copyOf(flights)) {
             if (f.ghast.getPassengers().contains(event.getPlayer())) {
-                // 내리기 막기(onDismount)에 걸리면 저장하지 않는 가스트에 탄 채로 나가 버린다
+                // If the dismount block (onDismount) catches it, the player quits while still
+                // riding the
+                // non-persistent ghast
                 leaving.add(uuid);
                 try {
                     f.ghast.removePassenger(event.getPlayer());
@@ -520,7 +533,9 @@ public final class RideManager implements Listener {
         }
     }
 
-    /** 서버 이동 전: 노틸러스를 회수하고 비행 중이면 거부 (도착 뒤 이동). */
+    /**
+     * Before a server move: recalls the nautilus, and denies while in flight (move after arrival).
+     */
     public HandoffBlocker handoffBlocker() {
         return (player, destination) -> {
             for (Flight f : flights) {
