@@ -168,6 +168,20 @@ public interface RigInstance {
      */
     default void onEvent(BiConsumer<String, String> listener) {}
 
+    /**
+     * Also reports this rig's animation events as {@link
+     * wiki.creeper.harbor.core.api.event.RigAnimationEvent} (for scripts and plugins that listen to
+     * Bukkit events). Call once after spawning.
+     */
+    default void callBukkitEvents() {
+        onEvent(
+                (animation, name) ->
+                        org.bukkit.Bukkit.getPluginManager()
+                                .callEvent(
+                                        new wiki.creeper.harbor.core.api.event.RigAnimationEvent(
+                                                this, animation, name)));
+    }
+
     // ------------------------------------------------------------------ lifecycle
 
     /** Called once on removal (including chunk unload and shutdown). */

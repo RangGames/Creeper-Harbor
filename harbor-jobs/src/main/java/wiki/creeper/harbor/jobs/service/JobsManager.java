@@ -48,8 +48,10 @@ import wiki.creeper.harbor.jobs.api.AdvanceResult;
 import wiki.creeper.harbor.jobs.api.CapstoneState;
 import wiki.creeper.harbor.jobs.api.ExpGrant;
 import wiki.creeper.harbor.jobs.api.ExpSource;
+import wiki.creeper.harbor.jobs.api.InvestResult;
 import wiki.creeper.harbor.jobs.api.JobState;
 import wiki.creeper.harbor.jobs.api.JobsService;
+import wiki.creeper.harbor.jobs.api.SkillNodeInfo;
 import wiki.creeper.harbor.jobs.api.event.JobExpGainEvent;
 import wiki.creeper.harbor.jobs.api.event.JobLevelUpEvent;
 import wiki.creeper.harbor.jobs.api.event.SkillAllocatedEvent;
@@ -70,6 +72,9 @@ public final class JobsManager implements JobsService, Listener {
             new PlayerComponent<>("jobs", JobsRepository::load, JobsRepository::saveState);
 
     static final StatKey EXP_GAIN = StatKey.of("exp_gain");
+
+    /** Admin skill reset scopes. */
+    public static final List<String> RESET_SCOPES = List.of("common", "line", "all");
 
     private final Plugin plugin;
     private final HarborApi api;
@@ -396,6 +401,7 @@ public final class JobsManager implements JobsService, Listener {
      * Invests one rank. Mulbineul deduction (SKILL_INVEST) and the skill_alloc update in one
      * transaction.
      */
+    @Override
     public CompletableFuture<InvestResult> invest(Player player, SkillId nodeId) {
         HarborPlayer hp = api.players().get(player);
         UUID uuid = hp.uuid();
@@ -554,6 +560,99 @@ public final class JobsManager implements JobsService, Listener {
         return capstones == null
                 ? CompletableFuture.completedFuture(false)
                 : capstones.consumeWeeklyUse(player);
+    }
+
+    // ------------------------------------------------------------------ Skill API
+
+    private static SkillNodeInfo info(SkillNode n) {
+        return new SkillNodeInfo(
+                n.id(),
+                n.name(),
+                n.tree(),
+                Optional.ofNullable(n.line()),
+                n.tier(),
+                n.maxRank(),
+                n.cost(),
+                n.requiredNodes(),
+                n.isActive());
+    }
+
+    @Override
+    public List<SkillNodeInfo> skillNodes() {
+        return content().all(SkillNode.TYPE).values().stream()
+                .sorted(java.util.Comparator.comparing(n -> n.id().toString()))
+                .map(JobsManager::info)
+                .toList();
+    }
+
+    @Override
+    public Optional<SkillNodeInfo> skillNode(SkillId node) {
+        return content().get(SkillNode.TYPE, node.id()).map(JobsManager::info);
+    }
+
+    @Override
+    public Map<SkillId, Integer> skills(UUID player) {
+        return api.players().get(player).map(hp -> Map.copyOf(data(hp).skills())).orElse(Map.of());
+    }
+
+    @Override
+    public long skillPoints(UUID player) {
+        return api.players().get(player).map(hp -> hp.balance(Currency.MULBINEUL)).orElse(0L);
+    }
+
+    @Override
+    public InvestResult checkInvest(UUID player, SkillId node) {
+        return api.players()
+                .get(player)
+                .map(hp -> checkInvest(hp, node))
+                .orElse(InvestResult.FAILED);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> resetCommonSkills(UUID player) {
+        if (api.players().get(player).isEmpty()) {
+            return CompletableFuture.completedFuture(false);
+        }
+        return resetCommon(player, true, true);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> changeLine(UUID player, JobLine line) {
+        if (api.players().get(player).isEmpty()) {
+            return CompletableFuture.completedFuture(false);
+        }
+        return changeLine(player, line, true);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> adminResetSkills(UUID player, String scope, boolean refund) {
+        if (api.players().get(player).isEmpty() || !RESET_SCOPES.contains(scope)) {
+            return CompletableFuture.completedFuture(false);
+        }
+        return adminReset(player, scope, refund);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> adminSetTier(
+            UUID player, JobTier tier, @Nullable JobLine line) {
+        if (api.players().get(player).isEmpty()) {
+            return CompletableFuture.completedFuture(false);
+        }
+        return forceTier(player, tier, line);
+    }
+
+    @Override
+    public boolean adminSetLevel(UUID player, int level, long exp) {
+        Optional<HarborPlayer> found = api.players().get(player);
+        if (found.isEmpty()) {
+            return false;
+        }
+        HarborPlayer hp = found.get();
+        int lv = Math.clamp(level, 1, curve.maxLevel());
+        long need = curve.need(lv);
+        long e = need <= 0 ? 0 : Math.clamp(exp, 0, need - 1);
+        hp.setJob(hp.jobLine().orElse(null), hp.jobTier(), lv, e);
+        return true;
     }
 
     // ------------------------------------------------------------------ Events

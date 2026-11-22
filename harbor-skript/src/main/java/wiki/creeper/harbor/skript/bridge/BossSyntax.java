@@ -85,6 +85,43 @@ public final class BossSyntax {
         records(r);
         parties(r);
         events(r);
+        weeklyRewards(r);
+    }
+
+    /** This week's boss reward count (remaining, used, limit). Empty for story bosses. */
+    private static void weeklyRewards(Registrar r) {
+        wiki.creeper.harbor.skript.lambda.Ext.await(
+                r,
+                "harbor load weekly boss rewards",
+                new int[] {2, 3, 4},
+                c -> {
+                    Optional<BossService> s = service(BossService.class);
+                    Optional<OfflinePlayer> p = c.offlinePlayer(0);
+                    Optional<BossId> id = c.string(1).flatMap(BossSyntax::boss);
+                    if (s.isEmpty() || p.isEmpty() || id.isEmpty()) {
+                        return null;
+                    }
+                    return s.get()
+                            .weeklyRewards(p.get().getUniqueId(), id.get())
+                            .thenApply(
+                                    w ->
+                                            w.map(
+                                                            x ->
+                                                                    new List<?>[] {
+                                                                        List.of(x.remaining()),
+                                                                        List.of(x.used()),
+                                                                        List.of(x.limit())
+                                                                    })
+                                                    .orElseGet(
+                                                            () ->
+                                                                    new List<?>[] {
+                                                                        List.of(), List.of(),
+                                                                        List.of()
+                                                                    }));
+                },
+                "harbor load weekly boss rewards [left] of %offlineplayer% for [boss] %string%"
+                        + " into %objects% [with used count in %-objects%] [with limit in"
+                        + " %-objects%]");
     }
 
     // ------------------------------------------------------------------ definitions

@@ -24,6 +24,7 @@ import wiki.creeper.harbor.skript.bridge.FishingSyntax;
 import wiki.creeper.harbor.skript.bridge.FurnitureSyntax;
 import wiki.creeper.harbor.skript.bridge.JobsSyntax;
 import wiki.creeper.harbor.skript.bridge.NpcSyntax;
+import wiki.creeper.harbor.skript.bridge.PartySyntax;
 import wiki.creeper.harbor.skript.bridge.QuestSyntax;
 import wiki.creeper.harbor.skript.bridge.SeasonSyntax;
 import wiki.creeper.harbor.skript.bridge.ShopSyntax;
@@ -149,6 +150,7 @@ final class SkriptSyntax {
         module(plugin, "Harbor-Core", () -> CoreUiSyntax.register(r));
         module(plugin, "Harbor-Core", () -> CoreServerSyntax.register(r));
         module(plugin, "Harbor-Core", () -> FurnitureSyntax.register(r));
+        module(plugin, "Harbor-Core", () -> PartySyntax.register(r));
         module(plugin, "Harbor-Npc", () -> NpcSyntax.register(r));
         module(plugin, "Harbor-Jobs", () -> JobsSyntax.register(r));
         module(plugin, "Harbor-Fishing", () -> FishingSyntax.register(r));

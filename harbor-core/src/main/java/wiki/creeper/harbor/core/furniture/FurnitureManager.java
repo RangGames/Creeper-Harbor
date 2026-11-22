@@ -12,6 +12,7 @@ import java.util.function.Supplier;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -45,10 +46,16 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.FurnitureDef;
 import wiki.creeper.harbor.common.id.HarborId;
+import wiki.creeper.harbor.core.api.FurnitureService;
+import wiki.creeper.harbor.core.api.FurnitureService.PlaceResult;
 import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.Ui;
+import wiki.creeper.harbor.core.api.event.FurnitureInteractEvent;
+import wiki.creeper.harbor.core.api.event.FurniturePlaceEvent;
 import wiki.creeper.harbor.core.api.event.FurnitureRemoveEvent;
+import wiki.creeper.harbor.core.api.event.FurnitureSitEvent;
+import wiki.creeper.harbor.core.api.event.FurnitureStandEvent;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
@@ -174,11 +181,38 @@ public final class FurnitureManager implements Listener {
         event.setCancelled(true);
         Block target =
                 clicked.isReplaceable() ? clicked : clicked.getRelative(event.getBlockFace());
-        place(player, hand, def.get(), clicked, target);
+        float yaw = feet(player).getYaw() + 180f;
+        PlaceResult result =
+                place(player, hand, def.get(), clicked, target, yaw, player.getUniqueId());
+        switch (result) {
+            case OK -> {
+                if (player.getGameMode() != GameMode.CREATIVE) {
+                    hand.setAmount(hand.getAmount() - 1);
+                }
+            }
+            case NO_SPACE -> bar(player, "furniture.no_space");
+            case OCCUPIED -> bar(player, "furniture.occupied");
+            case NO_PERMISSION -> bar(player, "furniture.no_place");
+            case UNKNOWN, CANCELLED -> {}
+        }
     }
 
-    private void place(
-            Player player, ItemStack hand, FurnitureDef def, Block against, Block target) {
+    /**
+     * Placement shared by players and the API: space check → occupied check → protection check
+     * (only with an acting player) → FurniturePlaceEvent → spawn. Takes no item.
+     *
+     * @param actor acting player (protection check and event), or null
+     * @param hand item used (stored for pick-up), or null for a fresh furniture item
+     * @param rawYaw facing before snapping
+     */
+    PlaceResult place(
+            @Nullable Player actor,
+            @Nullable ItemStack hand,
+            FurnitureDef def,
+            Block against,
+            Block target,
+            float rawYaw,
+            @Nullable UUID owner) {
         List<Block> cells = new ArrayList<>();
         for (int i = 0; i < Math.max(1, def.solidCells()); i++) {
             cells.add(target.getRelative(BlockFace.UP, i));
@@ -190,37 +224,35 @@ public final class FurnitureManager implements Listener {
         }
         for (Block b : needed) {
             if (!b.isReplaceable()) {
-                bar(player, "furniture.no_space");
-                return;
+                return PlaceResult.NO_SPACE;
             }
         }
         Location base = target.getLocation().add(0.5, 0, 0.5);
         World world = target.getWorld();
-        if (!world.getNearbyEntities(
-                        base.clone().add(0, 0.5, 0),
-                        OCCUPIED_RADIUS,
-                        0.5,
-                        OCCUPIED_RADIUS,
-                        e -> e instanceof Interaction && isFurniture(e))
-                .isEmpty()) {
-            bar(player, "furniture.occupied");
-            return;
+        if (hitboxIn(target).isPresent()) {
+            return PlaceResult.OCCUPIED;
         }
-        BlockPlaceEvent check =
-                new BlockPlaceEvent(
-                        target,
-                        target.getState(),
-                        against,
-                        hand.clone(),
-                        player,
-                        true,
-                        EquipmentSlot.HAND);
-        if (!check.callEvent() || !check.canBuild()) {
-            bar(player, "furniture.no_place");
-            return;
+        ItemStack stored = hand != null ? hand.clone() : item(def);
+        stored.setAmount(1);
+        if (actor != null) {
+            BlockPlaceEvent check =
+                    new BlockPlaceEvent(
+                            target,
+                            target.getState(),
+                            against,
+                            stored.clone(),
+                            actor,
+                            true,
+                            EquipmentSlot.HAND);
+            if (!check.callEvent() || !check.canBuild()) {
+                return PlaceResult.NO_PERMISSION;
+            }
         }
-        float yaw = snap(feet(player).getYaw() + 180f, def.rotation());
+        float yaw = snap(rawYaw, def.rotation());
         base.setYaw(yaw);
+        if (!new FurniturePlaceEvent(actor, base, def.id(), yaw).callEvent()) {
+            return PlaceResult.CANCELLED;
+        }
         ItemStack look = look(def);
         String id = def.id().toString();
         float scale = (float) def.scale();
@@ -241,10 +273,8 @@ public final class FurnitureManager implements Listener {
                             }
                             e.getPersistentDataContainer().set(ID, PersistentDataType.STRING, id);
                         });
-        ItemStack stored = hand.clone();
-        stored.setAmount(1);
         byte[] bytes = stored.serializeAsBytes();
-        String owner = player.getUniqueId().toString();
+        String ownerId = owner == null ? null : owner.toString();
         world.spawn(
                 base,
                 Interaction.class,
@@ -257,7 +287,9 @@ public final class FurnitureManager implements Listener {
                     pdc.set(ID, PersistentDataType.STRING, id);
                     pdc.set(DISPLAY, PersistentDataType.STRING, display.getUniqueId().toString());
                     pdc.set(ITEM, PersistentDataType.BYTE_ARRAY, bytes);
-                    pdc.set(OWNER, PersistentDataType.STRING, owner);
+                    if (ownerId != null) {
+                        pdc.set(OWNER, PersistentDataType.STRING, ownerId);
+                    }
                 });
         for (int i = 0; i < def.solidCells(); i++) {
             cells.get(i).setType(Material.BARRIER, false);
@@ -269,10 +301,8 @@ public final class FurnitureManager implements Listener {
                 light.setBlockData(level, false);
             }
         }
-        if (player.getGameMode() != GameMode.CREATIVE) {
-            hand.setAmount(hand.getAmount() - 1);
-        }
         world.playSound(base, Sound.BLOCK_WOOD_PLACE, 1f, 1f);
+        return PlaceResult.OK;
     }
 
     /** Snaps the player's facing to the rotation step (rotation 4 = 90 degrees). */
@@ -294,7 +324,13 @@ public final class FurnitureManager implements Listener {
             return;
         }
         Player player = event.getPlayer();
-        Optional<FurnitureDef> def = furnitureOf(box).flatMap(this::def);
+        HarborId id = furnitureOf(box).orElse(null);
+        if (id == null
+                || !new FurnitureInteractEvent(player, box, feet(box), id, player.isSneaking())
+                        .callEvent()) {
+            return;
+        }
+        Optional<FurnitureDef> def = def(id);
         if (player.isSneaking()) {
             remove(player, box);
         } else if (def.isPresent() && def.get().seat() != null) {
@@ -310,6 +346,9 @@ public final class FurnitureManager implements Listener {
         Entity existing = seatId == null ? null : Bukkit.getEntity(seatId);
         if (existing != null && existing.isValid() && !existing.getPassengers().isEmpty()) {
             bar(player, "furniture.seat_taken");
+            return;
+        }
+        if (!new FurnitureSitEvent(player, feet(box), def.id()).callEvent()) {
             return;
         }
         if (existing != null) {
@@ -346,6 +385,10 @@ public final class FurnitureManager implements Listener {
         }
         seats.values().remove(seat.getUniqueId());
         Location seatAt = feet(seat);
+        if (event.getEntity() instanceof Player standing) {
+            HarborId id = entity(boxId).flatMap(FurnitureManager::furnitureOf).orElse(null);
+            Bukkit.getPluginManager().callEvent(new FurnitureStandEvent(standing, seatAt, id));
+        }
         tasks.sync(
                 () -> {
                     seat.remove();
@@ -361,15 +404,12 @@ public final class FurnitureManager implements Listener {
 
     /** Stand-up height: above the barrier for solid furniture, otherwise the same spot. */
     private double standHeight(String boxId) {
-        try {
-            Entity box = Bukkit.getEntity(UUID.fromString(boxId));
-            if (box instanceof Interaction i) {
-                return furnitureOf(i).flatMap(this::def).map(FurnitureDef::solidCells).orElse(0);
-            }
-        } catch (IllegalArgumentException e) {
-            // Invalid UUID
-        }
-        return 0;
+        return entity(boxId)
+                .filter(Interaction.class::isInstance)
+                .flatMap(FurnitureManager::furnitureOf)
+                .flatMap(this::def)
+                .map(FurnitureDef::solidCells)
+                .orElse(0);
     }
 
     private void remove(Player player, Interaction box) {
@@ -387,10 +427,7 @@ public final class FurnitureManager implements Listener {
             return;
         }
         Optional<FurnitureDef> def = def(id);
-        ItemStack item = storedItem(box).orElseGet(() -> def.map(this::item).orElse(null));
-        if (item == null) {
-            item = ItemStack.of(Material.PAPER);
-        }
+        ItemStack item = placedItem(box, id);
         String owner = box.getPersistentDataContainer().get(OWNER, PersistentDataType.STRING);
         boolean mine = player.getUniqueId().toString().equals(owner);
         FurnitureRemoveEvent removing =
@@ -403,6 +440,32 @@ public final class FurnitureManager implements Listener {
             bar(player, "furniture.no_remove");
             return;
         }
+        despawn(box, id);
+        if (removing.returnItem()) {
+            for (ItemStack left : player.getInventory().addItem(item).values()) {
+                player.getWorld().dropItem(feet(player), left);
+            }
+        }
+        bar(
+                player,
+                "furniture.removed",
+                Placeholder.unparsed("name", def.map(FurnitureDef::name).orElse(id.toString())));
+    }
+
+    /** Item stored at placement (or a fresh one if it cannot be read). */
+    private ItemStack placedItem(Interaction box, HarborId id) {
+        Optional<ItemStack> stored = storedItem(box);
+        if (stored.isPresent()) {
+            return stored.get();
+        }
+        return def(id).map(this::item).orElseGet(() -> ItemStack.of(Material.PAPER));
+    }
+
+    /** Removes the model, seat, barrier and light blocks and the hitbox, with the break sound. */
+    private void despawn(Interaction box, HarborId id) {
+        Location base = feet(box);
+        Block block = base.getBlock();
+        Optional<FurnitureDef> def = def(id);
         String displayId = box.getPersistentDataContainer().get(DISPLAY, PersistentDataType.STRING);
         entity(displayId).ifPresent(Entity::remove);
         UUID seatId = seats.remove(box.getUniqueId());
@@ -427,16 +490,142 @@ public final class FurnitureManager implements Listener {
             }
         }
         box.remove();
-        if (removing.returnItem()) {
-            for (ItemStack left : player.getInventory().addItem(item).values()) {
-                player.getWorld().dropItem(feet(player), left);
+        box.getWorld().playSound(base, Sound.BLOCK_WOOD_BREAK, 1f, 1f);
+    }
+
+    // ------------------------------------------------------------------ API (FurnitureService)
+
+    /** API placement at a block (see {@link FurnitureService#place}). */
+    PlaceResult placeAt(
+            @Nullable Player actor, HarborId id, Location at, float yaw, @Nullable UUID owner) {
+        Optional<FurnitureDef> def = def(id);
+        if (def.isEmpty() || at.getWorld() == null) {
+            return PlaceResult.UNKNOWN;
+        }
+        Block target = at.getBlock();
+        return place(
+                actor, null, def.get(), target.getRelative(BlockFace.DOWN), target, yaw, owner);
+    }
+
+    /** Hitbox of the furniture standing in this block. */
+    private static Optional<Interaction> hitboxIn(Block block) {
+        Location center = block.getLocation().add(0.5, 0.5, 0.5);
+        return block
+                .getWorld()
+                .getNearbyEntities(
+                        center,
+                        OCCUPIED_RADIUS,
+                        0.5,
+                        OCCUPIED_RADIUS,
+                        e -> e instanceof Interaction && isFurniture(e))
+                .stream()
+                .map(Interaction.class::cast)
+                .findFirst();
+    }
+
+    Optional<FurnitureService.Placed> at(Location at) {
+        if (at.getWorld() == null) {
+            return Optional.empty();
+        }
+        return hitboxIn(at.getBlock()).flatMap(FurnitureManager::placed);
+    }
+
+    /** Furniture of a hitbox, model display or seat entity. */
+    Optional<FurnitureService.Placed> of(Entity entity) {
+        if (entity instanceof Interaction box && isFurniture(box)) {
+            return placed(box);
+        }
+        String seatOf = entity.getPersistentDataContainer().get(SEAT, PersistentDataType.STRING);
+        if (seatOf != null) {
+            return entity(seatOf)
+                    .filter(Interaction.class::isInstance)
+                    .flatMap(e -> placed((Interaction) e));
+        }
+        if (entity instanceof ItemDisplay && isFurniture(entity)) {
+            String self = entity.getUniqueId().toString();
+            return entity
+                    .getWorld()
+                    .getNearbyEntities(
+                            feet(entity),
+                            1,
+                            4,
+                            1,
+                            e ->
+                                    e instanceof Interaction
+                                            && self.equals(
+                                                    e.getPersistentDataContainer()
+                                                            .get(
+                                                                    DISPLAY,
+                                                                    PersistentDataType.STRING)))
+                    .stream()
+                    .findFirst()
+                    .flatMap(e -> placed((Interaction) e));
+        }
+        return Optional.empty();
+    }
+
+    List<FurnitureService.Placed> near(Location at, double radius) {
+        World world = at.getWorld();
+        if (world == null || !(radius > 0)) {
+            return List.of();
+        }
+        List<FurnitureService.Placed> out = new ArrayList<>();
+        for (Entity e :
+                world.getNearbyEntities(
+                        at,
+                        radius,
+                        radius,
+                        radius,
+                        e -> e instanceof Interaction && isFurniture(e))) {
+            if (feet(e).distanceSquared(at) <= radius * radius) {
+                placed((Interaction) e).ifPresent(out::add);
             }
         }
-        box.getWorld().playSound(base, Sound.BLOCK_WOOD_BREAK, 1f, 1f);
-        bar(
-                player,
-                "furniture.removed",
-                Placeholder.unparsed("name", def.map(FurnitureDef::name).orElse(id.toString())));
+        return out;
+    }
+
+    List<FurnitureService.Placed> in(Chunk chunk) {
+        List<FurnitureService.Placed> out = new ArrayList<>();
+        for (Entity e : chunk.getEntities()) {
+            if (e instanceof Interaction box && isFurniture(box)) {
+                placed(box).ifPresent(out::add);
+            }
+        }
+        return out;
+    }
+
+    /** API removal (see {@link FurnitureService#remove}). */
+    Optional<ItemStack> removeByApi(Entity entity, boolean dropItem) {
+        Optional<FurnitureService.Placed> found = of(entity);
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        Interaction box = found.get().hitbox();
+        HarborId id = found.get().id();
+        ItemStack item = placedItem(box, id);
+        Location base = feet(box);
+        despawn(box, id);
+        if (dropItem) {
+            box.getWorld().dropItemNaturally(base, item.clone());
+        }
+        return Optional.of(item);
+    }
+
+    private static Optional<FurnitureService.Placed> placed(Interaction box) {
+        Optional<HarborId> id = furnitureOf(box);
+        if (id.isEmpty() || !box.isValid()) {
+            return Optional.empty();
+        }
+        String raw = box.getPersistentDataContainer().get(OWNER, PersistentDataType.STRING);
+        UUID owner = null;
+        if (raw != null) {
+            try {
+                owner = UUID.fromString(raw);
+            } catch (IllegalArgumentException e) {
+                // Invalid owner: treated as none
+            }
+        }
+        return Optional.of(new FurnitureService.Placed(id.get(), feet(box), owner, box));
     }
 
     /** Clears seats on disable (seats are not saved, but seated players are dismounted). */

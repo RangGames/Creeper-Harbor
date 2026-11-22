@@ -85,6 +85,20 @@ public record RigOptions(
                 viewers, scale, animation, phase, handler, moveTicks, blockLight, skyLight);
     }
 
+    /**
+     * Creates per-part hitboxes and reports clicks as {@link
+     * wiki.creeper.harbor.core.api.event.RigHitboxClickEvent} (scripts and plugins that listen to
+     * Bukkit events instead of passing a handler).
+     */
+    public RigOptions withHitboxEvents() {
+        return withHitboxes(
+                hit ->
+                        org.bukkit.Bukkit.getPluginManager()
+                                .callEvent(
+                                        new wiki.creeper.harbor.core.api.event.RigHitboxClickEvent(
+                                                hit)));
+    }
+
     public RigOptions withMoveTicks(int ticks) {
         return new RigOptions(viewers, scale, animation, phase, onHit, ticks, blockLight, skyLight);
     }

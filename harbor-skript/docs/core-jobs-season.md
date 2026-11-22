@@ -282,7 +282,48 @@ harbor send %players% to instance [server] %string% [and (store|save) [the] resu
 %player% (isn't|is not|aren't|are not) in [the] same harbor party as %player%
 ```
 
-Harbor-Boss가 없으면 모두 혼자인 것으로 봅니다. 파티를 만들고 바꾸는 문법은 없습니다.
+Harbor-Boss가 없으면 모두 혼자인 것으로 봅니다.
+
+### 파티 바꾸기
+
+```
+make %player% create [a] harbor party [and (store|save) [the] result in %-objects%]
+make %player% invite %offlineplayer% to [the|their|his|her] harbor party [and (store|save) [the] result in %-objects%]
+make %player% accept [the] harbor party invite[ation] [and (store|save) [the] result in %-objects%]
+make %player% leave [the|their|his|her] harbor party [and (store|save) [the] result in %-objects%]
+make %player% kick %offlineplayer% from [the|their|his|her] harbor party [and (store|save) [the] result in %-objects%]
+make %player% disband [the|their|his|her] harbor party [and (store|save) [the] result in %-objects%]
+make %player% promote %offlineplayer% to harbor party leader [and (store|save) [the] result in %-objects%]
+make %player% set [the] harbor party role of %offlineplayer% to %string% [and (store|save) [the] result in %-objects%]
+[the] harbor party inviter of %players%      # 받은 초대를 보낸 사람 (없거나 만료되면 비어 있음)
+```
+
+- `/파티` 명령과 같은 규칙·알림입니다 (초대받은 사람에게 초대 문구, 파티원에게 들어옴·나감 문구 등). 앞의 플레이어가 그 일을 하는 사람입니다 (초대·추방·위임은 파티장만).
+- 결과는 글자입니다: `ok` · `already_in_party` · `not_in_party` · `not_leader` · `full` · `no_invite` · `self` · `target_in_party` · `busy`(보스전 중) · `invalid_role` · `unsupported`(Harbor-Boss 없음).
+- 역할은 `captain` · `harpooner` · `reeler` · `mechanic` · `quartermaster`. `leader`·`member`는 `invalid_role`입니다 (파티장은 promote로).
+- 초대 유효 시간은 balance.yml `boss.party.invite_seconds`.
+
+```
+command /같이가자 <player>:
+    trigger:
+        make player invite arg-1 to their harbor party and store the result in {_r}
+        {_r} is not "ok"
+        send "&c초대 실패: %{_r}%" to player
+```
+
+### 보스 주간 보상 횟수 (Harbor-Boss)
+
+```
+harbor load weekly boss rewards [left] of %offlineplayer% for [boss] %string% into %objects% [with used count in %-objects%] [with limit in %-objects%]
+```
+
+- 보스별 이번 주 보상 횟수(balance.yml `boss.types.<유형>.weekly`)를 읽습니다. 첫 변수에 남은 횟수, 다음에 쓴 횟수와 제한을 넣습니다. 이야기 보스(주간 횟수 없음)나 없는 보스면 변수가 지워집니다.
+- 보스는 `boss/…`(접두사 생략 가능). DB를 읽으니 결과가 올 때까지 기다립니다.
+
+```
+harbor load weekly boss rewards of player for "wreck_moray" into {_left} with limit in {_max}
+send "이번 주 보상 남은 횟수: %{_left}%/%{_max}%" to player
+```
 
 ## 월드 보더 (Core)
 
@@ -324,7 +365,7 @@ harbor emit event "skript.lottery_won" for player with data "prize=1000", "round
 `content/rigs/*.yml`의 리그를 Display 엔티티 묶음으로 띄우고 애니메이션을 재생합니다.
 
 ```
-spawn harbor rig %string% at %location% [with animation %-string%] [with scale %-number%] [(for|to) %-players%] [and (store|save) [the] (id|rig) in %-objects%]
+spawn harbor rig %string% at %location% [with animation %-string%] [with scale %-number%] [(for|to) %-players%] [with events] [and (store|save) [the] (id|rig) in %-objects%]
 play animation %string% on harbor rig %string%
 play animation %string% once on harbor rig %string%       # 한 번 재생 후 이전 애니메이션으로
 stop animation of harbor rig %string%
@@ -348,7 +389,26 @@ harbor rig %string% (is valid|exists)          harbor rig %string% (isn't|is not
 - 리그 종류는 `rig/…`(접두사 생략 가능), 띄운 리그는 **리그 ID**(UUID 글자)로 가리킵니다. `spawn … and store the id in {_rig}`로 받아 두세요.
 - `for %players%`를 주면 그 플레이어들에게만 보이는 개인 리그입니다.
 - 리그는 저장되지 않습니다. 청크가 언로드되거나 서버가 꺼지면 사라집니다. 오래 둘 리그는 `harbor rig … exists`로 확인하고 다시 띄우세요.
-- 히트박스 클릭 콜백·리그 이벤트는 스크립트에 열려 있지 않습니다. `on right click on entity`와 `harbor rig of event-entity`로 대신합니다.
+- `with events`로 띄운 리그만 아래 이벤트가 옵니다. 부품 히트박스(Interaction)도 이때 만들어집니다.
+
+### 리그 이벤트 (`with events`)
+
+```
+on harbor rig [animation] event:        # rigs/*.yml 애니메이션의 events
+on harbor rig [hitbox] click:           # 부품 히트박스 좌·우클릭 (원래 클릭은 취소됨)
+[the] harbor event rig [id]             # 두 이벤트 안에서: 리그 ID
+[the] harbor event animation            # animation event 안에서: 이벤트를 낸 애니메이션
+[the] harbor rig click is [an] attack           # hitbox click 안에서: 좌클릭(공격)인지
+[the] harbor rig click (isn't|is not) [an] attack
+```
+
+| 이벤트 | 값 |
+|---|---|
+| `on harbor rig event` | `event-string` = 이벤트 이름 |
+| `on harbor rig click` | `event-player`, `event-string` = 클릭한 뼈 이름 (`bones[].name`) |
+
+- 애니메이션 이벤트는 아무도 보고 있지 않거나 LOD 거리 밖이라 갱신을 건너뛸 때는 오지 않습니다.
+- `with events` 없이 띄운 리그는 `on right click on entity`와 `harbor rig of event-entity`로 대신합니다.
 
 ```
 command /고래:
@@ -361,6 +421,20 @@ on right click on entity:
     set {_r} to harbor rig of event-entity
     {_r} is set
     send "리그 %harbor rig type of {_r}%" to player
+
+command /오징어:
+    trigger:
+        spawn harbor rig "fish/deep_squid" at location of player with events and store the id in {squid}
+
+on harbor rig event:
+    harbor event rig is {squid}
+    event-string is "ink"
+    play sound "entity.squid.squirt" at harbor rig location of {squid}
+
+on harbor rig click:
+    harbor event rig is {squid}
+    harbor rig click is an attack
+    send "%event-string%을(를) 쳤습니다" to player
 ```
 
 ## 가구 · 커스텀 블록 (Core)
@@ -368,13 +442,14 @@ on right click on entity:
 ```
 harbor furniture item %string%                 # 가구 아이템 (furniture/… , 접두사 생략 가능)
 harbor custom block item %string%              # 커스텀 블록 아이템 (block/…)
-[the] harbor furniture id of %itemstacks%      %itemstacks%'[s] harbor furniture id
+[the] harbor furniture id of %itemstacks/entities/locations%      # 아이템·가구 엔티티·위치 모두 됨
+%itemstacks/entities/locations%'[s] harbor furniture id
 [the] harbor custom block id of %blocks/locations/itemstacks%      # 놓인 블록·위치·아이템 모두 됨
 %blocks/locations/itemstacks%'[s] harbor custom block id
 %blocks/locations/itemstacks% (is|are) [a] harbor custom block[s] [%-string%]
 %blocks/locations/itemstacks% (isn't|is not|aren't|are not) [a] harbor custom block[s] [%-string%]
-%itemstacks% (is|are) [a] harbor furniture [item[s]] [%-string%]
-%itemstacks% (isn't|is not|aren't|are not) [a] harbor furniture [item[s]] [%-string%]
+%itemstacks/entities/locations% (is|are) [a] harbor furniture [item[s]] [%-string%]
+%itemstacks/entities/locations% (isn't|is not|aren't|are not) [a] harbor furniture [item[s]] [%-string%]
 ```
 
 `harbor item "furniture/…"`(README)도 같은 아이템을 만듭니다. 개수는 `%number% of`로 정합니다.
@@ -384,6 +459,64 @@ give harbor furniture item "fishing_chair" to player
 give 32 of harbor custom block item "marble_tile" to player
 if target block is a harbor custom block "marble_tile":
     send "대리석 타일입니다" to player
+```
+
+### 놓인 가구 찾기 · 놓기 · 치우기
+
+```
+[the] harbor furniture owner of %entities/locations%       # 놓은 사람 (관리자 문법으로 주인 없이 놓았으면 없음)
+[the] harbor furniture location of %entities/locations%    # 가구가 선 블록 바닥 가운데 (yaw = 방향)
+[the] harbor furniture (entity|hitbox) (at|of) %entities/locations%   # 가구의 클릭 히트박스 엔티티
+[all] [the] harbor furniture within %number% [blocks] (of|around) %location%   # 히트박스 엔티티 목록
+[all] [the] harbor furniture in [chunk] %chunk%
+
+harbor admin place [harbor] furniture %string% at %location% [facing %-number%] [owned by %-offlineplayer%] [and (store|save) [the] result in %-objects%]
+make %player% place harbor furniture %string% at %location% [facing %-number%] [and (store|save) [the] result in %-objects%]
+harbor admin remove [the] [harbor] furniture (at|of) %location/entity% [and drop [the] item] [and (store|save) [the] item in %-objects%]
+```
+
+- 위치는 가구가 **서는 블록**입니다 (그 블록 바닥에 놓임). 위치로 찾을 때도 가구가 선 블록이어야 합니다 (위쪽 방벽 칸은 안 됨). 엔티티는 히트박스·모델·앉은 자리 어느 것이든 됩니다.
+- 방향(`facing`)은 yaw 각도이고 가구의 `rotation` 단계로 맞춰집니다. 빼면 위치의 yaw.
+- 놓기는 손으로 놓을 때와 같은 공간 검사(방벽·빛 칸이 비었는지, 같은 칸에 다른 가구가 없는지)를 하고 `on harbor furniture place`를 부릅니다. 아이템은 쓰지 않습니다.
+  - `harbor admin place`: 보호 구역 검사 없이 놓습니다. `owned by`를 주면 그 사람이 놓은 것으로 칩니다 (회수 가능).
+  - `make … place`: 그 플레이어가 놓는 것처럼 보호 구역 검사까지 하고, 그 플레이어가 주인입니다.
+  - 결과: `ok` · `unknown`(없는 가구) · `no_space` · `occupied` · `no_permission` · `cancelled`(이벤트 취소).
+- `harbor admin remove`: 보호 검사·회수 이벤트 없이 치웁니다 (앉은 사람은 내려짐). 놓을 때 쓴 아이템을 변수에 넣고, `and drop the item`이면 그 자리에 떨어뜨립니다. 플레이어에게 주려면 스크립트에서 `give`하세요.
+
+```
+harbor admin place furniture "fishing_chair" at location of target block facing 90 and store the result in {_r}
+send "결과: %{_r}%" to player
+
+loop harbor furniture within 5 blocks of player:
+    send "%harbor furniture id of loop-value% (%harbor furniture owner of loop-value%)" to player
+```
+
+### 가구 이벤트
+
+```
+on harbor furniture place:            # 놓기 직전 (취소 가능)
+on harbor furniture (interact|click): # 놓인 가구 우클릭, 앉기·회수 전 (취소 가능)
+on harbor furniture sit:              # 앉기 직전 (취소 가능)
+on harbor furniture stand [up]:       # 자리에서 일어난 뒤
+[the] harbor furniture click is [a] pick[ ]up        # interact 안에서: 웅크리고 클릭(회수 시도)인지
+[the] harbor furniture click (isn't|is not) [a] pick[ ]up
+```
+
+| 이벤트 | 값 |
+|---|---|
+| `place` | `event-player`(관리자 문법이면 없음), `event-location`, `event-string` = 가구 ID, `event-number` = 방향(yaw) |
+| `interact` | `event-player`, `event-location`, `event-string` = 가구 ID, `event-entity` = 히트박스 |
+| `sit` | `event-player`, `event-location`, `event-string` = 가구 ID |
+| `stand` | `event-player`, `event-location` = 앉았던 자리, `event-string` = 가구 ID |
+
+- interact를 취소하면 앉기·회수가 모두 일어나지 않습니다. 가구에 스크립트만의 기능을 붙일 때 씁니다.
+
+```
+on harbor furniture click:
+    event-string is "harbor:furniture/anchor_statue"
+    harbor furniture click is not a pickup
+    cancel event
+    send "&7닻 조각상이 반짝입니다." to player
 ```
 
 ### 가구 회수 이벤트
@@ -412,21 +545,25 @@ on harbor furniture pickup:
     harbor allow furniture removal
 ```
 
-### 커스텀 블록 놓기 · 부수기 (바닐라 이벤트로)
-
-Core에 커스텀 블록 전용 이벤트가 없어서 바닐라 이벤트와 위 문법을 같이 씁니다.
+### 커스텀 블록 놓기 · 부수기
 
 ```
-on place:
-    harbor custom block id of player's tool is "harbor:block/marble_tile"
+on harbor custom block place:     # 놓을 때 (취소 가능. 보호 플러그인 검사 뒤, 모양을 바꾸기 전)
+on harbor custom block break:     # 부술 때 (취소 가능. 블록이 아직 있음)
+```
+
+`event-player`, `event-block`, `event-string` = 블록 ID (`harbor:block/…`). 부수지 못하는 블록(`unbreakable`)은 break 이벤트가 오지 않습니다.
+
+```
+on harbor custom block place:
+    event-string is "harbor:block/marble_tile"
     send "대리석을 놓았습니다" to player
 
-on break:
-    event-block is a harbor custom block "marble_tile"      # 부서지기 전이라 아직 판정됨
-    send "대리석을 부쉈습니다" to player
+on harbor custom block break:
+    event-string is "harbor:block/marble_tile"
+    player does not have permission "skript.marble"
+    cancel event
 ```
-
-가구 놓기·상호작용·앉기 이벤트와 위치로 가구 찾기·놓기·치우기 문법은 아직 없습니다 (Core API 없음).
 
 ## 직업 (Harbor-Jobs)
 
@@ -448,6 +585,44 @@ harbor consume [a] weekly capstone use of %offlineplayer% [and (store|save) [the
 - 경험치 지급은 출처 `ADMIN`으로 들어가고 감쇠·따라잡기·`exp_gain` 보정이 적용됩니다. 결과는 실제로 준 양입니다 (바로 저장, 기다리지 않음).
 - 전직 요청은 전직 확인 화면을 띄우고(2차는 계열 선택 먼저) 결과를 기다립니다: `ok` · `wrong_tier` · `level_too_low` · `not_enough_gold` · `cancelled` · `busy` · `failed`.
 - 주간 캡스톤 사용 결과는 참/거짓 (남은 횟수가 없으면 거짓).
+
+### 스킬
+
+```
+[all] [the] harbor skill nodes [in tree %-string%]        # 콘텐츠의 스킬 ID (트리: common · explore_2 · … · capstone)
+[the] harbor skill (name|tree|line) of %string%           # 스킬 정의 (line은 공통 트리면 없음)
+[the] harbor skill (tier|max rank|cost) of %string%       # 트리 안 단, 최대 등급, 등급당 물비늘
+[the] harbor skill requirements of %string%               # 먼저 1등급 이상 필요한 스킬
+[the] required harbor skills of %string%
+[the] harbor skill rank of %string% (of|for) %players%    # 보유 등급 (없으면 0)
+[all] [the] harbor skills of %player%                     # 1등급 이상 가진 스킬 ID
+[the] harbor skill points of %players%                    # 투자할 수 있는 포인트 = 물비늘 잔액
+[the] harbor skill invest check of %string% for %player%  # 지금 투자하면 결과가 무엇일지 (아래 결과 글자)
+%player% can invest in harbor skill %string%
+%player% (can't|cannot|can not) invest in harbor skill %string%
+
+make %player% invest in harbor skill %string% [and (store|save) [the] result in %-objects%]
+make %player% reset [the] harbor common skills [and (store|save) [the] result in %-objects%]
+make %player% change [the] harbor job line to %string% [and (store|save) [the] result in %-objects%]
+```
+
+- 스킬은 `skill/…`(접두사 생략 가능), 계열은 `explore` · `collect` · `produce` · `economy`.
+- 투자는 스킬 GUI와 같은 검사·비용입니다 (물비늘 차감 `SKILL_INVEST` 원장과 등급 저장이 한 트랜잭션). 결과: `ok` · `unknown_node` · `job_locked` · `tier_locked` · `requires_nodes` · `max_rank` · `not_enough_mulbineul` · `busy` · `failed`.
+- 공통 트리 초기화는 NPC 대화와 같습니다: 시즌에 한 번 무료, 그 뒤 골드 (balance.yml `jobs.common_reset_cost`), 투자한 물비늘은 돌려받습니다. 결과는 참/거짓.
+- 계열 변경도 NPC 대화와 같습니다: 2차 이상만, 골드 비용, 계열 트리 투자액 × 환급 비율. 결과는 참/거짓.
+- 모두 결과가 올 때까지 기다리고, 끝나면 `on harbor skill invest` · `on harbor skill reset` · `on harbor job line change`가 옵니다.
+
+### 관리자용 (직업)
+
+```
+harbor admin reset (common|line|all) skills of %player% [with refund] [and (store|save) [the] result in %-objects%]
+harbor admin set [the] job tier of %player% to %number% [with line %-string%] [and (store|save) [the] result in %-objects%]
+harbor admin set [the] job level of %players% to %number% [with exp[erience] %-number%]
+```
+
+- `/harbor jobs reset|tier|level`과 같은 경로입니다. 비용이 없고, reset은 `with refund`면 투자액을 모두 돌려줍니다.
+- tier: 골드 없이 단계를 바꾸고 2·3차면 전직 후처리(자동 패시브, 이벤트 `on harbor job advance`)가 돕니다. 계열을 빼면 지금 계열 (없으면 explore). 결과는 참/거짓.
+- level: 레벨은 1~최대 레벨, 경험치는 다음 레벨 필요량 미만으로 맞춥니다. 레벨업 보상·이벤트는 없습니다.
 
 | 이벤트 | 값 |
 |---|---|
@@ -590,7 +765,5 @@ on harbor title grant:
 
 ## 없는 것 (API가 없어서)
 
-- **가구:** 위치에 가구 놓기·치우기, 위치·엔티티로 가구 찾기, 가구 놓기·상호작용·앉기 이벤트, 커스텀 블록 전용 놓기·부수기 이벤트.
-- **직업:** 스킬 보유·등급 조회, 스킬 투자·초기화, 관리자용 레벨·단계·계열 설정. 이벤트(투자·초기화)는 받을 수 있습니다.
 - **시즌 패스:** Harbor-Shop 쪽 문법입니다.
-- **파티 만들기·초대·탈퇴**, 리그 히트박스 클릭 콜백.
+
