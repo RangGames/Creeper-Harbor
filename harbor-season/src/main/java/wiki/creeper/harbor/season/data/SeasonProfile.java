@@ -6,12 +6,14 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.season.api.TitleId;
 
 /**
- * 플레이어의 Season 데이터 (PlayerComponent, docs 20 11.3 SeasonState). 변경 불가 값이고 바꿀 때는 새 값으로 교체한다.
+ * A player's Season data (PlayerComponent, docs 20 11.3 SeasonState). An immutable value; changes
+ * replace it with a new value.
  *
- * @param lastSeason 마지막으로 정리(SeasonGate)한 시즌. 0이면 정리한 적 없음
- * @param equipped 장착 칭호 (없으면 null)
- * @param titles 보유 칭호 캐시
- * @param stored season_player 행이 DB에 있는지 (없으면 첫 접속 때 바로 만든다)
+ * @param lastSeason last season cleaned up (SeasonGate). 0 = never cleaned
+ * @param equipped equipped title (null if none)
+ * @param titles owned title cache
+ * @param stored whether the season_player row exists in the DB (if not, it is created right away on
+ *     first login)
  */
 public record SeasonProfile(
         int lastSeason, @Nullable TitleId equipped, Set<TitleId> titles, boolean stored) {

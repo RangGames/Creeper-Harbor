@@ -6,7 +6,10 @@ import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.season.api.TitleId;
 
-/** 칭호를 새로 얻은 뒤(DB 커밋 후) 메인 스레드에서 발생한다 (추가 제안). 이미 가진 칭호면 발생하지 않는다. 플레이어가 오프라인일 수도 있다. */
+/**
+ * Fired on the main thread after a title is newly obtained (after DB commit) (proposed). Not fired
+ * if the title was already owned. The player may be offline.
+ */
 public final class TitleGrantedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

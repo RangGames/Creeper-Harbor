@@ -7,19 +7,24 @@ import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
- * 대사 문구 도우미 (서버 API 없음): 타자 효과용 글자 수 자르기(꾸밈 유지), 글자 수 세기, 자동 넘김 계산. 글자는 코드 포인트로 센다 (한글 한 글자 = 1).
+ * Line text helpers (no server API): truncating to a character count for the typewriter effect
+ * (keeping decorations), counting characters, and auto-advance calculation. Characters are counted
+ * by code point (one Hangul syllable = 1).
  */
 public final class SpeechText {
 
     private SpeechText() {}
 
-    /** 보이는 글자 수 (꾸밈 태그 제외). */
+    /** Number of visible characters (excluding decoration tags). */
     public static int length(Component text) {
         String plain = PlainTextComponentSerializer.plainText().serialize(text);
         return plain.codePointCount(0, plain.length());
     }
 
-    /** 앞에서부터 {@code chars}글자만 남긴다. 색·굵기 같은 꾸밈은 그대로 두고, 글자가 아닌 조각(번역·키 바인드)은 통째로 한 글자로 친다. */
+    /**
+     * Keeps only the first {@code chars} characters. Decorations like color and bold are kept, and
+     * non-text pieces (translations, key binds) count as one character each.
+     */
     public static Component slice(Component text, int chars) {
         if (chars <= 0) {
             return Component.empty();
@@ -55,7 +60,10 @@ public final class SpeechText {
         return head.children(kids);
     }
 
-    /** 타자 효과 단계 수: 전체 글자를 틱당 {@code perTick}글자씩 보이면 몇 틱이 걸리는지. perTick이 0이면 0 (한 번에). */
+    /**
+     * Number of typewriter steps: how many ticks it takes to show all characters at {@code perTick}
+     * per tick. 0 if perTick is 0 (all at once).
+     */
     public static int typewriterTicks(int length, int perTick) {
         if (perTick <= 0 || length <= 0) {
             return 0;
@@ -63,7 +71,7 @@ public final class SpeechText {
         return (length + perTick - 1) / perTick;
     }
 
-    /** 자동 넘김 틱 (초 → 틱, 0 이하면 0). */
+    /** Auto-advance ticks (seconds to ticks, 0 if 0 or less). */
     public static long autoTicks(double seconds) {
         return seconds <= 0 ? 0 : Math.max(1, Math.round(seconds * 20));
     }

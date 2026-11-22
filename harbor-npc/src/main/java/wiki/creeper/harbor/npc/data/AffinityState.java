@@ -4,11 +4,11 @@ import java.time.LocalDate;
 import org.jspecify.annotations.Nullable;
 
 /**
- * NPC 한 명에 대한 호감도 상태 (npc_affinity 한 행).
+ * Affinity state toward one NPC (one npc_affinity row).
  *
- * @param giftDay 마지막으로 선물한 게임 날짜
- * @param giftsToday giftDay에 준 선물 수
- * @param greetDay 마지막 첫 대화 보상 날짜
+ * @param giftDay game date of the last gift
+ * @param giftsToday gifts given on giftDay
+ * @param greetDay date of the last first-talk reward
  */
 public record AffinityState(
         int points, @Nullable LocalDate giftDay, int giftsToday, @Nullable LocalDate greetDay) {

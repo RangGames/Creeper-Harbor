@@ -6,7 +6,10 @@ import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.season.api.TitleId;
 
-/** 장착 칭호가 바뀐 뒤 메인 스레드에서 발생한다 (추가 제안, 이름표·채팅 접두사 갱신). title이 null이면 해제. */
+/**
+ * Fired on the main thread after the equipped title changes (proposed; name tag and chat prefix
+ * refresh). title null means unequipped.
+ */
 public final class TitleEquippedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

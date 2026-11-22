@@ -11,7 +11,7 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.db.Database;
 
-/** season_transition_log (체크포인트 일지, 추가 제안). 단계마다 시작·완료를 남긴다. */
+/** season_transition_log (checkpoint log, proposed). Records start and completion for each step. */
 public final class TransitionLog {
 
     private final Database db;
@@ -92,7 +92,7 @@ public final class TransitionLog {
                 });
     }
 
-    /** 끝나는 시즌의 가장 최근 전환 ID. */
+    /** Most recent transition ID for the ending season. */
     public Optional<String> latest(int fromSeason) throws SQLException {
         return db.tx(c -> latest(c, fromSeason));
     }

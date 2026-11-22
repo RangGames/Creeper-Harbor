@@ -3,7 +3,10 @@ package wiki.creeper.harbor.npc.content;
 import java.util.List;
 import java.util.Set;
 
-/** 시간대·날씨 키. Fishing과 같은 값을 쓴다 (dawn·day·dusk·night / clear·rain·thunder, storm은 thunder와 같음). */
+/**
+ * Time-of-day and weather keys. Same values as Fishing (dawn, day, dusk, night / clear, rain,
+ * thunder; storm equals thunder).
+ */
 public final class Conditions {
 
     public static final Set<String> TIMES = Set.of("dawn", "day", "dusk", "night");
@@ -12,7 +15,7 @@ public final class Conditions {
 
     private Conditions() {}
 
-    /** 월드 시간(0~23999) → 시간대 키. Fishing FishingManager와 같은 경계. */
+    /** World time (0-23999) to time-of-day key. Same boundaries as Fishing FishingManager. */
     public static String timeKey(long worldTime) {
         long t = Math.floorMod(worldTime, 24000L);
         return t >= 23000 || t < 1000 ? "dawn" : t < 12000 ? "day" : t < 13800 ? "dusk" : "night";
@@ -22,7 +25,7 @@ public final class Conditions {
         return thundering ? "thunder" : storm ? "rain" : "clear";
     }
 
-    /** 비어 있으면 항상 참. storm은 thunder로 본다. */
+    /** Always true if empty. storm counts as thunder. */
     public static boolean matches(List<String> allowed, String actual) {
         if (allowed.isEmpty()) {
             return true;
@@ -36,7 +39,7 @@ public final class Conditions {
         return false;
     }
 
-    /** 컷씬 time 키워드 → 개인 시간 틱. */
+    /** Cutscene time keyword to personal time ticks. */
     public static long ticksOf(String time) {
         return switch (time) {
             case "dawn" -> 23_500L;

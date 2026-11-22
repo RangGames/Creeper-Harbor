@@ -35,10 +35,13 @@ import wiki.creeper.harbor.npc.reputation.ReputationManager;
 import wiki.creeper.harbor.npc.wanderer.WandererManager;
 
 /**
- * Harbor-NPC (docs 20 5장): NPC 엔티티, 대화 트리·조건·액션 레지스트리, 퀘스트 표시, 호감도·선물, 평판, 떠돌이 일정, 컷씬 재생기. 의존은
- * Core뿐이고, Quest·Economy·Jobs·Collection·Boss가 npc.api에 대화 액션·조건·표시를 등록하는 방향으로만 연결된다.
+ * Harbor-NPC (docs 20 ch. 5): NPC entities, dialog tree/condition/action registry, quest markers,
+ * affinity and gifts, reputation, wanderer schedules, and the cutscene player. It depends only on
+ * Core; Quest, Economy, Jobs, Collection and Boss connect solely by registering dialog actions,
+ * conditions and markers in npc.api.
  *
- * <p>NPC 엔티티는 본 서버(role: main)에만 세운다. 인스턴스 서버에서는 CutsceneService·평판·호감도만 쓴다.
+ * <p>NPC entities are spawned only on the main server (role: main). Instance servers use only
+ * CutsceneService, reputation and affinity.
  */
 public final class HarborNpcPlugin extends HarborModule implements Listener {
 
@@ -65,7 +68,8 @@ public final class HarborNpcPlugin extends HarborModule implements Listener {
                 NpcDef.TYPE,
                 (def, check) -> {
                     String pose = def.pose();
-                    // Mannequin 자세 지원 범위는 Phase 1 검증 대상이라 오류 대신 경고 후 기본 자세로 둔다
+                    // Mannequin pose support is a Phase 1 verification item, so warn and fall back
+                    // to the default pose instead of erroring
                     if (pose != null && MannequinBody.pose(pose) == null) {
                         getSLF4JLogger()
                                 .warn(
@@ -105,7 +109,7 @@ public final class HarborNpcPlugin extends HarborModule implements Listener {
                 new CutsceneManager(this, api, ctx.tasks(), worlds, npcs, getSLF4JLogger());
         this.cutscenes = cutscenes;
 
-        // 컷씬 중에는 NPC 클릭·다른 컷씬 시작을 막고 서버 이동을 거부한다
+        // During a cutscene, block NPC clicks and other cutscenes, and refuse server moves
         npcs.registerBusyCheck(this, "cutscene", cutscenes::isPlaying);
         ctx.handoffBlocker(cutscenes);
 
@@ -136,7 +140,8 @@ public final class HarborNpcPlugin extends HarborModule implements Listener {
                         LifecycleEvents.COMMANDS,
                         event -> commands.registerPlayerCommands(event.registrar()));
 
-        // 콘텐츠는 enable이 끝난 뒤 Core가 다시 읽으므로, 엔티티·타이머는 첫 틱에 시작한다
+        // Core rereads content after enable finishes, so entities and timers start on the first
+        // tick
         var _ =
                 ctx.tasks()
                         .sync(
@@ -149,7 +154,10 @@ public final class HarborNpcPlugin extends HarborModule implements Listener {
                                 });
     }
 
-    /** 모든 모듈이 켜진 뒤: 등록한 모듈이 없는 대화 키를 경고로 남긴다 (그 선택지는 숨김). */
+    /**
+     * After all modules are enabled: warn about dialog keys no module registered (those choices are
+     * hidden).
+     */
     @EventHandler
     public void onServerLoad(ServerLoadEvent event) {
         DialogRegistry r = registry;

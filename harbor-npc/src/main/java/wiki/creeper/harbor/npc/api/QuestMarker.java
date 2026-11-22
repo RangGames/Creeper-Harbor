@@ -1,8 +1,8 @@
 package wiki.creeper.harbor.npc.api;
 
 /**
- * NPC 머리 위 퀘스트 표시 (docs 20 5.4). 우선순위는 TURN_IN(노란 ?) > AVAILABLE_MAIN(금색 !) > AVAILABLE(!) >
- * IN_PROGRESS(회색 ?) > NONE.
+ * Quest marker above an NPC's head (docs 20 5.4). Priority is TURN_IN (yellow ?) > AVAILABLE_MAIN
+ * (gold !) > AVAILABLE (!) > IN_PROGRESS (gray ?) > NONE.
  */
 public enum QuestMarker {
     NONE(0),
@@ -21,7 +21,7 @@ public enum QuestMarker {
         return priority;
     }
 
-    /** 둘 중 우선순위가 높은 것. */
+    /** The higher-priority of the two. */
     public static QuestMarker max(QuestMarker a, QuestMarker b) {
         return a.priority >= b.priority ? a : b;
     }

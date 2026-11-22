@@ -28,13 +28,13 @@ import wiki.creeper.harbor.npc.content.Conditions;
 import wiki.creeper.harbor.npc.content.CutsceneDef;
 
 /**
- * NPC 기본 대화 키 (docs 20 5.2·5.4).
+ * NPC built-in dialog keys (docs 20 5.2, 5.4).
  *
  * <ul>
- *   <li>액션: goto, page, close, affinity:add, flag:set, flag:unset, gift:open, cutscene:play, sound,
- *       message, server:depart (출항), server:lobby (로비로)
- *   <li>조건: affinity_min, rep_tier_min, flag, not_flag, server_flag, not_server_flag, job_tier,
- *       level_min, time, weather
+ *   <li>Actions: goto, page, close, affinity:add, flag:set, flag:unset, gift:open, cutscene:play,
+ *       sound, message, server:depart (set sail), server:lobby (to the lobby)
+ *   <li>Conditions: affinity_min, rep_tier_min, flag, not_flag, server_flag, not_server_flag,
+ *       job_tier, level_min, time, weather
  * </ul>
  */
 public final class BuiltinKeys {
@@ -51,7 +51,7 @@ public final class BuiltinKeys {
             AffinityManager affinity,
             ReputationService reputation,
             CutsceneService cutscenes) {
-        // ---------------------------------------------------------------- 액션
+        // ---------------------------------------------------------------- actions
         dialogs.registerAction(
                 plugin,
                 "goto",
@@ -73,7 +73,8 @@ public final class BuiltinKeys {
                             }
                         }));
         dialogs.registerAction(plugin, "close", (ctx, args) -> ActionResult.CLOSE);
-        // 서버 이동 (추가 제안): 출항 = 로비에서 본 서버 대기열, 로비 = 자리 유예를 남기고 로비로. 대화를 닫는다
+        // Server moves (proposed): depart = main server queue from the lobby, lobby = go to the
+        // lobby leaving a seat grace period. Closes the dialog
         dialogs.registerAction(
                 plugin,
                 "server:depart",
@@ -101,7 +102,9 @@ public final class BuiltinKeys {
                             }
                             UUID uuid = ctx.player().getUniqueId();
                             int value = args.integer("value", 0);
-                            // 플래그가 저장된 뒤에만 준다 (저장이 실패하면 시즌 내내 반복해서 받을 수 있었다). 캐시는 바로 바뀌어 연타는 막힌다
+                            // grant only after the flag is saved (if saving failed it could be
+                            // received repeatedly all
+                            // season). The cache changes at once, so rapid repeats are blocked
                             var _ =
                                     api.flags()
                                             .setPlayer(uuid, FlagService.Scope.SEASON, flag)
@@ -118,7 +121,8 @@ public final class BuiltinKeys {
                             if (!args.isInteger("value")) {
                                 check.error("value(정수)가 필요합니다");
                             }
-                            // 대화 반복으로 호감도를 무한히 올리지 못하게 once 플래그를 강제한다
+                            // Force the once flag so repeating the dialog cannot raise affinity
+                            // indefinitely
                             Optional<String> once = args.string("once");
                             if (once.isEmpty() || !FLAG.matcher(once.get()).matches()) {
                                 check.error("once(플래그 이름, 시즌에 한 번)가 필요합니다");
@@ -199,7 +203,8 @@ public final class BuiltinKeys {
                 "sound",
                 new ValidatedAction(
                         (ctx, args) -> {
-                            // harbor: 소리는 팩 사용 여부에 따라 대체 소리로 (Core HarborSounds)
+                            // harbor: sounds fall back to a substitute depending on pack usage
+                            // (Core HarborSounds)
                             HarborSounds.play(
                                     ctx.player(),
                                     args.string("sound").or(args::value).orElseThrow(),
@@ -239,7 +244,7 @@ public final class BuiltinKeys {
                             }
                         }));
 
-        // ---------------------------------------------------------------- 조건
+        // ---------------------------------------------------------------- conditions
         dialogs.registerCondition(
                 plugin,
                 "affinity_min",
@@ -378,7 +383,7 @@ public final class BuiltinKeys {
                 .forEach(v -> check.error(what + " 값이 틀렸습니다: '" + v + "'"));
     }
 
-    /** 검사가 붙은 액션 (람다 두 개로 만들기 위한 도우미). */
+    /** An action with a check (helper for building one from two lambdas). */
     private record ValidatedAction(
             wiki.creeper.harbor.npc.api.DialogAction body,
             java.util.function.BiConsumer<DialogArgs, ArgCheck> validator)

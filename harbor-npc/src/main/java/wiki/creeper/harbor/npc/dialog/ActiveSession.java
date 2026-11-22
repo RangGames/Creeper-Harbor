@@ -12,13 +12,16 @@ import wiki.creeper.harbor.npc.api.DialogStyle;
 import wiki.creeper.harbor.npc.api.Speech;
 import wiki.creeper.harbor.npc.content.DialogDef;
 
-/** 열려 있는 대화 (저장하지 않음). 대화 트리(def) 세션이거나, 다른 모듈이 연 대사(speech) 세션이다. 메인 스레드 전용. */
+/**
+ * An open dialog (not saved). Either a dialog tree (def) session or a speech session opened by
+ * another module. Main thread only.
+ */
 final class ActiveSession {
 
-    /** speech 세션이 DialogSession·이벤트에 쓰는 대화 ID. */
+    /** Dialog ID that speech sessions use for DialogSession and events. */
     static final HarborId SPEECH_ID = HarborId.parse("dialog/speech");
 
-    /** 버튼 하나가 하는 일. */
+    /** What one button does. */
     sealed interface Button permits Next, Choose, CloseButton {}
 
     record Next() implements Button {}
@@ -30,13 +33,16 @@ final class ActiveSession {
     final UUID player;
     final NpcId npc;
 
-    /** 시작할 때 잡은 대화 정의 스냅샷 (리로드돼도 이 세션은 끝까지 같은 정의). speech 세션이면 null. */
+    /**
+     * Dialog definition snapshot taken at start (this session keeps the same definition even after
+     * a reload). Null for speech sessions.
+     */
     final @Nullable DialogDef def;
 
-    /** 다른 모듈이 연 대사 (대화 트리 세션이면 null). */
+    /** Lines opened by another module (null for dialog tree sessions). */
     final @Nullable Speech speech;
 
-    /** speech 결과 (한 번 부르면 null로 비운다). */
+    /** Speech result (cleared to null once called). */
     @Nullable IntConsumer onSpeech;
 
     final Instant openedAt;
@@ -44,18 +50,18 @@ final class ActiveSession {
     String node;
     int page;
 
-    /** 마지막으로 그린 쪽의 방식과 버튼 (DIALOG 밖의 방식에서 NPC 재클릭 처리). */
+    /** Style and buttons of the last drawn page (for NPC re-clicks in non-DIALOG styles). */
     DialogStyle style = DialogStyle.DIALOG;
 
     List<Button> buttons = List.of();
 
-    /** 마지막으로 화면을 띄운 시각. 시간 제한이 지나면 클릭을 받지 않는다. */
+    /** When the screen was last shown. Clicks are not accepted after the time limit. */
     Instant shownAt = Instant.now();
 
     long nonce;
     boolean busy;
 
-    /** 자동 넘김 예약 (쪽이 바뀌면 취소). */
+    /** Scheduled auto-advance (cancelled when the page changes). */
     @Nullable BukkitTask auto;
 
     ActiveSession(UUID player, NpcId npc, DialogDef def, String node, boolean preview) {
@@ -92,7 +98,7 @@ final class ActiveSession {
         }
     }
 
-    /** speech 결과를 한 번만 넘긴다. */
+    /** Delivers the speech result only once. */
     void resolve(int choice) {
         IntConsumer callback = takeCallback();
         if (callback != null) {
@@ -100,7 +106,7 @@ final class ActiveSession {
         }
     }
 
-    /** speech 결과 콜백을 꺼낸다 (이후 resolve는 아무것도 하지 않음). */
+    /** Takes out the speech result callback (later resolve calls do nothing). */
     @Nullable IntConsumer takeCallback() {
         IntConsumer callback = onSpeech;
         onSpeech = null;

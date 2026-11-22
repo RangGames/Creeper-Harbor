@@ -8,7 +8,10 @@ import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.npc.logic.SpeechText;
 
-/** TITLE: 타이틀 = 화자, 서브타이틀 = 대사. 긴 대사는 잘려 보일 수 있어 채팅에도 남긴다. 버튼은 채팅 줄. */
+/**
+ * TITLE: title = speaker, subtitle = line. Long lines may appear cut off, so they also go to chat.
+ * Buttons are a chat row.
+ */
 final class TitlePresenter implements DialogPresenter {
 
     private static final Duration FADE_IN = Duration.ofMillis(250);

@@ -5,13 +5,14 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 
 /**
- * 시즌 주차 계산 (순수 계산, 서버 API 없음). week = floor((지금 − 시작 − 보정) ÷ 7일) + 1, 시작 전이면 0.
+ * Season week computation (pure computation, no server API). week = floor((now − start − shift) ÷ 7
+ * days) + 1, or 0 before the start.
  *
- * @param season 시즌 번호
- * @param name 표시 이름
- * @param startsAt 시즌 시작 시각
- * @param weeks 시즌 길이 (주)
- * @param shiftHours 주차 보정 (시간, 0 이상)
+ * @param season season number
+ * @param name display name
+ * @param startsAt season start time
+ * @param weeks season length (weeks)
+ * @param shiftHours week shift (hours, 0 or more)
  */
 public record SeasonCalendar(
         int season, String name, ZonedDateTime startsAt, int weeks, int shiftHours) {
@@ -27,7 +28,7 @@ public record SeasonCalendar(
         }
     }
 
-    /** 보정을 반영한 1주차 시작 시각. */
+    /** Week 1 start time with the shift applied. */
     public ZonedDateTime shiftedStart() {
         return startsAt.plusHours(shiftHours);
     }
@@ -40,7 +41,7 @@ public record SeasonCalendar(
         return (int) Math.min(Integer.MAX_VALUE, seconds / WEEK_SECONDS + 1);
     }
 
-    /** n주차 시작 시각. */
+    /** Week n start time. */
     public ZonedDateTime weekStart(int week) {
         if (week < 1) {
             throw new IllegalArgumentException("주차는 1부터입니다: " + week);
@@ -48,7 +49,7 @@ public record SeasonCalendar(
         return shiftedStart().plusWeeks(week - 1L);
     }
 
-    /** 정해진 시즌 길이가 끝나는 시각 (연장 주 시작). */
+    /** Time the scheduled season length ends (start of overtime weeks). */
     public ZonedDateTime endsAt() {
         return weekStart(weeks + 1);
     }

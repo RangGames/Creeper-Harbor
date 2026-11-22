@@ -15,12 +15,15 @@ import wiki.creeper.harbor.season.api.SeasonClock;
 import wiki.creeper.harbor.season.api.WeeklyLimitService;
 
 /**
- * weekly_counter 구현 (docs 20 11.4 tryConsume).
+ * weekly_counter implementation (docs 20 11.4 tryConsume).
  *
- * <p>문서의 {@code INSERT … ON DUPLICATE KEY UPDATE count = IF(count < limit, count + 1, count)}는
- * MariaDB 드라이버가 기본으로 "찾은 행 수"를 돌려줘서 값이 그대로일 때도 1이 나온다 (새 행 삽입과 구별되지 않음). 그래서 같은 트랜잭션에서 {@code
- * INSERT IGNORE}로 행을 만든 뒤 {@code UPDATE … SET count = count + 1 WHERE … AND count < limit} 한 문장으로
- * 판정한다. 행 잠금 아래 조건부 UPDATE 하나라 서버 여러 대에서 동시에 불러도 한도를 넘지 않는다.
+ * <p>The documented {@code INSERT … ON DUPLICATE KEY UPDATE count = IF(count < limit, count + 1,
+ * count)} returns 1 even when the value is unchanged, because the MariaDB driver reports "found
+ * rows" by default (indistinguishable from inserting a new row). So within the same transaction the
+ * row is created with {@code INSERT IGNORE} and the decision is made with the single statement
+ * {@code UPDATE … SET count = count + 1 WHERE … AND count < limit}. Being a single conditional
+ * UPDATE under a row lock, it never exceeds the limit even when called concurrently from several
+ * servers.
  */
 public final class WeeklyLimitManager implements WeeklyLimitService {
 
@@ -101,7 +104,7 @@ public final class WeeklyLimitManager implements WeeklyLimitService {
                 .thenApplyAsync(r -> r, tasks.main());
     }
 
-    /** 관리자 명령: 이번 주 키별 사용 횟수. */
+    /** Admin command: this week's usage count per key. */
     public CompletableFuture<Map<String, Integer>> usage(UUID player) {
         int season = clock.current().value();
         int week = Math.max(0, clock.week());
@@ -125,7 +128,7 @@ public final class WeeklyLimitManager implements WeeklyLimitService {
                 .thenApplyAsync(r -> r, tasks.main());
     }
 
-    /** 관리자 명령: 이번 주 횟수를 지운다. */
+    /** Admin command: clears this week's count. */
     public CompletableFuture<Boolean> reset(UUID player, String key) {
         WeeklyLimitService.requireKey(key);
         int season = clock.current().value();

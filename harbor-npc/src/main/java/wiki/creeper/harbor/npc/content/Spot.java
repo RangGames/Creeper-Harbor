@@ -6,14 +6,14 @@ import java.util.Set;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 콘텐츠 좌표 {@code {world, x, y, z, yaw, pitch}}. world는 regions.yml과 같은 월드 ID (harbor_main 등, 개발 서버는
- * balance.yml world_alias로 대응).
+ * Content coordinates {@code {world, x, y, z, yaw, pitch}}. world is the same world ID as in
+ * regions.yml (harbor_main etc.; dev servers map via balance.yml world_alias).
  */
 public record Spot(String world, double x, double y, double z, float yaw, float pitch) {
 
     private static final Set<String> FIELDS = Set.of("world", "x", "y", "z", "yaw", "pitch");
 
-    /** 맵 형식 좌표. world가 없으면 defaultWorld (비어 있으면 오류). */
+    /** Map-form coordinates. If world is absent, defaultWorld (error if that is empty). */
     public static Optional<Spot> parse(YamlNode node, String defaultWorld) {
         if (!node.isMap()) {
             node.error("좌표는 {world, x, y, z, yaw, pitch} 형식이어야 합니다");
@@ -34,7 +34,10 @@ public record Spot(String world, double x, double y, double z, float yaw, float 
                         (float) node.number("pitch", 0)));
     }
 
-    /** 목록 형식 좌표 {@code [x, y, z]} 또는 {@code [x, y, z, yaw, pitch]} (컷씬 카메라·경로). */
+    /**
+     * List-form coordinates {@code [x, y, z]} or {@code [x, y, z, yaw, pitch]} (cutscene camera and
+     * paths).
+     */
     public static Optional<Spot> parseList(YamlNode node, String world) {
         List<YamlNode> values = node.asList();
         if (values.size() != 3 && values.size() != 5) {

@@ -5,12 +5,13 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.NpcId;
 
 /**
- * 다른 모듈에 보여주는 NPC 정보.
+ * NPC information exposed to other modules.
  *
- * @param name 기본 이름 (이름 변형 전). 플레이어별 이름은 {@link NpcService#displayName}
- * @param dialog 대화 트리 ID ({@code harbor:dialog/<이름>}), 없으면 null
- * @param shop 상점 ID (Economy shops.yml), 없으면 null
- * @param spawned 지금 엔티티가 서 있는지 (청크 로드·등장 조건·떠돌이 일정 반영)
+ * @param name base name (before name variants). Per-player names via {@link NpcService#displayName}
+ * @param dialog dialog tree ID ({@code harbor:dialog/<name>}), or null
+ * @param shop shop ID (Economy shops.yml), or null
+ * @param spawned whether the entity is standing right now (reflects chunk loading, spawn conditions
+ *     and wanderer schedule)
  */
 public record NpcInfo(
         NpcId id,

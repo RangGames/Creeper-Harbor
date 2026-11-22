@@ -23,9 +23,10 @@ import wiki.creeper.harbor.season.data.SeasonRepository;
 import wiki.creeper.harbor.season.data.TitleStore;
 
 /**
- * 데이터를 옮기는 전환 단계: 6 ARCHIVE(테이블별 복사·행 수·CRC32 검증), 7 SNAPSHOT(랭킹·명예의 전당), 8 RESET(잔액
- * SEASON_RESET·조건 삭제·fish_ledger 보관), 10 OPEN(새 시즌 ACTIVE·개방 칭호)과 모듈 훅. 하위 단계마다 일지에 남겨 다시 실행해도 결과가
- * 같다.
+ * Transition steps that move data: 6 ARCHIVE (per-table copy with row count and CRC32 check), 7
+ * SNAPSHOT (rankings and hall of fame), 8 RESET (balance SEASON_RESET, conditional delete,
+ * fish_ledger archiving), 10 OPEN (new season ACTIVE, opening titles) and module hooks. Each
+ * sub-step is logged so that re-running gives the same result.
  */
 final class TransitionDataSteps {
 
@@ -350,7 +351,7 @@ final class TransitionDataSteps {
         return StepResult.of(granted, "시즌 " + r.to + " ACTIVE, 칭호 " + granted + "명");
     }
 
-    // ------------------------------------------------------------------ 훅
+    // ------------------------------------------------------------------ hooks
 
     private void runHooks(TransitionEngine.Run r, String phase, boolean dryRun) throws Exception {
         for (SeasonHook hook : env.hooks()) {

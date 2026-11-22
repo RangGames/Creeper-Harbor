@@ -37,17 +37,19 @@ import wiki.creeper.harbor.season.data.SeasonProfile;
 import wiki.creeper.harbor.season.data.SeasonRepository;
 
 /**
- * 접속 시 시즌 정리 (docs 20 11.4 SeasonGate). 인벤토리는 DB가 아니라 플레이어 파일에 있으므로 전환 때 한꺼번에 지우지 않고, 새 시즌 첫 접속 때
- * 지운다.
+ * Season cleanup on login (docs 20 11.4 SeasonGate). Inventories live in player files, not the DB,
+ * so they are not wiped all at once at the transition but on the first login in the new season.
  *
  * <ol>
- *   <li>마지막으로 정리한 시즌이 지금 시즌보다 작으면 대상
- *   <li>인벤토리·엔더 상자·장착 칸을 훑고 번들·셜커 상자 안까지 열어, 남길 아이템(season_reset: false인 Harbor 아이템 등)만 남긴다
- *   <li>바닐라 경험치·효과·체력을 초기화하고 시작 지점으로 옮긴다
- *   <li>시즌 번호를 갱신해 바로 저장한 뒤 PlayerSeasonEnteredEvent, 새 시즌 안내 Dialog
+ *   <li>Applies if the last cleaned season is lower than the current season
+ *   <li>Scans inventory, ender chest and equipment slots, opening bundles and shulker boxes too,
+ *       and keeps only items that should stay (Harbor items with season_reset: false etc.)
+ *   <li>Resets vanilla experience, effects and health and moves the player to the starting point
+ *   <li>Updates the season number and saves immediately, then PlayerSeasonEnteredEvent and the new
+ *       season intro Dialog
  * </ol>
  *
- * 지운 아이템은 ID·개수 요약만 로그에 남긴다.
+ * Only a summary of removed item IDs and counts is logged.
  */
 public final class SeasonGate implements Listener {
 
@@ -83,7 +85,8 @@ public final class SeasonGate implements Listener {
         int current = clock.current().value();
         if (profile.lastSeason() >= current) {
             if (!profile.stored()) {
-                // 새 계정: 다음 시즌 정리 판단 기준이 되도록 행을 바로 만든다
+                // New account: create the row right away so it becomes the baseline for the next
+                // season's cleanup decision
                 SeasonProfile stored = profile.markStored();
                 hp.get().set(component, stored);
                 save(player, stored);
@@ -115,8 +118,11 @@ public final class SeasonGate implements Listener {
 
         SeasonProfile updated = profile.withLastSeason(current).markStored();
         hp.set(component, updated);
-        // 정리한 인벤토리를 먼저 저장한 뒤 "이번 시즌 정리함"을 쓴다. 반대 순서면 그 사이 서버가 죽었을 때 지난 시즌 아이템·경험치가 돌아오고
-        // 정리는 다시 돌지 않는다. 인벤토리 저장이 실패하면 기록을 쓰지 않아 다음 접속 때 다시 정리한다
+        // Save the cleaned inventory first, then write "cleaned for this season". In the reverse
+        // order, a server crash in between
+        // would bring back last season's items and experience without the cleanup running again. If
+        // the inventory save fails,
+        // the record is not written, so cleanup runs again on the next login
         var _ =
                 api.players()
                         .saveNow(player.getUniqueId())
@@ -160,7 +166,7 @@ public final class SeasonGate implements Listener {
         }
     }
 
-    /** 바로 저장 (지연 쓰기 큐를 거치지 않음, docs 20 11.4 4단계). */
+    /** Saves immediately (bypassing the write-behind queue, docs 20 11.4 step 4). */
     private void save(Player player, SeasonProfile profile) {
         var _ =
                 api.database()
@@ -173,7 +179,7 @@ public final class SeasonGate implements Listener {
                                 });
     }
 
-    /** 남길 아이템만 남긴 새 배열 (자리 유지). */
+    /** New array with only the items to keep (slots preserved). */
     private ItemStack[] filter(
             ItemStack[] items,
             ResetPlan.Gate gate,

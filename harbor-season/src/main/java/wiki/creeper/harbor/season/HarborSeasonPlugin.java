@@ -39,13 +39,17 @@ import wiki.creeper.harbor.season.ui.RankingMenu;
 import wiki.creeper.harbor.season.ui.TitleMenu;
 
 /**
- * Harbor-Season (docs 20 11장): 시즌 시계·주간 제한·칭호·랭킹·명예의 전당·시즌 전환. 코드 의존은 Core뿐이고, 다른 모듈과는
- * season/reset_plan.yml(데이터)과 api 패키지(SeasonHook, HallOfFameService.submit …)로만 연결한다. 다른 모듈 이벤트는
- * 구독하지 않는다.
+ * Harbor-Season (docs 20 ch. 11): season clock, weekly limits, titles, rankings, hall of fame and
+ * season transition. Its only code dependency is Core; it connects to other modules solely through
+ * season/reset_plan.yml (data) and the api package (SeasonHook, HallOfFameService.submit ...). It
+ * does not subscribe to other modules' events.
  */
 public final class HarborSeasonPlugin extends HarborModule {
 
-    /** season 열 테이블 목록 캐시 (reset_plan 리로드 검사용, 시작 뒤 비동기로 채움). */
+    /**
+     * Cache of tables with a season column (for the reset_plan reload check, filled asynchronously
+     * after startup).
+     */
     private volatile @Nullable Set<String> seasonTables;
 
     @Override
@@ -125,7 +129,8 @@ public final class HarborSeasonPlugin extends HarborModule {
                         LifecycleEvents.COMMANDS,
                         event -> commands.registerPlayerCommands(event.registrar()));
 
-        // 콘텐츠는 모듈 enable이 끝난 뒤 읽히므로, 콘텐츠가 필요한 시작 작업은 서버가 다 켜진 다음 틱에 한다
+        // Content is read after module enable finishes, so startup work that needs content runs on
+        // the tick after the server is fully up
         var _ =
                 tasks.sync(
                         () -> {
@@ -137,7 +142,10 @@ public final class HarborSeasonPlugin extends HarborModule {
                         });
     }
 
-    /** reset_plan이 DB의 season 열 테이블을 모두 덮는지 본다 (다른 모듈 마이그레이션이 끝난 뒤). */
+    /**
+     * Checks that reset_plan covers every table with a season column in the DB (after other
+     * modules' migrations finish).
+     */
     private void checkPlanCoverage(HarborApi api, SeasonContentView content, Logger log) {
         var _ =
                 api.database()

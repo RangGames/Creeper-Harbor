@@ -11,8 +11,9 @@ import wiki.creeper.harbor.season.api.RankEntry;
 import wiki.creeper.harbor.season.api.RankingSource;
 
 /**
- * 순위 매기기 (순수 계산). 값 → 보조 값 → 달성 시각(먼저 달성한 사람이 앞섬, docs 20 11.4 동점) → uuid 순으로 정렬해 1부터 번호를 붙인다. 같은
- * 값이어도 번호는 겹치지 않는다.
+ * Ranking (pure computation). Sorts by value → secondary value → achieved time (earlier ranks
+ * higher, docs 20 11.4 ties) → uuid and numbers from 1. Numbers never repeat, even for equal
+ * values.
  */
 public final class RankOrder {
 
@@ -32,7 +33,10 @@ public final class RankOrder {
                 .thenComparing(r -> uuidKey(r.uuid()));
     }
 
-    /** 정렬하고 상위 limit개에 순위를 붙인다. 같은 플레이어가 두 번 나오면 좋은 쪽만 남긴다 (파티 기록은 uuid가 같아도 남김). */
+    /**
+     * Sorts and ranks the top limit entries. If the same player appears twice, only the better one
+     * is kept (party records are kept even with the same uuid).
+     */
     public static List<RankEntry> rank(
             List<RankingSource.Row> rows, boolean ascending, int limit, boolean distinctPlayers) {
         List<RankingSource.Row> sorted = new ArrayList<>(rows);

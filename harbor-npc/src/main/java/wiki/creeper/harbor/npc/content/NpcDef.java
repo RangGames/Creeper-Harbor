@@ -20,20 +20,22 @@ import wiki.creeper.harbor.npc.api.GiftReaction;
 import wiki.creeper.harbor.npc.api.NpcRole;
 
 /**
- * NPC 정의 (npcs.yml · npcs/*.yml, '11. 데이터 설계' 2.5 + docs 20 5.3 추가 제안 필드).
+ * NPC definition (npcs.yml · npcs/*.yml, '11. Data design' 2.5 + docs 20 5.3 proposed fields).
  *
- * @param name 기본 이름 (MiniMessage)
- * @param location 서 있는 곳. 떠돌이는 비우고 schedule 후보를 쓴다
- * @param pose Mannequin 자세 (standing·sneaking·sitting …, 서버에서 Mannequin.validPoses로 검사)
- * @param dialog 대화 트리 ID (dialogs/*.yml)
- * @param shop 상점 ID (Economy shops.yml)
- * @param gifts 선물 반응 표 {아이템·어종 ID: 호감도}. 없으면 기본 +1
- * @param giftLines 선물 반응 대사 키 (없으면 npc.gift.reaction.<반응>)
- * @param affinityLevels 단계표 (비우면 balance.yml npc.affinity.levels)
- * @param spawnFlag 이 서버 플래그가 서야 등장 (예: aquarium_stage_2)
- * @param hideFlag 이 서버 플래그가 서면 숨김
- * @param greet 하루 첫 대화 호감도를 줄지
- * @param dialogStyle 대화 기본 방식 (없으면 balance.yml npc.dialog.default_style, 추가 제안)
+ * @param name base name (MiniMessage)
+ * @param location where it stands. Empty for wanderers, which use schedule candidates
+ * @param pose Mannequin pose (standing, sneaking, sitting …; checked on the server against
+ *     Mannequin.validPoses)
+ * @param dialog dialog tree ID (dialogs/*.yml)
+ * @param shop shop ID (Economy shops.yml)
+ * @param gifts gift reaction table {item/fish ID: affinity}. Default +1 if absent
+ * @param giftLines gift reaction line keys (otherwise npc.gift.reaction.<reaction>)
+ * @param affinityLevels level table (if empty, balance.yml npc.affinity.levels)
+ * @param spawnFlag appears only when this server flag is set (e.g. aquarium_stage_2)
+ * @param hideFlag hidden when this server flag is set
+ * @param greet whether to give first-talk-of-the-day affinity
+ * @param dialogStyle default dialog style (otherwise balance.yml npc.dialog.default_style,
+ *     proposed)
  */
 public record NpcDef(
         NpcId id,
@@ -64,14 +66,15 @@ public record NpcDef(
                     NpcDef::parse,
                     d -> d.id().id());
 
-    /** 이름 변형: 플레이어 플래그가 서 있으면 이 이름 (위에서부터 첫 일치). */
+    /** Name variant: this name if the player flag is set (first match from the top). */
     public record NameVariant(String playerFlag, String name) {}
 
     /**
-     * 떠돌이 일정 (role: wanderer 필수).
+     * Wanderer schedule (required for role: wanderer).
      *
-     * @param slotHours 칸 길이 (기본 balance.yml npc.wanderer.slot_hours, 제안값 3)
-     * @param announce 도착 때 harbor:announce로 알릴지 (행상 true, 선장 false. 추가 제안)
+     * @param slotHours slot length (default balance.yml npc.wanderer.slot_hours, proposed value 3)
+     * @param announce whether to announce arrival via harbor:announce (peddler true, captain false.
+     *     proposed)
      */
     public record Schedule(int slotHours, boolean announce, List<Candidate> candidates) {
 
@@ -85,10 +88,10 @@ public record NpcDef(
     }
 
     /**
-     * 떠돌이 후보 위치.
+     * Wanderer candidate location.
      *
-     * @param time 출현 시간대 (비우면 상시)
-     * @param weather 출현 날씨 (비우면 상시, storm = thunder)
+     * @param time times of day it appears (always if empty)
+     * @param weather weather in which it appears (always if empty, storm = thunder)
      */
     public record Candidate(
             String id, Spot location, int weight, List<String> time, List<String> weather) {
@@ -98,7 +101,7 @@ public record NpcDef(
             weather = List.copyOf(weather);
         }
 
-        /** 조건부 후보인지 (칸 안에서 1분마다 확인). */
+        /** Whether this is a conditional candidate (checked every minute within the slot). */
         public boolean conditional() {
             return !time.isEmpty() || !weather.isEmpty();
         }
@@ -265,7 +268,7 @@ public record NpcDef(
         return lines;
     }
 
-    /** affinity_levels: [{points, name, discount, unlocks}] 순서대로 0단계부터. */
+    /** affinity_levels: [{points, name, discount, unlocks}] in order, starting at level 0. */
     static List<AffinityLevel> parseLevels(YamlNode node) {
         List<AffinityLevel> levels = new ArrayList<>();
         int previous = -1;

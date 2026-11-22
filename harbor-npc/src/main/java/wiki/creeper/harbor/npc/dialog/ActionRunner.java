@@ -18,8 +18,10 @@ import wiki.creeper.harbor.npc.content.DialogRef;
 import wiki.creeper.harbor.npc.logic.DialogEval;
 
 /**
- * 대화 트리 선택지의 조건 평가와 액션 실행 (docs 20 5.4 대화 흐름 5~6단계). 액션을 순서대로 돌리고 Continue가 아니면 결과(GoTo·Page·
- * Close·Handoff·Fail)를 반영한다. Async는 메인 스레드로 돌아와 세션·nonce가 그대로일 때만 이어 간다. 메인 스레드 전용.
+ * Condition evaluation and action execution for dialog tree choices (docs 20 5.4 dialog flow steps
+ * 5-6). Runs actions in order and, on a non-Continue result, applies it (GoTo, Page, Close,
+ * Handoff, Fail). Async continues only after returning to the main thread with the session and
+ * nonce unchanged. Main thread only.
  */
 final class ActionRunner {
 
@@ -42,7 +44,7 @@ final class ActionRunner {
         this.manager = manager;
     }
 
-    /** 조건 하나. 등록되지 않은 키는 거짓 (선택지를 숨김). */
+    /** A single condition. Unregistered keys are false (hide the choice). */
     boolean test(DialogContext ctx, DialogRef ref) {
         Optional<DialogCondition> condition = registry.condition(ref.key());
         if (condition.isEmpty()) {
@@ -57,7 +59,7 @@ final class ActionRunner {
         }
     }
 
-    /** 선택지를 보여줄지: 조건이 맞고, 액션 키가 모두 등록되어 있어야 한다. */
+    /** Whether to show a choice: conditions must match and all action keys must be registered. */
     boolean available(DialogContext ctx, DialogDef.Option option) {
         for (DialogRef action : option.actions()) {
             if (!registry.hasAction(action.key())) {
@@ -76,7 +78,7 @@ final class ActionRunner {
             return;
         }
         DialogDef.Option option = node.options().get(index);
-        // 화면을 띄운 뒤 상태가 바뀌었을 수 있어 다시 평가한다
+        // State may have changed since the screen was shown, so evaluate again
         if (!available(manager.context(player, s), option)) {
             api.messages().send(player, "npc.dialog.unavailable");
             manager.render(player, s);
@@ -117,7 +119,7 @@ final class ActionRunner {
                                     if (manager.sessions().get(s.player) != s
                                             || s.nonce != nonce
                                             || !player.isOnline()) {
-                                        return; // 그 사이 세션이 끝났거나 바뀜
+                                        return; // The session ended or changed in the meantime
                                     }
                                     ActionResult done = r;
                                     if (ex != null || done == null) {
@@ -145,7 +147,7 @@ final class ActionRunner {
         }
     }
 
-    /** Continue·Async가 아닌 결과 처리. */
+    /** Handles results other than Continue and Async. */
     private void apply(Player player, ActiveSession s, ActionResult result) {
         switch (result) {
             case ActionResult.GoTo(String node) -> manager.goTo(player, s, node, log);

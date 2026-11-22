@@ -4,7 +4,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/** 주간 초기화 시각(기본 월요일 06:00)에 메인 스레드에서 발생한다. 서버마다 따로 발생한다. */
+/**
+ * Fired on the main thread at the weekly reset time (default Monday 06:00). Fired separately on
+ * each server.
+ */
 public final class WeeklyResetEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -21,7 +24,7 @@ public final class WeeklyResetEvent extends Event {
         return season;
     }
 
-    /** 초기화 직후의 시즌 주차. */
+    /** Season week right after the reset. */
     public int week() {
         return week;
     }

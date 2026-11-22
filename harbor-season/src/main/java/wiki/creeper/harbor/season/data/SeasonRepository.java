@@ -17,14 +17,17 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.season.api.SeasonPhase;
 import wiki.creeper.harbor.season.api.TitleId;
 
-/** season_meta · season_player · titles 읽기·쓰기. 모두 블로킹이므로 가상 스레드에서 부른다. */
+/**
+ * season_meta · season_player · titles reads and writes. All blocking, so call them on virtual
+ * threads.
+ */
 public final class SeasonRepository {
 
     private SeasonRepository() {}
 
     // ------------------------------------------------------------------ season_meta
 
-    /** 행이 없을 때만 만든다. */
+    /** Creates the row only if it does not exist. */
     public static void ensureMeta(
             Connection c, int season, Instant startsAt, Instant endsAt, SeasonPhase state)
             throws SQLException {
@@ -39,7 +42,7 @@ public final class SeasonRepository {
         }
     }
 
-    /** 계획된 시즌의 시작일이 바뀌었으면 고친다 (PLANNED 상태만). */
+    /** Fixes a planned season's start date if it changed (PLANNED state only). */
     public static void updatePlanned(Connection c, int season, Instant startsAt, Instant endsAt)
             throws SQLException {
         try (PreparedStatement ps =
@@ -87,9 +90,10 @@ public final class SeasonRepository {
     }
 
     /**
-     * 상태를 바꾼다. 지금 상태가 expected일 때만 바뀐다 (두 서버가 동시에 전환하지 못하게).
+     * Changes the state. Only changes if the current state is expected (so two servers cannot
+     * transition at once).
      *
-     * @return 바뀌었으면 true
+     * @return true if changed
      */
     public static boolean transition(
             Connection c, int season, SeasonPhase expected, SeasonPhase next) throws SQLException {
@@ -104,9 +108,9 @@ public final class SeasonRepository {
     }
 
     /**
-     * 주차 보정을 늘린다. 줄이는 것(주차를 앞당기는 것)은 허용하지 않는다.
+     * Increases the week shift. Decreasing it (moving weeks earlier) is not allowed.
      *
-     * @return 바뀌었으면 true
+     * @return true if changed
      */
     public static boolean shiftWeek(Connection c, int season, int hours) throws SQLException {
         try (PreparedStatement ps =
@@ -122,12 +126,13 @@ public final class SeasonRepository {
     // ------------------------------------------------------------------ season_player · titles
 
     /**
-     * 플레이어 데이터를 읽는다.
+     * Reads player data.
      *
-     * <p>season_player 행이 없으면 (Season 모듈이 생기기 전부터 있던 계정이거나 새 계정) 지금 시즌이 이미 시작됐고 그 전에 가입한 사람만 지난 시즌
-     * 플레이어로 보고 정리 대상(0)으로 둔다.
+     * <p>If there is no season_player row (an account that predates the Season module, or a new
+     * account), the player is treated as a past-season player due for cleanup (0) only if the
+     * current season has already started and they joined before it.
      *
-     * @param seasonStart 지금 시즌 시작 시각
+     * @param seasonStart current season start time
      */
     public static SeasonProfile loadProfile(
             Connection c, UUID uuid, int currentSeason, Instant seasonStart) throws SQLException {
@@ -200,7 +205,7 @@ public final class SeasonRepository {
         }
     }
 
-    /** 이름으로 uuid를 찾는다 (오프라인 플레이어 관리 명령). */
+    /** Finds a uuid by name (offline player admin commands). */
     public static Optional<UUID> uuidByName(Connection c, String name) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(

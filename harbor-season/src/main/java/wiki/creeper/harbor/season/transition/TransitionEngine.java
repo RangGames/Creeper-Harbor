@@ -20,19 +20,26 @@ import wiki.creeper.harbor.season.content.ResetPlan;
 import wiki.creeper.harbor.season.data.SeasonRepository;
 
 /**
- * 시즌 전환 엔진 (docs 20 11.4 TransitionEngine). Paper API를 쓰지 않는 순수 Java라 본 서버 플러그인과 harbor-tools 리허설
- * CLI가 같은 코드를 쓸 수 있다. 바깥 일(공지·FREEZE·원장 정리·랭킹 확정)은 {@link TransitionEnvironment}에 맡긴다.
+ * Season transition engine (docs 20 11.4 TransitionEngine). Pure Java with no Paper API, so the
+ * main server plugin and the harbor-tools rehearsal CLI can share the same code. External work
+ * (notices, FREEZE, ledger cleanup, ranking finalization) is delegated to {@link
+ * TransitionEnvironment}.
  *
  * <ul>
- *   <li>단계마다 season_transition_log에 시작·완료를 남기고, 모든 단계는 다시 실행해도 결과가 같다 (아카이브는 행 수·CRC32가 같으면 건너뜀,
- *       삭제는 조건 삭제, 원장은 참조 ID 유니크, 칭호는 INSERT IGNORE)
- *   <li>harbor:lock:season-transition 분산 잠금과 season_meta 조건부 갱신으로 두 서버가 동시에 전환하지 못한다
- *   <li>서버가 죽으면 {@link #resume}이 일지에서 마지막으로 끝난 단계 다음부터 잇는다
- *   <li>롤백 A(RESET 전): {@link #rollback}. 롤백 B·C(RESET 뒤)는 5단계 백업 복원으로 운영자가 한다
+ *   <li>Each step logs start and completion to season_transition_log, and every step gives the same
+ *       result when re-run (archive skips if row count and CRC32 match, deletes are conditional,
+ *       ledger entries use unique reference IDs, titles use INSERT IGNORE)
+ *   <li>The harbor:lock:season-transition distributed lock and a conditional season_meta update
+ *       prevent two servers from transitioning at once
+ *   <li>If the server dies, {@link #resume} continues from the step after the last one completed in
+ *       the log
+ *   <li>Rollback A (before RESET): {@link #rollback}. Rollbacks B and C (after RESET) are done by
+ *       the operator by restoring the step 5 backup
  * </ul>
  *
- * <p>여기서는 명령·단계 순서·잠금·실패 처리만 하고, 단계 본문은 {@link TransitionPreflight}(1단계·dry-run), {@link
- * TransitionGates}(2~5·9단계), {@link TransitionDataSteps}(6~8·10단계와 훅)가 맡는다.
+ * <p>This class handles only commands, step order, locking and failure handling; step bodies live
+ * in {@link TransitionPreflight} (step 1, dry-run), {@link TransitionGates} (steps 2-5, 9) and
+ * {@link TransitionDataSteps} (steps 6-8, 10 and hooks).
  */
 public final class TransitionEngine {
 
@@ -41,7 +48,7 @@ public final class TransitionEngine {
     static final String LOCK = "harbor:lock:season-transition";
     private static final Duration LOCK_TTL = Duration.ofMinutes(10);
 
-    /** 진행 상태. */
+    /** Progress state. */
     public enum Status {
         IDLE,
         RUNNING,
@@ -50,7 +57,7 @@ public final class TransitionEngine {
         FINISHED
     }
 
-    /** 지금 실행 상태 (명령어 표시용). */
+    /** Current run state (for command display). */
     public record View(
             @Nullable String transitionId,
             int fromSeason,
@@ -106,7 +113,7 @@ public final class TransitionEngine {
         this.data = new TransitionDataSteps(db, env, journal);
     }
 
-    // ------------------------------------------------------------------ 명령
+    // ------------------------------------------------------------------ commands
 
     public View view() {
         Run r = run;
@@ -117,7 +124,7 @@ public final class TransitionEngine {
         return new View(r.id, r.from, r.to, r.step, r.status, r.error, r.operator);
     }
 
-    /** 가장 최근 전환의 일지 (블로킹). */
+    /** Log of the most recent transition (blocking). */
     public List<LogRow> history() throws SQLException {
         Run r = run;
         Optional<String> id = r != null ? Optional.of(r.id) : journal.latest(env.currentSeason());
@@ -125,9 +132,9 @@ public final class TransitionEngine {
     }
 
     /**
-     * 새 전환을 시작한다 (블로킹, 시작만 하고 돌아온다).
+     * Starts a new transition (blocking; returns once it has started).
      *
-     * @return 거부 사유 (시작했으면 빈 Optional)
+     * @return rejection reason (empty Optional if started)
      */
     public synchronized Optional<String> start(String operator) throws SQLException {
         if (isActive()) {
@@ -149,7 +156,10 @@ public final class TransitionEngine {
         return Optional.empty();
     }
 
-    /** 일지의 마지막 완료 단계 다음부터 잇는다 (블로킹, 시작만 하고 돌아온다). */
+    /**
+     * Continues from the step after the last completed step in the log (blocking; returns once it
+     * has started).
+     */
     public synchronized Optional<String> resume(String operator) throws SQLException {
         if (isActive()) {
             return Optional.of("이미 전환이 진행 중입니다");
@@ -173,9 +183,10 @@ public final class TransitionEngine {
     }
 
     /**
-     * 백업 확인 (5단계). 콘솔이거나, 전환을 시작한 관리자가 아닌 다른 관리자여야 한다 (docs 20 11.5: 두 명 중 한 명의 확인).
+     * Backup confirmation (step 5). Must come from the console or from an admin other than the one
+     * who started the transition (docs 20 11.5: confirmation by one of two people).
      *
-     * @return 거부 사유 (받아들였으면 빈 Optional)
+     * @return rejection reason (empty Optional if accepted)
      */
     public Optional<String> confirmBackup(String confirmer, boolean console) {
         Run r = run;
@@ -199,9 +210,10 @@ public final class TransitionEngine {
     }
 
     /**
-     * 롤백 A (RESET 전 실패, docs 20 11.4): 아카이브 스키마를 지우고 season_meta를 ACTIVE로 되돌린 뒤 접속 차단을 푼다. 블로킹.
+     * Rollback A (failure before RESET, docs 20 11.4): drops the archive schema, reverts
+     * season_meta to ACTIVE, then lifts the login block. Blocking.
      *
-     * @return 거부 사유 (되돌렸으면 빈 Optional)
+     * @return rejection reason (empty Optional if rolled back)
      */
     public synchronized Optional<String> rollback(String operator) throws SQLException {
         Run r = run;
@@ -255,7 +267,7 @@ public final class TransitionEngine {
         Thread.ofVirtual().name("harbor-season-transition").start(() -> execute(r, first));
     }
 
-    // ------------------------------------------------------------------ 실행
+    // ------------------------------------------------------------------ execution
 
     private void execute(Run r, TransitionStep first) {
         Optional<DistributedLock.Handle> lock;
@@ -378,7 +390,10 @@ public final class TransitionEngine {
 
     // ------------------------------------------------------------------ dry-run
 
-    /** 실제 쓰기 없이 검사와 예정 행 수, 예상 시간 (블로킹, docs 20 11.4). */
+    /**
+     * Checks, planned row counts and estimated time without any actual writes (blocking, docs 20
+     * 11.4).
+     */
     public DryRunReport dryRun() throws SQLException {
         return preflight.dryRun();
     }

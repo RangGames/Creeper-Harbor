@@ -2,15 +2,18 @@ package wiki.creeper.harbor.npc.dialog.present;
 
 import org.bukkit.entity.Player;
 
-/** 대화 화면을 그리는 방식 하나 ({@link wiki.creeper.harbor.npc.api.DialogStyle}). 메인 스레드 전용. */
+/**
+ * One way of drawing the dialog screen ({@link wiki.creeper.harbor.npc.api.DialogStyle}). Main
+ * thread only.
+ */
 public interface DialogPresenter {
 
-    /** 한 쪽을 보여준다. 같은 플레이어의 이전 쪽은 덮어쓴다. */
+    /** Shows one page. Overwrites the same player's previous page. */
     void show(Player player, Frame frame);
 
-    /** 세션이 끝났을 때 남은 표시를 지운다 (말풍선·타이틀 등). */
+    /** Removes leftover display when the session ends (speech bubble, title, etc.). */
     default void clear(Player player) {}
 
-    /** watch 타이머마다 (사라지는 표시를 다시 보냄, 말풍선 위치 확인). */
+    /** On every watch timer tick (resend fading displays, check speech bubble position). */
     default void refresh(Player player) {}
 }

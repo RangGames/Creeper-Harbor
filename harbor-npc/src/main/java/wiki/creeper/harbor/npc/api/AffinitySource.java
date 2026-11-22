@@ -2,14 +2,14 @@ package wiki.creeper.harbor.npc.api;
 
 import wiki.creeper.harbor.common.model.Keyed;
 
-/** 호감도 출처. */
+/** Source of affinity. */
 public enum AffinitySource implements Keyed {
-    /** 하루 첫 대화. */
+    /** First talk of the day. */
     GREETING,
     GIFT,
-    /** 퀘스트 보상 (상한 없음). */
+    /** Quest reward (no cap). */
     QUEST,
-    /** 대화 액션 affinity:add (once 플래그로 한 번만). */
+    /** Dialog action affinity:add (only once, via the once flag). */
     DIALOG,
     ADMIN,
     OTHER;

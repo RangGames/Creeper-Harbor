@@ -8,7 +8,10 @@ import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.npc.content.Spot;
 
-/** 콘텐츠 월드 ID(harbor_main 등) ↔ Bukkit 월드. 개발 서버는 balance.yml world_alias로 대응한다 (Fishing과 같은 규칙). */
+/**
+ * Content world ID (harbor_main etc.) to Bukkit world. Dev servers map via balance.yml world_alias
+ * (same rule as Fishing).
+ */
 public final class Worlds {
 
     private final HarborApi api;
@@ -34,7 +37,7 @@ public final class Worlds {
         return Optional.empty();
     }
 
-    /** Bukkit 월드 → 콘텐츠 월드 ID. */
+    /** Bukkit world to content world ID. */
     public String id(World world) {
         return api.content()
                 .snapshot()
@@ -43,7 +46,7 @@ public final class Worlds {
                 .orElse(world.getName());
     }
 
-    /** Paper의 위치 조회는 null 가능으로 표시되어 있지만 살아 있는 엔티티는 항상 위치가 있다. */
+    /** Paper marks location lookups as nullable, but a living entity always has a location. */
     public static Location loc(org.bukkit.entity.Entity entity) {
         return java.util.Objects.requireNonNull(entity.getLocation());
     }

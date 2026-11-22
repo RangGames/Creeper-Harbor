@@ -3,7 +3,10 @@ package wiki.creeper.harbor.season.ranking;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/** 아카이브 스키마 이름 검사와 SQL 접두사. SQL에 이어 붙이므로 형식이 맞는 이름만 받는다. */
+/**
+ * Archive schema name check and SQL prefix. Accepts only well-formed names since it is concatenated
+ * into SQL.
+ */
 public final class SchemaName {
 
     private static final Pattern ARCHIVE = Pattern.compile("archive_s[0-9]{1,4}");
@@ -14,7 +17,7 @@ public final class SchemaName {
         return "archive_s" + season;
     }
 
-    /** {@code archive_s3.} 같은 접두사. null이면 빈 문자열 (지금 DB). */
+    /** A prefix such as {@code archive_s3.}. Empty string if null (current DB). */
     public static String prefix(@Nullable String schema) {
         if (schema == null) {
             return "";

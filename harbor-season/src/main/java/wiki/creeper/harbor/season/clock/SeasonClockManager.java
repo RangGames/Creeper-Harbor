@@ -27,8 +27,10 @@ import wiki.creeper.harbor.season.data.SeasonRepository;
 import wiki.creeper.harbor.season.net.SeasonMessages;
 
 /**
- * SeasonClock 구현 (docs 20 11.4). 주차는 콘텐츠(seasons.yml)와 season_meta의 주차 보정으로 메모리에서 계산하고, 1분마다 바뀌었는지
- * 보고 이벤트를 낸다. season_meta는 시작할 때와 5분마다, 그리고 harbor:season MetaChanged를 받으면 다시 읽는다.
+ * SeasonClock implementation (docs 20 11.4). Weeks are computed in memory from content
+ * (seasons.yml) and the season_meta week shift; every minute it checks for changes and fires
+ * events. season_meta is re-read at startup, every 5 minutes, and on receiving harbor:season
+ * MetaChanged.
  */
 public final class SeasonClockManager implements SeasonClock {
 
@@ -38,14 +40,14 @@ public final class SeasonClockManager implements SeasonClock {
     private final Logger log;
     private final List<IntConsumer> weeklyListeners = new ArrayList<>();
 
-    /** 콘텐츠 스냅샷이 바뀌거나 보정이 바뀌면 다시 만든다. */
+    /** Rebuilt when the content snapshot or the shift changes. */
     private record Cached(ContentSnapshot snapshot, int shift, SeasonCalendar calendar) {}
 
     private volatile @Nullable Cached cached;
     private volatile int shiftHours;
     private volatile SeasonPhase phase = SeasonPhase.ACTIVE;
 
-    // 메인 스레드에서만 쓰는 상태
+    // State used only on the main thread
     private int lastWeek = -1;
     private @Nullable ZonedDateTime nextDaily;
     private @Nullable ZonedDateTime nextWeekly;
@@ -57,7 +59,10 @@ public final class SeasonClockManager implements SeasonClock {
         this.log = log;
     }
 
-    /** 주간 초기화 때 부를 내부 동작 (랭킹 주간 스냅샷). 인자는 끝난 주차. */
+    /**
+     * Internal action to run at the weekly reset (weekly ranking snapshot). The argument is the
+     * week that ended.
+     */
     public void onWeeklyReset(IntConsumer listener) {
         weeklyListeners.add(listener);
     }
@@ -84,7 +89,7 @@ public final class SeasonClockManager implements SeasonClock {
         var _ = initMeta();
     }
 
-    /** season_meta에 지금 시즌과 계획된 시즌 행을 만들고 상태를 읽는다. */
+    /** Creates season_meta rows for the current and planned seasons and reads the state. */
     private CompletableFuture<Void> initMeta() {
         int season = current().value();
         SeasonCalendar cal = calendar();
@@ -133,7 +138,7 @@ public final class SeasonClockManager implements SeasonClock {
                         });
     }
 
-    /** season_meta를 다시 읽어 상태·보정을 반영한다. */
+    /** Re-reads season_meta and applies the state and shift. */
     public CompletableFuture<Void> reloadMeta() {
         int season = current().value();
         return api.database()
@@ -164,16 +169,16 @@ public final class SeasonClockManager implements SeasonClock {
                         });
     }
 
-    /** 전환 엔진이 상태를 바꾼 뒤 부른다 (다른 서버에도 알림). */
+    /** Called after the transition engine changes the state (also notifies other servers). */
     public void publishMetaChanged() {
         api.bus().publish(SeasonMessages.META, new SeasonMessages.MetaChanged(current().value()));
         var _ = reloadMeta();
     }
 
     /**
-     * 주차 시작을 늦춘다 (관리자 명령). 줄이는 것은 거부한다.
+     * Delays the week start (admin command). Decreasing it is rejected.
      *
-     * @return 바뀌었으면 true (메인 스레드에서 완료)
+     * @return true if changed (completes on the main thread)
      */
     public CompletableFuture<Boolean> shiftWeek(int hours) {
         int season = current().value();
@@ -227,7 +232,7 @@ public final class SeasonClockManager implements SeasonClock {
 
     // ------------------------------------------------------------------ SeasonClock
 
-    /** 지금 콘텐츠·보정 기준 달력. */
+    /** Calendar based on the current content and shift. */
     public SeasonCalendar calendar() {
         ContentSnapshot snap = content.snapshot();
         int shift = shiftHours;

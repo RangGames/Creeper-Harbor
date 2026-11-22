@@ -6,7 +6,7 @@ import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.npc.api.ReputationSource;
 
-/** 평판 변경 (Economy 경매 슬롯, World 하우징, Collection 어항 슬롯). */
+/** Reputation changed (Economy auction slots, World housing, Collection aquarium slots). */
 public final class ReputationChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

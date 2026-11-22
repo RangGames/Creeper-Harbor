@@ -1,21 +1,21 @@
 package wiki.creeper.harbor.season.api;
 
 /**
- * 주간 제한 결과.
+ * Weekly limit result.
  *
- * @param consumed 이번 호출로 1회 썼는지 (remaining 조회면 항상 false)
- * @param used 이번 주 사용 횟수 (호출 뒤 값)
- * @param limit 한도
- * @param week 기록한 시즌 주차
+ * @param consumed whether this call used one (always false for a remaining query)
+ * @param used usage count this week (value after the call)
+ * @param limit limit
+ * @param week season week recorded
  */
 public record LimitResult(boolean consumed, int used, int limit, int week) {
 
-    /** 남은 횟수 (0 이상). */
+    /** Remaining count (0 or more). */
     public int remaining() {
         return Math.max(0, limit - used);
     }
 
-    /** 이번 주 한도에 닿았는지. */
+    /** Whether this week's limit has been reached. */
     public boolean exhausted() {
         return used >= limit;
     }

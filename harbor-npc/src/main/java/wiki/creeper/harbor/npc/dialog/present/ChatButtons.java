@@ -18,8 +18,9 @@ import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HarborApi;
 
 /**
- * DIALOG 밖의 방식이 쓰는 채팅 버튼 줄. 버튼마다 한 번만 쓰는 클릭 콜백을 달고, 누른 사람이 그 플레이어일 때만 메인 스레드에서 {@code onClick}을
- * 부른다. 오래된 줄을 누르면 받는 쪽이 nonce로 무시한다.
+ * Chat button row used by non-DIALOG styles. Each button gets a single-use click callback, and
+ * {@code onClick} is called on the main thread only when the clicker is that player. Clicks on
+ * stale rows are ignored by the receiver via the nonce.
  */
 final class ChatButtons {
 
@@ -33,7 +34,7 @@ final class ChatButtons {
         this.lifetime = lifetime;
     }
 
-    /** 버튼 줄을 채팅으로 보낸다. */
+    /** Sends the button row to chat. */
     void send(Player player, Frame frame) {
         player.sendMessage(line(player, frame.choices(), frame.nextOnly(), frame.onClick()));
     }
@@ -60,8 +61,9 @@ final class ChatButtons {
                                                 if (audience instanceof Player clicker
                                                         && clicker.getUniqueId()
                                                                 .equals(player.getUniqueId())) {
-                                                    // 서버 이동 저장본을 뜬 뒤 누른 버튼은 버린다 (대화 보상이 저장본 밖에서
-                                                    // 실행됨)
+                                                    // drop clicks made after the server-move
+                                                    // snapshot was taken (the
+                                                    // dialog reward would run outside the snapshot)
                                                     onMain(
                                                             () -> {
                                                                 if (!api.players()

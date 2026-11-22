@@ -4,18 +4,20 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * 대화를 보여주는 방식 (추가 제안). dialogs/*.yml 노드 {@code style:} → npcs.yml {@code dialog_style:} →
- * balance.yml {@code npc.dialog.default_style} 순서로 정한다.
+ * How a dialog is presented (proposed). Decided in the order dialogs/*.yml node {@code style:} →
+ * npcs.yml {@code dialog_style:} → balance.yml {@code npc.dialog.default_style}.
  *
  * <ul>
- *   <li>{@link #DIALOG}: Dialog 화면 (기본, 화면을 막음)
- *   <li>{@link #HOLOGRAM}: NPC 머리 위 말풍선 (그 플레이어에게만 보임). 선택지는 채팅 버튼
- *   <li>{@link #TITLE}: 타이틀 = 화자, 서브타이틀 = 대사. 선택지는 채팅 버튼
- *   <li>{@link #CHAT}: 채팅 대사 + 채팅 버튼
- *   <li>{@link #ACTIONBAR}: 액션바 대사 + 채팅 버튼
+ *   <li>{@link #DIALOG}: Dialog screen (default, blocks the screen)
+ *   <li>{@link #HOLOGRAM}: speech bubble above the NPC's head (visible only to that player).
+ *       Choices are chat buttons
+ *   <li>{@link #TITLE}: title = speaker, subtitle = line. Choices are chat buttons
+ *   <li>{@link #CHAT}: chat lines + chat buttons
+ *   <li>{@link #ACTIONBAR}: action bar lines + chat buttons
  * </ul>
  *
- * DIALOG 밖의 방식은 화면을 막지 않아서, 같은 NPC를 다시 우클릭하면 다음 쪽으로 넘어간다.
+ * Styles other than DIALOG do not block the screen, so right-clicking the same NPC again advances
+ * to the next page.
  */
 public enum DialogStyle {
     DIALOG,
@@ -24,12 +26,12 @@ public enum DialogStyle {
     CHAT,
     ACTIONBAR;
 
-    /** YAML 키 (소문자). */
+    /** YAML key (lowercase). */
     public String key() {
         return name().toLowerCase(Locale.ROOT);
     }
 
-    /** 화면을 막는 방식인지 (Dialog 화면). */
+    /** Whether this style blocks the screen (Dialog screen). */
     public boolean modal() {
         return this == DIALOG;
     }
@@ -44,7 +46,7 @@ public enum DialogStyle {
         return Optional.empty();
     }
 
-    /** 오류 문구용 목록 ("dialog, hologram, …"). */
+    /** List for error messages ("dialog, hologram, …"). */
     public static String keys() {
         StringBuilder b = new StringBuilder();
         for (DialogStyle s : values()) {

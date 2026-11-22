@@ -13,14 +13,16 @@ import wiki.creeper.harbor.npc.api.ReputationLogEntry;
 import wiki.creeper.harbor.npc.api.ReputationSource;
 
 /**
- * PlayerComponent<NpcData> (docs 20 5.3). 변경 불가 값이고 바꿀 때는 새 값을 넣는다. 저장은 호감도만 (평판 기록·최고 등급은 바뀔 때 즉시
- * 쓴다). 대화 세션·컷씬 상태는 저장하지 않으므로 각 관리자의 메모리에 둔다.
+ * PlayerComponent<NpcData> (docs 20 5.3). An immutable value; put a new value to change it. Only
+ * affinity is saved this way (reputation log and best tier are written immediately on change).
+ * Dialog session and cutscene state are not saved, so each manager keeps them in memory.
  *
- * @param repDay repToday의 게임 날짜
- * @param repToday 출처별 오늘 받은 평판 (하루 상한)
- * @param recent 최근 평판 기록 (최신순)
- * @param refs 이번 시즌에 이미 받은 참조 ID (메모리 최근 목록, DB 유니크가 최종 방어)
- * @param bestTier 시즌 간 최고 도달 평판 등급
+ * @param repDay game date of repToday
+ * @param repToday reputation received today per source (daily cap)
+ * @param recent recent reputation log (newest first)
+ * @param refs reference IDs already received this season (recent list in memory; the DB unique key
+ *     is the final guard)
+ * @param bestTier best reputation tier reached across seasons
  */
 public record NpcData(
         Map<NpcId, AffinityState> affinity,
@@ -30,7 +32,7 @@ public record NpcData(
         Set<String> refs,
         int bestTier) {
 
-    /** 메모리에 둘 참조 ID 수. */
+    /** Number of reference IDs kept in memory. */
     public static final int MAX_REFS = 256;
 
     public NpcData {
@@ -54,7 +56,7 @@ public record NpcData(
         return new NpcData(next, repDay, repToday, recent, refs, bestTier);
     }
 
-    /** 오늘 이 출처로 받은 평판 (날짜가 바뀌었으면 0). */
+    /** Reputation received from this source today (0 if the date changed). */
     public int repToday(ReputationSource source, LocalDate today) {
         return today.equals(repDay) ? repToday.getOrDefault(source, 0) : 0;
     }

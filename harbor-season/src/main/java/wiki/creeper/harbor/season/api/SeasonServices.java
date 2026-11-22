@@ -4,8 +4,9 @@ import java.util.Optional;
 import org.bukkit.Bukkit;
 
 /**
- * Season 서비스 찾기 도우미. Season이 Bukkit ServicesManager에 등록한 구현을 꺼낸다. Season에 필수 의존하는
- * 모듈(Collection·Boss·Quest …)은 enable 이후 언제든 쓸 수 있다.
+ * Season service lookup helper. Retrieves the implementations Season registered with the Bukkit
+ * ServicesManager. Modules with a hard dependency on Season (Collection, Boss, Quest ...) can use
+ * them any time after enable.
  */
 public final class SeasonServices {
 
@@ -35,7 +36,7 @@ public final class SeasonServices {
         return require(SeasonHookRegistry.class);
     }
 
-    /** 선택 의존 모듈용: Season이 없으면 빈 Optional. */
+    /** For soft-dependent modules: empty Optional if Season is not present. */
     public static <T> Optional<T> find(Class<T> type) {
         return Optional.ofNullable(Bukkit.getServicesManager().load(type));
     }

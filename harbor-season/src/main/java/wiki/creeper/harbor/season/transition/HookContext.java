@@ -4,7 +4,7 @@ import java.util.function.Consumer;
 import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.season.api.SeasonHookContext;
 
-/** SeasonHookContext 구현. */
+/** SeasonHookContext implementation. */
 record HookContext(
         String transitionId,
         int fromSeason,

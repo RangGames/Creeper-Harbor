@@ -5,13 +5,13 @@ import wiki.creeper.harbor.common.content.ContentCheck;
 import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.content.type.Messages;
 
-/** NPC 콘텐츠 형식. 서버 API를 쓰지 않아 harbor-tools(CI)도 같은 코드로 검사한다. */
+/** NPC content types. Uses no server API, so harbor-tools (CI) validates with the same code. */
 public final class NpcContent {
 
     public static final List<ContentType<?>> TYPES =
             List.of(NpcDef.TYPE, DialogDef.TYPE, CutsceneDef.TYPE);
 
-    /** 대사·버튼 문구 키가 messages_ko.yml에 있는지. */
+    /** Whether line and button text keys exist in messages_ko.yml. */
     public static final ContentCheck<DialogDef> DIALOG_MESSAGES =
             (dialog, check) -> {
                 Messages messages = check.snapshot().single(Messages.TYPE);
@@ -29,7 +29,7 @@ public final class NpcContent {
                 }
             };
 
-    /** 컷씬 대사·타이틀 키가 messages_ko.yml에 있는지. */
+    /** Whether cutscene line and title keys exist in messages_ko.yml. */
     public static final ContentCheck<CutsceneDef> CUTSCENE_MESSAGES =
             (cutscene, check) -> {
                 Messages messages = check.snapshot().single(Messages.TYPE);
@@ -42,7 +42,7 @@ public final class NpcContent {
                 }
             };
 
-    /** 선물 반응 대사 키, 떠돌이 후보 월드 등. */
+    /** Gift reaction line keys, wanderer candidate worlds, etc. */
     public static final ContentCheck<NpcDef> NPC_MESSAGES =
             (npc, check) -> {
                 Messages messages = check.snapshot().single(Messages.TYPE);

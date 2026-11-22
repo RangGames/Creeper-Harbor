@@ -35,8 +35,10 @@ import wiki.creeper.harbor.npc.entity.NpcManager;
 import wiki.creeper.harbor.npc.logic.WandererSchedule;
 
 /**
- * 떠돌이 NPC 일정 (docs 20 5.4, Phase 3). 칸이 바뀌면 hash(npc, 시즌, 칸) 시드로 후보를 고르고, 조건부 후보(시간·날씨)는 1분마다 확인해
- * 맞을 때만 세운다. 대화 중인 플레이어가 있으면 이동을 최대 60초 미룬다. 관리자 강제 이동은 서버 플래그 wanderer/<이름>.
+ * Wanderer NPC schedule (docs 20 5.4, Phase 3). When the slot changes, picks a candidate seeded by
+ * hash(npc, season, slot); conditional candidates (time, weather) are checked every minute and
+ * placed only when they match. If a player is in dialog, the move is postponed up to 60 seconds.
+ * Admin forced moves use server flag wanderer/<name>.
  */
 public final class WandererManager implements WandererService, NpcManager.Placement, Listener {
 
@@ -75,7 +77,7 @@ public final class WandererManager implements WandererService, NpcManager.Placem
         this.announce = announce;
     }
 
-    /** 5초마다 칸 변경을, check_interval_ticks마다 출현 조건을 확인한다. */
+    /** Checks for slot changes every 5 seconds and spawn conditions every check_interval_ticks. */
     public void start() {
         var _ = tasks.timer(100, 100, this::tick);
     }
@@ -98,7 +100,8 @@ public final class WandererManager implements WandererService, NpcManager.Placem
         return "wanderer/" + npc.id().name();
     }
 
-    // ------------------------------------------------------------------ 위치 (NpcManager.Placement)
+    // ------------------------------------------------------------------ placement
+    // (NpcManager.Placement)
 
     @Override
     public Optional<Spot> spot(NpcDef def) {
@@ -152,7 +155,7 @@ public final class WandererManager implements WandererService, NpcManager.Placem
         return new Target(slot, picked, false);
     }
 
-    /** 조건부 후보는 그 월드의 시간대·날씨가 맞을 때만 선다. */
+    /** Conditional candidates stand only when that world's time of day and weather match. */
     private boolean visible(NpcDef.Candidate candidate) {
         if (!candidate.conditional()) {
             return true;
@@ -168,7 +171,7 @@ public final class WandererManager implements WandererService, NpcManager.Placem
                 Conditions.weatherKey(w.isThundering(), w.hasStorm()));
     }
 
-    // ------------------------------------------------------------------ 주기 확인
+    // ------------------------------------------------------------------ periodic checks
 
     private void tick() {
         NpcBalance balance = balance();
@@ -197,7 +200,7 @@ public final class WandererManager implements WandererService, NpcManager.Placem
                 if (state.pendingSince
                         .plusSeconds(balance.wandererMaxDelaySeconds())
                         .isAfter(now)) {
-                    return; // 대화가 끝나길 기다린다
+                    return; // Wait for the dialog to end
                 }
             }
             state.pendingSince = null;
@@ -219,7 +222,7 @@ public final class WandererManager implements WandererService, NpcManager.Placem
                 if (now) {
                     npcs.sync(def.id());
                 } else {
-                    npcs.despawn(def.id(), true); // 안개와 함께 사라진다
+                    npcs.despawn(def.id(), true); // Vanishes with a puff of fog
                 }
                 moved(def, state, now);
             }
@@ -282,7 +285,7 @@ public final class WandererManager implements WandererService, NpcManager.Placem
         NpcBalance balance = balance();
         for (NpcDef def : npcs.defs()) {
             if (def.wanderer() && event.flag().equals(flagOf(def.id()))) {
-                // 강제 이동은 대화 중이어도 바로 (관리자 명령)
+                // Forced moves happen immediately even during dialog (admin command)
                 State state = ensure(def);
                 state.pendingSince = Instant.EPOCH;
                 evaluate(def, balance, true);

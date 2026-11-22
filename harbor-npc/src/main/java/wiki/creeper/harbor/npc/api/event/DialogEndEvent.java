@@ -7,7 +7,7 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.npc.api.DialogEndReason;
 
-/** 대화 세션 종료 (닫기·다른 화면으로 넘김·시간 초과·퇴장). */
+/** Dialog session ended (closed, handed off to another screen, timed out, quit). */
 public final class DialogEndEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

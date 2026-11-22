@@ -3,15 +3,16 @@ package wiki.creeper.harbor.season.transition;
 import java.util.List;
 
 /**
- * dry-run 결과 (docs 20 11.4: 실제 쓰기 없이 PRECHECK와 테이블별 아카이브·삭제 예정 행 수, 예상 시간).
+ * dry-run result (docs 20 11.4: PRECHECK plus per-table planned archive and delete row counts and
+ * estimated time, without any actual writes).
  *
- * @param errors PRECHECK 오류 (있으면 전환할 수 없음)
- * @param warnings 경고
- * @param tables 테이블별 예정
- * @param balanceResets SEASON_RESET 원장 기록 예정 수
- * @param fishLedgerRows ARCHIVED로 바꿀 fish_ledger 행 수
- * @param hookNotes 훅이 알린 할 일
- * @param estimatedSeconds 예상 소요 시간 (공지 대기 제외)
+ * @param errors PRECHECK errors (if any, the transition cannot run)
+ * @param warnings warnings
+ * @param tables per-table plan
+ * @param balanceResets number of SEASON_RESET ledger entries planned
+ * @param fishLedgerRows number of fish_ledger rows to change to ARCHIVED
+ * @param hookNotes tasks reported by hooks
+ * @param estimatedSeconds estimated duration (excluding the notice wait)
  */
 public record DryRunReport(
         List<String> errors,
@@ -29,7 +30,7 @@ public record DryRunReport(
         hookNotes = List.copyOf(hookNotes);
     }
 
-    /** 테이블 하나의 예정. 없는 테이블이면 exists = false. */
+    /** Plan for one table. exists = false if the table does not exist. */
     public record TablePlan(
             String table, String policy, boolean exists, long archiveRows, long deleteRows) {}
 }

@@ -6,7 +6,10 @@ import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.NpcId;
 
-/** 떠돌이 NPC 이동·출현·퇴장 (Quest waypoint 갱신). visible이 false면 사라진 것. */
+/**
+ * Wanderer NPC moved, appeared or left (Quest waypoint refresh). visible false means it
+ * disappeared.
+ */
 public final class WandererMovedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

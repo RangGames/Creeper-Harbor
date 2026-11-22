@@ -4,7 +4,10 @@ import java.time.LocalDate;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 일일 초기화 시각(기본 06:00)에 메인 스레드에서 발생한다. 서버마다 따로 발생한다. */
+/**
+ * Fired on the main thread at the daily reset time (default 06:00). Fired separately on each
+ * server.
+ */
 public final class DailyResetEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -15,7 +18,7 @@ public final class DailyResetEvent extends Event {
         this.gameDay = gameDay;
     }
 
-    /** 새 게임 날짜 (Core HarborTime.gameDay). */
+    /** New game day (Core HarborTime.gameDay). */
     public LocalDate gameDay() {
         return gameDay;
     }

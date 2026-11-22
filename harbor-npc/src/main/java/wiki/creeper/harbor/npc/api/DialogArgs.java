@@ -7,13 +7,14 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * 대화 조건·액션의 인자 (YAML 값 그대로: 문자열, 목록, 맵). 서버 API를 쓰지 않아 harbor-tools도 같은 클래스로 검사한다.
+ * Arguments of a dialog condition or action (raw YAML values: strings, lists, maps). Uses no server
+ * API, so harbor-tools validates with the same class.
  *
  * <pre>{@code
  * # dialogs/*.yml
  * actions:
  *   - {type: affinity:add, value: 10, once: hansol_intro}
- *   - quest:accept: harbor:quest/main/ch1_dark_lighthouse   # 값 하나면 "value" 인자
+ *   - quest:accept: harbor:quest/main/ch1_dark_lighthouse   # a single value is the "value" argument
  * }</pre>
  */
 public record DialogArgs(Map<String, Object> values) {
@@ -36,7 +37,7 @@ public record DialogArgs(Map<String, Object> values) {
         return values.keySet();
     }
 
-    /** 문자열 값 (목록·맵이면 빈 값). */
+    /** String value (empty for lists and maps). */
     public Optional<String> string(String key) {
         Object v = values.get(key);
         return v instanceof String s ? Optional.of(s) : Optional.empty();
@@ -46,7 +47,7 @@ public record DialogArgs(Map<String, Object> values) {
         return string(key).orElse(fallback);
     }
 
-    /** 값 하나짜리 인자 ({@code - quest:accept: <id>}). */
+    /** Single-value argument ({@code - quest:accept: <id>}). */
     public Optional<String> value() {
         return string("value");
     }
@@ -72,7 +73,7 @@ public record DialogArgs(Map<String, Object> values) {
         return string(key).map(s -> s.equals("true")).orElse(fallback);
     }
 
-    /** 문자열 하나 또는 문자열 목록. */
+    /** A single string or a list of strings. */
     public List<String> strings(String key) {
         Object v = values.get(key);
         if (v instanceof String s) {
@@ -84,7 +85,7 @@ public record DialogArgs(Map<String, Object> values) {
         return List.of();
     }
 
-    /** 정수로 읽을 수 있는지 (검사용). */
+    /** Whether it can be read as an integer (for checks). */
     public boolean isInteger(String key) {
         return string(key).flatMap(DialogArgs::parseLong).isPresent();
     }

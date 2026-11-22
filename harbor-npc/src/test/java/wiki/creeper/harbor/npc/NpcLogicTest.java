@@ -37,7 +37,7 @@ class NpcLogicTest {
     private static final SourcePos POS = new SourcePos("t.yml", 1, 1);
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
-    // ------------------------------------------------------------------ 대화 조건
+    // ------------------------------------------------------------------ dialog conditions
 
     private static DialogRef ref(String key, Map<String, Object> args) {
         return new DialogRef(key, DialogArgs.of(args), POS);
@@ -81,7 +81,7 @@ class NpcLogicTest {
                 new DialogDef.Node("n", null, List.of("p1", "p2"), List.of(a, b, c), false, POS);
         List<DialogEval.Visible> visible = DialogEval.visibleOptions(node, test);
         assertEquals(List.of(0, 2), visible.stream().map(DialogEval.Visible::index).toList());
-        assertFalse(DialogEval.optionsOnPage(node, 0)); // 첫 페이지는 '다음'
+        assertFalse(DialogEval.optionsOnPage(node, 0)); // First page is 'next'
         assertTrue(DialogEval.optionsOnPage(node, 1));
         assertEquals(1, DialogEval.clampPage(node, 9));
     }
@@ -131,7 +131,7 @@ class NpcLogicTest {
         assertTrue(Conditions.matches(List.of(), "clear"));
     }
 
-    // ------------------------------------------------------------------ 평판·호감도
+    // ------------------------------------------------------------------ reputation and affinity
 
     private static final List<ReputationTier> TIERS =
             List.of(
@@ -147,7 +147,10 @@ class NpcLogicTest {
         assertEquals(1, ReputationMath.tierFor(299, TIERS));
         assertEquals(2, ReputationMath.tierFor(300, TIERS));
         assertEquals(4, ReputationMath.tierFor(3_499, TIERS));
-        assertEquals(5, ReputationMath.tierFor(3_550, TIERS)); // 일반 유저 시즌 기대 평판 ≈ 3,550
+        assertEquals(
+                5,
+                ReputationMath.tierFor(
+                        3_550, TIERS)); // Expected season reputation for a typical player ≈ 3,550
         assertEquals(3, ReputationMath.next(500, TIERS).orElseThrow().tier());
         assertTrue(ReputationMath.next(9_999, TIERS).isEmpty());
     }
@@ -157,9 +160,9 @@ class NpcLogicTest {
         assertEquals(3, ReputationMath.capped(3, 0, 30));
         assertEquals(2, ReputationMath.capped(3, 28, 30));
         assertEquals(0, ReputationMath.capped(3, 30, 30));
-        assertEquals(500, ReputationMath.capped(500, 0, 0)); // 상한 없음
-        assertEquals(-50, ReputationMath.capped(-50, 30, 30)); // 차감은 상한과 무관
-        assertEquals(25, ReputationMath.scaled(20, 1.25)); // 항구 투자 +25%
+        assertEquals(500, ReputationMath.capped(500, 0, 0)); // No cap
+        assertEquals(-50, ReputationMath.capped(-50, 30, 30)); // Deductions ignore the cap
+        assertEquals(25, ReputationMath.scaled(20, 1.25)); // Harbor investment +25%
         assertEquals(0, ReputationMath.apply(10, -50));
     }
 
@@ -179,7 +182,7 @@ class NpcLogicTest {
         assertEquals(15, AffinityMath.giftPoints(15, 1, 0.25));
         assertEquals(23, AffinityMath.giftPoints(15, 3, 0.25)); // 15 × 1.5 = 22.5 → 23
         assertEquals(30, AffinityMath.giftPoints(15, 5, 0.25));
-        assertEquals(-5, AffinityMath.giftPoints(-5, 5, 0.25)); // 싫어하는 선물은 품질 무관
+        assertEquals(-5, AffinityMath.giftPoints(-5, 5, 0.25)); // Disliked gifts ignore quality
         assertEquals(GiftReaction.LOVE, AffinityMath.reaction(15, 15, 5));
         assertEquals(GiftReaction.LIKE, AffinityMath.reaction(5, 15, 5));
         assertEquals(GiftReaction.NORMAL, AffinityMath.reaction(1, 15, 5));
@@ -200,7 +203,7 @@ class NpcLogicTest {
                 QuestMarker.max(QuestMarker.NONE, QuestMarker.IN_PROGRESS));
     }
 
-    // ------------------------------------------------------------------ 떠돌이 일정
+    // ------------------------------------------------------------------ wanderer schedule
 
     private static NpcDef.Candidate candidate(String id, int weight) {
         return new NpcDef.Candidate(
@@ -259,7 +262,7 @@ class NpcLogicTest {
         assertFalse(WandererSchedule.visible(storm, "day", "thunder"));
     }
 
-    // ------------------------------------------------------------------ 컷씬 카메라
+    // ------------------------------------------------------------------ cutscene camera
 
     @Test
     void cameraPlanSplitsLongSegments() {
@@ -268,7 +271,7 @@ class NpcLogicTest {
                         new CutsceneDef.CameraKey(0, new Spot("w", 0, 70, 0, 0, 0)),
                         new CutsceneDef.CameraKey(100, new Spot("w", 100, 70, 0, 90, 0)));
         List<CameraPlan.Move> moves = CameraPlan.plan(keys, 40);
-        assertEquals(4, moves.size()); // 시작 + 40 + 40 + 20
+        assertEquals(4, moves.size()); // Start + 40 + 40 + 20
         assertEquals(0, moves.get(1).tick());
         assertEquals(40, moves.get(1).duration());
         assertEquals(40, moves.get(1).target().x(), 1e-9);

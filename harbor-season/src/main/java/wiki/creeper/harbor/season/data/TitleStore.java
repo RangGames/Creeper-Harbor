@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.season.api.TitleId;
 
-/** titles 쓰기 (서버 API 없음: 전환 엔진·harbor-tools에서도 쓴다). */
+/** titles writes (no server API: also used by the transition engine and harbor-tools). */
 public final class TitleStore {
 
     public static final int MAX_REF = 64;
@@ -15,9 +15,9 @@ public final class TitleStore {
     private TitleStore() {}
 
     /**
-     * 칭호를 넣는다. (uuid, title_id)가 이미 있으면 아무것도 하지 않는다 (멱등).
+     * Inserts a title. Does nothing if (uuid, title_id) already exists (idempotent).
      *
-     * @return 새로 넣었으면 true
+     * @return true if newly inserted
      */
     public static boolean insert(
             Connection c, UUID player, TitleId title, int season, @Nullable String refId)

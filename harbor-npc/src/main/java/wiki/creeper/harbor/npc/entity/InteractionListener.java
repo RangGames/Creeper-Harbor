@@ -25,8 +25,9 @@ import wiki.creeper.harbor.npc.content.NpcDef;
 import wiki.creeper.harbor.npc.dialog.DialogManager;
 
 /**
- * NPC 클릭 (docs 20 5.4 상호작용 1~4단계): 10틱 중복 클릭 무시 → interact_radius·상태 검사 → NpcInteractEvent → 하루 첫
- * 대화 호감도 → 대화 열기.
+ * NPC click (docs 20 5.4 interaction steps 1-4): ignore duplicate clicks within 10 ticks →
+ * interact_radius and state checks → NpcInteractEvent → first-talk-of-the-day affinity → open
+ * dialog.
  */
 public final class InteractionListener implements Listener {
 
@@ -56,7 +57,10 @@ public final class InteractionListener implements Listener {
         }
     }
 
-    /** 갑옷 거치대식 정밀 클릭도 같은 NPC 클릭으로 본다 (중복은 10틱 제한으로 걸러짐). */
+    /**
+     * Armor-stand-style precise clicks also count as the same NPC click (duplicates are filtered by
+     * the 10-tick limit).
+     */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onInteractAt(PlayerInteractAtEntityEvent event) {
         if (npcs.npcOf(event.getRightClicked()).isPresent()) {
@@ -105,7 +109,8 @@ public final class InteractionListener implements Listener {
             return;
         }
         if (right && dialogs.advance(player, id)) {
-            return; // 말풍선·채팅 대화 중 재클릭 = 다음 쪽 (새 대화를 열지 않음)
+            return; // Re-click during a speech bubble/chat dialog = next page (does not open a new
+            // dialog)
         }
         NpcInteractEvent event = new NpcInteractEvent(player, id, right);
         Bukkit.getPluginManager().callEvent(event);

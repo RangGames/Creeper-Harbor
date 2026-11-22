@@ -6,7 +6,7 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.npc.api.AffinitySource;
 
-/** 호감도 변경 (Quest 조건 재평가, Economy 할인 갱신). */
+/** Affinity changed (Quest condition re-evaluation, Economy discount refresh). */
 public final class AffinityChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

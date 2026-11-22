@@ -16,7 +16,8 @@ import wiki.creeper.harbor.npc.api.DialogStyle;
 import wiki.creeper.harbor.npc.entity.NpcManager;
 
 /**
- * 대화 방식별 화면 모음 (추가 제안). DialogManager는 쪽·버튼만 정하고 그리기는 여기 맡긴다. 세션 없는 한마디(say)도 여기서 처리한다. 메인 스레드 전용.
+ * Screens per dialog style (proposed). DialogManager only decides pages and buttons and leaves
+ * drawing to this. Session-less one-liners (say) are handled here too. Main thread only.
  */
 public final class Presenters {
 
@@ -59,28 +60,31 @@ public final class Presenters {
         return p == null ? chat : p;
     }
 
-    /** 그 방식의 남은 표시를 지운다 (세션 끝). Dialog 화면은 닫지 않는다 (DialogManager가 정함). */
+    /**
+     * Removes the style's leftover display (session end). Does not close the Dialog screen
+     * (DialogManager decides).
+     */
     public void clear(Player player, DialogStyle style) {
         of(style).clear(player);
     }
 
-    /** 퇴장한 플레이어 (Player 객체 없이). */
+    /** A player who quit (without a Player object). */
     public void forget(UUID uuid) {
         hologram.remove(uuid);
     }
 
-    /** watch 타이머: 방식마다 다시 보낼 것·지울 것 처리. */
+    /** Watch timer: handles what to resend or remove per style. */
     public void refresh(Player player) {
         actionBar.refresh(player);
         hologram.refresh(player);
     }
 
-    /** 말풍선·액션바가 떠 있어 refresh가 필요한 플레이어인지. */
+    /** Whether the player has a speech bubble or action bar up that needs refresh. */
     public boolean needsRefresh(UUID uuid) {
         return hologram.has(uuid);
     }
 
-    /** 세션 없는 한마디 (say). DIALOG면 안내 화면. */
+    /** A session-less one-liner (say). DIALOG shows a notice screen. */
     public void say(
             Player player, NpcId npc, Component speaker, Component line, DialogStyle style) {
         switch (style) {
@@ -96,7 +100,7 @@ public final class Presenters {
         }
     }
 
-    /** 플러그인 종료. */
+    /** Plugin shutdown. */
     public void shutdown() {
         hologram.clearAll();
         for (Player p : Bukkit.getOnlinePlayers()) {

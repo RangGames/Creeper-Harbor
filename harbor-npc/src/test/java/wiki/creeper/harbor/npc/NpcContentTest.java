@@ -101,7 +101,7 @@ class NpcContentTest {
         assertTrue(dialog.unreachable().isEmpty());
 
         CutsceneDef c = s.get(CutsceneDef.TYPE, HarborId.parse("cutscene/c")).orElseThrow();
-        assertEquals(60, c.duration()); // 마지막 대사 t 0 + 60틱
+        assertEquals(60, c.duration()); // Last line t 0 + 60 ticks
         assertTrue(c.returnsToOrigin());
     }
 
@@ -111,7 +111,7 @@ class NpcContentTest {
         ValidationErrors errors = errors();
         String text = errors.format();
         assertTrue(text.contains("nowhere"), text);
-        assertTrue(text.contains("도달할 수 없는 노드"), text); // more에 닿지 않음
+        assertTrue(text.contains("도달할 수 없는 노드"), text); // more is unreachable
     }
 
     @Test
@@ -148,7 +148,8 @@ class NpcContentTest {
         }
         Result<ContentSnapshot, ValidationErrors> result = loader.load(content);
         if (result instanceof Result.Err<ContentSnapshot, ValidationErrors>(ValidationErrors e)) {
-            // 다른 모듈 형식(상점 등)은 등록하지 않았으므로 그 참조는 건너뛴다. NPC 쪽 오류만 실패로 본다
+            // Other modules' types (shops etc.) are not registered, so those references are
+            // skipped. Only NPC-side errors count as failures
             String npcErrors =
                     e.list().stream()
                             .map(Object::toString)

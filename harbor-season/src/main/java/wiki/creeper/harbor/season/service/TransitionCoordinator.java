@@ -12,8 +12,6 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,7 +24,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -43,9 +40,6 @@ import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.ContentLoader;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.CoreContent;
-import wiki.creeper.harbor.common.ledger.LedgerEntry;
-import wiki.creeper.harbor.common.ledger.LedgerError;
-import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.proxy.ProxyMessages;
 import wiki.creeper.harbor.common.redis.Channels;
@@ -63,24 +57,25 @@ import wiki.creeper.harbor.season.content.SeasonDef;
 import wiki.creeper.harbor.season.hof.HallOfFameManager;
 import wiki.creeper.harbor.season.net.SeasonMessages;
 import wiki.creeper.harbor.season.ranking.RankingManager;
-import wiki.creeper.harbor.season.transition.ReadOnlySeasonBalances;
 import wiki.creeper.harbor.season.transition.TransitionEnvironment;
 
 /**
- * 본 서버의 전환 환경 (TransitionEnvironment 구현) + 모든 서버의 전환 참여 (docs 20 11.4 FREEZE).
+ * Main server's transition environment (TransitionEnvironment implementation) plus transition
+ * participation on every server (docs 20 11.4 FREEZE).
  *
  * <ul>
- *   <li>모든 서버: harbor:season FreezeRequest를 받으면 관리자(OP)가 아닌 플레이어를 내보내고, 지연 쓰기 큐를 비운 뒤 FlushAck로
- *       답한다. season_meta가 TRANSITIONING·ARCHIVED인 동안 OP가 아닌 접속을 막는다 (Proxy 점검 모드를 켜는 API가 아직 없어서
- *       서버에서도 막음)
- *   <li>전환 서버: 하트비트(harbor:server)로 살아 있는 서버 목록을 알고, 모두 답할 때까지 기다린다
+ *   <li>Every server: on a harbor:season FreezeRequest, kicks players who are not admins (OP),
+ *       drains the write-behind queue and replies with FlushAck. While season_meta is TRANSITIONING
+ *       or ARCHIVED, non-OP logins are blocked (also blocked on the server because there is no API
+ *       yet to turn on Proxy maintenance mode)
+ *   <li>Transition server: learns the live server list from heartbeats (harbor:server) and waits
+ *       until all of them reply
  * </ul>
  */
 public final class TransitionCoordinator implements TransitionEnvironment, Listener {
 
     private static final Duration HEARTBEAT_FRESH = Duration.ofSeconds(15);
     private static final long MAX_PACK_BYTES = 512L << 20;
-    private static final int RESET_BATCH = 50;
 
     private final HarborApi api;
     private final Plugin plugin;
@@ -142,7 +137,7 @@ public final class TransitionCoordinator implements TransitionEnvironment, Liste
                         });
     }
 
-    /** 전환 중이면 OP가 아닌 접속을 막는다 (Core 로드 전에). */
+    /** Blocks non-OP logins during a transition (before Core loads). */
     @EventHandler(priority = EventPriority.LOW)
     public void onPreLogin(AsyncPlayerPreLoginEvent event) {
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
@@ -158,7 +153,7 @@ public final class TransitionCoordinator implements TransitionEnvironment, Liste
         }
     }
 
-    // ------------------------------------------------------------------ FREEZE (모든 서버)
+    // ------------------------------------------------------------------ FREEZE (all servers)
 
     private void onFreeze(SeasonMessages.FreezeRequest request) {
         if (request.season() != clock.current().value()) {
@@ -174,7 +169,7 @@ public final class TransitionCoordinator implements TransitionEnvironment, Liste
                                     p.kick(reason);
                                 }
                             }
-                            // 퇴장 저장(flushNow)이 끝날 시간을 준 뒤 큐 전체를 비운다
+                            // Give quit saves (flushNow) time to finish, then drain the whole queue
                             var _ =
                                     tasks.later(
                                             60,
@@ -287,7 +282,7 @@ public final class TransitionCoordinator implements TransitionEnvironment, Liste
         }
     }
 
-    // ------------------------------------------------------------------ 검사
+    // ------------------------------------------------------------------ checks
 
     @Override
     public int currentSeason() {
@@ -317,7 +312,8 @@ public final class TransitionCoordinator implements TransitionEnvironment, Liste
             if (!dir.startsWith(api.content().root().normalize()) || !Files.isDirectory(dir)) {
                 errors.add("시즌 " + nextSeason + " content_dir이 없습니다: " + dir);
             } else if (Files.isRegularFile(dir.resolve("balance.yml"))) {
-                // 전체 콘텐츠 폴더면 Core·Season 형식으로 미리 읽어 본다 (다른 모듈 형식은 서버 리로드 때 검사)
+                // For a full content folder, pre-load it with the Core and Season types (other
+                // modules' types are checked on server reload)
                 ContentLoader loader = new ContentLoader();
                 CoreContent.register(loader);
                 SeasonContent.TYPES.forEach(loader::register);
@@ -419,7 +415,7 @@ public final class TransitionCoordinator implements TransitionEnvironment, Liste
         return new SeasonWindow(start.toEpochSecond(), start.plusWeeks(weeks).toEpochSecond());
     }
 
-    // ------------------------------------------------------------------ 알림
+    // ------------------------------------------------------------------ notifications
 
     @Override
     public void announce(String messageKey, Map<String, String> placeholders) {
@@ -453,97 +449,15 @@ public final class TransitionCoordinator implements TransitionEnvironment, Liste
                 .toArray(TagResolver[]::new);
     }
 
-    // ------------------------------------------------------------------ 원장 · 확정 · 훅
+    // ------------------------------------------------------------------ ledger · finalization ·
+    // hooks
 
     @Override
     public long resetBalances(int season, Set<Currency> currencies) throws Exception {
         if (currentSeason() != season) {
             throw new IllegalStateException("CurrencyService가 다른 시즌을 가리킵니다");
         }
-        record Balance(UUID player, Currency currency, long amount) {}
-        List<Balance> balances =
-                api.database()
-                        .tx(
-                                c -> {
-                                    List<Balance> out = new ArrayList<>();
-                                    for (Currency currency : currencies) {
-                                        String column = ReadOnlySeasonBalances.column(currency);
-                                        try (PreparedStatement ps =
-                                                c.prepareStatement(
-                                                        "SELECT uuid, "
-                                                                + column
-                                                                + " FROM player_season WHERE season = ? AND ("
-                                                                + column
-                                                                + ") <> 0")) {
-                                            ps.setInt(1, season);
-                                            try (ResultSet rs = ps.executeQuery()) {
-                                                while (rs.next()) {
-                                                    out.add(
-                                                            new Balance(
-                                                                    UUID.fromString(
-                                                                            rs.getString(1)),
-                                                                    currency,
-                                                                    rs.getLong(2)));
-                                                }
-                                            }
-                                        }
-                                    }
-                                    return out;
-                                });
-        long done = 0;
-        for (int i = 0; i < balances.size(); i += RESET_BATCH) {
-            List<Balance> chunk = balances.subList(i, Math.min(balances.size(), i + RESET_BATCH));
-            List<LedgerEntry> entries = new ArrayList<>();
-            for (Balance b : chunk) {
-                if (b.amount() < 0) {
-                    log.error(
-                            "음수 잔액은 초기화하지 않습니다 (원장 검사 필요): {} {} {}",
-                            b.player(),
-                            b.currency(),
-                            b.amount());
-                    continue;
-                }
-                entries.add(
-                        new LedgerEntry(
-                                b.player(),
-                                b.currency(),
-                                -b.amount(),
-                                LedgerReason.SEASON_RESET,
-                                ref(season, b.player())));
-            }
-            if (entries.isEmpty()) {
-                continue;
-            }
-            Result<List<Long>, LedgerError> batch = api.currency().atomic(entries, null).join();
-            if (batch.isOk()) {
-                done += entries.size();
-                continue;
-            }
-            // 묶음이 실패하면 (재개로 일부가 이미 처리됨 등) 한 건씩 처리한다
-            for (LedgerEntry e : entries) {
-                Result<Long, LedgerError> one =
-                        api.currency()
-                                .take(
-                                        e.player(),
-                                        e.currency(),
-                                        -e.delta(),
-                                        LedgerReason.SEASON_RESET,
-                                        e.refId())
-                                .join();
-                if (one instanceof Result.Err<Long, LedgerError>(LedgerError error)
-                        && error != LedgerError.DUPLICATE) {
-                    throw new IllegalStateException(
-                            "SEASON_RESET 실패: " + e.player() + " " + e.currency() + " " + error);
-                }
-                done++;
-            }
-        }
-        return done;
-    }
-
-    /** SEASON_RESET 참조 ID (docs 20 11.4: season_reset:&lt;n&gt;:&lt;uuid&gt;). */
-    static String ref(int season, UUID player) {
-        return "season_reset:" + season + ":" + player;
+        return SeasonBalanceReset.run(api, log, season, currencies);
     }
 
     @Override
@@ -570,7 +484,8 @@ public final class TransitionCoordinator implements TransitionEnvironment, Liste
         if (!errors.isEmpty()) {
             return errors;
         }
-        // Core는 시즌 번호·리소스팩을 harbor-infra.yml에서 읽으므로 바꿀 값을 파일로 남기고 운영자가 각 서버에 반영한다
+        // Core reads the season number and resource pack from harbor-infra.yml, so the new values
+        // are written to a file and the operator applies them on each server
         SeasonDef def = content.defs().get(nextSeason).orElseThrow();
         StringBuilder text = new StringBuilder();
         text.append("# 시즌 ").append(nextSeason).append(" 전환 후 모든 서버 harbor-infra.yml에 반영할 값\n");

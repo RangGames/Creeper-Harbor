@@ -11,32 +11,37 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.npc.api.DialogArgs;
 
 /**
- * 대화 조건·액션 참조 한 건.
+ * One dialog condition or action reference.
  *
  * <pre>{@code
- * - close                                   # 인자 없음
- * - goto: thanks                            # 값 하나 → value
+ * - close                                   # no arguments
+ * - goto: thanks                            # single value → value
  * - {type: affinity:add, value: 10, once: hansol_intro}
  * - flag:set: {flag: met_hansol, scope: perm}
  * }</pre>
  *
- * @param key 등록 키 ({@code 모듈:이름} 또는 NPC 기본 키)
+ * @param key registered key ({@code module:name} or an NPC built-in key)
  */
 public record DialogRef(String key, DialogArgs args, SourcePos pos) {
 
     public static final Pattern KEY = Pattern.compile("[a-z0-9_]+(:[a-z0-9_]+)?");
 
-    /** 노드를 가리키는 인자 이름. 콘텐츠 검사가 노드 존재와 도달 가능성을 확인한다. */
+    /**
+     * Argument names that point to nodes. The content check verifies node existence and
+     * reachability.
+     */
     public static final List<String> NODE_ARGS =
             List.of("node", "fail_node", "success_node", "after_node");
 
-    /** 키의 모듈 부분 ({@code quest:accept} → quest, 기본 키는 빈 문자열). */
+    /**
+     * The module part of the key ({@code quest:accept} → quest; empty string for built-in keys).
+     */
     public String namespace() {
         int colon = key.indexOf(':');
         return colon < 0 ? "" : key.substring(0, colon);
     }
 
-    /** 이 참조가 가리키는 노드 ID들 (goto의 value 포함). */
+    /** Node IDs this reference points to (including goto's value). */
     public List<String> nodeRefs() {
         List<String> nodes = new ArrayList<>();
         for (String arg : NODE_ARGS) {

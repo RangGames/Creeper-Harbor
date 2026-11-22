@@ -1,9 +1,9 @@
 package wiki.creeper.harbor.npc.api;
 
 /**
- * 호감도 변경 결과.
+ * Result of an affinity change.
  *
- * @param applied 반영했는지 (접속 중이 아니면 false)
+ * @param applied whether it was applied (false if the player is not online)
  */
 public record AffinityChange(
         boolean applied, int oldPoints, int newPoints, int oldLevel, int newLevel) {

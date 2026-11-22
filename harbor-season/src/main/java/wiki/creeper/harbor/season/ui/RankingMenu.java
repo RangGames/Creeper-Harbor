@@ -19,10 +19,11 @@ import wiki.creeper.harbor.season.api.RankingService;
 import wiki.creeper.harbor.season.content.RankingBoardDef;
 
 /**
- * 랭킹 화면 (/랭킹, docs 20 11.5). 위 5줄에 순위(머리 아이콘), 마지막 줄에 페이지·보드·리그 버튼과 내 순위. 캐시만 읽으므로 DB 접근이 없다.
+ * Ranking screen (/랭킹, docs 20 11.5). Ranks (head icons) in the top 5 rows; page, board and league
+ * buttons plus your own rank in the last row. Reads only the cache, so there is no DB access.
  *
  * <pre>
- * [이전쪽][이전 보드][내 순위][리그1][리그2][리그3][집계 시각][다음 보드][다음쪽]
+ * [prev page][prev board][my rank][league1][league2][league3][computed at][next board][next page]
  * </pre>
  */
 public final class RankingMenu {

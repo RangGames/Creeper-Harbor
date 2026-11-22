@@ -54,9 +54,11 @@ import wiki.creeper.harbor.npc.logic.DialogEval;
 import wiki.creeper.harbor.npc.logic.SpeechText;
 
 /**
- * 대화 엔진 (docs 20 5.4 상호작용·대화 흐름 4~6단계). 쪽·버튼을 정하고 그리기는 방식별 {@link Presenters}에 맡긴다 (DIALOG = Core
- * Dialog 래퍼). 버튼마다 세션 nonce를 실어 오래된 화면·위조 클릭을 무시한다. 클릭 때 세션 시간·NPC 거리를 확인하고 선택지 조건을 다시 평가한 뒤 액션을
- * 순서대로 실행한다 ({@link ActionRunner}). 메인 스레드 전용.
+ * Dialog engine (docs 20 5.4 interaction and dialog flow steps 4-6). Decides pages and buttons and
+ * delegates drawing to the per-style {@link Presenters} (DIALOG = Core Dialog wrapper). Every
+ * button carries the session nonce so stale screens and forged clicks are ignored. On click, checks
+ * session time and NPC distance, re-evaluates choice conditions, then runs actions in order ({@link
+ * ActionRunner}). Main thread only.
  */
 public final class DialogManager implements DialogService, Listener {
 
@@ -85,14 +87,16 @@ public final class DialogManager implements DialogService, Listener {
     }
 
     public void start() {
-        // 만료된 세션 정리 (ESC로 닫은 화면은 서버가 모르므로 시간으로 끝낸다)
+        // Clean up expired sessions (the server does not know about screens closed with ESC, so end
+        // them by time)
         var _ = tasks.timer(600, 600, this::expireSessions);
-        // DIALOG 밖의 방식: 멀어지면 끝내고, 말풍선·액션바를 유지한다
+        // Non-DIALOG styles: end when the player moves away, and keep the speech bubble and action
+        // bar up
         int watch = balance().watchTicks();
         var _ = tasks.timer(watch, watch, this::watch);
     }
 
-    /** 플러그인 종료: 말풍선을 모두 지운다. */
+    /** Plugin shutdown: removes all speech bubbles. */
     public void shutdown() {
         for (ActiveSession s : List.copyOf(sessions.values())) {
             end(s, DialogEndReason.CLOSED);
@@ -130,7 +134,7 @@ public final class DialogManager implements DialogService, Listener {
         return openNode(player, npc, node, false);
     }
 
-    /** /harbor npc dialog: 거리 검사 없이 노드를 연다 (대사 검수). */
+    /** /harbor npc dialog: opens a node without the distance check (line review). */
     public boolean preview(Player player, NpcId npc, String node) {
         return openNode(player, npc, node, true);
     }
@@ -156,7 +160,11 @@ public final class DialogManager implements DialogService, Listener {
             end(previous, DialogEndReason.REPLACED);
             ActiveSession reopened = sessions.get(player.getUniqueId());
             if (reopened != null) {
-                end(reopened, DialogEndReason.REPLACED); // 이전 결과 처리에서 또 연 세션
+                end(
+                        reopened,
+                        DialogEndReason
+                                .REPLACED); // A session opened again while handling the previous
+                // result
             }
         }
         sessions.put(player.getUniqueId(), s);
@@ -164,7 +172,8 @@ public final class DialogManager implements DialogService, Listener {
     }
 
     /**
-     * NPC 재클릭: DIALOG 밖의 방식으로 이 NPC와 대화 중이면 다음 쪽으로 넘기거나 선택지를 다시 보여주고 true. 아니면 false (새 대화를 연다).
+     * NPC re-click: if talking with this NPC in a non-DIALOG style, advance to the next page or
+     * show the choices again and return true. Otherwise false (open a new dialog).
      */
     public boolean advance(Player player, NpcId npc) {
         ActiveSession s = sessions.get(player.getUniqueId());
@@ -172,7 +181,7 @@ public final class DialogManager implements DialogService, Listener {
             return false;
         }
         if (s.busy) {
-            return true; // 액션 처리 중: 새로 열지 않고 기다린다
+            return true; // Actions in progress: wait instead of opening a new one
         }
         if (s.buttons.size() == 1 && s.buttons.getFirst() instanceof Next) {
             onClick(player, s.nonce, s.buttons.getFirst());
@@ -254,14 +263,14 @@ public final class DialogManager implements DialogService, Listener {
                 style == null ? styleOf(npc) : style);
     }
 
-    // ------------------------------------------------------------------ 평가
+    // ------------------------------------------------------------------ evaluation
 
-    /** 조건 하나. 등록되지 않은 키는 거짓 (선택지를 숨김). */
+    /** A single condition. Unregistered keys are false (hide the choice). */
     boolean test(DialogContext ctx, DialogRef ref) {
         return actions.test(ctx, ref);
     }
 
-    // ------------------------------------------------------------------ 화면
+    // ------------------------------------------------------------------ screens
 
     void render(Player player, ActiveSession s) {
         DialogDef def = s.def;
@@ -349,7 +358,9 @@ public final class DialogManager implements DialogService, Listener {
             List<Button> buttons,
             double autoSeconds) {
         if (style != s.style) {
-            presenters.clear(player, s.style); // 노드마다 방식이 바뀔 수 있다 (말풍선 → Dialog 화면)
+            presenters.clear(
+                    player,
+                    s.style); // The style can change per node (speech bubble → Dialog screen)
         }
         s.cancelAuto();
         long nonce = ++nonceSeq;
@@ -390,12 +401,12 @@ public final class DialogManager implements DialogService, Listener {
         return new DialogContext(player, s.npc, s.dialogId(), s.node);
     }
 
-    // ------------------------------------------------------------------ 클릭
+    // ------------------------------------------------------------------ clicks
 
     private void onClick(Player player, long nonce, Button button) {
         ActiveSession s = sessions.get(player.getUniqueId());
         if (s == null || s.nonce != nonce || s.busy || !player.isOnline()) {
-            return; // 오래된 화면·중복 클릭·처리 중
+            return; // Stale screen, duplicate click, or in progress
         }
         NpcBalance balance = balance();
         if (s.shownAt.plusSeconds(balance.dialogTimeoutSeconds()).isBefore(Instant.now())) {
@@ -421,7 +432,8 @@ public final class DialogManager implements DialogService, Listener {
             }
             case Choose(int index) -> {
                 if (s.def == null) {
-                    // 먼저 세션을 닫고 결과를 넘긴다 (결과 처리에서 새 화면을 열어도 닫히지 않게)
+                    // Close the session first, then deliver the result (so a new screen opened
+                    // while handling the result is not closed)
                     IntConsumer callback = s.takeCallback();
                     end(s, DialogEndReason.CLOSED);
                     if (s.style.modal()) {
@@ -477,7 +489,8 @@ public final class DialogManager implements DialogService, Listener {
                         .callEvent(new DialogEndEvent(player, s.npc, def.id(), s.node, reason));
             }
         }
-        // 마지막에 넘긴다: 결과 처리에서 새 대화를 열어도 위 정리가 그 화면을 지우지 않게
+        // Deliver last: so the cleanup above does not remove a new dialog opened while handling the
+        // result
         s.resolve(-1);
     }
 
@@ -490,7 +503,10 @@ public final class DialogManager implements DialogService, Listener {
         }
     }
 
-    /** DIALOG 밖의 방식: 멀어지면 끝내고(말풍선 정리), 표시를 유지한다. */
+    /**
+     * Non-DIALOG styles: end when the player moves away (clean up the bubble), otherwise keep the
+     * display up.
+     */
     private void watch() {
         double distance = balance().optionDistance();
         for (ActiveSession s : List.copyOf(sessions.values())) {
@@ -525,7 +541,7 @@ public final class DialogManager implements DialogService, Listener {
         registry.unregisterAll(event.getPlugin());
     }
 
-    /** 대화 ID로 정의 조회 (명령 자동 완성 등). */
+    /** Looks up a definition by dialog ID (command tab completion etc.). */
     public Optional<DialogDef> dialog(HarborId id) {
         return api.content().snapshot().get(DialogDef.TYPE, id);
     }

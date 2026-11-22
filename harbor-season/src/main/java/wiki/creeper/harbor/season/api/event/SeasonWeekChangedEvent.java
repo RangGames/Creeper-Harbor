@@ -4,7 +4,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/** 주차가 바뀐 첫 틱에 메인 스레드에서 발생한다 (주차 잠금 퀘스트 개방 공지, 주간 의뢰 갱신). 서버마다 따로 발생한다. */
+/**
+ * Fired on the main thread on the first tick after the week changes (week-locked quest unlock
+ * notices, weekly request refresh). Fired separately on each server.
+ */
 public final class SeasonWeekChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -27,7 +30,7 @@ public final class SeasonWeekChangedEvent extends Event {
         return previousWeek;
     }
 
-    /** 새 주차 (13 이상이면 연장 주). */
+    /** New week (13 and above is an overtime week). */
     public int week() {
         return week;
     }

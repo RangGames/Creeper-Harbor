@@ -47,7 +47,7 @@ class SeasonContentTest {
         }
         ContentSnapshot snap = result.orThrow();
         ResetPlan plan = snap.single(ResetPlan.TYPE);
-        // 문서의 메인 퀘스트 이월 규칙
+        // Main quest carry-over rule from the docs
         ResetPlan.TableRule quest = plan.rule("quest_progress").orElseThrow();
         assertEquals(ResetPlan.Policy.ARCHIVE_RESET, quest.policy());
         assertEquals("quest_id LIKE 'harbor:quest/main/%'", quest.keepWhere());

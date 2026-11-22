@@ -12,7 +12,7 @@ import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.core.api.ItemModels;
 
-/** GUI 아이콘 도우미 (데이터 컴포넌트). */
+/** GUI icon helper (data components). */
 final class Icons {
 
     private Icons() {}

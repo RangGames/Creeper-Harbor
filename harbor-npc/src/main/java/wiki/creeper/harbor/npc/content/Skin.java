@@ -11,26 +11,27 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * Mannequin 스킨. 다음 중 하나로 적는다 (추가 제안: 닉네임·URL·해시).
+ * Mannequin skin. Written in one of the following forms (proposed: nickname, URL, hash).
  *
  * <pre>{@code
- * skin: harbor:entity/npc/hansol                    # 리소스팩 텍스처 키 (skinPatch body, 기본 방식)
- * skin: Notch                                       # 플레이어 닉네임 (서버가 Mojang에서 스킨을 받아 온다)
- * skin: http://textures.minecraft.net/texture/<해시> # 스킨 URL (textures.minecraft.net만 클라이언트가 받는다)
+ * skin: harbor:entity/npc/hansol                    # resource pack texture key (skinPatch body, default)
+ * skin: Notch                                       # player nickname (the server fetches the skin from Mojang)
+ * skin: http://textures.minecraft.net/texture/<hash> # skin URL (clients only fetch from textures.minecraft.net)
  * skin: {texture: harbor:entity/npc/iseul, model: slim}
  * skin: {player: Notch}
- * skin: {url: "http://textures.minecraft.net/texture/<해시>", model: slim}
- * skin: {hash: <64자리 16진수>}                        # 위 URL의 해시만
- * skin: {value: <base64>, signature: <서명>}          # textures 속성 (mineskin 등에서 받은 값, 서명은 없어도 된다)
+ * skin: {url: "http://textures.minecraft.net/texture/<hash>", model: slim}
+ * skin: {hash: <64 hex digits>}                      # just the hash of the URL above
+ * skin: {value: <base64>, signature: <signature>}    # textures property (e.g. from mineskin; signature optional)
  * }</pre>
  *
- * <p>model(wide · slim)을 적지 않으면 리소스팩 텍스처는 wide, 나머지는 스킨 원래 모델을 쓴다.
+ * <p>If model (wide · slim) is not given, resource pack textures use wide and the rest use the
+ * skin's original model.
  *
- * @param texture 리소스팩 텍스처 키
- * @param slim 얇은 팔 모델 (texture·url에 적용)
- * @param value textures 속성 값 (url·hash도 이 값으로 바꿔 둔다)
- * @param signature textures 속성 서명 (없으면 서명 없는 속성)
- * @param player 플레이어 닉네임
+ * @param texture resource pack texture key
+ * @param slim slim-arm model (applies to texture and url)
+ * @param value textures property value (url and hash are converted to this too)
+ * @param signature textures property signature (unsigned property if absent)
+ * @param player player nickname
  */
 public record Skin(
         @Nullable String texture,
@@ -103,7 +104,7 @@ public record Skin(
                 new Skin(null, slim, value, node.optString("signature").orElse(null), null));
     }
 
-    /** 짧은 형식: 리소스팩 키 · URL · 닉네임을 모양으로 가린다. */
+    /** Short form: tells resource pack key, URL and nickname apart by shape. */
     private static Optional<Skin> scalar(YamlNode node, String raw) {
         if (raw.startsWith("http://") || raw.startsWith("https://")) {
             return checkUrl(node, raw)
@@ -126,7 +127,7 @@ public record Skin(
                 node.error("스킨 URL은 " + TEXTURE_HOST + " 주소여야 합니다 (클라이언트가 다른 주소는 받지 않음): " + url);
                 return Optional.empty();
             }
-            // 클라이언트는 http 주소로 받는다 (Mojang textures 속성과 같은 꼴)
+            // Clients fetch via the http address (same shape as the Mojang textures property)
             return Optional.of("http://" + TEXTURE_HOST + uri.getPath());
         } catch (IllegalArgumentException e) {
             node.error("스킨 URL 형식이 틀렸습니다: " + url);
@@ -143,7 +144,7 @@ public record Skin(
         return Optional.of("http://" + TEXTURE_HOST + "/texture/" + h);
     }
 
-    /** 서명 없는 textures 속성 값 (스킨 URL만 담는다, 플레이어 머리 아이템과 같은 방식). */
+    /** Unsigned textures property value (holds only the skin URL, same as player head items). */
     static String texturesValue(String url, boolean slim) {
         String json =
                 "{\"textures\":{\"SKIN\":{\"url\":\""

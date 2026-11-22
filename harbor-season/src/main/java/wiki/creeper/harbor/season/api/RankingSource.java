@@ -9,23 +9,26 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.season.content.RankingBoardDef;
 
 /**
- * 랭킹 원천 (추가 제안). 기본 원천(records · level · codex_season · boss_records)에 없는 집계를 다른 모듈이 등록한다. 예:
- * World의 주간 낚시 대회 점수 ({@code source: tournament}). Season은 그 모듈의 코드를 모르고 이 인터페이스로만 읽는다.
+ * Ranking source (proposed). Lets other modules register aggregations not covered by the built-in
+ * sources (records · level · codex_season · boss_records). Example: World's weekly fishing
+ * tournament score ({@code source: tournament}). Season does not know that module's code and reads
+ * only through this interface.
  *
- * <p>{@link #query}는 랭킹 집계 서버 하나에서 10분마다 가상 스레드로 불린다. 정렬된 상위 {@code limit}개를 돌려준다.
+ * <p>{@link #query} is called on a virtual thread every 10 minutes on the single ranking
+ * aggregation server. It returns the sorted top {@code limit} entries.
  */
 public interface RankingSource {
 
-    /** rankings.yml의 source 값. 소문자·숫자·밑줄. */
+    /** source value in rankings.yml. Lowercase letters, digits, underscores. */
     String id();
 
-    /** 낮은 값이 앞서는지 (처치 시간 등). */
+    /** Whether lower values rank higher (kill time etc.). */
     default boolean ascending() {
         return false;
     }
 
     /**
-     * @param schema 읽을 스키마 (null이면 지금 DB, 시즌 마감 때는 {@code archive_s<n>})
+     * @param schema schema to read (null = current DB; {@code archive_s<n>} at season close)
      */
     List<Row> query(
             Connection connection,
@@ -36,7 +39,7 @@ public interface RankingSource {
             int limit)
             throws SQLException;
 
-    /** 원천이 돌려주는 한 줄 (순위는 Season이 매긴다). */
+    /** One line returned by the source (Season assigns the ranks). */
     record Row(
             @Nullable UUID uuid,
             String name,

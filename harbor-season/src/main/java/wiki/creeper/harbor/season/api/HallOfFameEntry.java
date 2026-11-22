@@ -5,10 +5,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 명예의 전당 한 줄 (hall_of_fame 행).
+ * One hall of fame line (hall_of_fame row).
  *
- * @param subject 대상 ID 문자열 (어종·보스 ID, 대상이 없으면 "-")
- * @param finalized 시즌 마감으로 확정됐는지 (false면 진행 중 잠정 기록)
+ * @param subject subject ID string (species or boss ID, "-" if no subject)
+ * @param finalized whether finalized by the season close (false = provisional record in progress)
  */
 public record HallOfFameEntry(
         int season,
@@ -22,7 +22,7 @@ public record HallOfFameEntry(
         Instant recordedAt,
         boolean finalized) {
 
-    /** 대상이 없는 분류의 subject 값. */
+    /** subject value for categories without a subject. */
     public static final String NO_SUBJECT = "-";
 
     public HallOfFameEntry {

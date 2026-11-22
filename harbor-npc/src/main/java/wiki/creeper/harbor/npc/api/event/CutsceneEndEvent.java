@@ -6,7 +6,7 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.npc.api.CutsceneResult;
 
-/** 컷씬 종료. result가 FINISHED·SKIPPED가 아니면 Quest는 단계를 넘기지 않는다. */
+/** Cutscene ended. Unless result is FINISHED or SKIPPED, Quest does not advance the stage. */
 public final class CutsceneEndEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

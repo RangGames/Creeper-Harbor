@@ -16,8 +16,8 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * boss_records.members(JSON) 읽기. 형식: UUID 문자열 배열 {@code ["uuid", …]} 또는 {@code [{"uuid": "…"}, …]}.
- * 첫 번째가 파티장이다 (Boss가 이 형식으로 쓰도록 맞춘다).
+ * Reads boss_records.members (JSON). Format: an array of UUID strings {@code ["uuid", …]} or {@code
+ * [{"uuid": "…"}, …]}. The first one is the party leader (Boss writes in this format).
  */
 public final class BossMembers {
 
@@ -41,16 +41,16 @@ public final class BossMembers {
                 try {
                     result.add(UUID.fromString(raw));
                 } catch (IllegalArgumentException ignored) {
-                    // 틀린 항목은 건너뛴다
+                    // Skip malformed entries
                 }
             }
         } catch (RuntimeException e) {
-            // 형식이 틀린 기록은 구성원 없이 다룬다
+            // Malformed records are treated as having no members
         }
         return result;
     }
 
-    /** players 테이블에서 이름을 찾는다. */
+    /** Looks up names in the players table. */
     public static Map<UUID, String> names(Connection c, Collection<UUID> uuids)
             throws SQLException {
         Map<UUID, String> result = new HashMap<>();

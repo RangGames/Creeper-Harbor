@@ -5,7 +5,7 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.HarborApi;
 
-/** CHAT: 채팅 대사 줄 + 버튼 줄. */
+/** CHAT: chat line + button row. */
 final class ChatPresenter implements DialogPresenter {
 
     private final HarborApi api;

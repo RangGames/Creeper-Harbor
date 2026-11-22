@@ -4,13 +4,13 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * 보드 하나의 캐시된 순위표 (한 리그).
+ * Cached leaderboard for one board (one league).
  *
- * @param board 보드 ID (season/rankings.yml)
- * @param league 리그
- * @param season 집계한 시즌
- * @param computedAt 집계 시각
- * @param entries 1위부터 (보드 size까지)
+ * @param board board ID (season/rankings.yml)
+ * @param league league
+ * @param season season aggregated
+ * @param computedAt time aggregated
+ * @param entries from first place (up to the board size)
  */
 public record RankingBoard(
         String board, League league, int season, Instant computedAt, List<RankEntry> entries) {

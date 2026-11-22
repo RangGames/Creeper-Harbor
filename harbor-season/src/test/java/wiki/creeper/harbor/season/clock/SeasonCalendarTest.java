@@ -27,7 +27,7 @@ class SeasonCalendarTest {
         assertEquals(1, cal.weekAt(at(Duration.ofDays(7).minusSeconds(1))));
         assertEquals(2, cal.weekAt(at(Duration.ofDays(7))));
         assertEquals(12, cal.weekAt(at(Duration.ofDays(83))));
-        // 12주가 지나면 연장 주 (13 이상)
+        // After 12 weeks, overtime weeks (13 and above)
         assertEquals(13, cal.weekAt(at(Duration.ofDays(84))));
     }
 

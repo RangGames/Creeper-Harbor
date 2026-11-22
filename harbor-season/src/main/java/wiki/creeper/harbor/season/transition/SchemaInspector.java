@@ -11,12 +11,12 @@ import java.util.Set;
 import java.util.TreeSet;
 import org.jspecify.annotations.Nullable;
 
-/** information_schema 읽기 (지금 DB = DATABASE()). */
+/** information_schema reads (current DB = DATABASE()). */
 public final class SchemaInspector {
 
     private SchemaInspector() {}
 
-    /** season 열이 있는 테이블 전부 (reset_plan 검사, docs 20 11.3). */
+    /** All tables with a season column (reset_plan check, docs 20 11.3). */
     public static Set<String> seasonTables(Connection c) throws SQLException {
         Set<String> result = new TreeSet<>();
         try (PreparedStatement ps =
@@ -60,7 +60,7 @@ public final class SchemaInspector {
         }
     }
 
-    /** 열 이름 (정의 순서). */
+    /** Column names (definition order). */
     public static List<String> columns(Connection c, String table) throws SQLException {
         List<String> result = new ArrayList<>();
         try (PreparedStatement ps =
@@ -77,7 +77,7 @@ public final class SchemaInspector {
         return result;
     }
 
-    /** 기본 키 열 (없으면 빈 목록). */
+    /** Primary key columns (empty list if none). */
     public static List<String> primaryKey(Connection c, String table) throws SQLException {
         List<String> result = new ArrayList<>();
         try (PreparedStatement ps =
@@ -95,7 +95,7 @@ public final class SchemaInspector {
         return result;
     }
 
-    /** 지금 DB 크기 (데이터 + 인덱스, 바이트). */
+    /** Current DB size (data + indexes, bytes). */
     public static long databaseBytes(Connection c) throws SQLException {
         try (PreparedStatement ps =
                         c.prepareStatement(
