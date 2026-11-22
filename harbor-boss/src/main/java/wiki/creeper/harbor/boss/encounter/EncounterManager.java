@@ -354,8 +354,9 @@ public final class EncounterManager implements BossService {
         }
     }
 
-    /** 출발 전에 끝남 (미끼 없음·관리자 종료). 미끼는 차감하지 않았으므로 보상·기록이 없다. */
+    /** 출발 전에 끝남 (미끼 없음·관리자 종료). 보상·기록은 없고, 출발 중이라 미끼를 이미 뺐으면 돌려준다. */
     void finishEarly(Encounter e, String messageKey) {
+        rewards.refundIfTaken(e);
         e.broadcast(messageKey);
         e.cleanup();
         byId.remove(e.id);
@@ -400,9 +401,19 @@ public final class EncounterManager implements BossService {
                                 e.def.story()));
         int size = contributions.size();
         recorder.recordEnd(e, result, endedAt, durationMs, contributions);
-        results.showResult(e, result, contributions);
-        results.playOutro(e, result);
-        rewards.settle(e, info, result, contributions, durationMs, endedAt, releaseOnly);
+        // 결과 화면·연출은 꾸밈이라 예외가 나도 보상·후속 처리를 막지 않게 한다
+        try {
+            results.showResult(e, result, contributions);
+            results.playOutro(e, result);
+        } catch (RuntimeException ex) {
+            log.error("보스 결과 연출 오류 {}", e.id, ex);
+        }
+        try {
+            rewards.settle(e, info, result, contributions, durationMs, endedAt, releaseOnly);
+        } catch (RuntimeException ex) {
+            // 인스턴스 귀환·월드 보스 정리 훅은 그래도 돌려야 플레이어가 경기장에 남지 않는다
+            log.error("보스 보상 정산 오류 {}", e.id, ex);
+        }
         if (e.def.isWorld()) {
             WorldHooks hooks = worldHooks;
             if (hooks != null) {

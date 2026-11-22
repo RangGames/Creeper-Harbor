@@ -97,6 +97,10 @@ public final class Encounter {
 
     private boolean launched;
     boolean launching;
+
+    /** 소환 미끼를 인벤토리에서 뺐는지 (launched 전에 끝나도 환급 판단은 이것으로). */
+    boolean baitTaken;
+
     private long prepareDeadline;
     private Instant startedAt = Instant.now();
     long anchorGraceUntil = -1;
@@ -141,6 +145,7 @@ public final class Encounter {
                             preset == null ? recommended(p) : preset,
                             true);
             m.chose = preset != null;
+            m.rememberIp(p);
             members.put(p.getUniqueId(), m);
         }
         double maxHp =
@@ -250,6 +255,7 @@ public final class Encounter {
                 mgr.finishEarly(this, "boss.start.no_bait");
                 return;
             }
+            baitTaken = true;
         }
         startedAt = Instant.now();
         // 미끼를 뺀 인벤토리를 먼저 저장한 뒤 RUNNING을 기록한다. 반대 순서면 기록 뒤 서버가 죽었을 때 인벤토리는 미끼가 있던 저장본으로
@@ -528,9 +534,19 @@ public final class Encounter {
         return worldBoss.stage();
     }
 
-    /** resume: 저장한 진행률·기여도로 되살린다. */
-    public void restore(double hpRatio, Map<UUID, Contribution> saved) {
-        worldBoss.restore(hpRatio, saved);
+    /** resume: 저장한 진행률·기여도·활동 시간(틱)으로 되살린다. */
+    public void restore(
+            double hpRatio, Map<UUID, Contribution> saved, Map<UUID, Long> activeTicks) {
+        worldBoss.restore(hpRatio, saved, activeTicks);
+    }
+
+    /** 참가자별 활동 시간 (틱). 월드 보스 resume 저장용 (Contribution에는 없어서 따로 남긴다). */
+    public Map<UUID, Long> activeTicks() {
+        Map<UUID, Long> out = new HashMap<>();
+        for (Member m : members.values()) {
+            out.put(m.uuid, m.activeTicks);
+        }
+        return out;
     }
 
     // ------------------------------------------------------------------ 종료

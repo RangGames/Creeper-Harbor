@@ -104,6 +104,7 @@ final class EncounterRoster {
 
     /** 경기장에 들어오는 플레이어 준비 (경계·보스바·표시). */
     void enter(Player p, Member m, boolean teleport) {
+        m.rememberIp(p);
         if (teleport && !e.def.isWorld()) {
             Location spawn = e.deckSpawn();
             spawn.add(e.random.nextDouble(-1, 1), 0, e.random.nextDouble(-1, 1));

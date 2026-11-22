@@ -93,12 +93,10 @@ public final class RewardService {
         BossDef def = e.def;
         BossBalance bb = e.bb;
         if (result == EncounterState.ABORTED) {
-            if (e.launched() && e.summonItem != null) {
-                refund(e.id, e.leader, e.summonItem);
-            }
+            refundIfTaken(e);
             return;
         }
-        Set<UUID> blocked = sameIpBlocked(contributions);
+        Set<UUID> blocked = sameIpBlocked(e, contributions);
         List<Contribution> eligible = new ArrayList<>();
         for (Contribution c : contributions) {
             if (!c.eligible()) {
@@ -139,17 +137,25 @@ public final class RewardService {
         }
     }
 
-    /** 같은 IP 다계정: 기여도가 가장 높은 계정만 보상, 나머지는 막고 로그. */
-    private Set<UUID> sameIpBlocked(List<Contribution> contributions) {
+    /**
+     * 같은 IP 다계정: 기여도가 가장 높은 계정만 보상, 나머지는 막고 로그. 처치 전에 나간 부계정도 걸리도록 입장 때 기억한 IP를 쓰고, 없으면 지금 접속 IP를
+     * 본다.
+     */
+    private Set<UUID> sameIpBlocked(Encounter e, List<Contribution> contributions) {
         Map<String, UUID> best = new HashMap<>();
         Set<UUID> blocked = new HashSet<>();
         for (Contribution c : contributions) {
-            Player p = Bukkit.getPlayer(c.player());
-            InetSocketAddress addr = p == null ? null : p.getAddress();
-            if (addr == null || addr.getAddress() == null) {
-                continue;
+            Member m = e.members.get(c.player());
+            String ip = m == null ? null : m.ip;
+            if (ip == null) {
+                Player p = Bukkit.getPlayer(c.player());
+                InetSocketAddress addr = p == null ? null : p.getAddress();
+                java.net.InetAddress host = addr == null ? null : addr.getAddress();
+                if (host == null) {
+                    continue;
+                }
+                ip = host.getHostAddress();
             }
-            String ip = addr.getAddress().getHostAddress();
             UUID first = best.putIfAbsent(ip, c.player());
             if (first != null) {
                 blocked.add(c.player());
@@ -296,6 +302,9 @@ public final class RewardService {
         int season = SeasonServices.clock().current().value();
         SqlConsumer extra =
                 con -> {
+                    // 참가 행은 recordEnd가 따로 비동기로 쓰므로 순서가 보장되지 않는다. 여기서 먼저 넣어 두어야 markRewarded가
+                    // 행이 없어서 실패하지 않는다 (이미 있으면 같은 값으로 덮고 rewarded는 그대로)
+                    BossRepository.upsertParticipation(con, e.id, season, List.of(c));
                     if (!BossRepository.markRewarded(con, e.id, uuid)) {
                         throw new LedgerException(LedgerError.REJECTED, "이미 보상한 참가자");
                     }
@@ -384,12 +393,19 @@ public final class RewardService {
                                                                     drop.item().toString(),
                                                                     drop.countMin(),
                                                                     null)));
+                                    int season = SeasonServices.clock().current().value();
                                     var _ =
                                             commit(
                                                             uuid,
                                                             0,
                                                             null,
                                                             con -> {
+                                                                // 참가 행이 아직 없을 수 있다 (grantClear 참고)
+                                                                BossRepository.upsertParticipation(
+                                                                        con,
+                                                                        e.id,
+                                                                        season,
+                                                                        List.of(c));
                                                                 if (!BossRepository.markRewarded(
                                                                         con, e.id, uuid)) {
                                                                     throw new LedgerException(
@@ -582,17 +598,43 @@ public final class RewardService {
 
     // ------------------------------------------------------------------ 미끼 환급
 
-    /** 재시작 복구: ABORTED 조우 소환자에게 미끼를 pending으로 (이미 넣었으면 다시 넣지 않음). */
-    void refundBait(BossRepository.Aborted a) {
+    /**
+     * 재시작 복구: ABORTED로 닫는 트랜잭션 안에서 소환자에게 미끼를 pending으로 넣는다 (이미 넣었으면 다시 넣지 않음). 따로 하면 닫은 뒤 환급 전에
+     * 실패했을 때 다시 시도할 근거(RUNNING 행)가 사라진다. 블로킹이라 DB 스레드에서 부른다.
+     *
+     * @return 환급을 넣었으면 소환자, 아니면 null
+     */
+    @Nullable UUID refundBaitInTx(Connection c, BossRepository.Aborted a) throws SQLException {
         UUID leader = a.leader();
         String item = a.summonItem();
         if (leader == null || item == null) {
-            return;
+            return null;
         }
+        ItemId id;
         try {
-            refund(a.id(), leader, new ItemId(HarborId.parse(item)));
+            id = new ItemId(HarborId.parse(item));
         } catch (IllegalArgumentException e) {
             mgr.log().warn("환급할 미끼 ID 형식이 틀렸습니다: {}", item);
+            return null;
+        }
+        refundInTx(c, a.id(), leader, id);
+        return leader;
+    }
+
+    /** 미끼를 이미 뺐으면 pending으로 돌려준다 (출발 중 종료·ABORTED). */
+    void refundIfTaken(Encounter e) {
+        ItemId item = e.summonItem;
+        if (e.baitTaken && item != null) {
+            refund(e.id, e.leader, item);
+        }
+    }
+
+    /** 재시작 복구 트랜잭션에서 넣은 환급을 알리고 지급한다 (접속 중일 때). */
+    void notifyRefund(UUID leader) {
+        Player p = Bukkit.getPlayer(leader);
+        if (p != null) {
+            api.messages().send(p, "boss.reward.bait_refund");
+            deliverPending(p, false);
         }
     }
 
@@ -600,15 +642,16 @@ public final class RewardService {
         var _ =
                 api.database()
                         .asyncVoid(c -> refundInTx(c, encounter, leader, item))
-                        .thenRunAsync(
-                                () -> {
-                                    Player p = Bukkit.getPlayer(leader);
-                                    if (p != null) {
-                                        api.messages().send(p, "boss.reward.bait_refund");
-                                        deliverPending(p, false);
-                                    }
-                                },
-                                mgr.tasks().main());
+                        .thenRunAsync(() -> notifyRefund(leader), mgr.tasks().main())
+                        .exceptionally(
+                                err -> {
+                                    mgr.log()
+                                            .warn(
+                                                    "미끼 환급 기록 실패 {}: {}",
+                                                    encounter,
+                                                    String.valueOf(err.getMessage()));
+                                    return null;
+                                });
     }
 
     void refundInTx(Connection c, UUID encounter, UUID leader, ItemId item) throws SQLException {

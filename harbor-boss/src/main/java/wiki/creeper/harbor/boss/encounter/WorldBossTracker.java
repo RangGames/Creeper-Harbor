@@ -80,8 +80,8 @@ final class WorldBossTracker {
         }
     }
 
-    /** resume: 저장한 진행률·기여도로 되살린다. */
-    void restore(double hpRatio, Map<UUID, Contribution> saved) {
+    /** resume: 저장한 진행률·기여도로 되살린다. 활동 시간이 없으면(이전 저장 형식) 0에서 시작한다. */
+    void restore(double hpRatio, Map<UUID, Contribution> saved, Map<UUID, Long> activeTicks) {
         e.fight.restore(hpRatio, 1.0, true);
         worldStage = stage();
         for (Contribution c : saved.values()) {
@@ -94,11 +94,14 @@ final class WorldBossTracker {
             Player p = Bukkit.getPlayer(c.player());
             if (p != null) {
                 m = new Member(c.player(), p.getName(), c.role(), false);
+                m.rememberIp(p);
             }
             m.damage = c.damage();
             m.tensionTicks = Math.round(c.tension() * 20);
             m.repair = c.repair();
             m.evasion = c.evasion();
+            // 중단 전 활동 시간을 이어 받아야 최소 활동 비율에서 떨어지지 않는다
+            m.activeTicks = activeTicks.getOrDefault(c.player(), 0L);
             m.chose = true;
             m.absentSince = p == null ? e.mgr.now() : -1;
             e.members.put(c.player(), m);
