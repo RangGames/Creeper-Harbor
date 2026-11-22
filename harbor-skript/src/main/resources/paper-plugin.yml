@@ -22,3 +22,4 @@ dependencies:
     Harbor-Economy: {load: BEFORE, required: false, join-classpath: true}
     Harbor-World: {load: BEFORE, required: false, join-classpath: true}
     Harbor-Season: {load: BEFORE, required: false, join-classpath: true}
+    Harbor-Wildlife: {load: BEFORE, required: false, join-classpath: true}
