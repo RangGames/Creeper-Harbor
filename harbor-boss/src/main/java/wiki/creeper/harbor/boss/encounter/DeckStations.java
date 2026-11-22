@@ -15,12 +15,15 @@ import wiki.creeper.harbor.boss.content.BossDef;
 import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.core.api.HarborSounds;
 
-/** 갑판 장치와 지원 역할: 조타륜(선장)·파손 지점과 수리(정비사)·보급(보급관). 메인 스레드 전용. */
+/**
+ * Deck stations and support roles: helm (captain), damaged spots and repair (mechanic), supply
+ * (quartermaster). Main thread only.
+ */
 final class DeckStations {
 
     private static final String REPAIR_SOUND = "harbor:ship.repair";
 
-    /** 파손 지점 하나. */
+    /** One damaged spot. */
     static final class RepairPoint {
         final Location at;
         final Interaction entity;
@@ -45,7 +48,7 @@ final class DeckStations {
         return wheel;
     }
 
-    /** 지금 조타륜을 잡은 플레이어. */
+    /** Player currently at the helm. */
     @Nullable UUID helm() {
         return helm;
     }
@@ -100,7 +103,7 @@ final class DeckStations {
         }
     }
 
-    /** 배가 맞으면 멀쩡한 파손 지점 하나를 고른다. */
+    /** When the ship is hit, picks one intact repair spot. */
     void damageRepairPoint() {
         List<RepairPoint> intact = new ArrayList<>();
         for (RepairPoint rp : repairPoints) {
@@ -113,7 +116,7 @@ final class DeckStations {
         }
     }
 
-    /** 파손 지점 연기. */
+    /** Smoke at damaged spots. */
     void smoke() {
         for (RepairPoint rp : repairPoints) {
             if (rp.damaged) {
@@ -133,7 +136,7 @@ final class DeckStations {
         }
     }
 
-    /** 정리: 조타륜·파손 지점 Interaction 제거. */
+    /** Cleanup: removes the helm and damaged spot Interactions. */
     void remove() {
         Interaction w = wheel;
         if (w != null) {
@@ -147,9 +150,9 @@ final class DeckStations {
         repairPoints.clear();
     }
 
-    // ------------------------------------------------------------------ 선장·정비사·보급관
+    // ------------------------------------------------------------ Captain, mechanic, quartermaster
 
-    /** 조타륜·파손 지점 우클릭. */
+    /** Right-click on the helm or a damaged spot. */
     void click(Player p, Encounter.ClickKind kind, int index) {
         Member m = e.members.get(p.getUniqueId());
         if (m == null || !m.present()) {
@@ -171,7 +174,10 @@ final class DeckStations {
         }
     }
 
-    /** 정비사 수리: 손에 든 수리 키트 1개로 내구도를 복구한다. 지점이 없는 갑판이면 index −1. */
+    /**
+     * Mechanic repair: restores durability with one repair kit held in hand. index −1 on a deck
+     * without spots.
+     */
     void repair(Player p, Member m, int index) {
         var fight = e.fight;
         if (!fight.state().fighting()) {
@@ -202,7 +208,7 @@ final class DeckStations {
                 Placeholder.unparsed("max", String.valueOf(fight.hullMax())));
     }
 
-    /** 수리 지점이 없는 갑판: 손에 수리 키트를 들고 우클릭. */
+    /** Deck without repair spots: right-click with a repair kit in hand. */
     boolean freeRepair(Player p) {
         Member m = e.members.get(p.getUniqueId());
         if (m == null || !repairPoints.isEmpty()) {
@@ -212,7 +218,7 @@ final class DeckStations {
         return true;
     }
 
-    /** 보급관이 버프 요리를 먹음: 근처 파티원 수 × supply_seconds를 수리 항목에 더한다. */
+    /** Quartermaster ate buff food: adds nearby party members × supply_seconds to repair. */
     void supply(Player p) {
         Member m = e.members.get(p.getUniqueId());
         if (m == null || m.role != BossRole.QUARTERMASTER || !e.fight.state().fighting()) {
@@ -234,7 +240,7 @@ final class DeckStations {
                 Placeholder.unparsed("count", String.valueOf(near)));
     }
 
-    /** 보급관이 있으면 드롭 보너스 (추가 제안). */
+    /** Drop bonus when there is a quartermaster (proposed). */
     boolean hasQuartermaster() {
         return e.members.values().stream()
                 .anyMatch(m -> !m.dropped && m.role == BossRole.QUARTERMASTER);

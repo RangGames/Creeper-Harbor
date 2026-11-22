@@ -9,18 +9,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.boss.api.Contribution;
 import wiki.creeper.harbor.boss.api.EncounterInfo;
@@ -39,48 +34,54 @@ import wiki.creeper.harbor.common.ledger.LedgerError;
 import wiki.creeper.harbor.common.ledger.LedgerException;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.model.Currency;
-import wiki.creeper.harbor.common.redis.Channels;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.HarborApi;
-import wiki.creeper.harbor.fishing.api.CatchOptions;
-import wiki.creeper.harbor.fishing.api.CatchResult;
 import wiki.creeper.harbor.npc.api.ReputationService;
 import wiki.creeper.harbor.npc.api.ReputationSource;
-import wiki.creeper.harbor.season.api.HallOfFameSubmission;
 import wiki.creeper.harbor.season.api.LimitResult;
 import wiki.creeper.harbor.season.api.SeasonServices;
 import wiki.creeper.harbor.season.api.TitleId;
 import wiki.creeper.harbor.season.api.WeeklyLimitService;
 
 /**
- * 전리품·고유 ID·지급 (docs 20 10.4).
+ * Loot, unique IDs and delivery (docs 20 10.4).
  *
  * <ol>
- *   <li>CLEARED 즉시 주간 횟수 확인 (WeeklyLimitService.tryConsume, 키 boss:&lt;id&gt;). 한도를 넘으면 클리어 골드의
- *       20%만
- *   <li>드롭 굴리기 (조우 시드 + UUID, 레이드 천장)
- *   <li>한 트랜잭션: boss_participation.rewarded 0 → 1, boss_reward_pending, 골드(BOSS_REWARD 원장, 참조 ID
- *       boss:&lt;조우&gt;), 천장 카운터. 원장 참조 ID·rewarded 조건·pending PK가 같은 보상의 두 번째 지급을 막는다. 트랜잭션이 실패하면
- *       주간 횟수를 되돌린다
- *   <li>메인 스레드에서 pending을 인벤토리에 넣고 PDC harbor:boss_delivered에 ID를 적은 뒤 즉시 저장, 그 뒤 delivered_at
- *   <li>다음 접속 때 delivered_at이 빈 pending은 PDC를 먼저 보고, 있으면 행만 닫고 없으면 다시 지급
+ *   <li>On CLEARED, check the weekly count immediately (WeeklyLimitService.tryConsume, key
+ *       boss:&lt;id&gt;). Over the limit, only 20% of the clear gold
+ *   <li>Roll drops (encounter seed + UUID, raid pity)
+ *   <li>One transaction: boss_participation.rewarded 0 → 1, boss_reward_pending, gold (BOSS_REWARD
+ *       ledger, reference ID boss:&lt;encounter&gt;), pity counters. The ledger reference ID, the
+ *       rewarded condition and the pending PK block a second grant of the same reward. If the
+ *       transaction fails, the weekly count is rolled back
+ *   <li>On the main thread, put pending rewards into the inventory, write the ID to PDC
+ *       harbor:boss_delivered, save immediately, then set delivered_at
+ *   <li>On the next join, pending rows with empty delivered_at check the PDC first: if present,
+ *       only the row is closed, otherwise the reward is granted again
  * </ol>
  *
- * 원장 참조 ID는 문서의 boss:&lt;조우&gt;:&lt;uuid&gt; 대신 boss:&lt;조우&gt;를 쓴다 (원장 유니크 키에 플레이어가 이미 들어 있고, 참조
- * ID는 64자 제한이라 UUID 두 개가 들어가지 않는다).
+ * The ledger reference ID uses boss:&lt;encounter&gt; instead of the documented
+ * boss:&lt;encounter&gt;:&lt;uuid&gt; (the ledger unique key already includes the player, and the
+ * reference ID is limited to 64 characters, so two UUIDs do not fit).
  */
 public final class RewardService {
 
     private final EncounterManager mgr;
     private final HarborApi api;
+    private final ClearRecords records;
+    private final RewardDelivery delivery;
+    private final BaitRefunds refunds;
 
     RewardService(EncounterManager mgr) {
         this.mgr = mgr;
         this.api = mgr.api();
+        this.records = new ClearRecords(mgr);
+        this.delivery = new RewardDelivery(mgr);
+        this.refunds = new BaitRefunds(mgr);
     }
 
-    // ------------------------------------------------------------------ 정산
+    // ------------------------------------------------------------------ Settlement
 
     void settle(
             Encounter e,
@@ -125,10 +126,10 @@ public final class RewardService {
             if (def.isWorld()) {
                 var _ = api.flags().setServer("climax_done", "1", false);
             } else if (e.allFromStart()) {
-                record(e, info, durationMs, endedAt);
+                records.record(e, info, durationMs, endedAt);
             }
             if (def.presentation().announce()) {
-                announce(e, info, durationMs);
+                records.announce(e, info, durationMs);
             }
         } else if (result == EncounterState.FAILED && !def.story()) {
             for (Contribution c : eligible) {
@@ -138,8 +139,9 @@ public final class RewardService {
     }
 
     /**
-     * 같은 IP 다계정: 기여도가 가장 높은 계정만 보상, 나머지는 막고 로그. 처치 전에 나간 부계정도 걸리도록 입장 때 기억한 IP를 쓰고, 없으면 지금 접속 IP를
-     * 본다.
+     * Multiple accounts on the same IP: only the account with the highest contribution is rewarded;
+     * the rest are blocked and logged. Uses the IP remembered on entry so alt accounts that left
+     * before the kill are caught too, falling back to the current connection IP.
      */
     private Set<UUID> sameIpBlocked(Encounter e, List<Contribution> contributions) {
         Map<String, UUID> best = new HashMap<>();
@@ -193,7 +195,7 @@ public final class RewardService {
         return LootRoller.gold(min, max, random);
     }
 
-    /** CLEARED 파티 보스 보상. */
+    /** Rewards for a CLEARED party boss. */
     private void rewardClear(Encounter e, Contribution c, boolean releaseOnly) {
         BossDef def = e.def;
         BossBalance bb = e.bb;
@@ -261,7 +263,7 @@ public final class RewardService {
                         try {
                             pity.put(new ItemId(HarborId.parse(k)), v);
                         } catch (IllegalArgumentException ex) {
-                            // 형식이 틀린 행은 무시
+                            // Ignore malformed rows
                         }
                     });
             double bonus = e.hasQuartermaster() ? bb.quartermasterBonus() : 0;
@@ -302,8 +304,10 @@ public final class RewardService {
         int season = SeasonServices.clock().current().value();
         SqlConsumer extra =
                 con -> {
-                    // 참가 행은 recordEnd가 따로 비동기로 쓰므로 순서가 보장되지 않는다. 여기서 먼저 넣어 두어야 markRewarded가
-                    // 행이 없어서 실패하지 않는다 (이미 있으면 같은 값으로 덮고 rewarded는 그대로)
+                    // The participation row is written separately and asynchronously by recordEnd,
+                    // so ordering is not guaranteed. Insert it here first so markRewarded does not
+                    // fail for a missing row (if it exists, it is overwritten with the same values
+                    // and rewarded is left as is)
                     BossRepository.upsertParticipation(con, e.id, season, List.of(c));
                     if (!BossRepository.markRewarded(con, e.id, uuid)) {
                         throw new LedgerException(LedgerError.REJECTED, "이미 보상한 참가자");
@@ -320,7 +324,8 @@ public final class RewardService {
                                 ok -> {
                                     if (!ok) {
                                         if (limit.consumed()) {
-                                            // 쓴 주차의 횟수를 되돌린다 (그 사이 주가 바뀌어도 새 주 횟수를 건드리지 않게)
+                                            // Refund the count of the week it was consumed in (so a
+                                            // week change in between does not touch the new week)
                                             var _ =
                                                     SeasonServices.limits()
                                                             .refund(uuid, limitKey, limit.week());
@@ -350,7 +355,7 @@ public final class RewardService {
                                 });
     }
 
-    /** 보스 장비(낚싯줄·작살 등 gear·line)면 고유 ID를 붙인다 (추가 제안). */
+    /** Attaches a unique ID to boss gear (lines, harpoons, etc.; gear/line) (proposed). */
     private @Nullable String uidFor(ItemId item) {
         return mgr.items()
                 .def(item)
@@ -366,7 +371,10 @@ public final class RewardService {
                 .orElse(null);
     }
 
-    /** 실패 참여 보상: 보스 비늘 1개, 주간 횟수 boss_fail:&lt;id&gt; (보스별 주간 한도와 같은 수까지). */
+    /**
+     * Participation reward on failure: 1 boss scale, weekly count boss_fail:&lt;id&gt; (up to the
+     * same number as the per-boss weekly limit).
+     */
     private void rewardFail(Encounter e, Contribution c, String name, BossBalance bb) {
         BossDef.Drop drop = e.def.loot().participation();
         if (drop == null) {
@@ -403,7 +411,8 @@ public final class RewardService {
                                                             0,
                                                             null,
                                                             con -> {
-                                                                // 참가 행이 아직 없을 수 있다 (grantClear 참고)
+                                                                // The participation row may not
+                                                                // exist yet (see grantClear)
                                                                 BossRepository.upsertParticipation(
                                                                         con,
                                                                         e.id,
@@ -436,7 +445,10 @@ public final class RewardService {
                                 });
     }
 
-    /** 월드 보스 보상: '등대를 밝힌 자' 칭호(참조 ID worldboss:&lt;이벤트&gt;), 항구 평판, 골드. */
+    /**
+     * World boss rewards: 'Lighthouse Kindler' title (reference ID worldboss:&lt;event&gt;), harbor
+     * reputation, gold.
+     */
     private void rewardWorld(Encounter e, Contribution c) {
         BossDef def = e.def;
         UUID uuid = c.player();
@@ -459,9 +471,10 @@ public final class RewardService {
     }
 
     /**
-     * 골드(있으면)와 추가 SQL을 한 트랜잭션으로. 결과 future는 메인 스레드에서 성공 여부로 완료된다.
+     * Gold (if any) and extra SQL in one transaction. The result future completes on the main
+     * thread with whether it succeeded.
      *
-     * @param refId 원장 참조 ID (골드가 0이면 쓰지 않음)
+     * @param refId ledger reference ID (unused if gold is 0)
      */
     private CompletableFuture<Boolean> commit(
             UUID player, long gold, @Nullable String refId, SqlConsumer extra) {
@@ -510,331 +523,47 @@ public final class RewardService {
         return done;
     }
 
-    // ------------------------------------------------------------------ 기록·공지
-
-    private void record(Encounter e, EncounterInfo info, long durationMs, Instant clearedAt) {
-        int season = SeasonServices.clock().current().value();
-        List<UUID> members = info.members();
-        var record =
-                new wiki.creeper.harbor.boss.api.BossRecord(
-                        e.def.id(), season, durationMs, e.id, members, clearedAt);
-        String leaderName =
-                Optional.ofNullable(Bukkit.getPlayer(e.leader)).map(Player::getName).orElse("?");
-        Component name =
-                members.size() <= 1
-                        ? Component.text(leaderName)
-                        : api.messages()
-                                .get(
-                                        "boss.record.party_name",
-                                        Placeholder.unparsed("leader", leaderName),
-                                        Placeholder.unparsed(
-                                                "others", String.valueOf(members.size() - 1)));
-        String plain = PlainTextComponentSerializer.plainText().serialize(name);
-        var _ =
-                api.database()
-                        .async(c -> BossRepository.insertRecord(c, record))
-                        .thenAcceptAsync(
-                                rank -> {
-                                    if (rank == 1) {
-                                        e.broadcast(
-                                                "boss.record.new_best",
-                                                Placeholder.unparsed(
-                                                        "time",
-                                                        EncounterManager.formatMs(durationMs)));
-                                    } else if (rank > 0) {
-                                        e.broadcast(
-                                                "boss.record.ranked",
-                                                Placeholder.unparsed("rank", String.valueOf(rank)),
-                                                Placeholder.unparsed(
-                                                        "time",
-                                                        EncounterManager.formatMs(durationMs)));
-                                    }
-                                    var _ =
-                                            SeasonServices.hallOfFame()
-                                                    .submit(
-                                                            HallOfFameSubmission.fastestBoss(
-                                                                    e.def.id().id(),
-                                                                    e.leader,
-                                                                    plain,
-                                                                    durationMs,
-                                                                    Map.of(
-                                                                            "members",
-                                                                            BossRepository
-                                                                                    .membersJson(
-                                                                                            members),
-                                                                            "encounter",
-                                                                            e.id.toString()),
-                                                                    clearedAt));
-                                },
-                                mgr.tasks().main())
-                        .exceptionally(
-                                err -> {
-                                    mgr.log()
-                                            .warn(
-                                                    "보스 기록 저장 실패 {}: {}",
-                                                    e.id,
-                                                    String.valueOf(err.getMessage()));
-                                    return null;
-                                });
-    }
-
-    private void announce(Encounter e, EncounterInfo info, long durationMs) {
-        String leaderName =
-                Optional.ofNullable(Bukkit.getPlayer(e.leader)).map(Player::getName).orElse("?");
-        Component msg =
-                api.messages()
-                        .get(
-                                e.def.isWorld()
-                                        ? "boss.announce.world_cleared"
-                                        : "boss.announce.cleared",
-                                Placeholder.component("boss", e.bossName()),
-                                Placeholder.unparsed("leader", leaderName),
-                                Placeholder.unparsed(
-                                        "count", String.valueOf(info.members().size())),
-                                Placeholder.unparsed(
-                                        "time", EncounterManager.formatMs(durationMs)));
-        api.bus()
-                .publish(
-                        Channels.ANNOUNCEMENTS,
-                        new Channels.Announcement(MiniMessage.miniMessage().serialize(msg)));
-    }
-
-    // ------------------------------------------------------------------ 미끼 환급
+    // ------------------------------------------------------------------ Bait refunds (BaitRefunds)
 
     /**
-     * 재시작 복구: ABORTED로 닫는 트랜잭션 안에서 소환자에게 미끼를 pending으로 넣는다 (이미 넣었으면 다시 넣지 않음). 따로 하면 닫은 뒤 환급 전에
-     * 실패했을 때 다시 시도할 근거(RUNNING 행)가 사라진다. 블로킹이라 DB 스레드에서 부른다.
+     * Restart recovery: inside the transaction that closes the encounter as ABORTED, inserts the
+     * bait for the summoner as pending (not inserted again if already there). Done separately, a
+     * failure after closing but before the refund would remove the basis for a retry (the RUNNING
+     * row). Blocking, so call it on a DB thread.
      *
-     * @return 환급을 넣었으면 소환자, 아니면 null
+     * @return the summoner if a refund was inserted, otherwise null
      */
     @Nullable UUID refundBaitInTx(Connection c, BossRepository.Aborted a) throws SQLException {
-        UUID leader = a.leader();
-        String item = a.summonItem();
-        if (leader == null || item == null) {
-            return null;
-        }
-        ItemId id;
-        try {
-            id = new ItemId(HarborId.parse(item));
-        } catch (IllegalArgumentException e) {
-            mgr.log().warn("환급할 미끼 ID 형식이 틀렸습니다: {}", item);
-            return null;
-        }
-        refundInTx(c, a.id(), leader, id);
-        return leader;
+        return refunds.refundBaitInTx(c, a);
     }
 
-    /** 미끼를 이미 뺐으면 pending으로 돌려준다 (출발 중 종료·ABORTED). */
+    /** Refunds the bait via pending if it was already taken (end during departure, ABORTED). */
     void refundIfTaken(Encounter e) {
-        ItemId item = e.summonItem;
-        if (e.baitTaken && item != null) {
-            refund(e.id, e.leader, item);
-        }
+        refunds.refundIfTaken(e);
     }
 
-    /** 재시작 복구 트랜잭션에서 넣은 환급을 알리고 지급한다 (접속 중일 때). */
+    /** Announces and delivers a refund inserted by the restart recovery transaction (if online). */
     void notifyRefund(UUID leader) {
-        Player p = Bukkit.getPlayer(leader);
-        if (p != null) {
-            api.messages().send(p, "boss.reward.bait_refund");
-            deliverPending(p, false);
-        }
-    }
-
-    private void refund(UUID encounter, UUID leader, ItemId item) {
-        var _ =
-                api.database()
-                        .asyncVoid(c -> refundInTx(c, encounter, leader, item))
-                        .thenRunAsync(() -> notifyRefund(leader), mgr.tasks().main())
-                        .exceptionally(
-                                err -> {
-                                    mgr.log()
-                                            .warn(
-                                                    "미끼 환급 기록 실패 {}: {}",
-                                                    encounter,
-                                                    String.valueOf(err.getMessage()));
-                                    return null;
-                                });
+        refunds.notifyRefund(leader);
     }
 
     void refundInTx(Connection c, UUID encounter, UUID leader, ItemId item) throws SQLException {
-        BossRepository.insertPendingIgnore(
-                c,
-                new PendingReward(
-                        PendingReward.idFor(encounter, leader, "refund"),
-                        encounter,
-                        leader,
-                        "refund",
-                        List.of(new PendingReward.Entry("item", item.toString(), 1, null))));
+        refunds.refundInTx(c, encounter, leader, item);
     }
 
-    // ------------------------------------------------------------------ 지급
+    // ------------------------------------------------------------------ Delivery (RewardDelivery)
 
     /**
-     * 미지급 보상 지급 (4·5단계). PDC에 이미 있는 ID는 행만 닫는다. 인벤토리가 모자라면 남겨 두고 /boss claim으로 다시 받게 한다.
+     * Delivers unclaimed rewards (steps 4-5). IDs already in the PDC only close their row. If the
+     * inventory is short on space, the rest stays to be claimed again with /boss claim.
      *
-     * @param notifyEmpty 받을 것이 없을 때도 알릴지 (/boss claim)
+     * @param notifyEmpty whether to notify even when there is nothing to receive (/boss claim)
      */
     public void deliverPending(Player player, boolean notifyEmpty) {
-        UUID uuid = player.getUniqueId();
-        var _ =
-                api.database()
-                        .async(c -> BossRepository.undelivered(c, uuid))
-                        .thenAcceptAsync(
-                                list -> deliver(player, list, notifyEmpty), mgr.tasks().main())
-                        .exceptionally(
-                                err -> {
-                                    mgr.log()
-                                            .warn(
-                                                    "미지급 보상 조회 실패 {}: {}",
-                                                    uuid,
-                                                    String.valueOf(err.getMessage()));
-                                    return null;
-                                });
+        delivery.deliverPending(player, notifyEmpty);
     }
 
     public CompletableFuture<List<PendingReward>> pending(UUID player) {
-        CompletableFuture<List<PendingReward>> out = new CompletableFuture<>();
-        var _ =
-                api.database()
-                        .async(c -> BossRepository.undelivered(c, player))
-                        .whenCompleteAsync(
-                                (list, err) -> {
-                                    if (err != null) {
-                                        out.completeExceptionally(err);
-                                    } else {
-                                        out.complete(list);
-                                    }
-                                },
-                                mgr.tasks().main());
-        return out;
-    }
-
-    private void deliver(Player player, List<PendingReward> list, boolean notifyEmpty) {
-        if (!player.isOnline()) {
-            return;
-        }
-        if (list.isEmpty()) {
-            if (notifyEmpty) {
-                api.messages().send(player, "boss.reward.nothing");
-            }
-            return;
-        }
-        Set<String> done = BossItems.delivered(player);
-        List<UUID> close = new ArrayList<>();
-        List<String> marked = new ArrayList<>();
-        boolean full = false;
-        for (PendingReward r : list) {
-            if (done.contains(r.id().toString())) {
-                close.add(r.id());
-                continue;
-            }
-            List<ItemStack> stacks = build(player, r);
-            if (!fits(player, stacks)) {
-                full = true;
-                continue;
-            }
-            for (ItemStack s : stacks) {
-                var _ = player.getInventory().addItem(s);
-                api.messages()
-                        .send(
-                                player,
-                                "boss.reward.item",
-                                Placeholder.component("item", s.effectiveName()),
-                                Placeholder.unparsed("count", String.valueOf(s.getAmount())));
-            }
-            marked.add(r.id().toString());
-            close.add(r.id());
-        }
-        if (!marked.isEmpty()) {
-            BossItems.markDelivered(player, marked);
-        }
-        if (full) {
-            api.messages().send(player, "boss.reward.inventory_full");
-        }
-        if (!close.isEmpty()) {
-            // 지급한 아이템과 PDC 표시를 먼저 저장한 뒤 DB 보상 행을 닫는다. 반대 순서면 닫은 뒤 서버가 죽었을 때 인벤토리가 지급 전으로
-            // 돌아가 보상이 사라진다. 저장이 실패하면 행을 열어 두고, 다음 지급 때 PDC 표시(메모리에 있으면)나 재지급으로 처리된다.
-            // 바닐라 saveData()는 Harbor 저장본이 원본이라 소용없다
-            UUID uuid = player.getUniqueId();
-            var _ =
-                    api.players()
-                            .saveNow(uuid)
-                            .thenCompose(
-                                    v ->
-                                            api.database()
-                                                    .asyncVoid(
-                                                            c ->
-                                                                    BossRepository.markDelivered(
-                                                                            c, close)))
-                            .exceptionally(
-                                    e -> {
-                                        mgr.log()
-                                                .warn(
-                                                        "보스 보상 지급 기록 실패 {}: {}",
-                                                        uuid,
-                                                        String.valueOf(e.getMessage()));
-                                        return null;
-                                    });
-        }
-    }
-
-    private List<ItemStack> build(Player player, PendingReward r) {
-        List<ItemStack> out = new ArrayList<>();
-        for (PendingReward.Entry entry : r.entries()) {
-            try {
-                if ("fish".equals(entry.type())) {
-                    BossBalance bb = mgr.balance();
-                    Optional<CatchResult> fish =
-                            mgr.fishing()
-                                    .createCatch(
-                                            player,
-                                            new FishId(HarborId.parse(entry.id())),
-                                            new CatchOptions(
-                                                    bb.captureQualityStars(),
-                                                    bb.captureLuck(),
-                                                    true));
-                    fish.map(CatchResult::stack)
-                            .ifPresent(
-                                    s -> {
-                                        if (s != null) {
-                                            out.add(s);
-                                        }
-                                    });
-                    continue;
-                }
-                Optional<ItemStack> stack =
-                        mgr.items().create(new ItemId(HarborId.parse(entry.id())), entry.count());
-                if (stack.isEmpty()) {
-                    mgr.log().warn("보상 아이템이 콘텐츠에 없습니다: {}", entry.id());
-                    continue;
-                }
-                ItemStack s = stack.get();
-                String uid = entry.uid();
-                if (uid != null) {
-                    s.editPersistentDataContainer(
-                            pdc ->
-                                    pdc.set(
-                                            BossItems.BOSS_UID,
-                                            org.bukkit.persistence.PersistentDataType.STRING,
-                                            uid));
-                }
-                out.add(s);
-            } catch (IllegalArgumentException e) {
-                mgr.log().warn("보상 항목 형식이 틀렸습니다: {}", entry);
-            }
-        }
-        return out;
-    }
-
-    /** 인벤토리에 다 들어가는지 (빈 칸 수로 보수적으로 본다). */
-    private static boolean fits(Player player, List<ItemStack> stacks) {
-        int empty = 0;
-        for (ItemStack s : player.getInventory().getStorageContents()) {
-            if (s == null || s.isEmpty()) {
-                empty++;
-            }
-        }
-        return empty >= stacks.size();
+        return delivery.pending(player);
     }
 }

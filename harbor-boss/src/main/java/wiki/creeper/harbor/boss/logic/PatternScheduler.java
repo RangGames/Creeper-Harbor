@@ -10,8 +10,8 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.boss.content.BossDef;
 
 /**
- * 페이즈별 패턴 고르기 (docs 20 10.4): YAML weight 가중치로 고르고, 같은 패턴 연속 2회 금지, 쿨타임은 패턴별로 센다. 패턴 사이에는 페이즈의 최소
- * 간격을 둔다.
+ * Per-phase pattern selection (docs 20 10.4): picks by YAML weight, never the same pattern twice in
+ * a row, cooldowns counted per pattern. The phase's minimum gap is kept between patterns.
  */
 public final class PatternScheduler {
 
@@ -19,7 +19,7 @@ public final class PatternScheduler {
     private @Nullable String last;
     private long nextAllowed;
 
-    /** 다음 패턴. 간격·쿨타임 때문에 지금 고를 수 없으면 빈 값. */
+    /** Next pattern. Empty if none can be picked now because of gaps or cooldowns. */
     public Optional<BossDef.PatternDef> next(
             List<BossDef.PatternDef> candidates, long now, int gapTicks, SplittableRandom random) {
         if (now < nextAllowed || candidates.isEmpty()) {
@@ -30,7 +30,7 @@ public final class PatternScheduler {
             if (readyAt.getOrDefault(p.id(), Long.MIN_VALUE) > now) {
                 continue;
             }
-            // 연속 금지: 패턴이 하나뿐인 페이즈는 예외
+            // No repeats: phases with only one pattern are exempt
             if (candidates.size() > 1 && p.id().equals(last)) {
                 continue;
             }
@@ -58,7 +58,10 @@ public final class PatternScheduler {
         return Optional.of(chosen);
     }
 
-    /** 다음 패턴까지 최소 대기를 늦춘다 (페이즈 전환 직후 숨 돌릴 틈). */
+    /**
+     * Pushes back the minimum wait until the next pattern (breathing room right after a phase
+     * change).
+     */
     public void delay(long until) {
         nextAllowed = Math.max(nextAllowed, until);
     }

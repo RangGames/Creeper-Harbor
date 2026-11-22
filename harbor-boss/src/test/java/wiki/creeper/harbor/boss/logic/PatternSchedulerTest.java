@@ -8,7 +8,7 @@ import java.util.SplittableRandom;
 import org.junit.jupiter.api.Test;
 import wiki.creeper.harbor.boss.content.BossDef;
 
-/** 패턴 고르기: 가중치, 같은 패턴 연속 금지, 패턴별 쿨타임. */
+/** Pattern selection: weights, no same pattern twice in a row, per-pattern cooldowns. */
 class PatternSchedulerTest {
 
     private static BossDef.PatternDef pattern(String id, int cooldown, int weight) {
@@ -44,9 +44,9 @@ class PatternSchedulerTest {
         var b = pattern("b", 100, 1);
         SplittableRandom r = new SplittableRandom(1);
         assertTrue(s.next(List.of(a, b), 0, 20, r).isPresent());
-        assertTrue(s.next(List.of(a, b), 10, 20, r).isEmpty()); // 간격
-        assertTrue(s.next(List.of(a, b), 20, 20, r).isPresent()); // 남은 하나
-        assertTrue(s.next(List.of(a, b), 40, 20, r).isEmpty()); // 둘 다 쿨타임
+        assertTrue(s.next(List.of(a, b), 10, 20, r).isEmpty()); // gap
+        assertTrue(s.next(List.of(a, b), 20, 20, r).isPresent()); // the one remaining
+        assertTrue(s.next(List.of(a, b), 40, 20, r).isEmpty()); // both on cooldown
         assertTrue(s.next(List.of(a, b), 100, 20, r).isPresent());
     }
 

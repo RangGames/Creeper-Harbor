@@ -2,15 +2,18 @@ package wiki.creeper.harbor.boss.api;
 
 import wiki.creeper.harbor.common.model.Keyed;
 
-/** 조우 상태 (docs 20 10.4 페이즈 상태 기계). DB boss_encounter.state에는 RUNNING·CLEARED·FAILED·ABORTED만 쓴다. */
+/**
+ * Encounter state (docs 20 10.4 phase state machine). DB boss_encounter.state only stores RUNNING,
+ * CLEARED, FAILED and ABORTED.
+ */
 public enum EncounterState implements Keyed {
     PREPARING,
     INTRO,
-    /** 걸기: 앵커가 줄을 걸고 유지한다. */
+    /** Hook: anchors hook and hold the line. */
     HOOK,
-    /** 반격: 패턴 회피, 약점 노출 때 작살 피해, 수리. */
+    /** Counter: dodge patterns, harpoon damage while the weak point is exposed, repairs. */
     COUNTER,
-    /** 최후의 줄다리기: 전원 입력 QTE. */
+    /** Final tug-of-war: QTE with input from everyone. */
     FINAL_TUG,
     CLEARED,
     FAILED,
@@ -20,7 +23,7 @@ public enum EncounterState implements Keyed {
         return this == CLEARED || this == FAILED || this == ABORTED;
     }
 
-    /** 전투가 진행 중인지 (준비·종료 제외). */
+    /** Whether combat is in progress (excluding preparation and end). */
     public boolean fighting() {
         return this == INTRO || this == HOOK || this == COUNTER || this == FINAL_TUG;
     }

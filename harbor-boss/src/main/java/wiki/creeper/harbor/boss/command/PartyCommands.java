@@ -24,8 +24,8 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.PartyService;
 
 /**
- * /party (/파티) create · invite · join · leave · kick · disband · role · promote (docs 20 10.5, 권한
- * harbor.party).
+ * /party (/파티) create · invite · join · leave · kick · disband · role · promote (docs 20 10.5,
+ * permission harbor.party).
  */
 public final class PartyCommands {
 

@@ -13,8 +13,10 @@ import wiki.creeper.harbor.boss.content.BossType;
 import wiki.creeper.harbor.common.id.FishId;
 
 /**
- * 조우 종료 (docs 20 10.2). 결과(CLEARED·FAILED·ABORTED)와 참가자별 기여도·순위. Quest 보스 처치 목표, Collection 도감(보스
- * 어종 · release_only 어종 등록), Shop 시즌 패스 경험치가 구독한다. 보상 지급 전에 메인 스레드에서 발생한다.
+ * Encounter end (docs 20 10.2). Result (CLEARED, FAILED, ABORTED) plus per-participant contribution
+ * and rank. Subscribed by Quest boss kill objectives, Collection (registering boss fish and
+ * release_only fish), and Shop season pass experience. Fired on the main thread before rewards are
+ * granted.
  */
 public final class BossEncounterEndEvent extends Event {
 
@@ -52,12 +54,12 @@ public final class BossEncounterEndEvent extends Event {
         return encounter;
     }
 
-    /** 보스 ID (Quest 보스 처치 목표가 읽는다). */
+    /** Boss ID (read by Quest boss kill objectives). */
     public wiki.creeper.harbor.common.id.BossId boss() {
         return encounter.boss();
     }
 
-    /** 참가자 UUID (파티장 먼저). 월드 보스는 기여한 사람 전원. */
+    /** Participant UUIDs (party leader first). For world bosses, everyone who contributed. */
     public List<UUID> participants() {
         return encounter.members();
     }
@@ -74,7 +76,7 @@ public final class BossEncounterEndEvent extends Event {
         return type;
     }
 
-    /** 순위순. */
+    /** In rank order. */
     public List<Contribution> contributions() {
         return contributions;
     }
@@ -83,12 +85,15 @@ public final class BossEncounterEndEvent extends Event {
         return contributions.stream().filter(c -> c.player().equals(player)).findFirst();
     }
 
-    /** 연결된 보스 어종 (없으면 빈 값). */
+    /** Linked boss fish (empty if none). */
     public Optional<FishId> fish() {
         return Optional.ofNullable(fish);
     }
 
-    /** 보스 어종이 release_only라 아이템 없이 도감에만 올리는지 (해구의 군주·녹빛 폭뢰어). */
+    /**
+     * Whether the boss fish is release_only, so it is only registered in the collection without an
+     * item (Lord of the Trench, Verdigris Thunderfish).
+     */
     public boolean releaseOnly() {
         return releaseOnly;
     }
@@ -97,7 +102,7 @@ public final class BossEncounterEndEvent extends Event {
         return durationMs;
     }
 
-    /** 스토리 전투 (전리품·기록 없음). */
+    /** Story fight (no loot or records). */
     public boolean story() {
         return story;
     }

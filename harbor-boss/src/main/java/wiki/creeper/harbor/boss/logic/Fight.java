@@ -5,19 +5,20 @@ import java.util.List;
 import wiki.creeper.harbor.boss.api.EncounterState;
 
 /**
- * 보스전 페이즈 상태 기계 (docs 20 10.4 BossPhase). 서버 API를 쓰지 않고 틱 번호만 받아서, 가짜 시계로 JUnit 검사를 한다 (10.6). 런타임
- * {@code Encounter}가 매 틱 {@link #tick}을 부르고, 피해·내구도·줄 끊김·QTE 결과를 알려 준다. 바뀐 상태는 {@link Transition}
- * 목록으로 돌려줘서 호출한 쪽이 이벤트·연출을 낸다.
+ * Boss fight phase state machine (docs 20 10.4 BossPhase). Uses no server API and takes only tick
+ * numbers, so JUnit tests run with a fake clock (10.6). The runtime {@code Encounter} calls {@link
+ * #tick} every tick and reports damage, durability, line snaps and QTE results. Changed states are
+ * returned as a list of {@link Transition}s so the caller can fire events and effects.
  *
  * <pre>
- * PREPARING ─(30초 또는 전원 준비)→ INTRO ─(5초)→ HOOK ─(걸기 100%)→ COUNTER ─(체력 ≤ hp_below)→ FINAL_TUG ─(2승)→ CLEARED
- *                                                           ↑                    └(2패, 1회만 체력 +20%)┘
- * 공통: 제한 시간 초과 → FAILED, 전원 이탈 60초 → FAILED, 배 내구도 0 → FAILED, 서버 종료 → ABORTED
+ * PREPARING ─(30s or all ready)→ INTRO ─(5s)→ HOOK ─(hook 100%)→ COUNTER ─(HP ≤ hp_below)→ FINAL_TUG ─(2 wins)→ CLEARED
+ *                                                                  ↑                    └(2 losses, HP +20% once)┘
+ * Always: time limit exceeded → FAILED, everyone absent 60s → FAILED, ship durability 0 → FAILED, server shutdown → ABORTED
  * </pre>
  */
 public final class Fight {
 
-    /** 현재 페이즈 (sealed interface + switch 패턴 매칭). */
+    /** Current phase (sealed interface + switch pattern matching). */
     public sealed interface Phase permits Preparing, Intro, Hook, Counter, FinalTug, Ended {
         EncounterState state();
     }
@@ -51,7 +52,7 @@ public final class Fight {
     }
 
     /**
-     * @param round 지금 라운드 (1부터)
+     * @param round current round (starting at 1)
      */
     public record FinalTug(int round, int successes, int failures) implements Phase {
         @Override
@@ -63,16 +64,16 @@ public final class Fight {
     public record Ended(EncounterState state, String cause) implements Phase {}
 
     /**
-     * 규칙 (조우 시작 때 정의·balance에서 한 번 만든다).
+     * Rules (built once at encounter start from the definition and balance).
      *
-     * @param hookTicks 걸기 게이지 0 → 100%에 필요한 안전 구간 틱
-     * @param lineBreakCap 줄이 끊기면 게이지를 이 값 이하로
-     * @param hookDecayPerTick 앵커가 없을 때 틱당 감소
-     * @param finalTugBelow 최후의 줄다리기 진입 체력 비율
-     * @param qteWin 라운드 성공 몇 번이면 클리어
-     * @param qteLose 라운드 실패 몇 번이면 반격으로 되돌림
-     * @param recoverRatio 되돌릴 때 회복 비율 (1회까지)
-     * @param timeLimitTicks 제한 시간 (INTRO부터 센다)
+     * @param hookTicks safe-zone ticks needed to take the hook gauge from 0 to 100%
+     * @param lineBreakCap when a line snaps, the gauge is reset to at most this value
+     * @param hookDecayPerTick decay per tick while there is no anchor
+     * @param finalTugBelow HP ratio for entering the final tug-of-war
+     * @param qteWin number of round wins needed to clear
+     * @param qteLose number of round losses that send it back to counter
+     * @param recoverRatio HP ratio restored when sent back (at most once)
+     * @param timeLimitTicks time limit (counted from INTRO)
      */
     public record Rules(
             int prepareTicks,
@@ -88,19 +89,19 @@ public final class Fight {
             int allAbsentFailTicks) {}
 
     /**
-     * 틱마다 넘기는 입력.
+     * Input passed every tick.
      *
-     * @param anchorsInSafe 텐션 안전 구간에 있는 앵커 수
-     * @param anchorsActive 줄을 걸고 있는 앵커 수
-     * @param anchorGrace 앵커 교대 유예 중 (게이지 고정)
-     * @param allAbsent 파티원이 모두 경기장 밖·접속 종료
+     * @param anchorsInSafe number of anchors in the tension safe zone
+     * @param anchorsActive number of anchors holding a line
+     * @param anchorGrace anchor swap grace in progress (gauge frozen)
+     * @param allAbsent all party members are outside the arena or disconnected
      */
     public record Inputs(
             int anchorsInSafe, int anchorsActive, boolean anchorGrace, boolean allAbsent) {
         public static final Inputs IDLE = new Inputs(0, 0, false, false);
     }
 
-    /** 상태 전환 한 건. */
+    /** One state transition. */
     public record Transition(EncounterState from, EncounterState to, String cause) {}
 
     private final Rules rules;
@@ -127,16 +128,16 @@ public final class Fight {
         this.phase = new Preparing(Long.MAX_VALUE);
     }
 
-    // ------------------------------------------------------------------ 시작
+    // ------------------------------------------------------------------ Start
 
-    /** 준비 단계부터 시작한다 (파티 확정·역할 선택). */
+    /** Starts from the preparation stage (party confirmation, role selection). */
     public List<Transition> begin(long now) {
         tick = now;
         phase = new Preparing(now + rules.prepareTicks());
         return List.of();
     }
 
-    /** 준비 없이 등장 연출부터 (월드 보스, 인스턴스 도착 완료). */
+    /** Starts from the intro without preparation (world boss, instance arrival complete). */
     public List<Transition> beginIntro(long now) {
         tick = now;
         List<Transition> out = new ArrayList<>();
@@ -144,7 +145,7 @@ public final class Fight {
         return out;
     }
 
-    /** 파티원이 모두 준비를 마쳤다. */
+    /** All party members are ready. */
     public List<Transition> allReady() {
         List<Transition> out = new ArrayList<>();
         if (phase instanceof Preparing) {
@@ -158,7 +159,7 @@ public final class Fight {
         move(out, new Intro(tick + rules.introTicks()), cause);
     }
 
-    // ------------------------------------------------------------------ 틱
+    // ------------------------------------------------------------------ Tick
 
     public List<Transition> tick(long now, Inputs in) {
         tick = now;
@@ -195,13 +196,13 @@ public final class Fight {
             }
             case Hook _ -> tickHook(in, out);
             case Counter _ -> {
-                // 체력·내구도 판정은 damage·hullDamage에서 한다
+                // HP and durability are checked in damage and hullDamage
             }
             case FinalTug _ -> {
-                // 라운드 결과는 roundResult로 받는다
+                // Round results arrive via roundResult
             }
             case Ended _ -> {
-                // 위에서 걸렀다
+                // Filtered out above
             }
         }
         return out;
@@ -219,12 +220,12 @@ public final class Fight {
         }
     }
 
-    // ------------------------------------------------------------------ 외부 사건
+    // ------------------------------------------------------------------ External events
 
     /**
-     * 피해 (작살·앵커 감기). 반격 단계에서만 들어간다.
+     * Damage (harpoon, anchor reeling). Only applied in the counter stage.
      *
-     * @return 실제로 줄어든 체력
+     * @return HP actually removed
      */
     public double damage(double amount, List<Transition> out) {
         if (!(phase instanceof Counter) || amount <= 0) {
@@ -238,7 +239,7 @@ public final class Fight {
         return before - hp;
     }
 
-    /** 배 내구도 피해. 걸기·반격 단계에서만. 0이 되면 실패. */
+    /** Ship durability damage. Only in the hook and counter stages. Fails at 0. */
     public int hullDamage(int amount, List<Transition> out) {
         if (amount <= 0 || !(phase instanceof Hook || phase instanceof Counter)) {
             return 0;
@@ -252,9 +253,9 @@ public final class Fight {
     }
 
     /**
-     * 수리.
+     * Repair.
      *
-     * @return 실제로 복구한 내구도
+     * @return durability actually restored
      */
     public int repair(int amount) {
         if (amount <= 0 || phase instanceof Ended) {
@@ -265,14 +266,14 @@ public final class Fight {
         return hull - before;
     }
 
-    /** 앵커 줄이 끊김 (걸기 게이지를 cap 이하로 되돌림). */
+    /** An anchor line snapped (resets the hook gauge to at most cap). */
     public void lineBroken() {
         if (phase instanceof Hook) {
             hookGauge = Math.min(hookGauge, rules.lineBreakCap());
         }
     }
 
-    /** 줄다리기 라운드 하나의 결과. */
+    /** Result of one tug-of-war round. */
     public List<Transition> roundResult(boolean success) {
         List<Transition> out = new ArrayList<>();
         if (!(phase instanceof FinalTug(int round, int successes, int failures))) {
@@ -288,7 +289,8 @@ public final class Fight {
                 hp = Math.min(maxHp, hp + maxHp * rules.recoverRatio());
                 move(out, new Counter(), "tug_failed");
             } else {
-                // 회복은 1회까지. 그 뒤로는 제한 시간 안에서 줄다리기를 처음부터 다시 한다 (추가 제안)
+                // Recovery happens at most once. After that the tug-of-war restarts from the
+                // beginning within the time limit (proposed)
                 phase = new FinalTug(1, 0, 0);
                 out.add(
                         new Transition(
@@ -300,7 +302,7 @@ public final class Fight {
         return out;
     }
 
-    /** 강제 종료 (관리자·서버 종료). 이미 끝났으면 아무것도 하지 않는다. */
+    /** Forced end (admin, server shutdown). Does nothing if already ended. */
     public List<Transition> end(EncounterState result, String cause) {
         List<Transition> out = new ArrayList<>();
         if (!result.ended()) {
@@ -311,9 +313,10 @@ public final class Fight {
     }
 
     /**
-     * 최대 체력을 바꾸되 진행률(체력 비율)은 유지한다 (월드 보스 인원 비례 체력, 10초마다).
+     * Changes the max HP while keeping progress (HP ratio) (world boss HP scaled by players, every
+     * 10 seconds).
      *
-     * @return 바뀌었으면 true
+     * @return true if it changed
      */
     public boolean rescale(double newMax) {
         if (newMax <= 0 || Math.abs(newMax - maxHp) < 1e-9) {
@@ -325,7 +328,7 @@ public final class Fight {
         return true;
     }
 
-    /** 저장된 진행률로 되살린다 (월드 보스 resume). */
+    /** Restores from saved progress (world boss resume). */
     public void restore(double hpRatio, double gauge, boolean counter) {
         hp = maxHp * Math.clamp(hpRatio, 0.0, 1.0);
         hookGauge = Math.clamp(gauge, 0.0, 1.0);
@@ -347,7 +350,7 @@ public final class Fight {
         out.add(new Transition(from, next.state(), cause));
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ Lookup
 
     public Phase phase() {
         return phase;
@@ -361,12 +364,12 @@ public final class Fight {
         return tick;
     }
 
-    /** INTRO가 시작된 틱 (아직이면 −1). */
+    /** Tick when INTRO started (−1 if not yet). */
     public long runStart() {
         return runStart;
     }
 
-    /** 전투 시간 (틱). */
+    /** Fight duration (ticks). */
     public long elapsed() {
         return runStart < 0 ? 0 : tick - runStart;
     }

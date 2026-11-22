@@ -17,7 +17,7 @@ import wiki.creeper.harbor.common.model.JobLine;
 import wiki.creeper.harbor.common.model.JobTier;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/** skill_alloc · jobs_state SQL. 트랜잭션은 호출하는 쪽이 연다. */
+/** skill_alloc · jobs_state SQL. Callers open transactions. */
 public final class JobsRepository {
 
     private JobsRepository() {}
@@ -34,7 +34,8 @@ public final class JobsRepository {
                     try {
                         skills.put(SkillId.parse(rs.getString(1)), rs.getInt(2));
                     } catch (IllegalArgumentException e) {
-                        // 형식이 틀린 행은 무시한다 (콘텐츠에서 사라진 노드는 접속 후 환급 처리)
+                        // Ignore malformed rows (nodes removed from content are refunded after
+                        // join)
                     }
                 }
             }
@@ -63,7 +64,10 @@ public final class JobsRepository {
         }
     }
 
-    /** jobs_state 저장 (지연 쓰기 또는 트랜잭션 안). skill_alloc은 투자 트랜잭션이 직접 쓴다. */
+    /**
+     * Saves jobs_state (write-behind or inside a transaction). skill_alloc is written directly by
+     * the investment transaction.
+     */
     public static void saveState(Connection c, UUID uuid, SeasonId season, JobsData data)
             throws SQLException {
         try (PreparedStatement ps =
@@ -122,7 +126,10 @@ public final class JobsRepository {
         }
     }
 
-    /** 전직·계열 변경: player_season(Core 테이블)의 단계·계열을 같은 트랜잭션에서 바꾼다. */
+    /**
+     * Job advancement and line change: updates tier and line in player_season (Core table) in the
+     * same transaction.
+     */
     public static void updateJob(
             Connection c, UUID uuid, SeasonId season, @Nullable JobLine line, JobTier tier)
             throws SQLException {

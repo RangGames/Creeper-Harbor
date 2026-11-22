@@ -4,7 +4,7 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 스킬 초기화가 커밋된 뒤 발생한다. scope: common · line · all. */
+/** Fired after a skill reset is committed. scope: common · line · all. */
 public final class SkillResetEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

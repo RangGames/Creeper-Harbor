@@ -38,7 +38,10 @@ import wiki.creeper.harbor.jobs.service.CapstoneService;
 import wiki.creeper.harbor.jobs.service.CatchUpService;
 import wiki.creeper.harbor.jobs.service.JobsManager;
 
-/** /직업, /스킬, /harbor jobs … (docs 20 2.5). 관리자 명령은 Core가 admin_log에 남기지 않으므로 여기서 남긴다. */
+/**
+ * /직업, /스킬, /harbor jobs … (docs 20 2.5). Core does not write admin commands to admin_log, so they
+ * are logged here.
+ */
 public final class JobCommands {
 
     private static final List<String> RESET_SCOPES = List.of("common", "line", "all");
@@ -62,7 +65,7 @@ public final class JobCommands {
         this.catchUp = catchUp;
     }
 
-    /** 플레이어 명령 (Paper COMMANDS 이벤트에서 등록). */
+    /** Player commands (registered in the Paper COMMANDS event). */
     public void registerPlayerCommands(Commands commands) {
         commands.register(playerCommand("직업", this::info), "직업 정보", List.of());
         commands.register(playerCommand("스킬", p -> menu.open(p, 0)), "스킬 트리", List.of());
@@ -133,7 +136,7 @@ public final class JobCommands {
         return PlainTextComponentSerializer.plainText().serialize(component);
     }
 
-    /** /harbor jobs … (권한 harbor.admin.jobs는 Core가 건다). */
+    /** /harbor jobs … (Core checks the permission harbor.admin.jobs). */
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {
         return Commands.literal("jobs")
                 .then(Commands.literal("info").then(target().executes(this::adminInfo)))

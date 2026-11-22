@@ -6,9 +6,9 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.id.BossId;
 
 /**
- * 보스별 최단 처치 기록 (boss_records, 시즌별 1~10위만 유지).
+ * Fastest kill record per boss (boss_records, only ranks 1-10 kept per season).
  *
- * @param members 파티장 먼저
+ * @param members party leader first
  */
 public record BossRecord(
         BossId boss,

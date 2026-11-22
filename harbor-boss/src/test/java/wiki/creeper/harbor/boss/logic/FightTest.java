@@ -10,7 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import wiki.creeper.harbor.boss.api.EncounterState;
 
-/** 페이즈 상태 기계 (가짜 시계로 틱 진행, docs 20 10.6). */
+/** Phase state machine (ticks advanced with a fake clock, docs 20 10.6). */
 class FightTest {
 
     private static final Fight.Rules RULES =
@@ -78,7 +78,7 @@ class FightTest {
         run(f, 160, SAFE); // 80%
         f.lineBroken();
         assertEquals(0.5, f.hookGauge(), 1e-9);
-        // 이미 50% 아래면 그대로
+        // Already below 50%, so unchanged
         Fight g = hooked();
         run(g, 40, SAFE); // 20%
         g.lineBroken();
@@ -91,7 +91,7 @@ class FightTest {
         run(f, 100, SAFE); // 50%
         run(f, 20, new Fight.Inputs(0, 0, true, false));
         assertEquals(0.5, f.hookGauge(), 1e-6);
-        run(f, 20, new Fight.Inputs(0, 0, false, false)); // 1초 → −5%
+        run(f, 20, new Fight.Inputs(0, 0, false, false)); // 1s → −5%
         assertEquals(0.45, f.hookGauge(), 1e-6);
     }
 
@@ -110,7 +110,7 @@ class FightTest {
         List<Fight.Transition> out = new ArrayList<>();
         assertEquals(700, f.damage(700, out));
         assertTrue(out.isEmpty());
-        f.damage(100, out); // 20% → 줄다리기
+        f.damage(100, out); // 20% → tug-of-war
         assertEquals(EncounterState.FINAL_TUG, f.state());
         assertInstanceOf(Fight.FinalTug.class, f.phase());
     }
@@ -121,8 +121,8 @@ class FightTest {
         List<Fight.Transition> out = new ArrayList<>();
         f.hullDamage(60, out);
         assertEquals(30, f.repair(30));
-        assertEquals(30, f.repair(50)); // 최대치까지만
-        assertEquals(0, f.repair(30)); // 가득
+        assertEquals(30, f.repair(50)); // only up to the max
+        assertEquals(0, f.repair(30)); // full
         f.hullDamage(200, out);
         assertEquals(EncounterState.FAILED, f.state());
         assertEquals("hull", out.getLast().cause());
@@ -170,7 +170,7 @@ class FightTest {
         Fight.Inputs gone = new Fight.Inputs(0, 0, false, true);
         run(f, 1199, gone);
         assertEquals(EncounterState.COUNTER, f.state());
-        run(f, 5, Fight.Inputs.IDLE); // 돌아오면 초기화
+        run(f, 5, Fight.Inputs.IDLE); // reset on return
         run(f, 1199, gone);
         assertEquals(EncounterState.COUNTER, f.state());
         run(f, 2, gone);

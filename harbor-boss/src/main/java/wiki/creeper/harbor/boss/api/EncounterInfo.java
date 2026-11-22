@@ -6,12 +6,13 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.id.BossId;
 
 /**
- * 조우 하나의 읽기 전용 모습 (호출 시점 값).
+ * Read-only view of one encounter (values at call time).
  *
- * @param members 참가자 (파티장 먼저). 월드 보스는 지금까지 기여한 사람
- * @param roles 참가자 역할
- * @param slot 경기장 슬롯 번호 (월드 보스 0)
- * @param hpRatio 체력(calm 보스는 분노·폭발 게이지) 비율 1 → 0
+ * @param members participants (party leader first). For world bosses, everyone who has contributed
+ *     so far
+ * @param roles participant roles
+ * @param slot arena slot number (0 for world bosses)
+ * @param hpRatio HP ratio (rage/explosion gauge for calm bosses) 1 → 0
  */
 public record EncounterInfo(
         UUID id,

@@ -6,7 +6,7 @@ import wiki.creeper.harbor.boss.api.EncounterInfo;
 import wiki.creeper.harbor.boss.api.EncounterState;
 
 /**
- * 페이즈 전환 (사운드·연출 훅). 메인 스레드.
+ * Phase change (hook for sounds and effects). Main thread.
  *
  * @see wiki.creeper.harbor.boss.api.EncounterState
  */
@@ -40,7 +40,8 @@ public final class BossPhaseChangeEvent extends Event {
     }
 
     /**
-     * 전환 이유 (ready, timeout, hooked, hp, tug, tug_failed, hull, time, absent, admin, shutdown …).
+     * Reason for the change (ready, timeout, hooked, hp, tug, tug_failed, hull, time, absent,
+     * admin, shutdown …).
      */
     public String cause() {
         return cause;

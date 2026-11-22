@@ -5,7 +5,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.SkillId;
 
-/** 스킬 투자가 커밋된 뒤 발생한다. */
+/** Fired after a skill investment is committed. */
 public final class SkillAllocatedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

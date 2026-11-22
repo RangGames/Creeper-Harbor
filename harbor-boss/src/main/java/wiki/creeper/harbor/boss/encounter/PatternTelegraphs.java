@@ -25,7 +25,11 @@ import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.fishing.api.TensionSession;
 
-/** 보스 패턴 예고: 패턴 고르기 → 바닥 표식 → 끝나는 틱의 판정(넉백·디버프·배 내구도·회피), 선장의 돌진 회피 입력. 메인 스레드 전용. */
+/**
+ * Boss pattern telegraphs: pick a pattern → floor markers → resolution on the ending tick
+ * (knockback, debuffs, ship durability, dodges), and the captain's charge dodge input. Main thread
+ * only.
+ */
 final class PatternTelegraphs {
 
     private static final String HULL_HIT = "harbor:ship.hull_hit";
@@ -38,12 +42,12 @@ final class PatternTelegraphs {
         this.e = e;
     }
 
-    /** 다음 패턴을 이 틱 뒤로 미룬다. */
+    /** Delays the next pattern until after this tick. */
     void delay(long until) {
         scheduler.delay(until);
     }
 
-    /** 경기장에 들어오는 플레이어에게 진행 중 표식을 보인다. */
+    /** Shows in-progress markers to a player entering the arena. */
     void show(Player p) {
         for (Telegraph t : telegraphs) {
             t.show(e.mgr.plugin(), p);
@@ -196,7 +200,10 @@ final class PatternTelegraphs {
         }
     }
 
-    /** 예고가 끝나는 틱의 판정: 넉백·디버프·배 내구도, 예고 범위 회피, 선장 회피. */
+    /**
+     * Resolution on the tick a telegraph ends: knockback, debuffs, ship durability, telegraph area
+     * dodges, captain dodge.
+     */
     private void resolve(Telegraph t, long now) {
         BossDef.Effect effect = t.pattern.effect();
         boolean anyInside = false;
@@ -297,7 +304,10 @@ final class PatternTelegraphs {
         telegraphs.clear();
     }
 
-    /** 조타륜을 잡은 선장의 입력: 돌진 반대 방향을 누르면 회피 (조타륜 4블록 안). */
+    /**
+     * Input from the captain at the helm: pressing opposite to the charge dodges it (within 4
+     * blocks of the helm).
+     */
     void steer(Player p, Member m, Set<Qte.Key> pressed) {
         for (Telegraph t : telegraphs) {
             Qte.Key side = t.chargeSide;

@@ -6,7 +6,10 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.model.JobLine;
 import wiki.creeper.harbor.common.model.JobTier;
 
-/** 전직이 커밋된 뒤 메인 스레드에서 발생한다 (Quest가 듣고 전직 퀘스트를 완료 처리). */
+/**
+ * Fired on the main thread after a job advancement is committed (Quest listens and completes the
+ * advancement quest).
+ */
 public final class JobAdvancedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

@@ -19,10 +19,13 @@ import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.RigHit;
 import wiki.creeper.harbor.core.api.RigInstance;
 
-/** 보스 피해: 리그 부위 클릭·작살 적중 판정과 반격 페이즈의 약점 노출 주기. 메인 스레드 전용. */
+/**
+ * Boss damage: rig part click and harpoon hit detection, and the weak point exposure cycle in the
+ * counter phase. Main thread only.
+ */
 final class HarpoonCombat {
 
-    // 공용 보스전 소리 ('15. 사운드' 4.3·4.4)
+    // Shared boss fight sounds ('15. Sound' 4.3, 4.4)
     private static final String HARPOON_HIT = "harbor:boss.harpoon_hit";
 
     private final Encounter e;
@@ -38,7 +41,7 @@ final class HarpoonCombat {
         return weakExposed;
     }
 
-    // ------------------------------------------------------------------ 약점 노출
+    // ------------------------------------------------------------------ Weak point exposure
 
     void resetWeakTimer() {
         weakTimer = 0;
@@ -93,9 +96,12 @@ final class HarpoonCombat {
         }
     }
 
-    // ------------------------------------------------------------------ 피해
+    // ------------------------------------------------------------------ Damage
 
-    /** 리그 부위 클릭 (Core RigHit). 좌클릭 + 작살 = 찌르기, 우클릭 = 월드 보스 줄 걸기. */
+    /**
+     * Rig part click (Core RigHit). Left-click + harpoon = stab, right-click = hook a line on the
+     * world boss.
+     */
     void onRigHit(RigHit hit) {
         Player p = hit.player();
         Member m = e.members.get(p.getUniqueId());
@@ -118,7 +124,7 @@ final class HarpoonCombat {
             hit(p, m, harpoon.get(), hit.bone(), e.bb.stabMult());
             return;
         }
-        // 우클릭: 월드 보스는 누구나 줄을 걸 수 있다 (인원 상한까지)
+        // Right-click: anyone can hook a line on a world boss (up to the player cap)
         if (e.def.isWorld()
                 && (e.fight.state() == EncounterState.HOOK
                         || e.fight.state() == EncounterState.COUNTER)) {
@@ -136,7 +142,7 @@ final class HarpoonCombat {
         }
     }
 
-    /** 작살 투척이 판정 상자에 맞음 (EncounterManager의 궤적 판정). */
+    /** A harpoon throw hit a hitbox (trajectory hit detection in EncounterManager). */
     void harpoonHit(Player p, ItemDef harpoon, String bone) {
         Member m = e.members.get(p.getUniqueId());
         if (m == null) {
@@ -195,7 +201,8 @@ final class HarpoonCombat {
         }
         e.world.spawnParticle(weak ? Particle.CRIT : Particle.SPLASH, fx, 12, 0.6, 0.6, 0.6, 0.1);
         if (weak) {
-            // 약점 적중 (공용): 맞은 자리에서, 멀리서 던진 작살수에게도 들리게
+            // Weak point hit (shared): played at the hit spot so harpooners who threw from afar
+            // hear it too
             HarborSounds.playAt(fx, HARPOON_HIT, HarborSounds.Options.DEFAULT, List.of(p));
         }
         e.handle(out);

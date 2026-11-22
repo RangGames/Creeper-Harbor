@@ -33,7 +33,10 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 
-/** 조우 리스너: 작살 투척, 소환 미끼·수리 키트, 클릭·입력·보급, 낙수·사망 보존, 이탈 차단, 접속·퇴장, 리로드. 메인 스레드 전용. */
+/**
+ * Encounter listener: harpoon throws, summon bait and repair kits, clicks, input and supply,
+ * falling into water and death protection, leave blocking, join/quit, reload. Main thread only.
+ */
 public final class EncounterListener implements Listener {
 
     private final EncounterManager mgr;
@@ -48,7 +51,7 @@ public final class EncounterListener implements Listener {
         return mgr.encounterOfPlayer(player).orElse(null);
     }
 
-    // ------------------------------------------------------------------ 작살 궤적 판정
+    // ------------------------------------------------------------ Harpoon trajectory hit detection
 
     @EventHandler(ignoreCancelled = true)
     public void onLaunch(ProjectileLaunchEvent event) {
@@ -59,9 +62,9 @@ public final class EncounterListener implements Listener {
         mgr.harpoons().launched(trident, player);
     }
 
-    // ------------------------------------------------------------------ 리스너
+    // ------------------------------------------------------------------ Listeners
 
-    /** 소환 미끼 사용 (우클릭) · 수리 지점이 없는 갑판의 수리 키트. */
+    /** Summon bait use (right-click) · repair kit on a deck without repair spots. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND
@@ -136,7 +139,7 @@ public final class EncounterListener implements Listener {
                 .ifPresent(d -> e.supply(event.getPlayer()));
     }
 
-    /** 경기장 안에서는 사망 대신 '낙수'. */
+    /** Inside the arena, 'falling into the water' instead of dying. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player p)) {
@@ -152,7 +155,7 @@ public final class EncounterListener implements Listener {
         }
     }
 
-    /** 다른 이유로 죽어도 아이템은 보존한다 (보스전 중). */
+    /** Items are kept even on death from other causes (during a boss fight). */
     @EventHandler(priority = EventPriority.HIGH)
     public void onDeath(PlayerDeathEvent event) {
         Encounter e = of(event.getPlayer().getUniqueId());
@@ -232,7 +235,7 @@ public final class EncounterListener implements Listener {
                                 });
     }
 
-    /** 인스턴스에서 돌아오면 떠나기 전 위치로 (BossProfile). */
+    /** On return from an instance, go to the location before leaving (BossProfile). */
     private void returnFromInstance(Player p) {
         Optional<BossProfile> profile =
                 api.players().get(p.getUniqueId()).map(h -> h.get(EncounterManager.PROFILE));
@@ -264,7 +267,10 @@ public final class EncounterListener implements Listener {
         var _ = api.database().asyncVoid(c -> BossRepository.saveProfile(c, uuid, season, cleared));
     }
 
-    /** 새 콘텐츠: 진행 중 조우는 시작 시점 정의를 그대로 쓰므로 할 일이 없다 (새 조우부터 새 정의). */
+    /**
+     * New content: nothing to do, since running encounters keep the definition from their start
+     * (new definitions apply from the next encounter).
+     */
     @EventHandler
     public void onReload(ContentReloadedEvent event) {
         int running = mgr.active().size();

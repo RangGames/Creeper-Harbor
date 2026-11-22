@@ -42,17 +42,23 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 월드 보스 (녹빛 폭뢰어, docs 20 10.4). harbor:lock:worldboss를 얻은 서버 하나만 실행하고, 2초마다 harbor:worldboss로
- * {stage, percent, participants}를 방송해 로비·인스턴스 서버 플레이어도 보스바로 본다. 10초마다 진행률·기여도를 Redis 해시
- * harbor:worldboss:state와 DB에 남겨, 본 서버가 죽어도 10분 안에 /harbor boss world resume으로 이어 간다.
+ * World boss (Verdigris Thunderfish, docs 20 10.4). Only the one server that acquires
+ * harbor:lock:worldboss runs it, broadcasting {stage, percent, participants} on harbor:worldboss
+ * every 2 seconds so players on lobby and instance servers also see it as a boss bar. Every 10
+ * seconds progress and contributions are stored in the Redis hash harbor:worldboss:state and the
+ * DB, so even if the main server dies the fight can continue within 10 minutes with /harbor boss
+ * world resume.
  */
 public final class WorldBossManager
         implements WorldBossService, EncounterManager.WorldHooks, org.bukkit.event.Listener {
 
-    /** Quest가 클라이맥스 운영자 확인 뒤 세우는 서버 플래그 (월드 보스 시작 요청). */
+    /**
+     * Server flag Quest raises after operator confirmation of the climax (world boss start
+     * request).
+     */
     public static final String START_FLAG = "climax_start";
 
-    /** harbor:worldboss 방송 내용. */
+    /** harbor:worldboss broadcast payload. */
     public record WorldBossProgress(
             String boss,
             String eventId,
@@ -99,7 +105,7 @@ public final class WorldBossManager
         var _ = tasks.timer(bb.worldBroadcastTicks(), bb.worldBroadcastTicks(), this::broadcast);
         var _ = tasks.timer(bb.worldSaveTicks(), bb.worldSaveTicks(), this::save);
         var _ = tasks.timer(100, 100, this::expireRemote);
-        // 재시작 전에 요청이 들어와 있었으면 이어서 처리
+        // If a request came in before the restart, continue handling it
         var _ =
                 tasks.later(
                         100,
@@ -110,7 +116,10 @@ public final class WorldBossManager
                         });
     }
 
-    /** Quest의 클라이맥스 시작 요청 (서버 플래그 climax_start). 잠금을 얻은 서버 하나만 시작하고 플래그를 내린다. */
+    /**
+     * Quest's climax start request (server flag climax_start). Only the one server that acquires
+     * the lock starts it and lowers the flag.
+     */
     @org.bukkit.event.EventHandler
     public void onFlag(wiki.creeper.harbor.core.api.event.ServerFlagChangedEvent event) {
         if (START_FLAG.equals(event.flag()) && event.value() != null) {
@@ -171,7 +180,7 @@ public final class WorldBossManager
         return begin(boss, null);
     }
 
-    /** /harbor boss world resume: Redis에 남은 진행(10분 안)을 이어서 실행한다. */
+    /** /harbor boss world resume: continues progress left in Redis (within 10 minutes). */
     public CompletableFuture<StartResult> resume() {
         CompletableFuture<StartResult> out = new CompletableFuture<>();
         var _ =
@@ -232,7 +241,9 @@ public final class WorldBossManager
             Map<UUID, Contribution> contributions,
             Map<UUID, Long> activeTicks) {}
 
-    /** 참가자별 활동 시간 (UUID 문자열 → 틱). 이 필드가 없던 저장본이면 빈 맵. */
+    /**
+     * Active time per participant (UUID string → ticks). Empty map for saves without this field.
+     */
     private static Map<UUID, Long> activeTicks(@Nullable String json) {
         Map<UUID, Long> out = new HashMap<>();
         if (json == null || json.isEmpty()) {
@@ -250,7 +261,7 @@ public final class WorldBossManager
                         });
             }
         } catch (RuntimeException e) {
-            // 형식이 틀리면 활동 시간 없이 이어 간다 (기여도는 그대로)
+            // If malformed, continue without active time (contributions are kept)
             out.clear();
         }
         return out;
@@ -346,7 +357,7 @@ public final class WorldBossManager
         return out;
     }
 
-    // ------------------------------------------------------------------ 주기 작업
+    // ------------------------------------------------------------------ Periodic tasks
 
     private WorldBossStatus statusOf(Encounter e) {
         return new WorldBossStatus(
@@ -359,7 +370,7 @@ public final class WorldBossManager
                 e.info().state());
     }
 
-    /** 2초마다 harbor:worldboss 방송. */
+    /** harbor:worldboss broadcast every 2 seconds. */
     private void broadcast() {
         Encounter e = running;
         if (e == null || e.finished()) {
@@ -380,7 +391,7 @@ public final class WorldBossManager
                                 e.def.name()));
     }
 
-    /** 10초마다 Redis 해시와 DB에 진행을 남기고 잠금을 연장한다. */
+    /** Every 10 seconds, stores progress in the Redis hash and DB and extends the lock. */
     private void save() {
         Encounter e = running;
         if (e == null || e.finished()) {
@@ -503,7 +514,7 @@ public final class WorldBossManager
         var _ = tasks.later(200, this::hideBar);
     }
 
-    // ------------------------------------------------------------------ 다른 서버의 방송
+    // --------------------------------------------------------------- Broadcasts from other servers
 
     private void received(String server, WorldBossProgress p) {
         if (server.equals(api.infra().serverId())) {
@@ -547,7 +558,7 @@ public final class WorldBossManager
         barShown = true;
     }
 
-    /** 실행 서버가 죽어 방송이 끊기면 보스바를 내린다. */
+    /** Removes the boss bar when the running server dies and broadcasts stop. */
     private void expireRemote() {
         if (barShown && running == null && System.currentTimeMillis() - lastRemote > 10_000) {
             hideBar();

@@ -12,7 +12,10 @@ import org.bukkit.entity.Player;
 import wiki.creeper.harbor.boss.api.EncounterState;
 import wiki.creeper.harbor.boss.content.BossDef;
 
-/** 조우 화면 표시: 보스바·역할 힌트 액션 바와 문구 전송(개인·전체·액션 바·타이틀). 메인 스레드 전용. */
+/**
+ * Encounter display: boss bars, role hint action bar, and message sending (personal, broadcast,
+ * action bar, title). Main thread only.
+ */
 final class EncounterHud {
 
     private final Encounter e;
@@ -83,7 +86,7 @@ final class EncounterHud {
                                                 "max", String.valueOf(fight.hullMax()))));
             }
         }
-        // 파손 지점 연기
+        // Smoke at damaged spots
         if (now % 10 == 0) {
             e.stations.smoke();
         }
@@ -94,7 +97,7 @@ final class EncounterHud {
         return String.format("%d:%02d", s / 60, s % 60);
     }
 
-    // ------------------------------------------------------------------ 문구
+    // ------------------------------------------------------------------ Messages
 
     Component bossName() {
         return MiniMessage.miniMessage().deserialize(e.def.name());

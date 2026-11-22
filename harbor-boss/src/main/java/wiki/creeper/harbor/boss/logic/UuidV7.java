@@ -3,7 +3,10 @@ package wiki.creeper.harbor.boss.logic;
 import java.security.SecureRandom;
 import java.util.UUID;
 
-/** UUID v7 (시간 순서 정렬되는 UUID, RFC 9562). boss_encounter.encounter_id, boss_reward_pending.id에 쓴다. */
+/**
+ * UUID v7 (time-ordered UUID, RFC 9562). Used for boss_encounter.encounter_id and
+ * boss_reward_pending.id.
+ */
 public final class UuidV7 {
 
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -14,7 +17,7 @@ public final class UuidV7 {
         return of(System.currentTimeMillis(), RANDOM.nextLong(), RANDOM.nextLong());
     }
 
-    /** 테스트용: 시각과 난수를 정해서 만든다. */
+    /** For tests: builds one from a given time and random value. */
     public static UUID of(long epochMillis, long randA, long randB) {
         long msb = (epochMillis & 0xFFFF_FFFF_FFFFL) << 16;
         msb |= 0x7000L; // version 7
@@ -23,7 +26,7 @@ public final class UuidV7 {
         return new UUID(msb, lsb);
     }
 
-    /** v7 UUID의 시각 (밀리초). */
+    /** Timestamp of a v7 UUID (milliseconds). */
     public static long millis(UUID id) {
         return id.getMostSignificantBits() >>> 16;
     }

@@ -17,9 +17,9 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.core.api.StatKey;
 
 /**
- * 계열 정의 (jobs.yml, 추가 제안): 단계별 이름, 자동 패시브, 캡스톤.
+ * Line definition (jobs.yml, proposed): per-tier names, automatic passives, capstone.
  *
- * @param names 단계(1~3) → 직업 이름 (원양 탐험가 …)
+ * @param names tier (1-3) → job name (deep-sea explorer …)
  */
 public record JobLineDef(
         HarborId id,
@@ -28,16 +28,16 @@ public record JobLineDef(
         List<Passive> passives,
         @Nullable Capstone capstone) {
 
-    /** 전직하면 바로 붙는 효과 (포인트 없음). */
+    /** Effects applied immediately on job advancement (no points). */
     public record Passive(int tier, StatKey stat, double value) {}
 
     /**
-     * 캡스톤.
+     * Capstone.
      *
-     * @param item 사용 아이템 (패시브·화면 선택형이면 비움)
-     * @param durationSeconds 효과 지속 (0이면 즉시·패시브)
-     * @param weeklyUses 주간 사용 횟수 (0이면 제한 없음)
-     * @param radius 영역 효과 반경 (추가 제안, 0이면 사용자 본인에게만)
+     * @param item item used (empty for passive or screen-selection capstones)
+     * @param durationSeconds effect duration (0 means instant or passive)
+     * @param weeklyUses weekly uses (0 means unlimited)
+     * @param radius area effect radius (proposed, 0 means the user only)
      */
     public record Capstone(
             SkillId node,

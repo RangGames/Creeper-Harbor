@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,40 +39,50 @@ import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 레이드 인스턴스 배정·수명 (docs 20 10.4 레이드 인스턴스 이동, harbor:instance 추가 제안).
+ * Raid instance assignment and lifecycle (docs 20 10.4 raid instance transfer, harbor:instance
+ * proposed).
  *
  * <ol>
- *   <li>본 서버 파티장이 입장 요청 → harbor:instance로 SlotRequest{boss, party, requestId}
- *   <li>빈 칸이 있는 인스턴스 서버가 분산 잠금 harbor:lock:instance:&lt;서버&gt; 아래에서 칸을 예약하고 SlotOffer. 응답이 없으면 10초
- *       뒤 "자리 없음"
- *   <li>요청 서버는 첫 응답에 SlotConfirm을 보내고(다른 서버는 예약을 푼다), 파티원 이전 위치를 BossProfile에 저장한 뒤
- *       ProxyBridge.requestInstance(파티, 서버, requestId)
- *   <li>인스턴스 서버는 예약한 파티원이 모두 도착하거나 60초가 지나면 시작하고, 끝나면 원래 서버로 돌려보낸다
+ *   <li>Main server party leader requests entry → SlotRequest{boss, party, requestId} on
+ *       harbor:instance
+ *   <li>An instance server with a free cell reserves it under the distributed lock
+ *       harbor:lock:instance:&lt;server&gt; and sends SlotOffer. With no response, "no room" after
+ *       10 seconds
+ *   <li>The requesting server sends SlotConfirm for the first response (other servers release their
+ *       reservations), saves party members' previous locations to BossProfile, then calls
+ *       ProxyBridge.requestInstance(party, server, requestId)
+ *   <li>The instance server starts when all reserved party members arrive or 60 seconds pass, and
+ *       sends them back to their original servers when done
  * </ol>
  *
- * 재접속: 인스턴스 조우 중 퇴장하면 harbor:boss:rejoin:&lt;uuid&gt; = 서버 ID (만료 120초). Proxy가 읽어 같은 인스턴스로 보낸다.
- * 경기장은 같은 월드에 같은 경기장을 1,000블록 간격으로 미리 지어 둔 칸을 쓴다 (정의 slots가 하나면 X축으로 spacing씩 띄운다).
+ * Rejoin: quitting during an instance encounter sets harbor:boss:rejoin:&lt;uuid&gt; = server ID
+ * (expires after 120 seconds). The Proxy reads it and sends the player to the same instance. Arenas
+ * use cells of the same arena prebuilt in the same world 1,000 blocks apart (if the definition has
+ * only one slot, cells are offset by spacing along the X axis).
  */
 public final class InstanceManager implements Listener, EncounterManager.InstanceHooks {
 
     public static final String CHANNEL_NAME = "harbor:instance";
     public static final String REJOIN_PREFIX = "harbor:boss:rejoin:";
 
-    /** 입장 요청 (본 서버 → 인스턴스 서버들). */
+    /** Entry request (main server → instance servers). */
     public record SlotRequest(
             String requestId, String boss, List<UUID> party, UUID leader, String origin) {}
 
-    /** 칸 예약 응답. */
+    /** Cell reservation response. */
     public record SlotOffer(String requestId, String server, int slot) {}
 
-    /** 요청 서버의 확정 (server가 아닌 서버는 같은 requestId 예약을 푼다). */
+    /**
+     * Confirmation from the requesting server (servers other than server release reservations with
+     * the same requestId).
+     */
     public record SlotConfirm(String requestId, String server) {}
 
     static final Channel<SlotRequest> REQUEST = new Channel<>(CHANNEL_NAME, SlotRequest.class);
     static final Channel<SlotOffer> OFFER = new Channel<>(CHANNEL_NAME, SlotOffer.class);
     static final Channel<SlotConfirm> CONFIRM = new Channel<>(CHANNEL_NAME, SlotConfirm.class);
 
-    /** 결과. */
+    /** Result. */
     public enum EnterResult {
         REQUESTED,
         UNKNOWN_BOSS,
@@ -83,7 +92,7 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
         BUSY
     }
 
-    /** 요청 서버 쪽 대기. */
+    /** Pending request on the requesting server. */
     private static final class Outgoing {
         final List<UUID> party;
         final long deadline;
@@ -91,36 +100,6 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
 
         Outgoing(List<UUID> party, long deadline) {
             this.party = party;
-            this.deadline = deadline;
-        }
-    }
-
-    /** 인스턴스 서버 쪽 예약. */
-    private static final class Reservation {
-        final String requestId;
-        final BossDef def;
-        final int slot;
-        final List<UUID> party;
-        final UUID leader;
-        final String origin;
-        final Set<UUID> arrived = new LinkedHashSet<>();
-        long deadline;
-        boolean confirmed;
-
-        Reservation(
-                String requestId,
-                BossDef def,
-                int slot,
-                List<UUID> party,
-                UUID leader,
-                String origin,
-                long deadline) {
-            this.requestId = requestId;
-            this.def = def;
-            this.slot = slot;
-            this.party = party;
-            this.leader = leader;
-            this.origin = origin;
             this.deadline = deadline;
         }
     }
@@ -166,9 +145,9 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
         return encounters.balance();
     }
 
-    // ------------------------------------------------------------------ 요청 서버 (본 서버)
+    // ------------------------------------------------------------- Requesting server (main server)
 
-    /** 파티장이 레이드 입장을 요청한다 (/보스 입장, NPC 대화 액션 boss:enter). */
+    /** Party leader requests raid entry (/boss enter, NPC dialog action boss:enter). */
     public EnterResult requestEntry(Player leader, BossId bossId) {
         Optional<BossDef> def =
                 encounters
@@ -226,7 +205,7 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
         o.confirmed = true;
         outgoing.remove(offer.requestId());
         api.bus().publish(CONFIRM, new SlotConfirm(offer.requestId(), offer.server()));
-        // 떠나기 전 위치 저장 (돌아올 곳), 저장이 끝난 뒤 이동
+        // Save the location before leaving (where to return), move after the save finishes
         List<UUID> party = new ArrayList<>();
         for (UUID u : o.party) {
             Player p = Bukkit.getPlayer(u);
@@ -296,7 +275,7 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
                                 });
     }
 
-    // ------------------------------------------------------------------ 인스턴스 서버
+    // ------------------------------------------------------------------ Instance server
 
     private void onRequest(SlotRequest req) {
         Optional<BossDef> def;
@@ -420,7 +399,10 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
         }
     }
 
-    /** 칸 중심: 정의 slots가 여럿이면 그 칸, 하나면 X축으로 spacing씩. */
+    /**
+     * Cell center: that cell if the definition has several slots, otherwise offset by spacing along
+     * the X axis.
+     */
     public Optional<Location> slotCenter(BossDef def, int slot) {
         Optional<World> world = items.world(def.arena().world());
         if (world.isEmpty()) {
@@ -462,7 +444,7 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
         if (center.isEmpty()) {
             return;
         }
-        // 파티장을 맨 앞으로
+        // Party leader first
         UUID first = leader;
         players.sort(
                 (a, b) ->
@@ -505,7 +487,10 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
         start.forEach(this::begin);
     }
 
-    /** 칸 상태를 Redis 해시 harbor:instance:&lt;서버&gt;에 남긴다 (관리·관측용). */
+    /**
+     * Records cell state in the Redis hash harbor:instance:&lt;server&gt; (for administration and
+     * observability).
+     */
     private void publishSlots() {
         Map<String, String> fields = new HashMap<>();
         reservations
@@ -576,7 +561,7 @@ public final class InstanceManager implements Listener, EncounterManager.Instanc
         }
     }
 
-    /** 대기 중인 예약 수 (디버그). */
+    /** Number of pending reservations (debug). */
     public int reservations() {
         return reservations.size();
     }

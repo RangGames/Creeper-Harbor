@@ -23,8 +23,10 @@ import wiki.creeper.harbor.jobs.service.InvestResult;
 import wiki.creeper.harbor.jobs.service.JobsManager;
 
 /**
- * 스킬 트리 화면 (/스킬, docs 20 2.4). 상자 GUI로 노드를 보여주고, 노드를 누르면 Dialog로 효과·비용을 확인한 뒤 투자한다. 커스텀 폰트 노드 그림은
- * 리소스팩이 준비되면 아이콘 모델로 바꾼다 (지금은 바닐라 아이템: 투자함 = 마법이 부여된 책, 가능 = 책, 잠김 = 회색 염료).
+ * Skill tree screen (/스킬, docs 20 2.4). Shows nodes in a chest GUI; clicking a node opens a Dialog
+ * to confirm its effect and cost before investing. Custom font node art will switch to icon models
+ * once the resource pack is ready (vanilla items for now: invested = enchanted book, available =
+ * book, locked = gray dye).
  */
 public final class SkillMenu {
 

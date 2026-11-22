@@ -18,7 +18,10 @@ import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.WorldBorderService;
 
-/** 참가자 출입과 역할: 준비 단계 역할 선택·앵커 채우기, 입장 표시, 자리 비움·앵커 교대·슬롯 놓기, 재접속·낙수. 메인 스레드 전용. */
+/**
+ * Participant presence and roles: role selection and anchor filling during preparation, entry
+ * display, absence, anchor swaps and slot release, rejoin and falling into water. Main thread only.
+ */
 final class EncounterRoster {
 
     private final Encounter e;
@@ -27,7 +30,7 @@ final class EncounterRoster {
         this.e = e;
     }
 
-    // ------------------------------------------------------------------ 역할
+    // ------------------------------------------------------------------ Roles
 
     void askRole(Player p) {
         List<Dialogs.Choice> choices = new ArrayList<>();
@@ -51,7 +54,7 @@ final class EncounterRoster {
                                         List.of(BossRole.values()).get(Math.clamp(idx, 0, 4))));
     }
 
-    /** 준비 단계 역할 선택 (Dialog 또는 /보스 역할). */
+    /** Role selection during preparation (Dialog or /boss role). */
     boolean chooseRole(UUID player, BossRole role) {
         Member m = e.members.get(player);
         if (m == null || e.fight.state() != EncounterState.PREPARING || e.launching) {
@@ -76,7 +79,10 @@ final class EncounterRoster {
         return true;
     }
 
-    /** 고르지 않은 사람은 추천 역할 그대로 두고, 앵커가 모자라면 고르지 않은 사람부터 앵커로 바꾼다. */
+    /**
+     * Players who did not pick keep their recommended role; if anchors are short, players who did
+     * not pick are switched to anchor first.
+     */
     void fillAnchors() {
         int need = e.def.isWorld() ? 0 : e.bb.anchorsMin(e.def.type());
         int have = 0;
@@ -100,9 +106,9 @@ final class EncounterRoster {
         }
     }
 
-    // ------------------------------------------------------------------ 입장·퇴장 표시
+    // ------------------------------------------------------------------ Entry and exit display
 
-    /** 경기장에 들어오는 플레이어 준비 (경계·보스바·표시). */
+    /** Prepares a player entering the arena (boundary, boss bar, display). */
     void enter(Player p, Member m, boolean teleport) {
         m.rememberIp(p);
         if (teleport && !e.def.isWorld()) {
@@ -145,9 +151,9 @@ final class EncounterRoster {
         p.clearTitle();
     }
 
-    // ------------------------------------------------------------------ 자리 비움
+    // ------------------------------------------------------------------ Absence
 
-    /** 10틱마다: 경기장 안·접속 여부, 슬롯 유지 시간, 앵커 교대. */
+    /** Every 10 ticks: inside the arena and online, slot hold time, anchor swaps. */
     void updatePresence(long now) {
         boolean slow = false;
         for (Member m : e.members.values()) {
@@ -181,7 +187,7 @@ final class EncounterRoster {
         e.latencySlow = slow;
     }
 
-    /** 자리를 비움: 앵커면 다음 후보에게 넘긴다 (5초 유예). */
+    /** Player left their spot: if an anchor, hand over to the next candidate (5s grace). */
     private void onAbsent(Member m, long now) {
         if (m.role != BossRole.ANCHOR) {
             return;
@@ -208,7 +214,7 @@ final class EncounterRoster {
         e.broadcast("boss.anchor.none");
     }
 
-    /** 슬롯을 놓는다 (기여도는 남는다). */
+    /** Releases the slot (contribution is kept). */
     void drop(Member m) {
         if (m.dropped) {
             return;
@@ -222,9 +228,9 @@ final class EncounterRoster {
         e.mgr.unbind(m.uuid, e);
     }
 
-    // ------------------------------------------------------------------ 이탈·재접속·낙수
+    // --------------------------------------------------------- Leaving, rejoin, falling into water
 
-    /** 재접속 (슬롯 유지 시간 안). field는 갑판으로 돌려보낸다. */
+    /** Rejoin (within the slot hold time). field encounters send the player back to the deck. */
     void rejoin(Player p) {
         Member m = e.members.get(p.getUniqueId());
         if (m == null || m.dropped) {
@@ -250,7 +256,9 @@ final class EncounterRoster {
         }
     }
 
-    /** 경기장 안 사망 대신 '낙수' (아이템 보존, 5초 뒤 갑판 복귀). */
+    /**
+     * 'Falling into the water' instead of dying in the arena (items kept, back on deck after 5s).
+     */
     void fall(Member m, Player p) {
         var bb = e.bb;
         long now = e.mgr.now();

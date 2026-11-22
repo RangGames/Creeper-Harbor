@@ -16,8 +16,9 @@ import wiki.creeper.harbor.jobs.ui.JobCommands;
 import wiki.creeper.harbor.jobs.ui.SkillMenu;
 
 /**
- * Harbor-Jobs (docs 20 2장): 직업 단계·계열·레벨·경험치·스킬 트리·물비늘 사용. 결과는 Core 보정자로 올리고, 다른 모듈은
- * ServicesManager의 {@link JobsService}만 쓴다.
+ * Harbor-Jobs (docs 20 chapter 2): job tier, line, level, experience, skill tree and mulbineul
+ * spending. Results are published as Core modifiers, and other modules only use {@link JobsService}
+ * from the ServicesManager.
  */
 public final class HarborJobsPlugin extends HarborModule {
 
@@ -56,7 +57,8 @@ public final class HarborJobsPlugin extends HarborModule {
         getServer()
                 .getServicesManager()
                 .register(JobsService.class, jobs, this, ServicePriority.Normal);
-        // NPC 선택 의존: 대화 액션 job:change_line · job:reset_skill, 전직 컷씬 (NPC가 없으면 클래스를 불러오지 않는다)
+        // Optional NPC dependency: dialog actions job:change_line · job:reset_skill, job
+        // advancement cutscene (the class is not loaded without NPC)
         var npc = getServer().getPluginManager().getPlugin("Harbor-Npc");
         if (npc != null && npc.isEnabled()) {
             wiki.creeper.harbor.jobs.npc.JobsNpcHooks.register(this, api, jobs);

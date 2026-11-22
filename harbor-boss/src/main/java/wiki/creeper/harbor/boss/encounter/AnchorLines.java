@@ -10,7 +10,10 @@ import wiki.creeper.harbor.fishing.api.MinigameResult;
 import wiki.creeper.harbor.fishing.api.TensionSession;
 import wiki.creeper.harbor.fishing.api.TensionSpec;
 
-/** 앵커 줄 (Fishing TensionSession): 열기·끊김 처리·닫기, 보스 체력과 보스바 맞추기. 메인 스레드 전용. */
+/**
+ * Anchor lines (Fishing TensionSession): opening, snap handling and closing, and syncing the boss
+ * HP with the boss bar. Main thread only.
+ */
 final class AnchorLines {
 
     private final Encounter e;
@@ -94,7 +97,7 @@ final class AnchorLines {
         m.reopenAt = -1;
     }
 
-    /** 앵커 보스바 체력을 보스 체력에 맞춘다 (줄일 수만 있다). */
+    /** Syncs the anchor boss bar HP with the boss HP (can only decrease). */
     void mirror() {
         double ratio = e.fight.hpRatio();
         for (Member m : e.members.values()) {

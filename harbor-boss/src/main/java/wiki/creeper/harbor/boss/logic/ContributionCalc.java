@@ -6,18 +6,19 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 기여도 점수·순위·상위 보상·최소 참여 (docs 20 10.4 역할 · 기여도). 점수 = Σ 가중치 × (항목 ÷ 파티 안 그 항목 최댓값). 역할이 달라도 자기 항목에서
- * 1위면 상위권에 들 수 있다.
+ * Contribution score, ranking, top rewards and minimum participation (docs 20 10.4 roles and
+ * contribution). Score = Σ weight × (item ÷ max of that item in the party). Even with different
+ * roles, being first in your own item can place you near the top.
  */
 public final class ContributionCalc {
 
     /**
-     * 플레이어 한 명의 원자료.
+     * Raw data for one player.
      *
-     * @param tension 텐션 안전 구간 유지 시간 (초)
-     * @param repair 복구한 내구도 + 보급관 지원량
-     * @param evasion 회피 성공 횟수 + 예고 범위 회피 횟수
-     * @param activeTicks 활동 시간 (틱)
+     * @param tension time spent holding tension in the safe zone (seconds)
+     * @param repair durability restored + quartermaster support amount
+     * @param evasion successful dodges + telegraph area dodges
+     * @param activeTicks active time (ticks)
      */
     public record Stats(
             UUID player,
@@ -28,17 +29,17 @@ public final class ContributionCalc {
             long activeTicks) {}
 
     /**
-     * 계산 결과.
+     * Calculation result.
      *
-     * @param rank 1부터
-     * @param top 상위 20%(올림) 보너스 대상
-     * @param eligible 최소 참여를 넘겼는지 (아니면 보상 없음)
+     * @param rank starting at 1
+     * @param top eligible for the top 20% (rounded up) bonus
+     * @param eligible whether minimum participation was met (no reward otherwise)
      */
     public record Scored(Stats stats, double score, int rank, boolean top, boolean eligible) {}
 
     private ContributionCalc() {}
 
-    /** 점수 하나 (0~1, 가중치 합이 1일 때). */
+    /** One score (0-1 when the weights sum to 1). */
     public static double score(Stats s, Stats max, ContributionWeights w) {
         return w.damage() * ratio(s.damage(), max.damage())
                 + w.tension() * ratio(s.tension(), max.tension())
@@ -46,7 +47,7 @@ public final class ContributionCalc {
                 + w.evasion() * ratio(s.evasion(), max.evasion());
     }
 
-    /** 상위 보상 인원 = ceil(인원 × 비율). 인원이 있으면 최소 1명. */
+    /** Top reward count = ceil(count × ratio). At least 1 if there are players. */
     public static int topCount(int players, double ratio) {
         if (players <= 0 || ratio <= 0) {
             return 0;
@@ -55,11 +56,12 @@ public final class ContributionCalc {
     }
 
     /**
-     * 순위를 매긴다. 점수 내림차순, 같으면 피해 → 텐션 → UUID 순 (결과가 매번 같게).
+     * Ranks players. By score descending, ties broken by damage → tension → UUID (so results are
+     * deterministic).
      *
-     * @param fightTicks 전투 시간 (최소 참여의 활동 시간 기준)
-     * @param minScoreRatio 점수가 최고점의 이 비율 미만이고
-     * @param minActiveRatio 활동 시간이 전투 시간의 이 비율 미만이면 보상 없음
+     * @param fightTicks fight duration (baseline for the minimum participation active time)
+     * @param minScoreRatio if the score is below this ratio of the top score and
+     * @param minActiveRatio active time is below this ratio of the fight duration, no reward
      */
     public static List<Scored> rank(
             List<Stats> all,

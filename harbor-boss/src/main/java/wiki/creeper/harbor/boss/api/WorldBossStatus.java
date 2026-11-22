@@ -3,13 +3,14 @@ package wiki.creeper.harbor.boss.api;
 import wiki.creeper.harbor.common.id.BossId;
 
 /**
- * 월드 보스 진행 (harbor:worldboss 방송 내용과 같다).
+ * World boss progress (same as the harbor:worldboss broadcast payload).
  *
- * @param eventId 이번 월드 보스 ID (조우 ID)
- * @param stage 0~4 (25% 단위 단계: 0 = 시작, 1 = 75% 이하, 2 = 50% 이하, 3 = 25% 이하, 4 = 끝)
- * @param percent 남은 게이지 (100 → 0)
- * @param participants 유효 참여자 수 (최근 60초 기여)
- * @param server 실행 서버
+ * @param eventId ID of this world boss (encounter ID)
+ * @param stage 0-4 (25% stages: 0 = start, 1 = 75% or less, 2 = 50% or less, 3 = 25% or less, 4 =
+ *     end)
+ * @param percent remaining gauge (100 → 0)
+ * @param participants number of valid participants (contributed in the last 60 seconds)
+ * @param server running server
  */
 public record WorldBossStatus(
         BossId boss,

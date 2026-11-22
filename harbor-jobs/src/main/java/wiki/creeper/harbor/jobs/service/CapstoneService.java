@@ -39,12 +39,14 @@ import wiki.creeper.harbor.jobs.data.JobsData;
 import wiki.creeper.harbor.jobs.data.JobsRepository;
 
 /**
- * 캡스톤 액티브 (docs 20 2.4 CapstoneService). 마지막 사용 시각은 즉시 저장하고, 접속·서버 이동 때 남은 시간을 계산해 아이템 쿨타임을 다시 건다
- * (재접속으로 쿨타임을 지우는 것을 막음). 영역형(미개척 해역)은 1초마다 영역 안 플레이어에게 보정자를 걸고 벗어나면 뗀다.
+ * Capstone actives (docs 20 2.4 CapstoneService). The last use time is saved immediately, and on
+ * join or server move the remaining time is computed to reapply the item cooldown (prevents
+ * clearing the cooldown by rejoining). Area capstones (uncharted waters) apply a modifier to
+ * players inside the area every second and remove it when they leave.
  */
 public final class CapstoneService implements Listener {
 
-    /** 영역 효과. 사용자가 서버를 떠나도 만료 시각까지 유지한다. */
+    /** Area effect. Lasts until its expiry even if the user leaves the server. */
     private record Area(
             String source,
             Location center,
@@ -68,7 +70,7 @@ public final class CapstoneService implements Listener {
         var _ = tasks.timer(20, 20, this::tickAreas);
     }
 
-    /** 플레이어 계열의 캡스톤 (투자했을 때만). */
+    /** Capstone of the player's line (only if invested). */
     private Optional<JobLineDef.Capstone> owned(HarborPlayer hp) {
         JobLine line = hp.jobLine().orElse(null);
         return jobs.lineDef(line)
@@ -110,7 +112,10 @@ public final class CapstoneService implements Listener {
         return Math.max(0, cap.weeklyUses() - used);
     }
 
-    /** 주간 사용 캡스톤 (큰손 거래): Economy가 판매 처리 전에 부른다. 사용 기록은 즉시 저장. */
+    /**
+     * Weekly capstone (big spender deal): Economy calls it before processing a sale. The use record
+     * is saved immediately.
+     */
     public CompletableFuture<Boolean> consumeWeeklyUse(UUID uuid) {
         Optional<HarborPlayer> found = api.players().get(uuid);
         if (found.isEmpty()) {
@@ -175,7 +180,8 @@ public final class CapstoneService implements Listener {
         if (cap == null) {
             return;
         }
-        // 계열이 바뀐 뒤의 옛 캡스톤 아이템은 쓰지 못하게 하고 길드에서 교환하도록 안내한다
+        // After a line change, old capstone items cannot be used; tell the player to exchange them
+        // at the guild
         if (hp.jobLine().orElse(null) != def.get().line()) {
             api.messages().send(player, "jobs.capstone.wrong_line");
             return;
@@ -226,7 +232,7 @@ public final class CapstoneService implements Listener {
         Bukkit.getPluginManager().callEvent(new CapstoneUsedEvent(hp.uuid(), cap.node()));
     }
 
-    /** 접속·서버 이동 때 남은 쿨타임을 아이템에 다시 건다. */
+    /** Reapplies the remaining cooldown to items on join or server move. */
     public void restoreCooldown(Player player) {
         HarborPlayer hp = api.players().get(player);
         owned(hp)
@@ -279,7 +285,10 @@ public final class CapstoneService implements Listener {
                 .orElse(null);
     }
 
-    /** 1초마다: 영역 안 플레이어에게 보정자를 걸고, 벗어나거나 만료되면 뗀다. */
+    /**
+     * Every second: applies the modifier to players inside the area, and removes it when they leave
+     * or it expires.
+     */
     private void tickAreas() {
         Instant now = Instant.now();
         areas.removeIf(a -> !now.isBefore(a.until()));

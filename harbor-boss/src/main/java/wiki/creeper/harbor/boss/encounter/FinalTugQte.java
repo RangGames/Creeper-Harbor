@@ -13,10 +13,13 @@ import wiki.creeper.harbor.boss.content.BossDef;
 import wiki.creeper.harbor.boss.logic.Fight;
 import wiki.creeper.harbor.boss.logic.Qte;
 
-/** 최후의 당기기 QTE: 라운드 시작·입력·판정, 타이틀 글리프 표시. 판정 규칙은 순수 로직 {@link Qte}. 메인 스레드 전용. */
+/**
+ * Final tug QTE: round start, input and judgment, title glyph display. Judgment rules live in the
+ * pure logic {@link Qte}. Main thread only.
+ */
 final class FinalTugQte {
 
-    /** 입력 판정 여유 ±2틱 ('8. 시스템 상세 기획' 3.3). */
+    /** Input judgment tolerance ±2 ticks ('8. System details' 3.3). */
     private static final int INPUT_TOLERANCE = 2;
 
     private final Encounter e;
@@ -28,13 +31,13 @@ final class FinalTugQte {
         this.e = e;
     }
 
-    /** FINAL_TUG 진입: 진행 중 라운드를 멈추고 간격 뒤 첫 라운드를 연다. */
+    /** Entering FINAL_TUG: stops the running round and opens the first round after the gap. */
     void arm(long now) {
         qteRunning = false;
         qteGapUntil = now + e.bb.qteGapTicks();
     }
 
-    /** 새로 눌린 키를 이 참가자의 트랙에 넣는다. */
+    /** Adds newly pressed keys to this participant's track. */
     void press(Player p, Member m, Set<Qte.Key> pressed, long now) {
         Qte.Track track = m.track;
         if (track != null && qteRunning && track.press(pressed, now)) {
@@ -114,7 +117,7 @@ final class FinalTugQte {
         qteGapUntil = -1;
         qteRoundEnd = now + (long) inputs * (window + INPUT_TOLERANCE) + 20;
         if (eligible == 0) {
-            // 모두 낙수·이탈이면 이번 라운드는 실패로 끝난다
+            // If everyone fell into the water or left, this round ends as a failure
             qteRoundEnd = now;
         }
         if (e.fight.phase() instanceof Fight.FinalTug(int round, int s, int f)) {
@@ -146,7 +149,10 @@ final class FinalTugQte {
         }
     }
 
-    /** 타이틀 글리프로 입력 순서를 보여준다 (끝난 것 초록·빨강, 지금 노랑, 남은 것 회색). */
+    /**
+     * Shows the input sequence as title glyphs (done ones green/red, current yellow, remaining
+     * gray).
+     */
     private void show(Player p, Member m) {
         Qte.Track t = m.track;
         if (t == null) {

@@ -5,27 +5,32 @@ import java.util.concurrent.CompletableFuture;
 import wiki.creeper.harbor.common.id.BossId;
 
 /**
- * 월드 보스 (docs 20 10.4). 클라이맥스 개방 조건은 Quest가 판단해 {@link #start}를 부른다. harbor:lock:worldboss를 얻은 서버
- * 하나만 실행하고, 진행은 harbor:worldboss로 2초마다 전 서버에 방송한다. 메인 스레드에서 부르고, 결과 future도 메인 스레드에서 완료된다.
+ * World boss (docs 20 10.4). Quest decides the climax unlock condition and calls {@link #start}.
+ * Only the one server that acquires harbor:lock:worldboss runs it, and progress is broadcast to all
+ * servers on harbor:worldboss every 2 seconds. Call on the main thread; result futures also
+ * complete on the main thread.
  */
 public interface WorldBossService {
 
-    /** 결과. */
+    /** Result. */
     enum StartResult {
         STARTED,
-        /** 다른 서버가 실행 중 (잠금을 얻지 못함). */
+        /** Another server is running it (lock not acquired). */
         LOCKED,
         ALREADY_RUNNING,
         UNKNOWN_BOSS,
-        /** 경기장 월드가 이 서버에 없음. */
+        /** The arena world is not on this server. */
         NO_ARENA,
         FAILED
     }
 
-    /** 가장 최근에 받은 진행 상태 (이 서버가 실행 중이 아니어도 방송으로 받은 값). */
+    /**
+     * Most recently received progress status (received via broadcast even if this server is not
+     * running it).
+     */
     Optional<WorldBossStatus> status();
 
-    /** 이 서버에서 실행 중인지. */
+    /** Whether it is running on this server. */
     boolean runningHere();
 
     CompletableFuture<StartResult> start(BossId boss);

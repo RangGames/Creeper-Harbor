@@ -5,7 +5,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.SkillId;
 
-/** 캡스톤을 쓴 뒤 발생한다. */
+/** Fired after a capstone is used. */
 public final class CapstoneUsedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

@@ -9,14 +9,18 @@ import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.rig.RigDef;
 
-/** Boss 콘텐츠 형식과 서버 API 없는 검사. 플러그인과 harbor-tools(CI)가 같은 목록을 등록한다. */
+/**
+ * Boss content types and checks that need no server API. The plugin and harbor-tools (CI) register
+ * the same list.
+ */
 public final class BossContent {
 
     public static final List<ContentType<?>> TYPES = List.of(BossDef.TYPE);
 
     /**
-     * 리그 검사 (docs 20 10.3 참조 검사): 판정 부위 뼈가 리그에 있고 hitbox가 있는지, 리그 부위 수가 30개 이하인지, 약점 부위가 발광할 부품을
-     * 가졌는지. 리그 존재 자체는 참조 검사(ctx.ref)가 본다.
+     * Rig check (docs 20 10.3 reference checks): hit part bones exist in the rig and have a hitbox,
+     * the rig has at most 30 parts, and weak point parts have a piece that can glow. Rig existence
+     * itself is covered by the reference check (ctx.ref).
      */
     public static final ContentCheck<BossDef> RIG_CHECK =
             (boss, ctx) -> {
@@ -66,7 +70,9 @@ public final class BossContent {
                 }
             };
 
-    /** 보스 어종 검사: calm 보스는 release_only 어종, capture 보스는 아닌 어종. */
+    /**
+     * Boss fish check: calm bosses need a release_only fish, capture bosses a non-release_only one.
+     */
     public static final ContentCheck<BossDef> FISH_CHECK =
             (boss, ctx) -> {
                 var fishId = boss.fish();

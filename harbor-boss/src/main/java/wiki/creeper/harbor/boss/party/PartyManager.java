@@ -13,13 +13,14 @@ import wiki.creeper.harbor.boss.api.BossRole;
 import wiki.creeper.harbor.core.api.PartyService;
 
 /**
- * 파티 (docs 20 0.1·10.2). 파티는 Boss 소유이고, Core api {@link PartyService} 구현으로 ServicesManager에 등록해
- * Jobs 캡스톤·연회 요리·Core 파티 채팅이 쓴다. 최대 10명. 파티는 서버 메모리에만 있다 (서버를 옮기면 인스턴스 배정 요청의 파티원 목록으로 이어 간다). 메인
- * 스레드 전용.
+ * Parties (docs 20 0.1, 10.2). Parties are owned by Boss and registered with the ServicesManager as
+ * the Core api {@link PartyService} implementation, used by Jobs capstones, banquet food and Core
+ * party chat. Up to 10 members. Parties live only in server memory (on server moves they carry over
+ * via the member list in the instance assignment request). Main thread only.
  */
 public final class PartyManager implements PartyService {
 
-    /** 처리 결과. */
+    /** Operation result. */
     public enum Result {
         OK,
         ALREADY_IN_PARTY,
@@ -29,14 +30,17 @@ public final class PartyManager implements PartyService {
         NO_INVITE,
         SELF,
         TARGET_IN_PARTY,
-        /** 보스전 중에는 파티를 바꿀 수 없다. */
+        /** The party cannot be changed during a boss fight. */
         BUSY
     }
 
-    /** 초대 한 건. */
+    /** One invite. */
     private record Invite(UUID party, UUID from, long expiresAt) {}
 
-    /** 파티 하나 (가변, 내부용). members는 들어온 순서 = 역할 선택 순서 기준. */
+    /**
+     * One party (mutable, internal). members are in join order = the basis for role selection
+     * order.
+     */
     private static final class Group {
         final UUID id = UUID.randomUUID();
         UUID leader;
@@ -68,7 +72,7 @@ public final class PartyManager implements PartyService {
     private final Predicate<UUID> busy;
 
     /**
-     * @param busy 보스전 중인 플레이어 (그동안 파티 구성 변경 금지)
+     * @param busy players in a boss fight (party changes are not allowed meanwhile)
      */
     public PartyManager(Predicate<UUID> busy) {
         this.busy = busy;
@@ -82,7 +86,7 @@ public final class PartyManager implements PartyService {
         return g == null ? Optional.empty() : Optional.of(g.snapshot());
     }
 
-    // ------------------------------------------------------------------ 관리
+    // ------------------------------------------------------------------ Management
 
     public Result create(UUID leader) {
         if (byPlayer.containsKey(leader)) {
@@ -94,7 +98,7 @@ public final class PartyManager implements PartyService {
         return Result.OK;
     }
 
-    /** 초대 (파티가 없으면 먼저 만든다). */
+    /** Invite (creates a party first if there is none). */
     public Result invite(UUID leader, UUID target, long now, long ttlMillis) {
         if (leader.equals(target)) {
             return Result.SELF;
@@ -120,7 +124,7 @@ public final class PartyManager implements PartyService {
         return Result.OK;
     }
 
-    /** 받은 초대를 수락한다. */
+    /** Accepts a received invite. */
     public Result join(UUID player, long now) {
         if (byPlayer.containsKey(player)) {
             return Result.ALREADY_IN_PARTY;
@@ -144,7 +148,7 @@ public final class PartyManager implements PartyService {
         return Result.OK;
     }
 
-    /** 누가 초대했는지 (안내용). */
+    /** Who sent the invite (for display). */
     public Optional<UUID> inviter(UUID player, long now) {
         Invite invite = invites.get(player);
         return invite == null || invite.expiresAt() < now
@@ -203,7 +207,7 @@ public final class PartyManager implements PartyService {
         return Result.OK;
     }
 
-    /** 보스전 역할 지정 (자기 역할, 파티장은 다른 사람 역할도). */
+    /** Sets a boss fight role (one's own role; the party leader can set others' roles too). */
     public Result role(UUID actor, UUID target, BossRole role) {
         Group g = byPlayer.get(actor);
         if (g == null || !g.members.containsKey(target)) {
@@ -216,7 +220,7 @@ public final class PartyManager implements PartyService {
         return Result.OK;
     }
 
-    /** 파티장 넘기기. */
+    /** Transfers party leadership. */
     public Result promote(UUID leader, UUID target) {
         Group g = byPlayer.get(leader);
         if (g == null || !g.members.containsKey(target)) {
@@ -229,13 +233,13 @@ public final class PartyManager implements PartyService {
         return Result.OK;
     }
 
-    /** 파티에서 정한 보스전 역할 (정하지 않았으면 빈 값). */
+    /** Boss fight role set in the party (empty if not set). */
     public Optional<BossRole> roleOf(UUID player) {
         Group g = byPlayer.get(player);
         return g == null ? Optional.empty() : Optional.ofNullable(g.members.get(player));
     }
 
-    /** 파티원 순서 (파티장 먼저, 이후 들어온 순서). */
+    /** Member order (party leader first, then join order). */
     public List<UUID> ordered(UUID player) {
         Group g = byPlayer.get(player);
         if (g == null) {
@@ -256,7 +260,7 @@ public final class PartyManager implements PartyService {
         return g == null || g.leader.equals(player);
     }
 
-    /** 오래 접속하지 않은 파티원 정리 (퇴장 뒤 제한 시간이 지난 사람). */
+    /** Removes members who have been offline too long (time limit after quitting has passed). */
     public void dropOffline(UUID player) {
         Group g = byPlayer.get(player);
         if (g != null && !busy.test(player)) {
@@ -265,7 +269,7 @@ public final class PartyManager implements PartyService {
         invites.remove(player);
     }
 
-    /** 만료된 초대 정리. */
+    /** Removes expired invites. */
     public void purgeInvites(long now) {
         invites.values().removeIf(i -> i.expiresAt() < now);
     }
@@ -281,7 +285,7 @@ public final class PartyManager implements PartyService {
             g.leader = g.members.keySet().iterator().next();
         }
         if (g.members.size() == 1) {
-            // 혼자 남은 파티는 해산 (다시 만들면 된다)
+            // A party with only one member left is disbanded (it can be created again)
             UUID last = g.leader;
             g.members.clear();
             byPlayer.remove(last);
