@@ -104,15 +104,22 @@ public final class ApiServer {
                 write(ex, 200, ok(router.list()));
                 return;
             }
-            var match = router.match(path);
+            Optional<Map.Entry<Router.Handler, Map<String, String>>> match;
+            Map<String, String> query;
+            try {
+                match = router.match(path);
+                String rawQuery = ex.getRequestURI().getRawQuery();
+                query = Router.query(rawQuery == null ? "" : rawQuery);
+            } catch (IllegalArgumentException e) {
+                // URLDecoder가 잘못된 % 인코딩에 던진다: 연결을 끊지 않고 400으로 답한다
+                write(ex, 400, error("bad_request", "경로·쿼리 인코딩이 잘못되었습니다"));
+                return;
+            }
             if (match.isEmpty()) {
                 write(ex, 404, error("not_found", "없는 경로입니다: " + path));
                 return;
             }
-            String rawQuery = ex.getRequestURI().getRawQuery();
-            Router.Request request =
-                    new Router.Request(
-                            match.get().getValue(), Router.query(rawQuery == null ? "" : rawQuery));
+            Router.Request request = new Router.Request(match.get().getValue(), query);
             try {
                 write(ex, 200, ok(match.get().getKey().handle(request)));
             } catch (Router.ApiException e) {
