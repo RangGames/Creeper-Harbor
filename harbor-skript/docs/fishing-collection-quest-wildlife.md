@@ -10,6 +10,8 @@ Harbor-Skript가 Harbor-Fishing · Harbor-Collection · Harbor-Quest · Harbor-W
 - `이벤트 안에서만`으로 표시한 식은 그 이벤트 밖에서 쓰면 스크립트를 읽을 때 오류가 납니다.
 - 모든 문법은 메인 스레드에서 돌고 DB를 기다리지 않습니다. **비동기 값**으로 표시한 식은 마지막으로 받아 온 값을 돌려주고 뒤에서 새로 받아 옵니다. 처음 읽을 때는 값이 없을 수 있고, 값은 몇 초 늦을 수 있습니다.
 - 바꾸는 문법(`set` · `add` · `remove`, 효과)도 Harbor API를 거칩니다. 골드가 드는 것(통발 칸 구매)은 모듈이 원장으로 처리합니다.
+- `harbor admin …`으로 시작하는 문법은 관리 명령(`/harbor fishing` · `/harbor collection` · `/harbor quest`)과 같은 일을 합니다. 권한 검사는 하지 않으므로 스크립트 쪽에서 막으세요.
+- **기다리는 효과**: `[and (store|save) [the] result in %-objects%]`가 붙은 효과는 결과가 올 때까지 트리거를 멈췄다가(메인 스레드를 막지 않음) 결과를 변수에 담고 이어 갑니다. 변수를 빼면 기다리지 않고 바로 다음 줄로 갑니다.
 
 ## 낚시 (Harbor-Fishing)
 
@@ -18,7 +20,7 @@ Harbor-Skript가 Harbor-Fishing · Harbor-Collection · Harbor-Quest · Harbor-W
 ```
 [the] harbor fishing state of %players%            # idle · cast · waiting · bite · hooked · minigame · result
 %players% (is|are) harbor fishing                  # 조건 (부정형: isn't · aren't)
-[the] harbor pity of %players% for [fish] %string%  # 전설 천장 카운터 (읽기 전용)
+[the] harbor pity of %players% for [fish] %string%  # 전설 천장 카운터 (바꾸기는 harbor admin set pity)
 [the] harbor missed big (count|fish) of %players%   # 직업 품질 상한에 걸려 놓친 대어 수 (이번 접속)
 [the] harbor expected share of [fish] %string% in [region] %string%   # 기본 출현 비율 0~1
 [all] [the] active harbor sea events               # 지금 낚시에 적용 중인 해역 이벤트 ID 목록
@@ -67,7 +69,32 @@ refresh harbor traps of %players%                            # 바로 다시 받
 make %players% buy [a] harbor trap slot for trap %number%    # 칸 확장 (골드는 원장 TRAP_SLOT_EXPAND)
 ```
 
-`… of trap %number%`는 이미 받아 온 플레이어의 통발에서만 찾습니다. 먼저 `harbor trap ids of player`를 한 번 읽거나 `refresh harbor traps`를 쓰세요.
+`… of trap %number%`는 받아 온 플레이어 통발 목록에서 먼저 찾고, 없으면 ID로 따로 받아 옵니다 (다른 플레이어 통발도 됨, 처음 읽을 때는 비어 있을 수 있음).
+
+### 통발 행동 (기다리는 효과)
+
+```
+[the] harbor trap [id] at %location%                          # 그 자리 통발 블록의 ID (즉시)
+make %player% harvest harbor trap %number% [and (store|save) [the] result in %-objects%] [and (store|save) [the] (amount|count|[trap] id) in %-objects%]
+make %player% add bait to harbor trap %number% [... 같은 저장 부분]
+make %player% (remove|retrieve|pick up) harbor trap %number% [...]
+make %player% place [a] harbor trap %string% at %location% [...]          # 인벤토리의 통발 아이템 1개 사용
+harbor admin place [a] harbor trap %string% at %location% for %player% [...]   # 아이템 없이 무료 설치
+harbor admin remove harbor trap %number% [and (store|save) [the] result in %-objects%]   # 내용물·미끼 버림 (true/false)
+```
+
+- 통발 화면과 같은 흐름입니다: 수확·미끼·회수는 먼저 오프라인 계산을 하고, DB 커밋 뒤에 아이템을 줍니다 (서버 이동 중이면 우편). 수확은 빈 칸 수만큼만 꺼내고 `on harbor trap harvest`가 불립니다. 회수는 비어 있을 때만 되고 통발 아이템과 남은 미끼를 돌려줍니다.
+- 설치는 손으로 놓을 때와 같은 검사(지역 통발 구역·부표 반경·빈자리·심해 통발 기술·개수 제한)를 합니다. 위치에서 가장 가까운 부표 자리에 놓입니다.
+- 플레이어에게는 화면에서 할 때와 같은 채팅 문구가 갑니다.
+- 결과 키: `ok` · `not_found` · `not_owner` · `not_zone` · `blocked` · `locked` · `limit` · `occupied` · `no_item` · `inventory_full` · `empty` · `bait_full` · `no_bait` · `not_empty` · `failed`. 두 번째 변수에는 성공했을 때 수량(수확한 물고기·넣은 미끼·돌려받은 미끼), 설치면 새 통발 ID가 들어갑니다.
+
+```
+command /통발수확:
+    trigger:
+        set {_id} to harbor trap at target block
+        make player harvest harbor trap {_id} and store the result in {_r} and store the amount in {_n}
+        send "%{_r}% / %{_n}%마리"
+```
 
 ### 장력 미니게임 (스크립트로 시작)
 
@@ -110,7 +137,7 @@ on harbor tension end:
 
 어느 낚시 이벤트에서든 `harbor event fish [id]` · `harbor event fish name` · `harbor event fish grade`로 그 이벤트의 어종을 읽을 수 있습니다.
 
-다음 물고기 강제: Fishing에 "다음 물고기" API가 없으므로 굴림 이벤트에서 바꿉니다.
+굴림 결과는 굴림 이벤트 안에서 바꿀 수도 있습니다 (조건부 강제).
 
 ```
 on harbor fish roll:
@@ -120,6 +147,47 @@ on harbor fish roll:
 on harbor quality roll:
     add 1 to harbor rolled quality
 ```
+
+### 지금 세션 · 다음 물고기 강제 · 천장 관리
+
+```
+[the] harbor (session|current|hooked) fish of %players%     # 이번 캐스팅에 굴린 어종 (굴리기 전·대기 중이 아니면 없음)
+[the] harbor session region of %players%
+[the] harbor session bait of %players%
+[the] harbor (session|minigame) tension of %players%        # 0~1 (미니게임·장력 세션 중일 때만)
+[the] harbor (session|minigame) (hp|health) of %players%    # 1→0
+%players% (has|have) [a] harbor bite pending                # 입질이 와서 당기기를 기다리는 중 (부정형: doesn't have)
+%players% (is|are) in [a] harbor fishing minigame           # 포획 미니게임 중 (스크립트 장력 세션은 harbor tension 조건)
+[the] harbor forced [next] fish of %players%                # 강제로 정해 둔 다음 어종
+harbor admin force [the] next [harbor] fish of %players% to %string% [with quality %-number%]
+harbor admin clear [the] forced [next] [harbor] fish of %players%
+harbor admin set [the] [harbor] pity of %players% for [fish] %string% to %number%
+harbor admin reset [the] [harbor] pity of %players% for [fish] %string%
+harbor admin reset [the] [harbor] missed big (count|fish) of %players%
+```
+
+- `force next fish`는 `/harbor fishing force`와 같습니다. 다음 캐스팅 한 번에만 쓰이고, 품질(★1~5)을 주면 결과 품질도 고정합니다.
+- 천장은 플레이어 데이터로 저장됩니다 (자동 저장, 명령과 같음). 이 서버에 접속 중인 플레이어만 바뀝니다.
+
+```
+command /행운 <player>:
+    permission: harbor.admin
+    trigger:
+        harbor admin force next fish of arg-1 to "fish/golden_carp" with quality 5
+```
+
+### 요리 버프
+
+```
+[the] [active] harbor food buff of %players%                 # 버프를 준 요리 아이템 ID
+[the] harbor food buff (expiry|expiration|end) [time] of %players%
+[the] harbor food buff (remaining|left) seconds of %players%
+%players% (has|have) [a] harbor food buff                    # 부정형: doesn't have
+harbor admin apply [the] [harbor] food buff [of] %string% to %players%   # 먹은 것처럼 (이전 버프 교체, 지속 보너스 적용, 파티 공유 없음)
+harbor admin clear [the] [harbor] food buff of %players%
+```
+
+요리 아이템 ID는 `item/…`이고 `fishing/food.yml`에 버프가 있어야 합니다.
 
 ## 도감 · 기록 · 수족관 (Harbor-Collection)
 
@@ -140,7 +208,15 @@ on harbor quality roll:
 open harbor collection [of %-offlineplayer%] (to|for) %players% [at page %-number%]
 ```
 
-도감 칸은 실제 포획으로만 바뀝니다 (스크립트용 등록·삭제 API 없음).
+관리용 쓰기 (`/harbor collection entry set|remove`와 같음, 접속 중인 플레이어만):
+
+```
+harbor admin (set|register) [harbor] collection entry [of] %string% for %players% [with size %-number%] [with quality %-number%]
+harbor admin (remove|delete) [harbor] collection entry [of] %string% (from|for) %players%
+```
+
+- 등록은 시즌·누적 도감에 포획처럼 기록하고 `on harbor collection register` 등 같은 이벤트가 불립니다. 크기를 빼면 어종 최소 크기, 품질을 빼면 ★1, 크기는 어종 범위로 자릅니다.
+- 삭제는 이번 시즌 칸을 지웁니다.
 
 ### 힌트
 
@@ -156,6 +232,16 @@ harbor grant [a] random hint to %players% [in region %-string%]
 ```
 
 리그는 `tier1` · `tier2` · `all`(기본), 최대 10개. 이번 시즌 본 서버 캐시 기준입니다.
+
+이번 주 서버 기록 (최신순, 이 서버가 켜진 뒤 받은 것만, 최대 30개, 주간 초기화 때 비움). 같은 순서의 목록이라 번호로 맞춰 읽습니다.
+
+```
+[all] [the] harbor weekly record (fish|species)
+[all] [the] harbor weekly record names
+[all] [the] harbor weekly record players
+[all] [the] harbor weekly record sizes
+[all] [the] harbor weekly record (dates|times)
+```
 
 ### 수족관 · 방생
 
@@ -220,6 +306,47 @@ harbor quest set %string% [with target %-string%] to %number% for %players%     
 ```
 
 신호 유형은 퀘스트 콘텐츠에 있는 유형이어야 합니다 (`harbor quest objective types`로 확인).
+
+### 추적 · 목표치
+
+```
+[the] harbor tracked quest of %players%          # set: 추적 바꾸기 (진행 중인 퀘스트만), delete · reset: 추적 끄기
+[the] harbor quest (goal|target count) of %players% for [quest] %string% [objective] %string%   # 진행 중일 때 목표치
+```
+
+### 관리 (`/harbor quest`와 같은 규칙)
+
+```
+harbor admin complete [the] harbor quest %string% for %player% [without reward[s]] [and (store|save) [the] result in %-objects%]
+harbor admin reset [the] harbor quest %string% for %player% [and (store|save) [the] result in %-objects%]
+harbor admin set [the] harbor quest state of %player% for [quest] %string% to %string% [and (store|save) [the] result in %-objects%]
+harbor admin set [the] harbor quest progress of %players% for [quest] %string% [objective] %string% to %number%
+```
+
+- `complete`: 진행 중이면 보통 완료처럼 2단계(완료 중 → 보상 → 완료)로 처리하고, `without rewards`면 보상 없이 완료합니다. 진행 중이 아니면 상태만 completed로 바꿉니다 (보상 없음).
+- `reset`: 행을 지웁니다 (메인 퀘스트도).
+- `set state`: `active` · `ready` · `completed` · `failed`만 됩니다 (보상 없음). 행이 없으면 이번 시즌 행을 만듭니다.
+- 결과 변수에는 true/false가 들어갑니다. 관리 기록(admin_log)은 명령에서만 남습니다.
+
+### 의뢰 게시판
+
+```
+[all] [the] harbor (daily|weekly|collect) board (requests|offers) of %player%     # 이번 주기 게시판 (아직 안 뽑았으면 없음)
+[all] [the] harbor (daily|weekly|collect) board (chosen|accepted) [requests] of %player%
+[the] harbor (daily|weekly|collect) board picks (left|remaining) of %player%
+make %player% draw [the] harbor (daily|weekly|collect) board [and (store|save) [the] (requests|offers) in %-objects%]   # 게시판을 열 때처럼 뽑고 저장
+harbor admin reroll [the] harbor (daily|weekly|collect) board of %player% [and (store|save) [the] (requests|offers) in %-objects%]
+```
+
+의뢰 수락은 `make %players% accept harbor quest %string%` (게시판에 있고 남은 선택 수가 있을 때만 됩니다). 플레이어가 직접 다시 뽑는 기능은 게시판 화면에도 없어서 관리용 `reroll`만 있습니다.
+
+```
+command /오늘의의뢰:
+    trigger:
+        make player draw harbor daily board and store the requests in {_list::*}
+        loop {_list::*}:
+            send "의뢰: %loop-value%"
+```
 
 ### 연대기 · 서버 진행 (서버 진행은 비동기 값)
 
@@ -297,14 +424,6 @@ command /회유:
 
 | 원하는 것 | 막힌 이유 |
 |---|---|
-| 낚시 중 현재 어종·입질·미니게임 장력 읽기 | `FishingService`가 상태(`session`)만 공개. 현재 어종은 이벤트 안에서만 |
-| 다음 물고기 지정 | API 없음. `on harbor fish roll`에서 `set harbor rolled fish` |
-| 천장 카운터 설정 · 놓친 대어 초기화 | `pity`는 읽기만 |
-| 통발 수확·설치·미끼 넣기 | `TrapService`는 조회·칸 확장만 |
-| 음식 버프 조회·적용 | Fishing api에 음식 버프 공개 진입점 없음 |
 | 해역 이벤트·신화 창 시작/종료 | Fishing은 받은 상태만 공개(`activeSeaEvents`). 일정은 World 소관 |
 | 시뮬레이션 결과 | `simulate`가 수천 번 굴리는 무거운 작업이라 노출하지 않음 |
-| 도감 칸 등록·삭제, 주간 기록 | `CollectionService`·`RecordService`에 쓰기·주간 API 없음 |
-| 퀘스트 강제 완료·초기화, 추적 중인 퀘스트 읽기, 목표 목표치(진행 중 목록) | `QuestService`에 없음 (목표치는 `on harbor quest progress`의 `harbor progress goal`에서만) |
-| 의뢰 게시판 | Quest api에 게시판 공개 진입점 없음 |
 | 수족관에 아이템 목록 기증 | `donateItems`는 아이템 소유권을 넘겨받는 방식이라 스크립트 아이템 식과 맞지 않음. 손에 든 물고기 기증·기증함만 |

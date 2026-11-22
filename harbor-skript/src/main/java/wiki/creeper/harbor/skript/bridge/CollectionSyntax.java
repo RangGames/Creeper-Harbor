@@ -23,6 +23,7 @@ import wiki.creeper.harbor.collection.api.HintService;
 import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.api.RecordService;
 import wiki.creeper.harbor.collection.api.ReleaseService;
+import wiki.creeper.harbor.collection.api.WeeklyRecord;
 import wiki.creeper.harbor.collection.api.event.AquariumDonatedEvent;
 import wiki.creeper.harbor.collection.api.event.AquariumStageChangedEvent;
 import wiki.creeper.harbor.collection.api.event.CollectionMilestoneEvent;
@@ -44,8 +45,9 @@ import wiki.creeper.harbor.skript.lambda.ValueExpr;
  * release, personal display cases, opening the collection, and every Collection api event.
  *
  * <p>Display case values come from an async API and are eventually consistent ({@link
- * LatestValues}). Collection entries cannot be written from scripts (no public API); they change
- * only through catches.
+ * LatestValues}). Collection entries are written by catches; {@code harbor admin set collection
+ * entry} and {@code harbor admin remove collection entry} do what {@code /harbor collection entry}
+ * does.
  */
 public final class CollectionSyntax {
 
@@ -115,6 +117,7 @@ public final class CollectionSyntax {
 
     public static void register(Registrar r) {
         registerEntries(r);
+        registerAdmin(r);
         registerHints(r);
         registerRecords(r);
         registerAquarium(r);
@@ -290,6 +293,40 @@ public final class CollectionSyntax {
 
     // ------------------------------------------------------------------ hints
 
+    private static void registerAdmin(Registrar r) {
+        // Same as /harbor collection entry set · remove (online players on this server)
+        r.effect(
+                Spec.of("harbor admin set collection entry"),
+                (e, x) -> {
+                    Optional<CollectionService> s = collection();
+                    Optional<FishId> f = Args.string(e, x, 0).flatMap(CollectionSyntax::fish);
+                    if (s.isEmpty() || f.isEmpty()) {
+                        return;
+                    }
+                    Double size = Args.number(e, x, 2).map(Number::doubleValue).orElse(null);
+                    Integer quality = Args.number(e, x, 3).map(Number::intValue).orElse(null);
+                    for (Player p : Args.players(e, x, 1)) {
+                        s.get().registerEntry(p.getUniqueId(), f.get(), size, quality);
+                    }
+                },
+                "harbor admin (set|register) [harbor] collection entry [of] %string% for %players%"
+                        + " [with size %-number%] [with quality %-number%]");
+        r.effect(
+                Spec.of("harbor admin remove collection entry"),
+                (e, x) -> {
+                    Optional<CollectionService> s = collection();
+                    Optional<FishId> f = Args.string(e, x, 0).flatMap(CollectionSyntax::fish);
+                    if (s.isEmpty() || f.isEmpty()) {
+                        return;
+                    }
+                    for (Player p : Args.players(e, x, 1)) {
+                        s.get().removeEntry(p.getUniqueId(), f.get());
+                    }
+                },
+                "harbor admin (remove|delete) [harbor] collection entry [of] %string% (from|for)"
+                        + " %players%");
+    }
+
     private static void registerHints(Registrar r) {
         ValueExpr.builder(
                         Number.class,
@@ -372,6 +409,48 @@ public final class CollectionSyntax {
                                         .toList())
                 .list()
                 .register(r, "[the] harbor server top players " + args);
+
+        // This week's server records (newest first, as received by this server)
+        ValueExpr.builder(
+                        String.class,
+                        Spec.single("harbor weekly record fish"),
+                        (e, x) -> weekly().stream().map(w -> w.fish().toString()).toList())
+                .list()
+                .register(r, "[all] [the] harbor weekly record (fish|species)");
+        ValueExpr.builder(
+                        String.class,
+                        Spec.single("harbor weekly record names"),
+                        (e, x) -> weekly().stream().map(w -> w.entry().name()).toList())
+                .list()
+                .register(r, "[all] [the] harbor weekly record names");
+        ValueExpr.builder(
+                        OfflinePlayer.class,
+                        Spec.single("harbor weekly record players"),
+                        (e, x) ->
+                                weekly().stream()
+                                        .map(w -> Bukkit.getOfflinePlayer(w.entry().player()))
+                                        .toList())
+                .list()
+                .register(r, "[all] [the] harbor weekly record players");
+        ValueExpr.builder(
+                        Number.class,
+                        Spec.single("harbor weekly record sizes"),
+                        (e, x) -> weekly().stream().map(w -> (Number) w.entry().size()).toList())
+                .list()
+                .register(r, "[all] [the] harbor weekly record sizes");
+        ValueExpr.builder(
+                        Date.class,
+                        Spec.single("harbor weekly record dates"),
+                        (e, x) ->
+                                weekly().stream()
+                                        .map(w -> new Date(w.entry().caughtAt().toEpochMilli()))
+                                        .toList())
+                .list()
+                .register(r, "[all] [the] harbor weekly record (dates|times)");
+    }
+
+    private static List<WeeklyRecord> weekly() {
+        return service(RecordService.class).map(RecordService::weeklyRecords).orElse(List.of());
     }
 
     // ------------------------------------------------------------------ aquarium · release

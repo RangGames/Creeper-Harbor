@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -25,6 +26,7 @@ import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.task.Tasks;
+import wiki.creeper.harbor.fishing.api.TrapAction;
 import wiki.creeper.harbor.fishing.api.event.TrapHarvestEvent;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.session.FishingManager;
@@ -74,8 +76,11 @@ final class TrapHarvest {
     /**
      * Harvests entries (items created after the transaction commits). Takes out only as many as
      * there are free inventory slots.
+     *
+     * @param menu reopen the trap screen afterwards (GUI)
      */
-    void harvest(Player player, TrapRow row, List<TrapCatch> entries) {
+    CompletableFuture<TrapAction> harvest(
+            Player player, TrapRow row, List<TrapCatch> entries, boolean menu) {
         int free = 0;
         for (ItemStack s : player.getInventory().getStorageContents()) {
             if (s == null || s.isEmpty()) {
@@ -84,7 +89,8 @@ final class TrapHarvest {
         }
         if (free == 0) {
             api.messages().send(player, "fishing.trap.full");
-            return;
+            return CompletableFuture.completedFuture(
+                    TrapAction.of(TrapAction.Outcome.INVENTORY_FULL, row.id()));
         }
         Set<String> uids = new HashSet<>();
         for (TrapCatch e : entries) {
@@ -95,55 +101,47 @@ final class TrapHarvest {
         }
         UUID uuid = player.getUniqueId();
         Instant now = Instant.now();
-        var _ =
-                traps.track(
-                                uuid,
-                                api.database()
-                                        .async(
-                                                c ->
-                                                        TrapRepository.take(
-                                                                c, row.id(), uuid, uids, now)))
-                        .whenCompleteAsync(
-                                (taken, error) -> {
-                                    if (error != null) {
-                                        log.warn(
-                                                "통발 수확 실패 ({}): {}",
-                                                row.id(),
-                                                String.valueOf(error));
-                                        api.messages().send(player, "fishing.trap.failed");
-                                        return;
-                                    }
-                                    List<HarborItem.Fish> given = new ArrayList<>();
-                                    for (TrapCatch entry : taken) {
-                                        ItemStack stack = createCatch(player, entry);
-                                        if (stack == null) {
-                                            continue;
-                                        }
-                                        api.items()
-                                                .read(stack)
-                                                .filter(i -> i instanceof HarborItem.Fish)
-                                                .ifPresent(i -> given.add((HarborItem.Fish) i));
-                                        fishing.give(player, stack);
-                                    }
-                                    if (!given.isEmpty()) {
-                                        api.messages()
-                                                .send(
-                                                        player,
-                                                        "fishing.trap.harvested",
-                                                        Placeholder.unparsed(
-                                                                "count",
-                                                                String.valueOf(given.size())));
-                                        Bukkit.getPluginManager()
-                                                .callEvent(
-                                                        new TrapHarvestEvent(
-                                                                player,
-                                                                row.id(),
-                                                                row.region(),
-                                                                given));
-                                    }
-                                    reopen(player, row.id());
-                                },
-                                tasks.main());
+        return traps.track(
+                        uuid,
+                        api.database()
+                                .async(c -> TrapRepository.take(c, row.id(), uuid, uids, now)))
+                .handleAsync(
+                        (taken, error) -> {
+                            if (error != null || taken == null) {
+                                log.warn("통발 수확 실패 ({}): {}", row.id(), String.valueOf(error));
+                                api.messages().send(player, "fishing.trap.failed");
+                                return TrapAction.of(TrapAction.Outcome.FAILED, row.id());
+                            }
+                            List<HarborItem.Fish> given = new ArrayList<>();
+                            for (TrapCatch entry : taken) {
+                                ItemStack stack = createCatch(player, entry);
+                                if (stack == null) {
+                                    continue;
+                                }
+                                api.items()
+                                        .read(stack)
+                                        .filter(i -> i instanceof HarborItem.Fish)
+                                        .ifPresent(i -> given.add((HarborItem.Fish) i));
+                                fishing.give(player, stack);
+                            }
+                            if (!given.isEmpty()) {
+                                api.messages()
+                                        .send(
+                                                player,
+                                                "fishing.trap.harvested",
+                                                Placeholder.unparsed(
+                                                        "count", String.valueOf(given.size())));
+                                Bukkit.getPluginManager()
+                                        .callEvent(
+                                                new TrapHarvestEvent(
+                                                        player, row.id(), row.region(), given));
+                            }
+                            if (menu) {
+                                reopen(player, row.id());
+                            }
+                            return new TrapAction(TrapAction.Outcome.OK, row.id(), given.size());
+                        },
+                        tasks.main());
     }
 
     /**
@@ -196,12 +194,18 @@ final class TrapHarvest {
     }
 
     /** Puts bait from the inventory into the trap (excluding bait with uses and legendary bait). */
-    void addBait(Player player, TrapRow row) {
+    CompletableFuture<TrapAction> addBait(Player player, TrapRow row, boolean menu) {
+        if (api.players().frozen(player.getUniqueId())) {
+            // The server move snapshot is already taken: bait taken now would come back
+            return CompletableFuture.completedFuture(
+                    TrapAction.of(TrapAction.Outcome.FAILED, row.id()));
+        }
         FishingBalance b = traps.balance();
         int room = b.trapBaitCapacity() - row.bait();
         if (room <= 0) {
             api.messages().send(player, "fishing.trap.bait_full");
-            return;
+            return CompletableFuture.completedFuture(
+                    TrapAction.of(TrapAction.Outcome.BAIT_FULL, row.id()));
         }
         int taken = 0;
         ItemStack[] contents = player.getInventory().getStorageContents();
@@ -222,38 +226,40 @@ final class TrapHarvest {
         }
         if (taken == 0) {
             api.messages().send(player, "fishing.trap.no_bait");
-            return;
+            return CompletableFuture.completedFuture(
+                    TrapAction.of(TrapAction.Outcome.NO_BAIT, row.id()));
         }
         int amount = taken;
         UUID uuid = player.getUniqueId();
-        var _ =
-                traps.track(
-                                uuid,
-                                api.database()
-                                        .async(
-                                                c ->
-                                                        TrapRepository.addBait(
-                                                                c,
-                                                                row.id(),
-                                                                uuid,
-                                                                amount,
-                                                                b.trapBaitCapacity())))
-                        .whenCompleteAsync(
-                                (ok, error) -> {
-                                    if (error != null || !Boolean.TRUE.equals(ok)) {
-                                        refundBait(player, amount);
-                                        api.messages().send(player, "fishing.trap.failed");
-                                        return;
-                                    }
-                                    api.messages()
-                                            .send(
-                                                    player,
-                                                    "fishing.trap.bait_added",
-                                                    Placeholder.unparsed(
-                                                            "count", String.valueOf(amount)));
-                                    reopen(player, row.id());
-                                },
-                                tasks.main());
+        return traps.track(
+                        uuid,
+                        api.database()
+                                .async(
+                                        c ->
+                                                TrapRepository.addBait(
+                                                        c,
+                                                        row.id(),
+                                                        uuid,
+                                                        amount,
+                                                        b.trapBaitCapacity())))
+                .handleAsync(
+                        (ok, error) -> {
+                            if (error != null || !Boolean.TRUE.equals(ok)) {
+                                refundBait(player, amount);
+                                api.messages().send(player, "fishing.trap.failed");
+                                return TrapAction.of(TrapAction.Outcome.FAILED, row.id());
+                            }
+                            api.messages()
+                                    .send(
+                                            player,
+                                            "fishing.trap.bait_added",
+                                            Placeholder.unparsed("count", String.valueOf(amount)));
+                            if (menu) {
+                                reopen(player, row.id());
+                            }
+                            return new TrapAction(TrapAction.Outcome.OK, row.id(), amount);
+                        },
+                        tasks.main());
     }
 
     /**
@@ -295,37 +301,37 @@ final class TrapHarvest {
     }
 
     /** Removal: only when empty. Returns the trap item and the remaining bait. */
-    void remove(Player player, TrapRow row) {
+    CompletableFuture<TrapAction> remove(Player player, TrapRow row, boolean menu) {
         if (!row.contents().isEmpty()) {
             api.messages().send(player, "fishing.trap.not_empty");
-            return;
+            return CompletableFuture.completedFuture(
+                    TrapAction.of(TrapAction.Outcome.NOT_EMPTY, row.id()));
         }
         UUID uuid = player.getUniqueId();
-        var _ =
-                traps.track(
-                                uuid,
-                                api.database()
-                                        .async(c -> TrapRepository.deleteEmpty(c, row.id(), uuid)))
-                        .whenCompleteAsync(
-                                (bait, error) -> {
-                                    if (error != null || bait == null || bait < 0) {
-                                        api.messages().send(player, "fishing.trap.failed");
-                                        return;
-                                    }
-                                    player.closeInventory();
-                                    blocks.demolish(
-                                            row.world(), row.x(), row.y(), row.z(), row.id());
-                                    api.content()
-                                            .snapshot()
-                                            .get(ItemDef.TYPE, row.item().id())
-                                            .ifPresent(
-                                                    def ->
-                                                            fishing.give(
-                                                                    player,
-                                                                    api.items().create(def, 1)));
-                                    refundBait(player, bait);
-                                    api.messages().send(player, "fishing.trap.removed");
-                                },
-                                tasks.main());
+        return traps.track(
+                        uuid,
+                        api.database().async(c -> TrapRepository.deleteEmpty(c, row.id(), uuid)))
+                .handleAsync(
+                        (bait, error) -> {
+                            if (error != null || bait == null || bait < 0) {
+                                api.messages().send(player, "fishing.trap.failed");
+                                return TrapAction.of(TrapAction.Outcome.FAILED, row.id());
+                            }
+                            if (menu) {
+                                player.closeInventory();
+                            }
+                            blocks.demolish(row.world(), row.x(), row.y(), row.z(), row.id());
+                            api.content()
+                                    .snapshot()
+                                    .get(ItemDef.TYPE, row.item().id())
+                                    .ifPresent(
+                                            def ->
+                                                    fishing.give(
+                                                            player, api.items().create(def, 1)));
+                            refundBait(player, bait);
+                            api.messages().send(player, "fishing.trap.removed");
+                            return new TrapAction(TrapAction.Outcome.OK, row.id(), bait);
+                        },
+                        tasks.main());
     }
 }

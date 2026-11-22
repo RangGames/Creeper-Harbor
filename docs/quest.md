@@ -84,6 +84,9 @@ YAML 퀘스트를 상태 기계(조건 → 목표 → 보상)로 돌리는 엔�
 ## 다른 모듈과의 연결
 
 - **제공 서비스:** `QuestService`, `ChronicleService`, `ServerProgressService`, `ObjectiveTypeRegistry`(목표 유형 등록), `ObjectiveSignal`(목표 신호 보내기), `RegionProgressProvider`
+  - `QuestService` 관리 API: `adminComplete`(진행 중이면 2단계 완료, 보상 생략 가능 · 아니면 상태만 COMPLETED), `adminReset`, `adminSetState`, `adminSetProgress` (`/harbor quest complete|reset|set|progress`와 같은 규칙, admin_log는 명령만 남김)
+  - 추적: `tracked`·`track`·`untrack`. `QuestView.goals`에 목표별 목표치가 있다
+  - 의뢰 게시판: `board`(이번 주기 게시판, 뽑지 않았으면 비어 있음), `drawBoard`(게시판을 열 때처럼 뽑고 저장), `adminRerollBoard`(= `board reroll`). 수락은 `accept`
 - **이벤트:** `QuestAcceptedEvent`, `QuestProgressEvent`, `QuestReadyEvent`, `QuestCompletedEvent`, `QuestAbandonedEvent`, `QuestStateChangedEvent`, `ChapterCompletedEvent`, `ChroniclePieceEvent`
 - **쓰는 것:** Npc(대화 액션 `quest:*`, 조건 `quest_state`·`quest_available`, 머리 위 표시), Jobs(전직 확인), Fishing·Collection(포획·기부·도감 목표), Season(주차 조건)
 - **선택 의존:** World(지역 진입·해도 목표), Boss(보스 목표). 있으면 이벤트를 이름으로 연결한다.

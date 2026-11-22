@@ -13,11 +13,9 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.core.api.HarborApi;
-import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.quest.api.QuestState;
 import wiki.creeper.harbor.quest.content.QuestDef;
 import wiki.creeper.harbor.quest.content.QuestType;
-import wiki.creeper.harbor.quest.data.QuestEntry;
 import wiki.creeper.harbor.quest.data.QuestRepository;
 import wiki.creeper.harbor.quest.service.QuestEngine;
 import wiki.creeper.harbor.quest.service.QuestServices;
@@ -140,14 +138,8 @@ final class QuestAdminActions {
             api.messages().send(ctx.getSource().getSender(), "quest.admin.bad_args");
             return 0;
         }
-        HarborPlayer hp = api.players().get(target);
-        Optional<QuestEntry> entry = hp.get(QuestEngine.COMPONENT).entry(def.get().id());
-        if (entry.isEmpty() || !entry.get().state().open()) {
-            // if not in progress, only set the state to COMPLETED (no rewards)
-            var _ = engine().adminSet(target, def.get(), QuestState.COMPLETED);
-        } else {
-            var _ = services.forceComplete(target, def.get(), reward);
-        }
+        // In progress: two-phase completion; otherwise only the COMPLETED state (no rewards)
+        var _ = engine().adminComplete(target, def.get().id(), reward);
         done(ctx, "complete", target, def.get().id() + (reward ? "" : " --no-reward"));
         return Command.SINGLE_SUCCESS;
     }
@@ -164,9 +156,7 @@ final class QuestAdminActions {
     int reroll(CommandContext<CommandSourceStack> ctx, String kindKey)
             throws CommandSyntaxException {
         Player target = QuestCommandArgs.player(ctx);
-        Optional<QuestType> kind =
-                wiki.creeper.harbor.common.model.Keyed.fromKey(QuestType.class, kindKey)
-                        .filter(QuestType::board);
+        Optional<QuestType> kind = QuestEngine.boardKind(kindKey);
         if (kind.isEmpty()) {
             api.messages().send(ctx.getSource().getSender(), "quest.admin.bad_args");
             return 0;

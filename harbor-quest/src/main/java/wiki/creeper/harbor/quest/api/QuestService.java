@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.quest.api;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.bukkit.entity.Player;
@@ -40,4 +41,47 @@ public interface QuestService {
 
     /** Changes the tracked quest (action bar and location marker). */
     boolean track(Player player, QuestId quest);
+
+    /** The tracked quest (empty if none or the player is not online). */
+    Optional<QuestId> tracked(UUID player);
+
+    /** Stops tracking. False if nothing was tracked. */
+    boolean untrack(Player player);
+
+    /**
+     * Admin: completes a quest like {@code /harbor quest complete}. A quest in progress goes
+     * through the normal two-phase completion (COMPLETING → rewards → COMPLETED, without rewards if
+     * reward is false); any other quest only gets the COMPLETED state, with no rewards.
+     */
+    CompletableFuture<Boolean> adminComplete(Player player, QuestId quest, boolean reward);
+
+    /** Admin: deletes the quest row like {@code /harbor quest reset} (main quests too). */
+    CompletableFuture<Boolean> adminReset(Player player, QuestId quest);
+
+    /**
+     * Admin: forces a state like {@code /harbor quest set} (ACTIVE · READY · COMPLETED · FAILED
+     * only, no rewards). Creates a current-season row if there is none. False for other states.
+     */
+    CompletableFuture<Boolean> adminSetState(Player player, QuestId quest, QuestState state);
+
+    /**
+     * Admin: sets one objective progress value like {@code /harbor quest progress}. False if the
+     * quest is not in progress or the objective key is unknown.
+     */
+    boolean adminSetProgress(Player player, QuestId quest, String objective, int value);
+
+    /**
+     * The current cycle's request board (daily · weekly · collect) if it was already drawn. Empty
+     * if not drawn yet, the kind is unknown or the player is not online.
+     */
+    Optional<BoardView> board(UUID player, String kind);
+
+    /**
+     * The current cycle's request board, drawing and saving it first if needed (what opening the
+     * board does). Accept a request with {@link #accept}. Empty for an unknown kind.
+     */
+    CompletableFuture<Optional<BoardView>> drawBoard(Player player, String kind);
+
+    /** Admin: draws a new board for the current cycle like {@code /harbor quest board reroll}. */
+    CompletableFuture<Optional<BoardView>> adminRerollBoard(Player player, String kind);
 }

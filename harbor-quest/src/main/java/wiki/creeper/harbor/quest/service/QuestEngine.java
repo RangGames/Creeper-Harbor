@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -26,10 +27,12 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.common.id.RegionId;
+import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.task.Tasks;
+import wiki.creeper.harbor.quest.api.BoardView;
 import wiki.creeper.harbor.quest.api.ObjectiveSignal;
 import wiki.creeper.harbor.quest.api.ObjectiveTypeRegistry;
 import wiki.creeper.harbor.quest.api.QuestService;
@@ -42,6 +45,7 @@ import wiki.creeper.harbor.quest.content.Objective;
 import wiki.creeper.harbor.quest.content.QuestDef;
 import wiki.creeper.harbor.quest.content.QuestType;
 import wiki.creeper.harbor.quest.content.Rewards;
+import wiki.creeper.harbor.quest.data.BoardState;
 import wiki.creeper.harbor.quest.data.QuestData;
 import wiki.creeper.harbor.quest.data.QuestEntry;
 import wiki.creeper.harbor.quest.data.QuestRepository;
@@ -355,7 +359,8 @@ public final class QuestEngine
                             d.type().key(),
                             avail(hp.get(), d).state(),
                             e.getValue().progress().counts(),
-                            e.getValue().progress().cycle()));
+                            e.getValue().progress().cycle(),
+                            goals(d)));
         }
         return result;
     }
@@ -393,6 +398,112 @@ public final class QuestEngine
     @Override
     public boolean track(Player player, QuestId quest) {
         return lifecycle.track(player, quest);
+    }
+
+    private static Map<String, Integer> goals(QuestDef def) {
+        Map<String, Integer> goals = new HashMap<>();
+        for (Objective o : def.objectives()) {
+            goals.put(o.key(), o.count());
+        }
+        return goals;
+    }
+
+    @Override
+    public Optional<QuestId> tracked(UUID player) {
+        return api.players()
+                .get(player)
+                .flatMap(hp -> Optional.ofNullable(hp.get(COMPONENT).tracked()));
+    }
+
+    @Override
+    public boolean untrack(Player player) {
+        HarborPlayer hp = api.players().get(player);
+        QuestData data = hp.get(COMPONENT);
+        if (data.tracked() == null) {
+            return false;
+        }
+        hp.set(COMPONENT, data.withTracked(null));
+        return true;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> adminComplete(Player player, QuestId quest, boolean reward) {
+        Optional<QuestDef> def = def(quest);
+        if (def.isEmpty()) {
+            return CompletableFuture.completedFuture(false);
+        }
+        Optional<QuestEntry> entry = api.players().get(player).get(COMPONENT).entry(quest);
+        if (entry.isEmpty() || !entry.get().state().open()) {
+            // Not in progress: only the COMPLETED state (no rewards)
+            return adminSet(player, def.get(), QuestState.COMPLETED);
+        }
+        return payer().complete(player, def.get(), reward);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> adminSetState(
+            Player player, QuestId quest, QuestState state) {
+        Optional<QuestDef> def = def(quest);
+        if (def.isEmpty() || !ADMIN_STATES.contains(state)) {
+            return CompletableFuture.completedFuture(false);
+        }
+        return adminSet(player, def.get(), state);
+    }
+
+    @Override
+    public boolean adminSetProgress(Player player, QuestId quest, String objective, int value) {
+        Optional<QuestDef> def = def(quest);
+        return def.isPresent() && adminProgress(player, def.get(), objective, value);
+    }
+
+    /** States the admin set command accepts. */
+    public static final Set<QuestState> ADMIN_STATES =
+            Set.of(QuestState.ACTIVE, QuestState.READY, QuestState.COMPLETED, QuestState.FAILED);
+
+    @Override
+    public Optional<BoardView> board(UUID player, String kind) {
+        Optional<QuestType> type = boardKind(kind);
+        Optional<HarborPlayer> hp = api.players().get(player);
+        if (type.isEmpty() || hp.isEmpty()) {
+            return Optional.empty();
+        }
+        return board().current(hp.get(), type.get()).map(b -> boardView(hp.get(), b));
+    }
+
+    @Override
+    public CompletableFuture<Optional<BoardView>> drawBoard(Player player, String kind) {
+        return ensureBoard(player, kind, false);
+    }
+
+    @Override
+    public CompletableFuture<Optional<BoardView>> adminRerollBoard(Player player, String kind) {
+        return ensureBoard(player, kind, true);
+    }
+
+    private CompletableFuture<Optional<BoardView>> ensureBoard(
+            Player player, String kind, boolean reroll) {
+        Optional<QuestType> type = boardKind(kind);
+        if (type.isEmpty()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        return board().ensure(player, type.get(), reroll)
+                .thenApply(
+                        b -> api.players().get(player.getUniqueId()).map(hp -> boardView(hp, b)));
+    }
+
+    private BoardView boardView(HarborPlayer hp, BoardState b) {
+        return new BoardView(
+                b.kind().key(),
+                b.cycle(),
+                b.offers(),
+                b.chosen(),
+                board().remainingPicks(hp, b.kind()));
+    }
+
+    /** Board kind key (daily · weekly · collect) → type. */
+    public static Optional<QuestType> boardKind(String key) {
+        return Keyed.fromKey(QuestType.class, key.strip().toLowerCase(Locale.ROOT))
+                .filter(QuestType::board);
     }
 
     // ------------------------------------------------------------------ Objective progress
@@ -565,6 +676,7 @@ public final class QuestEngine
     }
 
     /** Admin command: deletes the row (main quests too). */
+    @Override
     public CompletableFuture<Boolean> adminReset(Player player, QuestId quest) {
         return maintenance.adminReset(player, quest);
     }

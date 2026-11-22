@@ -21,4 +21,19 @@ public interface CollectionService {
     double percent(UUID player, CollectionScope scope, @Nullable RegionId region);
 
     void open(Player viewer, UUID owner, int page);
+
+    /**
+     * Admin: registers or overwrites a collection cell like {@code /harbor collection entry set}
+     * (season and total, as a catch would; size clamped to the species range, default the minimum
+     * size and ★1). Fires the usual registration events. False if the species is unknown or the
+     * player is not loaded on this server.
+     */
+    boolean registerEntry(
+            UUID player, FishId fish, @Nullable Double size, @Nullable Integer quality);
+
+    /**
+     * Admin: deletes this season's collection cell like {@code /harbor collection entry remove}.
+     * False if the player is not loaded on this server.
+     */
+    boolean removeEntry(UUID player, FishId fish);
 }

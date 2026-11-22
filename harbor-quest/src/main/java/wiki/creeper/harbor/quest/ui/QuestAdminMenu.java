@@ -222,7 +222,7 @@ final class QuestAdminMenu {
                 Material.GOLD_BLOCK,
                 "complete_reward",
                 () -> {
-                    complete(target, def, entry, true);
+                    complete(target, def, true);
                     adminLog.log(
                             admin,
                             "complete",
@@ -238,7 +238,7 @@ final class QuestAdminMenu {
                 Material.GREEN_CONCRETE,
                 "complete_plain",
                 () -> {
-                    complete(target, def, entry, false);
+                    complete(target, def, false);
                     adminLog.log(
                             admin,
                             "complete",
@@ -345,12 +345,8 @@ final class QuestAdminMenu {
         return Math.clamp(value + (click.isRightClick() ? -1 : 1), 0, Math.max(count, 0));
     }
 
-    private void complete(Player target, QuestDef def, Optional<QuestEntry> entry, boolean reward) {
-        if (entry.isEmpty() || !entry.get().state().open()) {
-            var _ = engine().adminSet(target, def, QuestState.COMPLETED);
-        } else {
-            var _ = q.forceComplete(target, def, reward);
-        }
+    private void complete(Player target, QuestDef def, boolean reward) {
+        var _ = engine().adminComplete(target, def.id(), reward);
     }
 
     private void action(
