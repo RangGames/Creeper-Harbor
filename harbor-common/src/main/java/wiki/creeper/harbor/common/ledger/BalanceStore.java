@@ -7,21 +7,25 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.model.Currency;
 
 /**
- * 잔액이 저장된 곳. 지급·차감 규칙을 정하는 모듈이 구현한다 (골드·물비늘: Core의 player_season, 진주: Shop의 pearl_wallet).
+ * Where balances are stored. Implemented by the module that defines the grant/deduct rules (gold
+ * and mulbineul: Core's player_season; pearls: Shop's pearl_wallet).
  *
- * <p>원장 합계 검사가 맞으려면 잔액을 원장 밖에서 바꾸면 안 된다. 시즌 초기화처럼 잔액을 0으로 만들 때도 {@link LedgerReason#SEASON_RESET}으로
- * 원장에 기록한다.
+ * <p>For the ledger sum audit to hold, balances must never change outside the ledger. Even zeroing
+ * balances, as in a season reset, is recorded in the ledger as {@link LedgerReason#SEASON_RESET}.
  */
 public interface BalanceStore {
 
-    /** 잔액 행을 잠그고 (SELECT … FOR UPDATE) 현재 잔액을 돌려준다. 행이 없으면 0으로 만든다. */
+    /**
+     * Locks the balance row (SELECT … FOR UPDATE) and returns the current balance. Creates the row
+     * with 0 if missing.
+     */
     long lockBalance(Connection connection, UUID player, Currency currency) throws SQLException;
 
-    /** 잔액을 갱신한다. lockBalance 이후 같은 트랜잭션에서만 부른다. */
+    /** Updates the balance. Call only after lockBalance in the same transaction. */
     void writeBalance(
             Connection connection, UUID player, Currency currency, long newBalance, long delta)
             throws SQLException;
 
-    /** 모든 플레이어의 잔액 (원장 검사용). */
+    /** Balances of all players (for the ledger audit). */
     Map<UUID, Long> allBalances(Connection connection, Currency currency) throws SQLException;
 }

@@ -14,16 +14,20 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * 지연 쓰기 큐. 도감·기록·퀘스트 진행처럼 몇 초 늦어도 되는 데이터를 모아서 쓴다.
+ * Write-behind queue. Batches data that can be a few seconds late, like codex, records and quest
+ * progress.
  *
  * <ul>
- *   <li>5초마다, 또는 500건이 쌓이면 한 트랜잭션으로 쓴다.
- *   <li>같은 키는 마지막 값만 쓴다 (예: {@code codex:<uuid>:<fish>}).
- *   <li>한 건이 계속 실패해서 전체가 막히지 않도록, 묶음 쓰기가 실패하면 한 건씩 다시 쓴다. 연결 오류면 큐에 되돌리고, 데이터 오류면 로그를 남기고 버린다.
- *   <li>{@link #close()}는 남은 것을 모두 쓴 뒤 끝난다.
+ *   <li>Writes in one transaction every 5 seconds or once 500 entries pile up.
+ *   <li>Only the last value per key is written (e.g. {@code codex:<uuid>:<fish>}).
+ *   <li>So one constantly failing entry cannot block everything, a failed batch write is retried
+ *       one entry at a time. Connection errors go back to the queue; data errors are logged and
+ *       dropped.
+ *   <li>{@link #close()} returns after writing everything left.
  * </ul>
  *
- * 골드·물비늘·진주·경매·통발 수확은 이 큐를 쓰지 않고 바로 트랜잭션으로 처리한다.
+ * Gold, mulbineul, pearls, auctions and trap harvests do not use this queue; they are handled in
+ * immediate transactions.
  */
 public final class WriteBehindQueue implements AutoCloseable {
 
@@ -58,7 +62,7 @@ public final class WriteBehindQueue implements AutoCloseable {
                         this::flushQuietly, millis, millis, TimeUnit.MILLISECONDS);
     }
 
-    /** 쓰기를 예약한다. 같은 키가 이미 있으면 새 값으로 바꾼다. */
+    /** Schedules a write. If the key is already queued, replaces it with the new value. */
     public void enqueue(String key, SqlConsumer write) {
         if (closed) {
             throw new IllegalStateException("지연 쓰기 큐가 이미 닫혔습니다");
@@ -84,10 +88,12 @@ public final class WriteBehindQueue implements AutoCloseable {
         return new Stats(pendingCount(), written.get(), dropped.get());
     }
 
-    /** 큐 상태 (/harbor debug). */
+    /** Queue status (/harbor debug). */
     public record Stats(int pending, long written, long dropped) {}
 
-    /** 지금 쌓인 것을 모두 쓴다. 연결 오류로 못 쓴 것은 큐에 남는다. */
+    /**
+     * Writes everything queued now. Entries that fail due to connection errors stay in the queue.
+     */
     public void flush() {
         flushLock.lock();
         try {
@@ -108,8 +114,10 @@ public final class WriteBehindQueue implements AutoCloseable {
                         });
                 written.addAndGet(batch.size());
             } catch (SQLException | RuntimeException e) {
-                // 한 항목의 런타임 예외(직렬화 오류 등)도 묶음 전체를 롤백한다. 예전에는 SQLException만 잡아서 이미 큐에서
-                // 꺼낸 묶음(다른 플레이어 저장 포함)이 통째로 사라졌다
+                // A runtime exception from one entry (serialization error, etc.) also rolls back
+                // the whole batch. Previously only SQLException was caught, so a batch already
+                // taken from the queue
+                // (including other players' saves) was lost entirely
                 LOG.log(
                         Level.WARNING,
                         "묶음 쓰기 실패, 한 건씩 다시 씁니다 ({0}건): {1}",
@@ -123,8 +131,9 @@ public final class WriteBehindQueue implements AutoCloseable {
     }
 
     /**
-     * 키가 prefix로 시작하는 것만 지금 바로 한 트랜잭션으로 쓴다 (퇴장·서버 이동 때 그 플레이어 데이터만 즉시 저장). 실패하면 큐에 되돌리고 예외를 던진다.
-     * 백그라운드 쓰기와 순서가 섞이지 않도록 같은 잠금을 쓴다.
+     * Immediately writes, in one transaction, only the keys starting with prefix (saves just that
+     * player's data on quit/server move). On failure, puts them back and throws. Uses the same lock
+     * so its ordering does not interleave with background writes.
      */
     public void flushNow(String keyPrefix) throws SQLException {
         flushLock.lock();
@@ -155,8 +164,10 @@ public final class WriteBehindQueue implements AutoCloseable {
                 batch.forEach(this::requeue);
                 throw e;
             } catch (RuntimeException e) {
-                // 한 항목의 데이터 오류: 되돌려 놓으면 이 플레이어 저장이 영원히 실패하므로 한 건씩 써서 그 항목만 버린다.
-                // 연결 문제로 다시 큐에 들어간 것이 있으면 저장하지 못한 것으로 알린다
+                // Data error in one entry: putting it back would make this player's save fail
+                // forever, so write one at a time and drop only that entry.
+                // If anything went back into the queue due to connection problems, report it as not
+                // saved
                 LOG.log(Level.WARNING, "즉시 쓰기 실패, 한 건씩 다시 씁니다: " + keyPrefix, e);
                 flushOneByOne(batch);
                 synchronized (pendingLock) {
@@ -191,14 +202,18 @@ public final class WriteBehindQueue implements AutoCloseable {
                     LOG.log(Level.ERROR, "지연 쓰기 실패로 버립니다: " + entry.getKey(), e);
                 }
             } catch (RuntimeException e) {
-                // 그 항목의 데이터 오류: 다시 해도 같으므로 그 항목만 버리고 나머지는 계속 쓴다
+                // Data error in that entry: retrying gives the same result, so drop only that entry
+                // and keep writing the rest
                 dropped.incrementAndGet();
                 LOG.log(Level.ERROR, "지연 쓰기 오류로 버립니다: " + entry.getKey(), e);
             }
         }
     }
 
-    /** 실패한 쓰기를 되돌린다. 그 사이 같은 키에 새 값이 들어왔으면 새 값을 유지한다. */
+    /**
+     * Restores failed writes. If a newer value arrived for the same key meanwhile, the newer value
+     * is kept.
+     */
     private void requeue(String key, SqlConsumer write) {
         synchronized (pendingLock) {
             pending.putIfAbsent(key, write);
@@ -220,7 +235,7 @@ public final class WriteBehindQueue implements AutoCloseable {
         }
     }
 
-    /** 남은 것을 모두 쓰고 닫는다. 연결 오류가 계속되면 3번까지 다시 시도한다. */
+    /** Writes everything left and closes. Retries up to 3 times if connection errors persist. */
     @Override
     public void close() {
         closed = true;

@@ -16,54 +16,58 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 커스텀 블록 (furniture/blocks.yml, 추가 제안). 노트블록의 상태(악기 × 음 높이) 하나에 모델 하나를 붙이는 방식이다. 리소스팩 자동 빌드가 {@code
- * minecraft:blockstates/note_block.json}과 블록·아이템 모델을 만들어 넣는다 ({@code FurnishingPack}).
+ * Custom block (furniture/blocks.yml, proposed). Attaches one model to one note block state
+ * (instrument × pitch). The automatic resource pack build generates {@code
+ * minecraft:blockstates/note_block.json} and the block/item models ({@code FurnishingPack}).
  *
- * <p>state는 한 번 정하면 바꾸지 않는다 (이미 설치한 블록의 모양이 바뀐다). 1~{@value #MAX_STATE}. 0은 바닐라 노트블록 모양이다. powered
- * 상태는 쓰지 않는다 (레드스톤 신호로 모양이 바뀌지 않게 두 상태가 같은 모델을 쓴다).
+ * <p>Once set, state never changes (blocks already placed would change appearance). 1~{@value
+ * #MAX_STATE}. 0 is the vanilla note block look. The powered state is not used (both states share
+ * the same model so redstone signals do not change the look).
  *
  * <pre>{@code
- * - {id: block/marble_tile, name: 대리석 타일, state: 1, texture: "harbor:block/marble_tile"}
- * - {id: block/crate, name: 나무 상자, state: 2, top: "harbor:block/crate_top", side: "harbor:block/crate_side"}
- * - {id: block/lantern_post, name: 등대 기둥, state: 3, model: "harbor:block/lantern_post"}
- * - {id: block/dice, name: 주사위, state: 4, textures: {down: "harbor:block/d1", up: "harbor:block/d6",
+ * - {id: block/marble_tile, name: Marble Tile, state: 1, texture: "harbor:block/marble_tile"}
+ * - {id: block/crate, name: Wooden Crate, state: 2, top: "harbor:block/crate_top", side: "harbor:block/crate_side"}
+ * - {id: block/lantern_post, name: Lighthouse Post, state: 3, model: "harbor:block/lantern_post"}
+ * - {id: block/dice, name: Dice, state: 4, textures: {down: "harbor:block/d1", up: "harbor:block/d6",
  *     north: "harbor:block/d2", south: "harbor:block/d5", east: "harbor:block/d3", west: "harbor:block/d4"}}
  * - id: block/coral_ore
- *   name: 산호 광석
+ *   name: Coral Ore
  *   state: 10
  *   texture: "harbor:block/coral_ore"
- *   hardness: 3.0           # 캐는 시간 (바닐라 단단함, 노트블록 0.8 · 돌 1.5 · 철광석 3 · 흑요석 50, -1 = 부술 수 없음)
- *   tool: pickaxe           # 잘 캐지는 도구 (none · axe · pickaxe · shovel · hoe · sword, 기본 axe)
- *   tier: stone             # 곡괭이 등급 (wood · stone · iron · diamond, 이 등급 이상)
- *   requires_tool: true     # 맞는 도구가 아니면 느리고 아무것도 떨어지지 않음
- *   drops:                  # 없으면 블록 자신
+ *   hardness: 3.0           # mining time (vanilla hardness: note block 0.8, stone 1.5, iron ore 3, obsidian 50, -1 = unbreakable)
+ *   tool: pickaxe           # preferred tool (none, axe, pickaxe, shovel, hoe, sword; default axe)
+ *   tier: stone             # pickaxe tier (wood, stone, iron, diamond; this tier or higher)
+ *   requires_tool: true     # with the wrong tool it is slow and drops nothing
+ *   drops:                  # if absent, the block itself
  *     - {item: minecraft:prismarine_shard, min: 1, max: 3}
  *     - {item: item/material/coral_piece, chance: 20}
- *   silk_touch: true        # 섬세한 손길이면 drops 대신 블록 자신
+ *   silk_touch: true        # with Silk Touch, the block itself instead of drops
  *   exp: {min: 1, max: 3}
  *   sounds: {place: "minecraft:block.stone.place", break: "minecraft:block.stone.break"}
- * - {id: block/driftwood_log, name: 유목, state: 20, top: "...", side: "...", rotation: axis}   # 20·21·22번을 쓴다
+ * - {id: block/driftwood_log, name: Driftwood, state: 20, top: "...", side: "...", rotation: axis}   # uses 20, 21, 22
  * }</pre>
  *
- * <p>rotation: 놓는 방향에 따라 돌아가는 블록. 방향마다 상태 번호를 하나씩 더 쓴다 (state부터 연속): axis(원목처럼 3방향: y·x·z),
- * horizontal(화로처럼 놓는 사람을 보는 4방향: north·east·south·west), facing(발사기처럼 6방향: + up·down). 모델은
- * north(axis는 세로)를 기준으로 만들고 돌린다.
+ * <p>rotation: a block that rotates with the placement direction. Each direction uses one more
+ * state number (consecutive from state): axis (3 directions like logs: y, x, z), horizontal (4
+ * directions facing the placer like furnaces: north, east, south, west), facing (6 directions like
+ * dispensers: + up, down). Models are built facing north (vertical for axis) and rotated.
  *
- * @param state 노트블록 상태 번호 (1~399, 블록마다 달라야 한다)
- * @param model 직접 만든 블록 모델 키 (있으면 texture·top·side·bottom은 쓰지 않는다)
- * @param texture 여섯 면 같은 텍스처 키 (cube_all)
- * @param top 윗면 텍스처 (cube_bottom_top, side 필수)
- * @param side 옆면 텍스처
- * @param bottom 아랫면 텍스처 (없으면 top)
- * @param faces 면마다 다른 텍스처 (down·up·north·south·east·west 여섯 개 모두, minecraft:block/cube)
- * @param rotation 방향 종류
- * @param breaking 캐는 속도·도구
- * @param drops 떨어뜨릴 아이템 (비면 블록 자신)
- * @param silkTouch 섬세한 손길이면 drops 대신 블록 자신
- * @param expMin 경험치 최소
- * @param expMax 경험치 최대
- * @param placeSound 놓을 때 소리 키 (서버가 낸다)
- * @param breakSound 부술 때 소리 키
+ * @param state note block state number (1~399, must be unique per block)
+ * @param model custom block model key (if set, texture/top/side/bottom are not used)
+ * @param texture texture key for all six faces (cube_all)
+ * @param top top texture (cube_bottom_top, side required)
+ * @param side side texture
+ * @param bottom bottom texture (top if absent)
+ * @param faces a different texture per face (all six of down, up, north, south, east, west;
+ *     minecraft:block/cube)
+ * @param rotation rotation kind
+ * @param breaking mining speed and tool
+ * @param drops items to drop (the block itself if empty)
+ * @param silkTouch with Silk Touch, the block itself instead of drops
+ * @param expMin minimum experience
+ * @param expMax maximum experience
+ * @param placeSound sound key on placement (played by the server)
+ * @param breakSound sound key on breaking
  */
 public record CustomBlockDef(
         HarborId id,
@@ -86,26 +90,26 @@ public record CustomBlockDef(
 
     public static final String PREFIX = "block/";
 
-    /** 방향 종류. 방향마다 상태 번호 하나. */
+    /** Rotation kind. One state number per direction. */
     public enum Rotation {
         NONE("none"),
         AXIS("y,x,z"),
         HORIZONTAL("north,east,south,west"),
         FACING("north,east,south,west,up,down");
 
-        /** 쉼표로 이은 방향 이름 (enum은 변경 불가 필드만 둔다). */
+        /** Comma-joined direction names (enums keep only immutable fields). */
         private final String names;
 
         Rotation(String names) {
             this.names = names;
         }
 
-        /** 방향 이름 (상태 번호 순서). */
+        /** Direction names (in state number order). */
         public List<String> orientations() {
             return List.of(names.split(","));
         }
 
-        /** 블록 상태 파일의 모델 회전 [x, y] (도). */
+        /** Model rotation [x, y] in the blockstate file (degrees). */
         public static int[] modelRotation(String orientation) {
             return switch (orientation) {
                 case "x" -> new int[] {90, 90};
@@ -119,7 +123,7 @@ public record CustomBlockDef(
         }
     }
 
-    /** 잘 캐지는 도구. */
+    /** Preferred tool. */
     public enum Tool {
         NONE,
         AXE,
@@ -129,7 +133,7 @@ public record CustomBlockDef(
         SWORD
     }
 
-    /** 곡괭이 등급 (이 등급 이상이어야 캐진다). */
+    /** Pickaxe tier (this tier or higher is needed to mine). */
     public enum Tier {
         WOOD,
         STONE,
@@ -138,10 +142,11 @@ public record CustomBlockDef(
     }
 
     /**
-     * 캐는 설정. 기본값(단단함 0.8, 도끼, 도구 없어도 됨)은 바닐라 노트블록과 같아서 속도를 바꾸지 않는다.
+     * Mining settings. The defaults (hardness 0.8, axe, no tool required) match the vanilla note
+     * block, so the speed is unchanged.
      *
-     * @param hardness 바닐라 단단함 (0 = 바로 부서짐, 음수 = 부술 수 없음)
-     * @param tier 곡괭이 등급 (tool이 pickaxe일 때만)
+     * @param hardness vanilla hardness (0 = breaks instantly, negative = unbreakable)
+     * @param tier pickaxe tier (only when tool is pickaxe)
      */
     public record Breaking(double hardness, Tool tool, @Nullable Tier tier, boolean requiresTool) {
 
@@ -157,10 +162,10 @@ public record CustomBlockDef(
     }
 
     /**
-     * 떨어뜨릴 아이템 하나.
+     * One item to drop.
      *
-     * @param item 바닐라 아이템 키 (minecraft:x) 또는 Harbor 아이템 ID (harbor:item/x)
-     * @param chance 확률 (%)
+     * @param item vanilla item key (minecraft:x) or Harbor item ID (harbor:item/x)
+     * @param chance probability (%)
      */
     public record Drop(String item, int min, int max, double chance) {
 
@@ -169,7 +174,7 @@ public record CustomBlockDef(
         }
     }
 
-    /** textures에 적는 면 이름 (블록 모델 cube의 텍스처 변수). */
+    /** Face names used in textures (texture variables of the cube block model). */
     public static final List<String> FACES =
             List.of("down", "up", "north", "south", "east", "west");
 
@@ -178,7 +183,7 @@ public record CustomBlockDef(
         drops = List.copyOf(drops);
     }
 
-    /** 이 블록이 쓰는 상태 번호 (state부터 방향 수만큼). */
+    /** State numbers this block uses (from state, one per direction). */
     public List<Integer> states() {
         List<Integer> list = new ArrayList<>();
         for (int i = 0; i < rotation.orientations().size(); i++) {
@@ -187,16 +192,19 @@ public record CustomBlockDef(
         return list;
     }
 
-    /** 방향 이름의 상태 번호 (없는 이름이면 기본 방향). */
+    /** State number for a direction name (default direction for unknown names). */
     public int stateOf(String orientation) {
         int i = rotation.orientations().indexOf(orientation);
         return state + Math.max(0, i);
     }
 
-    /** 악기 16종 × 음 25개 - 바닐라 모양 1개. */
+    /** 16 instruments × 25 notes - 1 vanilla look. */
     public static final int MAX_STATE = 16 * 25 - 1;
 
-    /** 바닐라 노트블록 악기 (블록 아래·위 블록과 무관한 16종, 블록 상태 이름). */
+    /**
+     * Vanilla note block instruments (the 16 not tied to the blocks below/above, by blockstate
+     * name).
+     */
     public static final List<String> INSTRUMENTS =
             List.of(
                     "harp",
@@ -228,28 +236,31 @@ public record CustomBlockDef(
                     CustomBlockDef::parse,
                     CustomBlockDef::id);
 
-    /** 상태 번호의 악기. */
+    /** Instrument of a state number. */
     public static String instrument(int state) {
         return INSTRUMENTS.get(state / NOTES);
     }
 
-    /** 상태 번호의 음 높이 (0~24). */
+    /** Pitch of a state number (0~24). */
     public static int note(int state) {
         return state % NOTES;
     }
 
-    /** 블록 상태 속성 (이름순): {@code instrument=bell,note=3,powered=false}. */
+    /** Blockstate properties (sorted by name): {@code instrument=bell,note=3,powered=false}. */
     public static String properties(int state, boolean powered) {
         return "instrument=" + instrument(state) + ",note=" + note(state) + ",powered=" + powered;
     }
 
-    /** 블록 모델 키 (직접 만든 모델이 없으면 자동 생성 경로). */
+    /** Block model key (auto-generated path when there is no custom model). */
     public String blockModel() {
         String m = model;
         return m != null ? m : generatedKey();
     }
 
-    /** 아이템 모델(item_model) 키. 리소스팩 빌드가 이 경로에 아이템 정의를 만든다. */
+    /**
+     * Item model (item_model) key. The resource pack build creates the item definition at this
+     * path.
+     */
     public String itemModel() {
         return generatedKey();
     }

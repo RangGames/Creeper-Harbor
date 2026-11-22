@@ -17,19 +17,23 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 디스플레이 리그 정의 (rigs/*.yml, 추가 제안 형식). '16. 플러그인 설계' 5.10의 리그: 뼈 계층, 뼈마다 붙는 표시 부품(ItemDisplay의
- * item_model 또는 BlockDisplay의 블록), 키프레임 애니메이션.
+ * Display rig definition (rigs/*.yml, proposed format). The rig of '16. Plugin design' 5.10: a bone
+ * hierarchy, display parts attached per bone (ItemDisplay item_model or BlockDisplay block), and
+ * keyframe animations.
  *
- * <p>어종 모델 작업의 리그 JSON(harbor_rig_v1)은 {@code harbor-tools rig-import}가 이 형식으로 바꿔
- * rigs/fish/&lt;이름&gt;.yml에 넣는다 (추가 제안). 단위는 블록·도·틱이다.
+ * <p>Rig JSON from fish model work (harbor_rig_v1) is converted to this format by {@code
+ * harbor-tools rig-import} and placed in rigs/fish/&lt;name&gt;.yml (proposed). Units are blocks,
+ * degrees and ticks.
  *
- * <p>채널은 키프레임 목록 말고 고른 간격 샘플({@code {step: 2, v: [x0, y0, z0, x1, y1, z1, …]}}, 0틱부터 step틱마다 한 값,
- * 마지막 값이 length틱)로도 적을 수 있다. 샘플 사이는 선형 보간이다. 변환기가 리소스팩의 베이크 프레임을 그대로 옮길 때 쓴다. 동작의 {@code events}는
- * 정해진 틱에 이름 붙은 신호를 낸다 (예: 먹물·쉬익 소리, Core {@code RigInstance.onEvent}).
+ * <p>Instead of a keyframe list, a channel can also be written as evenly spaced samples ({@code
+ * {step: 2, v: [x0, y0, z0, x1, y1, z1, …]}}, one value every step ticks from tick 0, the last
+ * value at length ticks). Samples are linearly interpolated. The converter uses this to copy the
+ * resource pack's baked frames as-is. An animation's {@code events} emit named signals at set ticks
+ * (e.g. ink, hiss sounds; Core {@code RigInstance.onEvent}).
  *
  * <pre>
  * - id: rig/fish/harbor_mackerel
- *   forward: -z                 # 모델 머리 방향 (시제품 어종 모델은 −Z)
+ *   forward: -z                 # model head direction (prototype fish models face −Z)
  *   default_animation: swim
  *   bones:
  *     - name: body
@@ -50,12 +54,15 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *             - {t: 20, v: [0, -25, 0]}
  * </pre>
  *
- * @param scale 리그 전체 크기 배율
- * @param forwardNegZ 모델 머리가 −Z를 보는지. 참이면 진행 방향을 줄 때 yaw + 180°, pitch 부호를 뒤집는다 (시제품 보정)
- * @param length 몸길이 (블록, 추가 제안). Wildlife 무리 크기·스폰 판정이 참고한다. 0이면 미지정
- * @param viewRange Display view_range 배율 (기본 1.0)
- * @param bones 부모가 항상 자식보다 앞에 오는 순서
- * @param defaultAnimation 생성 직후·한 번 재생이 끝난 뒤 돌아갈 동작. 없으면 기본 자세
+ * @param scale overall rig scale factor
+ * @param forwardNegZ whether the model head faces −Z. If true, yaw + 180° and the pitch sign is
+ *     flipped when given a heading (prototype correction)
+ * @param length body length (blocks, proposed). Used by Wildlife school size and spawn checks. 0
+ *     means unspecified
+ * @param viewRange Display view_range multiplier (default 1.0)
+ * @param bones ordered so that a parent always precedes its children
+ * @param defaultAnimation animation to return to right after spawn and after a one-shot finishes.
+ *     Rest pose if absent
  */
 public record RigDef(
         RigId id,
@@ -68,9 +75,10 @@ public record RigDef(
         @Nullable String defaultAnimation) {
 
     /**
-     * 뼈 하나. 기본 자세는 부모 공간에서 pivot 위치, rotation(오일러, 도), scale.
+     * One bone. The rest pose is the pivot position, rotation (Euler, degrees) and scale in parent
+     * space.
      *
-     * @param parent 부모 뼈 번호 (−1이면 리그 원점)
+     * @param parent parent bone index (−1 means the rig origin)
      */
     public record Bone(
             String name,
@@ -81,13 +89,13 @@ public record RigDef(
             @Nullable Part part,
             @Nullable Hitbox hitbox) {}
 
-    /** 표시 부품 종류. */
+    /** Display part kind. */
     public enum PartKind {
         ITEM,
         BLOCK
     }
 
-    /** ItemDisplay 그리기 방식. 이름은 Bukkit ItemDisplay.ItemDisplayTransform과 같다. */
+    /** ItemDisplay render mode. Names match Bukkit ItemDisplay.ItemDisplayTransform. */
     public enum ItemTransform implements Keyed {
         NONE,
         THIRDPERSON_LEFTHAND,
@@ -106,14 +114,17 @@ public record RigDef(
     }
 
     /**
-     * 뼈에 붙는 표시 부품.
+     * Display part attached to a bone.
      *
-     * @param model ITEM이면 item_model 키 (예: {@code harbor:rig/fish/x/body}), BLOCK이면 블록 상태 (예:
-     *     {@code minecraft:kelp_plant})
-     * @param offset 뼈 기준 부품 위치·회전·크기
-     * @param flip item_display의 Y축 180° 뒤집힘 보정을 넣을지 (ITEM 기본 참, BLOCK은 항상 거짓)
-     * @param brightness 고정 밝기 [블록, 하늘] (0~15). 없으면 주변 밝기 (용암 속 어종 등은 고정, '17-3' 9.4)
-     * @param glowColor 발광 테두리 색 (0xRRGGBB). 기본 발광 여부와 별개로 {@code setPartGlow}에서 쓰는 기본 색
+     * @param model item_model key for ITEM (e.g. {@code harbor:rig/fish/x/body}), block state for
+     *     BLOCK (e.g. {@code minecraft:kelp_plant})
+     * @param offset part position/rotation/scale relative to the bone
+     * @param flip whether to apply the item_display 180° Y-flip correction (default true for ITEM,
+     *     always false for BLOCK)
+     * @param brightness fixed brightness [block, sky] (0~15). Ambient brightness if absent (fixed
+     *     for e.g. fish in lava, '17-3' 9.4)
+     * @param glowColor glow outline color (0xRRGGBB). Default color used by {@code setPartGlow},
+     *     independent of default glowing
      */
     public record Part(
             PartKind kind,
@@ -124,24 +135,25 @@ public record RigDef(
             @Nullable Brightness brightness,
             int glowColor) {}
 
-    /** 고정 밝기 (0~15). */
+    /** Fixed brightness (0~15). */
     public record Brightness(int block, int sky) {}
 
     /**
-     * 부위 판정 상자 (Boss 부위별 Interaction, '8. 시스템 상세 기획' 9장). 상자 중심이 뼈 기준 offset 위치에 온다.
+     * Part hitbox (per-part Boss Interaction, '8. System details' chapter 9). The box center sits
+     * at the offset position relative to the bone.
      *
-     * @param width 가로·세로 폭 (블록)
-     * @param height 높이 (블록)
+     * @param width horizontal width/depth (blocks)
+     * @param height height (blocks)
      */
     public record Hitbox(double width, double height, Vec3 offset) {}
 
-    /** 재생 방식. */
+    /** Playback mode. */
     public enum LoopMode implements Keyed {
-        /** 끝나면 처음부터 반복. */
+        /** Repeats from the start when finished. */
         LOOP,
-        /** 한 번 재생하고 기본 동작(default_animation)으로 돌아간다. */
+        /** Plays once and returns to the default animation (default_animation). */
         ONCE,
-        /** 한 번 재생하고 마지막 자세를 유지한다. */
+        /** Plays once and holds the last pose. */
         HOLD;
 
         @Override
@@ -150,7 +162,7 @@ public record RigDef(
         }
     }
 
-    /** 동작 하나. length는 틱, tracks는 뼈 번호 → 채널, events는 틱 순서. */
+    /** One animation. length in ticks, tracks is bone index → channel, events in tick order. */
     public record Animation(
             String name,
             int length,
@@ -168,10 +180,16 @@ public record RigDef(
         }
     }
 
-    /** 동작 중 tick(동작 시작부터의 틱)에 내는 신호 (추가 제안). 예: {@code ink}, {@code hiss}. */
+    /**
+     * Signal emitted at tick (ticks since animation start) during an animation (proposed). E.g.
+     * {@code ink}, {@code hiss}.
+     */
     public record Event(int tick, String name) {}
 
-    /** 뼈 하나의 채널. position은 pivot에 더하고, rotation은 기본 회전(오일러)에 더하고, scale은 기본 크기에 곱한다. */
+    /**
+     * Channel of one bone. position is added to the pivot, rotation is added to the base rotation
+     * (Euler), scale multiplies the base scale.
+     */
     public record BoneTracks(Track position, Track rotation, Track scale) {}
 
     public static final ContentType.Entries<RigDef> TYPE =
@@ -212,7 +230,7 @@ public record RigDef(
     private static final Set<String> CHANNELS = Set.of("position", "rotation", "scale");
     private static final Set<String> KEY_FIELDS = Set.of("t", "v", "ease");
 
-    /** 부품이 있는 뼈 수. */
+    /** Number of bones with parts. */
     public int partCount() {
         int n = 0;
         for (Bone bone : bones) {
@@ -237,7 +255,7 @@ public record RigDef(
         return Optional.ofNullable(animations.get(name));
     }
 
-    // ------------------------------------------------------------------ 파싱
+    // ------------------------------------------------------------------ Parsing
 
     static RigDef parse(YamlNode node, ParseContext ctx) {
         node.allowOnly(FIELDS);
@@ -484,7 +502,10 @@ public record RigDef(
         return new Track(keys);
     }
 
-    /** 고른 간격 샘플 채널: {@code {step: n, v: [x0, y0, z0, …]}}. 값 수는 (length / step + 1) × 3. */
+    /**
+     * Evenly spaced sample channel: {@code {step: n, v: [x0, y0, z0, …]}}. Value count is (length /
+     * step + 1) × 3.
+     */
     private static Track sampledTrack(YamlNode node, int length) {
         node.allowOnly(SAMPLED_FIELDS);
         int step = node.integer("step", 1);
@@ -525,7 +546,10 @@ public record RigDef(
         return node.get(key).map(RigDef::vec3).orElse(fallback);
     }
 
-    /** 크기: 숫자 하나(균일) 또는 [x, y, z]. 없으면 1. 음수는 그 축 대칭(좌우 지느러미 등). */
+    /**
+     * Scale: one number (uniform) or [x, y, z]. 1 if absent. A negative value mirrors that axis
+     * (left/right fins, etc.).
+     */
     private static Vec3 scale(YamlNode node, String key) {
         Optional<YamlNode> value = node.get(key);
         if (value.isEmpty()) {

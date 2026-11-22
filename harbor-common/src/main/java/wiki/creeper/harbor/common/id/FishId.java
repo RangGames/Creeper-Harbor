@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.id;
 
-/** 어종 ID. 예: {@code harbor:fish/example}. */
+/** Fish species ID. E.g. {@code harbor:fish/example}. */
 public record FishId(HarborId id) implements TypedId {
 
     public static final String PREFIX = "fish/";

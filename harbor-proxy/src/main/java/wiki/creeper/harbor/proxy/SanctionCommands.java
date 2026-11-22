@@ -22,22 +22,23 @@ import wiki.creeper.harbor.common.donor.DonorTier;
 import wiki.creeper.harbor.common.redis.Redis;
 
 /**
- * /hp 제재·조회 명령 (docs 20 1.5).
+ * /hp sanction and lookup commands (docs 20 1.5).
  *
  * <ul>
- *   <li>{@code /hp ban|mute <플레이어> [기간] [사유]}, {@code /hp unban|unmute <플레이어>}, {@code /hp kick
- *       <플레이어> [사유]}: harbor.admin.proxy.sanction
- *   <li>{@code /hp lookup|alts <플레이어>}, {@code /hp sharedip add|remove <플레이어> [이름표]}:
+ *   <li>{@code /hp ban|mute <player> [duration] [reason]}, {@code /hp unban|unmute <player>},
+ *       {@code /hp kick <player> [reason]}: harbor.admin.proxy.sanction
+ *   <li>{@code /hp lookup|alts <player>}, {@code /hp sharedip add|remove <player> [label]}:
  *       harbor.admin.proxy.lookup
  * </ul>
  *
- * 대상은 접속 중이 아니어도 된다 (이름 → players · join_log, 또는 UUID). 모든 명령은 admin_log에 남긴다.
+ * The target need not be online (name → players · join_log, or UUID). Every command is logged to
+ * admin_log.
  */
 final class SanctionCommands {
 
     private static final int LOOKUP_ROWS = 5;
 
-    /** 명령 대상. */
+    /** Command target. */
     private record Target(UUID uuid, String name) {}
 
     private final ProxyServer proxy;
@@ -83,7 +84,7 @@ final class SanctionCommands {
                 sharedIp());
     }
 
-    // ------------------------------------------------------------------ 제재
+    // ------------------------------------------------------------------ Sanctions
 
     private LiteralArgumentBuilder<CommandSource> issue(String name, Sanction.Type type) {
         return BrigadierCommand.literalArgumentBuilder(name)
@@ -206,7 +207,7 @@ final class SanctionCommands {
                                                                                         "reason")))));
     }
 
-    /** 퇴장은 기록만 남기고 제재 행은 만들지 않는다 (sanctions는 BAN·MUTE만). */
+    /** A kick is only logged and creates no sanction row (sanctions holds only BAN and MUTE). */
     private int kick(CommandContext<CommandSource> ctx, String rawReason) {
         CommandSource src = ctx.getSource();
         Optional<Player> player = proxy.getPlayer(StringArgumentType.getString(ctx, "target"));
@@ -222,7 +223,7 @@ final class SanctionCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ Lookups
 
     private LiteralArgumentBuilder<CommandSource> lookup() {
         return BrigadierCommand.literalArgumentBuilder("lookup")
@@ -429,7 +430,7 @@ final class SanctionCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ Helpers
 
     private RequiredArgumentBuilder<CommandSource, String> target() {
         return BrigadierCommand.requiredArgumentBuilder("target", StringArgumentType.word())
@@ -440,7 +441,9 @@ final class SanctionCommands {
                         });
     }
 
-    /** 대상을 찾아 일을 실행한다. 못 찾거나 실패하면 명령한 사람에게 알린다. */
+    /**
+     * Finds the target and runs the task. Notifies the command sender if not found or on failure.
+     */
     private void withTarget(
             CommandContext<CommandSource> ctx,
             java.util.function.Function<Target, CompletableFuture<Void>> work) {
@@ -490,7 +493,7 @@ final class SanctionCommands {
         return src instanceof Player player ? player.getUniqueId().toString() : "CONSOLE";
     }
 
-    /** IP 해시 앞 8자리 (운영진이 같은 IP인지 눈으로 비교하는 용도). */
+    /** First 8 characters of the IP hash (for staff to eyeball whether IPs match). */
     private static String shortHash(String hash) {
         return hash.length() > 8 ? hash.substring(0, 8) : hash;
     }

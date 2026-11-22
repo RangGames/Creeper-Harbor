@@ -18,16 +18,17 @@ import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.util.Result;
 
 /**
- * 재화 원장 쓰기. 한 트랜잭션 안에서 다음 순서로 처리한다.
+ * Currency ledger writes. Processed in this order within one transaction.
  *
  * <ol>
- *   <li>잔액 행을 잠근다 (SELECT … FOR UPDATE)
- *   <li>새 잔액이 음수면 거부한다
- *   <li>원장에 (uuid, 재화, 변화량, 처리 후 잔액, 사유, 참조 ID)를 기록한다. 참조 ID가 겹치면 거부한다
- *   <li>잔액을 갱신한다
+ *   <li>Lock the balance row (SELECT … FOR UPDATE)
+ *   <li>Reject if the new balance is negative
+ *   <li>Record (uuid, currency, delta, balance after, reason, reference ID) in the ledger. Reject
+ *       on a duplicate reference ID
+ *   <li>Update the balance
  * </ol>
  *
- * 골드·물비늘은 {@code ledger}, 진주는 {@code pearl_ledger} 테이블에 쓴다.
+ * Gold and mulbineul go to the {@code ledger} table, pearls to {@code pearl_ledger}.
  */
 public final class LedgerWriter {
 
@@ -40,9 +41,10 @@ public final class LedgerWriter {
     }
 
     /**
-     * 이미 열린 트랜잭션 안에서 한 건을 처리한다. 실패하면 {@link LedgerException}을 던지고, 트랜잭션은 호출한 쪽이 롤백한다.
+     * Processes one entry inside an already open transaction. On failure throws {@link
+     * LedgerException}; the caller rolls back the transaction.
      *
-     * @return 처리 후 잔액
+     * @return balance after processing
      */
     public long apply(Connection connection, LedgerEntry entry) throws SQLException {
         BalanceStore store = stores.get(entry.currency());
@@ -69,7 +71,7 @@ public final class LedgerWriter {
         return newBalance;
     }
 
-    /** 한 건을 자기 트랜잭션으로 처리한다. 블로킹이므로 메인 스레드에서 부르지 않는다. */
+    /** Processes one entry in its own transaction. Blocking, so do not call on the main thread. */
     public Result<Long, LedgerError> post(Database database, LedgerEntry entry) {
         try {
             return Result.ok(database.tx(connection -> apply(connection, entry)));
@@ -83,11 +85,13 @@ public final class LedgerWriter {
     }
 
     /**
-     * 여러 건을 한 트랜잭션으로 처리한다 (송금, 경매 낙찰 등). 하나라도 실패하면 모두 취소된다. 교착 상태를 줄이려고 잠금은 (플레이어 UUID, 재화) 순서로 건다.
+     * Processes several entries in one transaction (transfers, auction wins, etc.). If any fails,
+     * all are cancelled. Locks are taken in (player UUID, currency) order to reduce deadlocks.
      *
-     * @param extra 같은 트랜잭션에서 실행할 추가 SQL (경매 행 상태 변경 등). 원장 기록이 모두 성공한 뒤 실행한다. 업무 규칙 위반은 {@link
-     *     LedgerException}을 던져 알린다.
-     * @return 입력 순서대로 처리 후 잔액
+     * @param extra extra SQL to run in the same transaction (auction row status change, etc.). Runs
+     *     after all ledger records succeed. Business rule violations are reported by throwing
+     *     {@link LedgerException}.
+     * @return balances after processing, in input order
      */
     public Result<List<Long>, LedgerError> postAll(
             Database database, List<LedgerEntry> entries, @Nullable SqlConsumer extra) {
@@ -106,7 +110,7 @@ public final class LedgerWriter {
         return postAll(database, entries, null);
     }
 
-    /** 이미 열린 트랜잭션 안에서 여러 건을 처리한다. */
+    /** Processes several entries inside an already open transaction. */
     public List<Long> applyAll(
             Connection connection, List<LedgerEntry> entries, @Nullable SqlConsumer extra)
             throws SQLException {
@@ -173,7 +177,7 @@ public final class LedgerWriter {
                 || e.getErrorCode() == MARIADB_DUPLICATE_KEY;
     }
 
-    /** 잔액 저장소 (원장 검사용). */
+    /** Balance stores (for the ledger audit). */
     public Map<Currency, BalanceStore> stores() {
         return Map.copyOf(stores);
     }

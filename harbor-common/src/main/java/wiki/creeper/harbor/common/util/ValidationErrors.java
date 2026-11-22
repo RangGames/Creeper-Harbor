@@ -6,7 +6,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
-/** 검증 오류 목록. 첫 오류에서 멈추지 않고 모두 모아서 한 번에 보여준다. */
+/**
+ * Validation error list. Does not stop at the first error; collects them all and shows them at
+ * once.
+ */
 public final class ValidationErrors {
 
     private final List<ValidationError> errors = new ArrayList<>();
@@ -31,7 +34,7 @@ public final class ValidationErrors {
         return Collections.unmodifiableList(errors);
     }
 
-    /** 사람이 읽는 여러 줄 문자열. */
+    /** Human-readable multi-line string. */
     public String format() {
         return errors.stream().map(ValidationError::toString).collect(Collectors.joining("\n"));
     }

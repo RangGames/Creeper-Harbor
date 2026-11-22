@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 class RigPlaybackTest {
 
-    /** 몸통이 20틱 동안 위아래로 0.5 움직이는 반복 동작 + 10틱짜리 한 번 동작. */
+    /** Looping animation moving the body up and down by 0.5 over 20 ticks + a 10-tick one-shot. */
     private static final String RIG =
             """
             id: rig/fish/playback
@@ -84,13 +84,14 @@ class RigPlaybackTest {
     void sendsOnlyAtKeyBoundariesAndLoops() {
         assertTrue(playback.play("swim", 0, 0, now));
         tick(41);
-        // 키(프레임 압축 후)는 0·8·10·18·20틱 근처. 명령은 구간에 들어설 때만 나가므로 41틱 동안 프레임 수(21×2)보다 훨씬 적다
+        // Keys (after frame compression) are near ticks 0, 8, 10, 18, 20. Commands go out only on
+        // entering an interval, so far fewer than the frame count (21×2) over 41 ticks
         assertTrue(sent.size() < 15, "명령 수 " + sent.size());
-        // 첫 명령: 다음 키로 가는 보간
+        // First command: interpolation toward the next key
         Sent first = sent.getFirst();
         assertEquals(1000, first.tick());
         assertTrue(first.duration() > 0);
-        // 한 바퀴(20틱) 뒤 같은 구간에 다시 들어서면 같은 명령이 다시 나간다
+        // Re-entering the same interval one cycle (20 ticks) later sends the same command again
         List<Sent> atStart = sent.stream().filter(s -> (s.tick() - 1000) % 20 == 0).toList();
         assertEquals(3, atStart.size());
         assertEquals(atStart.get(0).y(), atStart.get(1).y(), 1e-9);
@@ -127,7 +128,7 @@ class RigPlaybackTest {
         tick(12);
         assertEquals("sink", playback.animation());
         tick(30);
-        // hold: 마지막 자세 유지
+        // hold: keep the last pose
         assertEquals("sink", playback.animation());
         assertEquals(-1, playback.pose(0, now).translation().y(), 1e-9);
     }
@@ -162,7 +163,7 @@ class RigPlaybackTest {
         playback.resync();
         tick(1);
         assertEquals(count + 1, sent.size(), "재동기화하면 지금 구간을 다시 보낸다");
-        // 프레임 번호는 한 바퀴로 접힌다
+        // Frame number folds into one cycle
         playback.setPhase(25, now);
         assertEquals(5, playback.frame(now));
     }
@@ -194,15 +195,15 @@ class RigPlaybackTest {
         List<String> fired = new ArrayList<>();
         playback.setEventSink((anim, event) -> fired.add(anim + ":" + event + "@" + (now - 1000)));
         playback.play("swim", 0, 0, now);
-        tick(41); // 0·20·40틱에 stroke
+        tick(41); // stroke at ticks 0, 20, 40
         assertEquals(List.of("swim:stroke@0", "swim:stroke@20", "swim:stroke@40"), fired);
         fired.clear();
         playback.playOnce("leap", null, 0, now);
         long start = now - 1000;
-        tick(12); // leap 4틱에 splash, 끝나면 swim으로 돌아가 0틱 stroke
+        tick(12); // splash at leap tick 4; when it ends, back to swim with a stroke at tick 0
         assertEquals(List.of("leap:splash@" + (start + 4), "swim:stroke@" + (start + 10)), fired);
         fired.clear();
-        // 오래 갱신이 끊겼다가 돌아오면 그사이 이벤트는 버린다
+        // After a long update gap, events in between are dropped
         now += 100;
         tick(1);
         assertTrue(fired.isEmpty(), fired::toString);

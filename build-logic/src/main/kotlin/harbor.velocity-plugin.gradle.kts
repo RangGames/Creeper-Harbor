@@ -1,4 +1,4 @@
-// Velocity 플러그인 공통 설정. Velocity에는 PluginLoader가 없어서 필요한 라이브러리를 jar에 넣는다.
+// Shared settings for Velocity plugins. Velocity has no PluginLoader, so required libraries go into the jar.
 plugins {
     id("harbor.java")
     id("com.gradleup.shadow")

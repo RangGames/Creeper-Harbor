@@ -1,9 +1,10 @@
 package wiki.creeper.harbor.common.db;
 
 /**
- * MariaDB 연결 설정.
+ * MariaDB connection settings.
  *
- * @param poolSize 연결 풀 크기 (본 서버 20, 로비·인스턴스 8, 프록시 5로 시작)
+ * @param poolSize connection pool size (start with 20 on the main server, 8 on lobby/instances, 5
+ *     on the proxy)
  */
 public record DatabaseConfig(
         String host,
@@ -20,7 +21,7 @@ public record DatabaseConfig(
 
     @Override
     public String toString() {
-        // 비밀번호는 로그에 남기지 않는다
+        // Never log the password
         return "DatabaseConfig[" + jdbcUrl() + ", user=" + user + ", pool=" + poolSize + "]";
     }
 }

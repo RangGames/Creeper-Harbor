@@ -5,10 +5,11 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.model.Currency;
 
 /**
- * 원장에 남길 재화 변경 한 건.
+ * One currency change to record in the ledger.
  *
- * @param delta 변화량 (+ 지급, - 차감). 0은 허용하지 않는다.
- * @param refId 참조 ID (퀘스트 완료 ID, 경매 낙찰 ID, 결제 거래 ID). 같은 (플레이어, 재화, 사유, 참조 ID)는 한 번만 기록된다.
+ * @param delta change amount (+ grant, - deduct). 0 is not allowed.
+ * @param refId reference ID (quest completion ID, auction win ID, payment transaction ID). The same
+ *     (player, currency, reason, reference ID) is recorded only once.
  */
 public record LedgerEntry(
         UUID player, Currency currency, long delta, LedgerReason reason, @Nullable String refId) {

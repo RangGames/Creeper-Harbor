@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.model;
 
-/** 등급. 어종·아이템 공통. 선언 순서가 낮은 등급 → 높은 등급. */
+/** Grade. Shared by fish and items. Declaration order is lowest → highest grade. */
 public enum Grade implements Keyed {
     COMMON,
     UNCOMMON,

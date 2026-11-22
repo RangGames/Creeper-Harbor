@@ -49,7 +49,7 @@ class PackMergeTest {
                 "{\"sources\":[{\"type\":\"directory\",\"source\":\"harbor\"}]}");
         write(harbor, "assets/minecraft/textures/item/paper.png", "HARBOR");
 
-        // 다른 플러그인 폴더 (한 겹 안쪽에 assets)
+        // Another plugin's folder (assets one level in)
         Path other = dir.resolve("other");
         write(other, "inner/pack.mcmeta", "{\"pack\":{\"description\":\"other\"}}");
         write(other, "inner/assets/minecraft/sounds.json", "{\"x\":{\"from\":\"other\"},\"y\":{}}");
@@ -60,7 +60,7 @@ class PackMergeTest {
         write(other, "inner/assets/minecraft/textures/item/paper.png", "OTHER");
         write(other, "inner/assets/meg/models/a.json", "{}");
 
-        // zip (안쪽 폴더 Pack/)
+        // zip (inner folder Pack/)
         Path zip = dir.resolve("extra.zip");
         try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(zip))) {
             out.putNextEntry(new ZipEntry("Pack/assets/extra/items/thing.json"));
@@ -75,23 +75,23 @@ class PackMergeTest {
         PackBuilder.Built result =
                 PackBuilder.build(harbor, List.of(other, zip), built, META, Map.of());
 
-        // pack.mcmeta는 Harbor 것
+        // pack.mcmeta is Harbor's
         assertTrue(entry(built, "pack.mcmeta").contains("harbor"));
-        // sounds.json 키 합치기 (Harbor가 이김)
+        // sounds.json keys merged (Harbor wins)
         JsonObject sounds =
                 JsonParser.parseString(entry(built, "assets/minecraft/sounds.json"))
                         .getAsJsonObject();
         assertEquals("harbor", sounds.getAsJsonObject("x").get("from").getAsString());
         assertTrue(sounds.has("y") && sounds.has("z"));
-        // atlas 합집합 (중복 한 번)
+        // atlas union (duplicates once)
         JsonObject atlas =
                 JsonParser.parseString(entry(built, "assets/minecraft/atlases/blocks.json"))
                         .getAsJsonObject();
         assertEquals(2, atlas.getAsJsonArray("sources").size());
-        // 겹친 파일은 Harbor 것 + 안내
+        // Overlapping file is Harbor's + a note
         assertEquals("HARBOR", entry(built, "assets/minecraft/textures/item/paper.png"));
         assertTrue(result.notes().stream().anyMatch(n -> n.contains("paper.png")));
-        // 다른 팩의 파일·모델·소리도 들어간다
+        // Files, models and sounds from the other packs are included too
         assertFalse(entry(built, "assets/meg/models/a.json").isEmpty());
         assertTrue(result.index().models().contains("extra:thing"));
         assertTrue(

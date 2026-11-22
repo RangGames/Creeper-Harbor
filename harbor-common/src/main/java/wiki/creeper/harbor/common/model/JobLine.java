@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.model;
 
-/** 2차 전직 때 고르는 계열. */
+/** Line chosen at the second job advancement. */
 public enum JobLine implements Keyed {
     EXPLORE,
     COLLECT,

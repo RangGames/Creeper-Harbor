@@ -2,15 +2,19 @@ package wiki.creeper.harbor.common.rig;
 
 import org.jspecify.annotations.Nullable;
 
-/** 리그 자세 계산 (순수 계산, 서버 API 없음). 동작의 시각 t에서 뼈마다 리그 원점 기준 변환을 구한다. */
+/**
+ * Rig pose computation (pure computation, no server API). Computes each bone's transform relative
+ * to the rig origin at time t of an animation.
+ */
 public final class RigSampler {
 
     private RigSampler() {}
 
     /**
-     * 시각 t의 뼈 변환 (리그 원점 기준, 리그 scale 포함). 동작이 없으면 기본 자세.
+     * Bone transforms at time t (relative to the rig origin, including rig scale). Rest pose if
+     * there is no animation.
      *
-     * @return 뼈 번호 순서의 배열
+     * @return array in bone index order
      */
     public static Xform[] pose(RigDef rig, RigDef.@Nullable Animation animation, double t) {
         int n = rig.bones().size();
@@ -25,7 +29,7 @@ public final class RigSampler {
         return world;
     }
 
-    /** 뼈 하나의 부모 기준 변환. */
+    /** Transform of one bone relative to its parent. */
     static Xform local(RigDef.Bone bone, RigDef.@Nullable BoneTracks tracks, double t) {
         if (tracks == null) {
             return new Xform(bone.pivot(), Quat.euler(bone.rotation()), bone.scale());
@@ -36,18 +40,19 @@ public final class RigSampler {
         return new Xform(position, Quat.euler(euler), scale);
     }
 
-    /** 부품의 Display 변환 (오른쪽 회전 보정은 따로). */
+    /** Display transform of a part (right-rotation correction is separate). */
     public static Xform part(Xform boneWorld, RigDef.Part part) {
         return boneWorld.then(part.offset());
     }
 
-    /** 판정 상자 중심 (리그 원점 기준). */
+    /** Hitbox center (relative to the rig origin). */
     public static Vec3 hitboxCenter(Xform boneWorld, RigDef.Hitbox hitbox) {
         return boneWorld.apply(hitbox.offset());
     }
 
     /**
-     * 진행 방향(yaw·pitch, 마인크래프트 기준)을 엔티티에 줄 회전으로 바꾼다. 머리가 −Z인 모델은 yaw + 180°, pitch 부호 반대 (시제품 보정,
+     * Converts a heading (yaw/pitch, Minecraft convention) into the rotation given to the entity.
+     * Models whose head faces −Z get yaw + 180° and a flipped pitch sign (prototype correction,
      * '17-3' 9.4).
      *
      * @return [yaw, pitch]
@@ -59,7 +64,7 @@ public final class RigSampler {
         return new float[] {wrapDegrees(yaw), pitch};
     }
 
-    /** −180 ≤ 각 < 180. */
+    /** −180 ≤ angle < 180. */
     public static float wrapDegrees(float degrees) {
         float d = degrees % 360f;
         if (d >= 180f) {

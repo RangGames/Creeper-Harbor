@@ -6,7 +6,10 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
-/** SET NX PX 방식의 분산 잠금. 월드 보스·시세 갱신·원장 검사처럼 한 서버만 해야 하는 작업에 쓴다. 블로킹 호출이다. */
+/**
+ * Distributed lock using SET NX PX. For jobs only one server may do, like world bosses, market
+ * price updates and ledger audits. Blocking calls.
+ */
 public final class DistributedLock {
 
     private static final String RELEASE =
@@ -21,14 +24,17 @@ public final class DistributedLock {
         this.redis = redis;
     }
 
-    /** 잠금을 시도한다. 다른 서버가 가지고 있으면 빈 Optional. */
+    /** Tries to acquire the lock. Empty Optional if another server holds it. */
     public Optional<Handle> tryAcquire(String key, Duration ttl) {
         String token = UUID.randomUUID().toString();
         String ok = redis.sync().set(key, token, SetArgs.Builder.nx().px(ttl.toMillis()));
         return "OK".equals(ok) ? Optional.of(new Handle(key, token)) : Optional.empty();
     }
 
-    /** 얻은 잠금. 토큰이 같을 때만 풀거나 연장한다 (다른 서버가 다시 얻은 잠금을 지우지 않게). */
+    /**
+     * An acquired lock. Released or extended only when the token matches (so a lock re-acquired by
+     * another server is not deleted).
+     */
     public final class Handle implements AutoCloseable {
 
         private final String key;

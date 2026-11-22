@@ -19,18 +19,20 @@ import java.util.function.Consumer;
 import wiki.creeper.harbor.common.util.Json;
 
 /**
- * 형식이 있는 Redis 발행·구독.
+ * Typed Redis publish/subscribe.
  *
- * <p>한 Redis 채널에 여러 메시지 형식을 보낼 수 있다. 봉투의 type(레코드 이름)이 구독한 {@link Channel#type()}과 같을 때만 핸들러를 부른다.
+ * <p>Several message types can be sent on one Redis channel. A handler is called only when the
+ * envelope type (record name) equals the subscribed {@link Channel#type()}.
  *
- * <p>핸들러는 Lettuce 이벤트 스레드에서 불린다. 게임 상태를 바꾸려면 핸들러 안에서 메인 스레드로 넘겨야 한다. 자기가 보낸 메시지도 받으므로 필요하면 {@link
- * Envelope#server()}로 거른다.
+ * <p>Handlers are called on the Lettuce event thread. To change game state, hand off to the main
+ * thread inside the handler. Own messages are received too, so filter with {@link
+ * Envelope#server()} if needed.
  */
 public final class MessageBus implements AutoCloseable {
 
     private static final System.Logger LOG = System.getLogger("Harbor/MessageBus");
 
-    /** 구독 실패 재시도 간격: 1초부터 두 배씩, 최대 30초. */
+    /** Subscription failure retry interval: from 1 second, doubling, up to 30 seconds. */
     private static final long RETRY_MIN_MS = 1_000;
 
     private static final long RETRY_MAX_MS = 30_000;
@@ -58,7 +60,8 @@ public final class MessageBus implements AutoCloseable {
                                 onMessage(channel, message);
                             }
                         });
-        // Lettuce는 실제로 구독된 채널만 복구한다. 끊긴 동안 거부된 SUBSCRIBE까지 다시 건다 (SUBSCRIBE는 중복돼도 무해)
+        // Lettuce only restores channels that were actually subscribed. Also resend SUBSCRIBEs
+        // rejected while disconnected (duplicate SUBSCRIBE is harmless)
         redis.pubSub()
                 .addListener(
                         new RedisConnectionStateListener() {
@@ -72,7 +75,7 @@ public final class MessageBus implements AutoCloseable {
                         });
     }
 
-    /** 메시지를 보낸다. 실패하면 로그만 남기고 게임은 계속 진행한다. */
+    /** Sends a message. On failure only logs, and the game continues. */
     public <T extends Record> void publish(Channel<T> channel, T payload) {
         JsonObject envelope = new JsonObject();
         envelope.addProperty("type", channel.type().getSimpleName());
@@ -99,7 +102,7 @@ public final class MessageBus implements AutoCloseable {
         }
     }
 
-    /** 구독한다. 같은 채널에 핸들러를 여러 개 둘 수 있다. */
+    /** Subscribes. Several handlers may share a channel. */
     public <T extends Record> void subscribe(Channel<T> channel, Consumer<Envelope<T>> consumer) {
         List<Handler<?>> list =
                 handlers.computeIfAbsent(
@@ -111,7 +114,10 @@ public final class MessageBus implements AutoCloseable {
         list.add(new Handler<>(channel, consumer));
     }
 
-    /** SUBSCRIBE를 보내고, 실패하면 간격을 늘려 다시 시도한다 (REJECT_COMMANDS라 끊긴 동안은 바로 실패한다). */
+    /**
+     * Sends SUBSCRIBE and, on failure, retries with growing intervals (REJECT_COMMANDS makes it
+     * fail immediately while disconnected).
+     */
     private void subscribeNow(String name, long delayMs) {
         if (closed) {
             return;

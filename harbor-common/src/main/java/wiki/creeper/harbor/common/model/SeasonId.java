@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.model;
 
-/** 시즌 번호 (1부터). */
+/** Season number (starting at 1). */
 public record SeasonId(int value) {
 
     public SeasonId {

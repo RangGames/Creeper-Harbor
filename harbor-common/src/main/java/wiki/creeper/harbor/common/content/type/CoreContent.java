@@ -7,9 +7,9 @@ import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.rig.RigDef;
 
 /**
- * Core가 기본으로 등록하는 콘텐츠 형식
- * (fish·items·regions·balance·messages·rigs·resource_pack·sounds·help·furniture·custom_block). 서버
- * 플러그인과 harbor-tools가 같은 목록을 쓴다.
+ * Content types Core registers by default (fish, items, regions, balance, messages, rigs,
+ * resource_pack, sounds, help, furniture, custom_block). The server plugin and harbor-tools use the
+ * same list.
  */
 public final class CoreContent {
 
@@ -29,7 +29,7 @@ public final class CoreContent {
 
     private CoreContent() {}
 
-    /** 형식과 서버 API가 필요 없는 추가 검사를 등록한다. */
+    /** Registers the types and the extra checks that need no server API. */
     public static void register(ContentLoader loader) {
         TYPES.forEach(loader::register);
         loader.addCheck(FishDef.TYPE, CoreContent::checkFishNumber);
@@ -38,7 +38,10 @@ public final class CoreContent {
         loader.addCheck(CustomBlockDef.TYPE, CoreContent::checkBlockState);
     }
 
-    /** 커스텀 블록의 노트블록 상태 번호(방향 블록은 state부터 방향 수만큼)는 블록끼리 겹치면 안 된다. */
+    /**
+     * Note block state numbers of custom blocks (directional blocks use one per direction starting
+     * at state) must not overlap between blocks.
+     */
     private static void checkBlockState(CustomBlockDef block, ContentCheck.Context ctx) {
         for (CustomBlockDef other : ctx.snapshot().all(CustomBlockDef.TYPE).values()) {
             if (other.id().equals(block.id())) {
@@ -58,7 +61,7 @@ public final class CoreContent {
         }
     }
 
-    /** rig.fps는 20의 약수여야 프레임이 틱에 맞는다. */
+    /** rig.fps must divide 20 so frames line up with ticks. */
     private static void checkRigBalance(Balance balance, ContentCheck.Context ctx) {
         int fps = balance.integer("rig.fps", 10);
         if (fps <= 0 || 20 % fps != 0) {
@@ -69,7 +72,10 @@ public final class CoreContent {
         }
     }
 
-    /** 리그 하나의 부품·판정 상자 수 상한 (balance.yml rig.max_parts, '8. 시스템 상세 기획' 12장 보스 부위 30개 이하). */
+    /**
+     * Max parts/hitboxes per rig (balance.yml rig.max_parts; '8. System details' chapter 12: at
+     * most 30 boss parts).
+     */
     private static void checkRigParts(RigDef rig, ContentCheck.Context ctx) {
         int max =
                 ctx.snapshot().typeNames().contains(Balance.TYPE.name())
@@ -83,7 +89,7 @@ public final class CoreContent {
         }
     }
 
-    /** 도감 번호(no)는 어종마다 달라야 한다. */
+    /** Codex numbers (no) must be unique per fish. */
     private static void checkFishNumber(FishDef fish, ContentCheck.Context ctx) {
         if (fish.no() < 1) {
             ctx.error("도감 번호 no는 1 이상이어야 합니다");

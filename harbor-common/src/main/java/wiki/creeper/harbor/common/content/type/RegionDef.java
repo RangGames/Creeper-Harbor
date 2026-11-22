@@ -12,7 +12,7 @@ import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
-/** 지역 정의 (regions.yml). 필드는 '11. 데이터 설계' 2.4를 따른다. */
+/** Region definition (regions.yml). Fields follow '11. Data design' 2.4. */
 public record RegionDef(
         RegionId id,
         String name,
@@ -21,15 +21,16 @@ public record RegionDef(
         String biome,
         Unlock unlock,
         int fishingSpots,
-        // 권장 레벨 상단값 (추가 제안, '7. 밸런스 기획' 3.2). 경험치 지역 감쇠 기준. 0이면 감쇠 없음
+        // Upper bound of the recommended level (proposed, '7. Balance design' 3.2). Basis for
+        // regional XP decay. 0 means no decay
         int recLevel,
         List<Point> trapZone,
         @Nullable String music) {
 
-    /** 수평 좌표 (x, z). */
+    /** Horizontal coordinates (x, z). */
     public record Point(double x, double z) {}
 
-    /** 진입 조건. level 0 = 조건 없음. */
+    /** Entry requirement. level 0 = no requirement. */
     public record Unlock(int level, @Nullable QuestId quest, List<ItemId> items) {
         public static final Unlock NONE = new Unlock(0, null, List.of());
     }
@@ -57,7 +58,7 @@ public record RegionDef(
                     RegionDef::parse,
                     r -> r.id().id());
 
-    /** 점이 경계 다각형 안에 있는지 (ray casting). */
+    /** Whether a point is inside the boundary polygon (ray casting). */
     public boolean contains(double x, double z) {
         boolean inside = false;
         for (int i = 0, j = bounds.size() - 1; i < bounds.size(); j = i++) {

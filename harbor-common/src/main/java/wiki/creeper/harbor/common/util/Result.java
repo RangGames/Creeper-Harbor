@@ -2,7 +2,10 @@ package wiki.creeper.harbor.common.util;
 
 import java.util.function.Function;
 
-/** 성공 값 또는 실패 사유. 예외 대신 호출자가 실패를 반드시 다루게 할 때 쓴다. */
+/**
+ * A success value or a failure reason. Used instead of exceptions when the caller must handle
+ * failure.
+ */
 public sealed interface Result<T, E> permits Result.Ok, Result.Err {
 
     record Ok<T, E>(T value) implements Result<T, E> {}
@@ -28,7 +31,10 @@ public sealed interface Result<T, E> permits Result.Ok, Result.Err {
         };
     }
 
-    /** 성공 값을 꺼낸다. 실패면 IllegalStateException. 테스트·확실한 경로에서만 쓴다. */
+    /**
+     * Extracts the success value. IllegalStateException on failure. Use only in tests or on certain
+     * paths.
+     */
     default T orThrow() {
         return switch (this) {
             case Ok<T, E>(T value) -> value;

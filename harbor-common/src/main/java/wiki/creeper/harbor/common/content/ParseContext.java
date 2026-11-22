@@ -6,18 +6,22 @@ import java.util.List;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.util.SourcePos;
 
-/** 파싱 중에 다른 콘텐츠를 가리키는 참조를 모은다. 모든 파일을 읽은 뒤 한꺼번에 검사한다. */
+/**
+ * Collects references to other content during parsing. They are checked all at once after every
+ * file is read.
+ */
 public final class ParseContext {
 
-    /** 참조 한 건: 어떤 형식의 어떤 ID를 어디서 가리켰는지. */
+    /** One reference: which ID of which type was referenced from where. */
     public record Reference(String targetType, HarborId id, SourcePos pos) {}
 
     private final List<Reference> references = new ArrayList<>();
 
     /**
-     * 참조를 등록한다. 대상 형식이 로더에 등록되어 있지 않으면 (그 모듈이 아직 없으면) 검사를 건너뛴다.
+     * Registers a reference. If the target type is not registered with the loader (that module is
+     * not present yet), the check is skipped.
      *
-     * @param targetType 대상 형식 이름 (예: {@code region})
+     * @param targetType target type name (e.g. {@code region})
      */
     public void ref(String targetType, HarborId id, SourcePos pos) {
         references.add(new Reference(targetType, id, pos));

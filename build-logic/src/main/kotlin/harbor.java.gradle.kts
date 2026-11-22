@@ -1,7 +1,7 @@
 import net.ltgt.gradle.errorprone.errorprone
 import net.ltgt.gradle.nullaway.nullaway
 
-// 모든 Harbor 모듈 공통: Java 25, ErrorProne + NullAway, Spotless, JUnit 5, 경고 = 오류
+// Shared by all Harbor modules: Java 25, ErrorProne + NullAway, Spotless, JUnit 5, warnings = errors
 plugins {
     `java-library`
     id("net.ltgt.errorprone")
@@ -42,10 +42,10 @@ tasks.withType<JavaCompile>().configureEach {
     )
     options.errorprone {
         disableWarningsInGeneratedCode = true
-        // 한국어 Javadoc에는 영어 요약 문장 규칙이 맞지 않는다
+        // The English summary-sentence rule does not fit Korean Javadoc
         disable("MissingSummary")
         nullaway {
-            // 테스트 코드는 널 검사에서 제외 (본 코드만 강제)
+            // Test code is excluded from null checks (enforced on main code only)
             if (isTestCompile) disable() else error()
         }
     }
@@ -56,7 +56,7 @@ tasks.withType<Test>().configureEach {
 }
 
 spotless {
-    // 주 개발 환경이 Windows라 Java 소스는 CRLF로 저장한다. 다른 OS에서도 같은 줄바꿈으로 고친다
+    // The main dev environment is Windows, so Java sources are stored as CRLF. Normalize to the same line endings on other OSes too
     lineEndings = com.diffplug.spotless.LineEnding.WINDOWS
     java {
         target("src/*/java/**/*.java")

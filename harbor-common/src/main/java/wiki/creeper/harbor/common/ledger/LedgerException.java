@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.ledger;
 
-/** 트랜잭션 안에서 원장 쓰기를 중단할 때 던진다. 트랜잭션은 롤백된다. */
+/** Thrown to abort a ledger write inside a transaction. The transaction is rolled back. */
 public final class LedgerException extends RuntimeException {
 
     private final LedgerError error;

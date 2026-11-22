@@ -17,13 +17,18 @@ import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.common.redis.Redis;
 
 /**
- * 인스턴스 이동 (docs 20 1.4 인스턴스 배정, 0.1). 배정·수명 관리는 Boss(harbor:instance)가 끝내고, Proxy는 받은 배정대로 옮기기만 한다.
+ * Instance moves (docs 20 1.4 instance assignment, 0.1). Boss (harbor:instance) completes
+ * assignment and lifecycle management; Proxy only moves players as assigned.
  *
  * <ul>
- *   <li>InstanceRequest의 server는 Boss가 배정한 서버 ID다. Proxy는 서버를 고르지 않고, 하트비트로 그 서버가 살아 있고 입장을 받는지만 본다
- *   <li>파티원마다 MoveCoordinator 절차를 실행하고, 한 명이라도 실패하면 이미 옮긴 인원은 그대로 두고 부분 실패를 돌려준다
- *   <li>본 서버에서 출발한 사람은 그 자리를 예약해 귀환이 대기열을 거치지 않게 한다
- *   <li>재접속: 로비에서 리소스팩 적용이 끝나면 harbor:boss:rejoin:&lt;uuid&gt;가 살아 있는지 보고, 있으면 대기열 없이 그 서버로
+ *   <li>The server in an InstanceRequest is the server ID Boss assigned. Proxy does not pick
+ *       servers; it only checks via heartbeat that the server is alive and accepting entries
+ *   <li>Runs the MoveCoordinator procedure per party member; if even one fails, those already moved
+ *       stay and a partial failure is returned
+ *   <li>Players departing the main server have their seat reserved so their return skips the queue
+ *   <li>Rejoin: once the resource pack is applied in the lobby, checks whether
+ *       harbor:boss:rejoin:&lt;uuid&gt; is alive and, if so, sends the player to that server
+ *       without the queue
  * </ul>
  */
 final class InstanceRouter {
@@ -85,7 +90,8 @@ final class InstanceRouter {
         }
         UUID first = party.getFirst();
         if (proxy.getServer(server).isEmpty()) {
-            // kind가 배정된 서버 ID가 아님 (예: dungeon·raid 종류 이름). 서버 선택은 Boss 몫이라 고르지 않는다
+            // kind is not an assigned server ID (e.g. a kind name like dungeon/raid). Server
+            // selection is Boss's job, so do not pick
             return fail(request, first, "unassigned_server");
         }
         if (!directory.isAlive(server)) {
@@ -94,7 +100,8 @@ final class InstanceRouter {
         List<CompletableFuture<InstanceRules.MemberResult>> moves = new ArrayList<>();
         for (int i = 0; i < party.size(); i++) {
             UUID member = party.get(i);
-            // 요청 ID는 세션 잠금 값(handoff:<서버>:<요청 ID>)에 들어가므로 ':'를 쓰지 않는다
+            // The request ID goes into the session lock value (handoff:<server>:<request ID>), so
+            // ':' is not used
             String memberRequest = request.requestId() + "-" + i;
             moves.add(moveMember(member, server, memberRequest));
         }
@@ -142,8 +149,9 @@ final class InstanceRouter {
     }
 
     /**
-     * 재접속 키가 살아 있으면 그 인스턴스 서버로 보낸다 (대기열 없음). 옮겼으면 true. Redis 장애·키 없음·서버 이상이면 false (호출한 쪽이 대기열에
-     * 넣는다).
+     * If the rejoin key is alive, sends the player to that instance server (no queue). true if
+     * moved. false on Redis failure, missing key or server problems (the caller puts them in the
+     * queue).
      */
     CompletableFuture<Boolean> tryRejoin(Player player) {
         UUID uuid = player.getUniqueId();

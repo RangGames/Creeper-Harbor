@@ -142,7 +142,7 @@ class ContentLoaderTest {
         write("fish/harbor.yml", fish("fish/harbor_mackerel", 1, "[20, 45]", "region/harbor"));
         ContentSnapshot first = loader.load(root).orThrow();
 
-        // 어종이 가리키는 해역을 지우고 해역만 다시 읽는다
+        // Delete the sea area a fish points at and re-read only the sea areas
         write("regions.yml", "[]");
         Result<ContentSnapshot, ValidationErrors> result =
                 loader.reload(root, Set.of("region"), first);

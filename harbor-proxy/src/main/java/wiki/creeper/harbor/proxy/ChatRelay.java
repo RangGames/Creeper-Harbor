@@ -24,15 +24,18 @@ import wiki.creeper.harbor.common.redis.Channels;
 import wiki.creeper.harbor.common.redis.MessageBus;
 
 /**
- * 서버 간 채팅·귓속말·공지 배달 (docs 20 1.4). 백엔드 Core가 채팅을 취소하고 ChatMessage를 보내면, 프록시가 MUTE 제재 확인 → 도배 검사 →
- * 금칙어 치환 → 수신자 결정 → 시스템 메시지로 배달한다. 공지(harbor:announce)는 프록시만 구독해 전원에게 한 번만 보낸다.
+ * Cross-server chat, whisper and announcement delivery (docs 20 1.4). When a backend Core cancels
+ * chat and sends a ChatMessage, the proxy checks MUTE sanctions → spam check → banned-word
+ * replacement → picks recipients → delivers as a system message. Announcements (harbor:announce)
+ * are subscribed only by the proxy and sent to everyone exactly once.
  *
- * <p>파티 채널: 파티는 Boss 소유라 프록시는 파티 목록을 모른다. 요청한 백엔드가 Core api PartyService로 파티원을 recipients에 넣어 보내면,
- * 프록시는 서버와 관계없이 그 사람들에게 배달한다 (보낸 사람 포함, 중복 제거).
+ * <p>Party channel: parties are owned by Boss, so the proxy does not know party lists. The
+ * requesting backend puts party members into recipients via Core api PartyService, and the proxy
+ * delivers to those people regardless of server (including the sender, deduplicated).
  */
 final class ChatRelay {
 
-    /** 보낸 사람별 도배 검사 상태. */
+    /** Per-sender spam check state. */
     private static final class SenderState {
         String lastMessage = "";
         int repeats;
@@ -106,7 +109,7 @@ final class ChatRelay {
         }
     }
 
-    /** /귓 · /답장. 서버와 관계없이 배달한다. MUTE면 귓속말도 막는다. */
+    /** /귓 · /답장 (whisper/reply). Delivered regardless of server. MUTE blocks whispers too. */
     boolean whisper(UUID from, String fromName, UUID to, String message) {
         if (sanctions.blockIfMuted(from)) {
             return false;
@@ -146,7 +149,10 @@ final class ChatRelay {
         lastWhisper.remove(player);
     }
 
-    /** 백엔드가 그린 줄(PlaceholderAPI 포함)이 있으면 메시지 자리만 채우고, 없으면 harbor-proxy.yml chat.format. */
+    /**
+     * If the backend rendered a line (with PlaceholderAPI), only fills the message slot; otherwise
+     * harbor-proxy.yml chat.format.
+     */
     private Component format(ChatMessage chat, String message) {
         Component drawn = drawn(chat, message);
         if (drawn != null) {
@@ -159,7 +165,10 @@ final class ChatRelay {
                 Placeholder.unparsed("message", message));
     }
 
-    /** 같은 문장 연속, 1초에 여러 줄이면 잠시 막는다 (제안값은 harbor-proxy.yml). */
+    /**
+     * Briefly blocks repeated identical lines or several lines per second (proposed values in
+     * harbor-proxy.yml).
+     */
     private boolean allow(UUID sender, String message) {
         SenderState state = senders.computeIfAbsent(sender, k -> new SenderState());
         Instant now = Instant.now();

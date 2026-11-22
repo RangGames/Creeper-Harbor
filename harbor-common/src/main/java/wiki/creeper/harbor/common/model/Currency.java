@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.model;
 
-/** 재화. 진주(PEARL)는 유료 재화라 Shop 모듈이 따로 관리한다. */
+/** Currency. Pearls (PEARL) are a paid currency, managed separately by the Shop module. */
 public enum Currency implements Keyed {
     GOLD,
     MULBINEUL,
@@ -11,7 +11,7 @@ public enum Currency implements Keyed {
         return Keyed.keyOf(this);
     }
 
-    /** 게임 재화(골드·물비늘)인지. */
+    /** Whether this is an in-game currency (gold, mulbineul). */
     public boolean isGameCurrency() {
         return this != PEARL;
     }

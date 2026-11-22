@@ -83,17 +83,17 @@ class RigDefTest {
         RigDef rig = parseOk(MACKEREL);
         RigDef.Animation swim = rig.animation("swim").orElseThrow();
 
-        // t=0: 꼬리 뼈가 Y −30°. 부품 offset (0,0,0.1)은 뼈를 따라 돈다
+        // t=0: tail bone at Y −30°. Part offset (0,0,0.1) rotates with the bone
         Xform[] pose = RigSampler.pose(rig, swim, 0);
         Xform tailPart = RigSampler.part(pose[1], rig.bones().get(1).part());
         Vec3 expected = new Vec3(0, 0, 0.25).add(Quat.rotY(-30).rotate(new Vec3(0, 0, 0.1)));
         assertVec(expected, tailPart.translation(), 1e-9);
 
-        // t=5: ease_in_out 중간 = 0°
+        // t=5: midpoint of ease_in_out = 0°
         Xform[] mid = RigSampler.pose(rig, swim, 5);
         assertEquals(0, mid[1].rotation().angleTo(Quat.IDENTITY), 1e-4);
 
-        // 판정 상자는 뼈 원점
+        // Hitbox is at the bone origin
         assertVec(
                 new Vec3(0, 0, 0.25),
                 RigSampler.hitboxCenter(pose[1], rig.bones().get(1).hitbox()),
@@ -118,7 +118,7 @@ class RigDefTest {
         assertEquals(1, baked.hitboxes().size());
         BakedRig.BakedAnimation swim = baked.animation("swim").orElseThrow();
         assertEquals(11, swim.frameCount());
-        // 몸통은 움직이지 않으므로 처음·끝 사이가 최대 간격으로만 나뉜다
+        // The body does not move, so the span between first and last is split only by the max gap
         assertEquals(3, swim.part(0).size());
         assertTrue(swim.keyCount() < 2 * swim.frameCount());
         RigDef.Animation def = rig.animation("swim").orElseThrow();
@@ -127,12 +127,15 @@ class RigDefTest {
             Xform exact = RigSampler.part(pose[1], rig.bones().get(1).part());
             assertTrue(swim.part(1).sample(t).near(exact, tol), "t=" + t);
         }
-        // 기본 자세는 키 하나
+        // The rest pose is a single key
         assertEquals(1, baked.rest().part(0).size());
         assertVec(new Vec3(0, 0, 0.25), baked.rest().hitbox(0, 0), 1e-9);
     }
 
-    /** 저장소의 리그(content/rigs, 변환한 rigs/fish 포함)가 모두 읽히고, 구운 키가 원래 자세와 허용 오차 안에서 맞는지. */
+    /**
+     * All repository rigs (content/rigs, including converted rigs/fish) load, and baked keys match
+     * the original poses within tolerance.
+     */
     @Test
     void sampleContentRigsBakeWithinTolerance() throws java.io.IOException {
         java.nio.file.Path dir = java.nio.file.Path.of("..", "content", "rigs");

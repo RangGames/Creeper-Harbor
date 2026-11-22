@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.id;
 
-/** 종류가 정해진 ID (어종, 아이템 ...). 경로가 종류별 접두사로 시작해야 한다. */
+/** ID of a fixed kind (fish, item, ...). The path must start with the kind's prefix. */
 public interface TypedId {
 
     HarborId id();

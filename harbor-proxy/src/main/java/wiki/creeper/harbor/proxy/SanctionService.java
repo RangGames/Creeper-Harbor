@@ -16,12 +16,13 @@ import org.slf4j.Logger;
 import wiki.creeper.harbor.common.db.Database;
 
 /**
- * 제재 (docs 20 1.4·1.5). BAN은 로그인 때 DB에서 확인해 거부하고, MUTE는 로그인 때 읽어 메모리에 두고 채팅·귓속말마다 확인한다. 프록시에서 막으므로
- * 서버를 옮겨도 그대로 유지된다. 프록시는 1대라 캐시를 공유할 필요가 없다.
+ * Sanctions (docs 20 1.4, 1.5). BAN is checked against the DB at login and refused; MUTE is read at
+ * login, kept in memory and checked on every chat/whisper. Since the proxy blocks them, they
+ * persist across server moves. There is a single proxy, so the cache need not be shared.
  */
 final class SanctionService {
 
-    /** 로그인 검사 결과. */
+    /** Login check result. */
     record LoginCheck(@Nullable Sanction ban, @Nullable Sanction mute) {}
 
     private final ProxyServer proxy;
@@ -39,7 +40,10 @@ final class SanctionService {
         this.log = log;
     }
 
-    /** LoginEvent (가상 스레드): 유효 제재를 읽고 MUTE는 캐시에 둔다. DB 오류는 그대로 실패로 돌려 접속을 거부하게 한다. */
+    /**
+     * LoginEvent (virtual thread): reads active sanctions and caches MUTE. DB errors are returned
+     * as failures so the connection is refused.
+     */
     CompletableFuture<LoginCheck> loadAtLogin(UUID player) {
         Instant now = Instant.now();
         return db.async(c -> SanctionStore.active(c, player, now))
@@ -56,7 +60,7 @@ final class SanctionService {
                         });
     }
 
-    /** 유효한 MUTE. 만료됐으면 캐시에서 지운다. */
+    /** Active MUTE. Removed from the cache if expired. */
     Optional<Sanction> activeMute(UUID player) {
         Sanction mute = mutes.get(player);
         if (mute == null) {
@@ -69,7 +73,7 @@ final class SanctionService {
         return Optional.of(mute);
     }
 
-    /** 채팅이 막혔으면 안내하고 true. */
+    /** If chat is blocked, notifies and returns true. */
     boolean blockIfMuted(UUID player) {
         Optional<Sanction> mute = activeMute(player);
         if (mute.isEmpty()) {
@@ -79,7 +83,10 @@ final class SanctionService {
         return true;
     }
 
-    /** 제재를 기록하고 바로 적용한다 (BAN이면 접속 중인 대상을 끊고, MUTE면 캐시에 넣는다). */
+    /**
+     * Records a sanction and applies it immediately (BAN disconnects an online target, MUTE goes
+     * into the cache).
+     */
     CompletableFuture<Sanction> issue(
             UUID target, Sanction.Type type, SanctionTerm term, String reason, String issuedBy) {
         Instant now = Instant.now();
@@ -99,7 +106,7 @@ final class SanctionService {
                         });
     }
 
-    /** 해제. 해제한 건수. */
+    /** Lifts sanctions. Returns the number lifted. */
     CompletableFuture<Integer> revoke(UUID target, Sanction.Type type, String by) {
         Instant now = Instant.now();
         return db.async(c -> SanctionStore.revoke(c, target, type, by, now))

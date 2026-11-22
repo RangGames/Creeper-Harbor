@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.common.util;
 
-/** 파일 안의 위치. 줄·열은 1부터 센다. */
+/** Position within a file. Lines and columns count from 1. */
 public record SourcePos(String file, int line, int column) {
 
     @Override

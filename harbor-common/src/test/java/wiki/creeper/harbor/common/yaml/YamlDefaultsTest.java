@@ -50,7 +50,7 @@ class YamlDefaultsTest {
         assertTrue(text.contains("  # 역할\n  role: LOBBY\n  port: 25565\nredis:"), text);
         assertTrue(text.contains("# 새 섹션\npack:\n  build: false\n  list:\n    - a"), text);
         assertTrue(text.contains("note: |\n  여러 줄\n  key: 이건 키가 아님"), text);
-        // 다시 돌리면 더할 것이 없다
+        // Running again has nothing to add
         assertFalse(YamlDefaults.fill(text, DEFAULTS, k -> true).changed());
     }
 

@@ -27,12 +27,13 @@ import org.slf4j.Logger;
 import wiki.creeper.harbor.common.db.Database;
 
 /**
- * 접속 기록 (join_log, docs 20 1.3). 원문 IP는 저장하지 않고 HMAC-SHA256(IP, 비밀 키)만 저장한다. 같은 IP 판정은 되지만 유출돼도 원래
- * IP를 알 수 없다. 90일(제안값, retention_days)이 지난 행은 하루 한 번 지운다.
+ * Connection log (join_log, docs 20 1.3). The raw IP is not stored, only HMAC-SHA256(IP, secret
+ * key). Same-IP checks still work, but a leak does not reveal the original IP. Rows older than 90
+ * days (proposed value, retention_days) are deleted once a day.
  */
 final class JoinLog {
 
-    /** /hp lookup 한 줄. */
+    /** One /hp lookup row. */
     record Entry(
             String name,
             String ipHash,
@@ -65,7 +66,10 @@ final class JoinLog {
         }
     }
 
-    /** 행을 넣는다. 완료되면 (다계정 탐지가 이어서 쓸 수 있게) 끝난 future. */
+    /**
+     * Inserts a row. Returns a future that completes when done (so multi-account detection can
+     * follow on).
+     */
     CompletableFuture<Void> joined(
             UUID uuid,
             String name,
@@ -110,7 +114,7 @@ final class JoinLog {
                         });
     }
 
-    /** 운영진 퇴장·제재로 끊을 때 사유를 남겨 둔다 (DisconnectEvent에서 기록). */
+    /** Remembers the reason when staff kick or sanction a player (recorded in DisconnectEvent). */
     void markKick(UUID uuid, String reason) {
         pendingKick.put(uuid, reason.length() > 255 ? reason.substring(0, 255) : reason);
     }
@@ -139,7 +143,7 @@ final class JoinLog {
                         .exceptionally(e -> null);
     }
 
-    /** 보관 기간이 지난 행을 지운다 (하루 한 번). */
+    /** Deletes rows past the retention period (once a day). */
     void purge(int retentionDays) {
         Instant cutoff = Instant.now().minus(Duration.ofDays(retentionDays));
         var _ =
@@ -165,9 +169,13 @@ final class JoinLog {
                                 });
     }
 
-    // ------------------------------------------------------------------ 조회 (/hp lookup · alts)
+    // ------------------------------------------------------------------ Lookups (/hp lookup ·
+    // alts)
 
-    /** 이름 → UUID. players(본 서버에 들어온 계정)를 먼저 보고, 없으면 join_log의 가장 최근 접속. */
+    /**
+     * Name → UUID. Checks players (accounts that joined the main server) first, otherwise the most
+     * recent join in join_log.
+     */
     CompletableFuture<Optional<UUID>> resolve(String name) {
         return db.async(
                 c -> {
@@ -218,7 +226,7 @@ final class JoinLog {
                 });
     }
 
-    /** UUID → 마지막으로 본 이름. join_log에 없으면 빠진다. */
+    /** UUID → last seen name. Omitted if not in join_log. */
     CompletableFuture<Map<UUID, String>> names(Collection<UUID> uuids) {
         List<UUID> list = List.copyOf(uuids);
         return db.async(

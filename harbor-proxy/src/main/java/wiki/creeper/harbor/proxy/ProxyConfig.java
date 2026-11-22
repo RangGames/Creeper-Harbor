@@ -38,9 +38,10 @@ record ProxyConfig(
         Map<String, String> messages) {
 
     /**
-     * 대기열 설정.
+     * Queue settings.
      *
-     * @param autoJoin 로비에서 리소스팩 적용이 끝나면 바로 본 서버 대기열에 넣을지 (false면 /출항·NPC·GUI로 출발, 추가 제안)
+     * @param autoJoin whether to queue for the main server right after the resource pack is applied
+     *     in the lobby (false means departure via /출항, NPC or GUI, proposed)
      */
     record Queue(
             int normalShare,
@@ -50,26 +51,27 @@ record ProxyConfig(
             double tpsResume,
             boolean autoJoin) {}
 
-    /** 채팅 도배 방지 설정. */
+    /** Chat spam protection settings. */
     record Chat(int repeatLimit, int linesPerSecond, int blockSeconds, List<String> bannedWords) {}
 
-    /** 로그인 검사 제한 시간 (docs 20 1.4 2단계: 1초 안에 끝나지 않으면 기본값). */
+    /** Login check time limit (docs 20 1.4 step 2: defaults if not done within 1 second). */
     record Login(int lookupTimeoutMs, int sanctionTimeoutMs) {}
 
-    /** 다계정 탐지 (제안값: 30일, 계정 3개). */
+    /** Multi-account detection (proposed values: 30 days, 3 accounts). */
     record Alt(int windowDays, int alertAccounts) {}
 
-    /** 기간을 생략한 제재의 기본 기간. */
+    /** Default duration for sanctions given without a duration. */
     record SanctionDefaults(SanctionTerm ban, SanctionTerm mute) {}
 
     /**
-     * 일시정지 메뉴 서버 링크 ('8. 시스템 상세 기획' 11장). type이 있으면 바닐라 기본 이름, 없으면 label(MiniMessage).
+     * Pause-menu server link ('8. System details' chapter 11). With type, the vanilla default name;
+     * otherwise label (MiniMessage).
      *
-     * @param type ServerLink.Type 이름 (WEBSITE, COMMUNITY, BUG_REPORT …)
+     * @param type ServerLink.Type name (WEBSITE, COMMUNITY, BUG_REPORT …)
      */
     record Link(@Nullable String type, String label, URI url) {}
 
-    /** jar에 든 기본 설정의 문구 (서버 설정에 빠진 키를 채운다). */
+    /** Text of the default config in the jar (fills keys missing from the server config). */
     static Map<String, String> defaultMessages(InputStream in) {
         ValidationErrors errors = new ValidationErrors();
         Map<String, String> messages = new LinkedHashMap<>();

@@ -28,20 +28,24 @@ import wiki.creeper.harbor.common.proxy.ProxyMessages.PackStatus;
 import wiki.creeper.harbor.common.redis.MessageBus;
 
 /**
- * 본 서버 입장 대기열 (docs 20 1.4 QueueManager).
+ * Main server entry queue (docs 20 1.4 QueueManager).
  *
  * <ul>
- *   <li>줄 3개: 재접속 유예 → 우선(후원자·CBT 운영진) → 일반. 일반 줄이 굶지 않도록 입장 N명 중 최소 1명은 일반 줄에서 ({@link
- *       QueueLines})
- *   <li>로비 Core가 PackStatus LOADED를 보내면, Boss 재접속 키가 있으면 인스턴스로, 인스턴스 귀환 자리가 있으면 그 본 서버로 바로 보내고, 아니면
- *       줄에 넣는다
- *   <li>후원 등급(Common DonorTier)은 로그인 때 조회해 둔다. HARBOR 이상이면 우선 줄
- *   <li>이전 서버 잠금이 남아 있으면(비정상 종료, 최대 30초) 유예 줄 맨 앞에 "정리 중"으로 세우고 잠금이 풀리면 입장
- *   <li>1초마다 빈자리만큼, 최대 per_second명 입장. TPS가 낮으면 한도를 현재 인원으로 동결. Redis가 끊기면 입장 중단
- *   <li>로비 보스바에 순번·예상 대기 시간 (5초마다)
+ *   <li>3 lines: reconnect grace → priority (donors, CBT staff) → normal. So the normal line does
+ *       not starve, at least 1 of every N entries comes from the normal line ({@link QueueLines})
+ *   <li>When the lobby Core sends PackStatus LOADED: if there is a Boss rejoin key, to the
+ *       instance; if there is an instance return seat, straight to that main server; otherwise into
+ *       a line
+ *   <li>Donor tier (Common DonorTier) is looked up at login. HARBOR or higher goes to the priority
+ *       line
+ *   <li>If a previous server lock remains (crash, up to 30 seconds), they are placed at the front
+ *       of the grace line as "cleaning up" and enter once the lock is released
+ *   <li>Every second, admit as many as there are free seats, up to per_second. If TPS is low, the
+ *       limit is frozen at the current count. Admission stops if Redis is down
+ *   <li>Position and estimated wait time on the lobby boss bar (every 5 seconds)
  * </ul>
  *
- * 상태는 프록시 메모리에만 둔다 (프록시 1대). 줄 조작은 이 객체로 동기화한다.
+ * State lives only in proxy memory (a single proxy). Line operations synchronize on this object.
  */
 final class QueueManager {
 
@@ -57,10 +61,16 @@ final class QueueManager {
     private final Map<UUID, BossBar> bars = new HashMap<>();
     private final Map<UUID, DonorTier> donors = new ConcurrentHashMap<>();
 
-    /** 이전 서버 세션 잠금이 남아 있는 사람 ({@link StaleLockWatcher}가 채우고 비운다). */
+    /**
+     * People whose previous server session lock remains (filled and cleared by {@link
+     * StaleLockWatcher}).
+     */
     private final Set<UUID> cleaning = ConcurrentHashMap.newKeySet();
 
-    /** /로비로 스스로 나온 사람: 팩 적용이 끝나도 대기열에 넣지 않는다 (/출항 때까지, 추가 제안). */
+    /**
+     * People who left via /로비 themselves: not queued even after the pack is applied (until /출항,
+     * proposed).
+     */
     private final Set<UUID> staying = ConcurrentHashMap.newKeySet();
 
     private final Deque<Instant> recentAdmissions = new ArrayDeque<>();
@@ -88,7 +98,7 @@ final class QueueManager {
     }
 
     /**
-     * @param rejoin Boss 재접속 키 확인 (옮겼으면 true)
+     * @param rejoin Boss rejoin key check (true if moved)
      */
     void start(MessageBus bus, Function<Player, CompletableFuture<Boolean>> rejoin) {
         bus.subscribe(
@@ -131,7 +141,7 @@ final class QueueManager {
                 envelope -> proxy.getPlayer(envelope.payload().player()).ifPresent(this::depart));
     }
 
-    /** 로그인 때 조회한 후원 등급. */
+    /** Donor tier looked up at login. */
     void setDonor(UUID uuid, DonorTier tier) {
         if (tier == DonorTier.NONE) {
             donors.remove(uuid);
@@ -162,7 +172,8 @@ final class QueueManager {
             var _ = mover.move(player, mainServer().orElse(firstMain()), "queue_bypass");
             return;
         }
-        // 인스턴스에서 끊겼다 돌아온 사람: 예약해 둔 본 서버 자리로 바로 (대기열 없음)
+        // Returning after a disconnect from an instance: straight to the reserved main server seat
+        // (no queue)
         Optional<String> seat = seats.seatOf(uuid);
         if (seat.isPresent() && directory.isAlive(seat.get()) && !cleaning.contains(uuid)) {
             var _ =
@@ -196,15 +207,16 @@ final class QueueManager {
         }
     }
 
-    /** 로비에 머문다: 대기열에서 빼고 팩 적용 뒤 자동 입장을 막는다. */
+    /** Stay in the lobby: remove from the queue and block auto-entry after the pack is applied. */
     void stay(UUID uuid) {
         staying.add(uuid);
         remove(uuid);
     }
 
     /**
-     * 팩 적용 뒤 바로 대기열에 넣을지. queue.auto_join이 꺼져 있어도 인스턴스에서 끊겼다 돌아온 사람(자리 예약)과 이전 접속 정리 중인 사람은 자동으로
-     * 넣는다.
+     * Whether to queue right after the pack is applied. Even with queue.auto_join off, people
+     * returning after an instance disconnect (seat reserved) and people whose previous session is
+     * being cleaned up are queued automatically.
      */
     private boolean autoJoin(Player player) {
         UUID uuid = player.getUniqueId();
@@ -213,14 +225,14 @@ final class QueueManager {
                 || cleaning.contains(uuid);
     }
 
-    /** 출항 결과. */
+    /** Departure result. */
     enum Departure {
         QUEUED,
         ALREADY_QUEUED,
         NOT_IN_LOBBY
     }
 
-    /** /출항 · DepartRequest: 로비에 있으면 머무르기를 끝내고 대기열에 넣는다. */
+    /** /출항 · DepartRequest: if in the lobby, ends the stay and queues the player. */
     Departure depart(Player player) {
         String server = player.getCurrentServer().map(s -> s.getServerInfo().getName()).orElse("");
         if (!server.equals(config.lobby())) {
@@ -237,12 +249,18 @@ final class QueueManager {
         return Departure.QUEUED;
     }
 
-    /** 백엔드 요청으로 로비에 가기 직전 (잠수·Skript·NPC): 도착해도 자동 출항하지 않게 한다. */
+    /**
+     * Right before going to the lobby at a backend's request (AFK, Skript, NPC): do not auto-depart
+     * on arrival.
+     */
     void beforeLobbyMove(UUID uuid) {
         stay(uuid);
     }
 
-    /** 로비 이동 결과: 실패면 표시를 지우고, 본 서버에서 나왔으면 자리 유예를 준다. */
+    /**
+     * Lobby move result: on failure clears the mark; if they left the main server, grants seat
+     * grace.
+     */
     void afterLobbyMove(UUID uuid, String origin, boolean ok) {
         if (!ok) {
             leaveStay(uuid);
@@ -251,24 +269,30 @@ final class QueueManager {
         }
     }
 
-    /** 머무르기를 끝낸다. 머물던 중이었으면 true. */
+    /** Ends the stay. true if they were staying. */
     boolean leaveStay(UUID uuid) {
         return staying.remove(uuid);
     }
 
-    /** 본 서버에서 나간 사람: 유예 시간 안에 돌아오면 자리를 보장한다. */
+    /**
+     * Someone who left the main server: their seat is guaranteed if they return within the grace
+     * period.
+     */
     synchronized void grantGrace(UUID uuid) {
         graceUntil.put(uuid, Instant.now().plusSeconds(config.queue().graceSeconds()));
     }
 
-    /** 입장 실패: 맨 앞으로 되돌린다 (이전 접속 정리 중 등). */
+    /** Entry failed: put back at the front (previous session still being cleaned up, etc.). */
     synchronized void requeueFront(UUID uuid) {
         if (proxy.getPlayer(uuid).isPresent()) {
             lines.addFront(QueueLines.Line.GRACE, uuid);
         }
     }
 
-    /** 접속 종료 · 로비 이탈: 자리를 바로 지운다 (재접속하면 줄 뒤로, 유예는 본 서버에 있던 사람만). */
+    /**
+     * Disconnect or leaving the lobby: removes the place immediately (reconnecting goes to the
+     * back; grace only for those who were on the main server).
+     */
     synchronized void remove(UUID uuid) {
         lines.remove(uuid);
         BossBar bar = bars.remove(uuid);
@@ -277,7 +301,7 @@ final class QueueManager {
         }
     }
 
-    /** 접속 종료 때 메모리 정리. */
+    /** Memory cleanup on disconnect. */
     void forget(UUID uuid) {
         remove(uuid);
         donors.remove(uuid);
@@ -310,7 +334,7 @@ final class QueueManager {
         directory.setCapOverride(cap);
     }
 
-    /** 1초마다 실행한다. 메모리 연산만 한다. */
+    /** Runs every second. Memory operations only. */
     synchronized void tick() {
         ticks++;
         if (!paused && redisUp.getAsBoolean()) {
@@ -341,7 +365,8 @@ final class QueueManager {
             }
             Optional<Player> player = proxy.getPlayer(next);
             if (player.isEmpty() || !inLobby(player.get())) {
-                // 다른 길로 로비를 떠난 사람: 인스턴스에서 끌어내거나 already_there로 되돌아오지 않게 버린다
+                // Left the lobby by another route: drop them so they are not pulled out of an
+                // instance or bounced back via already_there
                 hideBar(next, player);
                 continue;
             }
@@ -352,7 +377,8 @@ final class QueueManager {
                     mover.move(player.get(), server.get(), "queue")
                             .thenAccept(
                                     result -> {
-                                        // 이미 본 서버에 있으면 다시 세울 필요가 없다 (매 틱 맨 앞을 막는다)
+                                        // Already on the main server, no need to requeue (it would
+                                        // block the front every tick)
                                         if (!result.ok()
                                                 && !"already_there".equals(result.reason())) {
                                             requeueFront(next);
@@ -384,7 +410,8 @@ final class QueueManager {
         }
         var beat = entry.get().beat();
         int capacity = directory.capacity(server, beat);
-        // TPS 보호: 18 아래면 현재 인원으로 동결, 19.5 이상 1분 유지되면 해제
+        // TPS protection: below 18, freeze at the current count; lifted after staying at 19.5+ for
+        // 1 minute
         Instant now = Instant.now();
         if (beat.tps() < config.queue().tpsFreeze()) {
             frozen = true;
@@ -399,7 +426,8 @@ final class QueueManager {
         if (frozen) {
             return 0;
         }
-        // 인스턴스에 간 사람의 자리는 비워 둔다. 하트비트(5초) 뒤에 보낸 사람은 아직 online에 없으므로 뺀다
+        // Keep seats of people who went to instances free. People sent after the heartbeat (5
+        // seconds) are not in online yet, so subtract them
         return Math.max(
                 0, capacity - beat.online() - directory.pending(server) - seats.reservedOn(server));
     }

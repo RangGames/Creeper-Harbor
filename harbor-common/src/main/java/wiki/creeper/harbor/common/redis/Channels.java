@@ -1,6 +1,9 @@
 package wiki.creeper.harbor.common.redis;
 
-/** 서버 공용 채널 ('11. 데이터 설계' 4장). 모듈 전용 메시지 record는 각 모듈 api 패키지에 둔다. */
+/**
+ * Server-wide shared channels ('11. Data design' chapter 4). Module-specific message records live
+ * in each module's api package.
+ */
 public final class Channels {
 
     public static final String ANNOUNCE = "harbor:announce";
@@ -8,10 +11,16 @@ public final class Channels {
     public static final String MARKET = "harbor:market";
     public static final String WORLD_BOSS = "harbor:worldboss";
 
-    /** 서버 전체 공지 (희귀 포획, 신기록, 보스). message는 MiniMessage 문자열. */
+    /**
+     * Server-wide announcements (rare catches, new records, bosses). message is a MiniMessage
+     * string.
+     */
     public record Announcement(String message) {}
 
-    /** 외부 연동 이벤트 (Harbor-Web 웹훅·REST, 외부 서비스가 구독, 추가 제안). */
+    /**
+     * External integration events (Harbor-Web webhooks/REST, subscribed by external services,
+     * proposed).
+     */
     public static final Channel<wiki.creeper.harbor.common.event.ExternalEvent> EVENTS =
             new Channel<>("harbor:events", wiki.creeper.harbor.common.event.ExternalEvent.class);
 

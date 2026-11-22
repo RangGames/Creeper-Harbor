@@ -11,18 +11,23 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 제재 기간 (docs 20 1.5 {@code /hp ban <플레이어> [기간] [사유]}). 서버 API 없는 순수 로직.
+ * Sanction duration (docs 20 1.5 {@code /hp ban <player> [duration] [reason]}). Pure logic without
+ * server API.
  *
- * <p>형식: 숫자 + 단위를 이어 쓴다. {@code 30m}, {@code 12h}, {@code 7d}, {@code 2w}, {@code 1d12h}. 한국어 단위
- * (초·분·시간·일·주)도 받는다. {@code perm}·{@code permanent}·{@code 영구}는 영구.
+ * <p>Format: number + unit, concatenated. {@code 30m}, {@code 12h}, {@code 7d}, {@code 2w}, {@code
+ * 1d12h}. Korean units (초·분·시간·일·주: seconds, minutes, hours, days, weeks) are accepted too. {@code
+ * perm}, {@code permanent} and {@code 영구} mean permanent.
  *
- * @param length 기간. null이면 영구
+ * @param length duration. null means permanent
  */
 record SanctionTerm(@Nullable Duration length) {
 
     static final SanctionTerm PERMANENT = new SanctionTerm(null);
 
-    /** 너무 긴 기간은 실수로 본다 (10년, 제안값). 영구는 perm으로 쓴다. */
+    /**
+     * Overly long durations are treated as mistakes (10 years, proposed value). Use perm for
+     * permanent.
+     */
     static final Duration MAX = Duration.ofDays(3650);
 
     private static final Set<String> PERMANENT_WORDS = Set.of("perm", "permanent", "영구");
@@ -42,20 +47,20 @@ record SanctionTerm(@Nullable Duration length) {
                     "w", Duration.ofDays(7),
                     "주", Duration.ofDays(7));
 
-    /** 명령 인자 해석 결과: 기간과 사유. */
+    /** Parsed command arguments: duration and reason. */
     record Args(SanctionTerm term, String reason) {}
 
     boolean permanent() {
         return length == null;
     }
 
-    /** 만료 시각. 영구면 null. */
+    /** Expiry time. null if permanent. */
     @Nullable Instant expiresAt(Instant now) {
         Duration value = length;
         return value == null ? null : now.plus(value);
     }
 
-    /** 기간 한 토큰을 읽는다. 형식이 틀리거나 0·상한 초과면 빈 값. */
+    /** Reads one duration token. Empty if the format is wrong, zero, or over the cap. */
     static Optional<SanctionTerm> parse(String raw) {
         String token = raw.trim().toLowerCase(Locale.ROOT);
         if (token.isEmpty()) {
@@ -85,15 +90,16 @@ record SanctionTerm(@Nullable Duration length) {
     }
 
     /**
-     * 기간을 쓰려다 틀린 것처럼 보이는지 (숫자 + 영문 단위인데 읽을 수 없음, 예: 7x, 10mo, 99999d). 사유로 넘기지 않고 오류로 알려 준다. "3회
-     * 도배"처럼 한국어 사유는 해당하지 않는다.
+     * Whether it looks like a mistyped duration (number + Latin unit that cannot be parsed, e.g.
+     * 7x, 10mo, 99999d). Reported as an error rather than passed as the reason. Korean reasons like
+     * "3회 도배" ("spam x3") do not count.
      */
     static boolean looksLikeTerm(String token) {
         String t = token.strip();
         return LOOKS_LIKE.matcher(t).matches() && parse(t).isEmpty();
     }
 
-    /** 나머지 인자의 첫 토큰. */
+    /** First token of the remaining arguments. */
     static String firstToken(String rest) {
         String trimmed = rest.strip();
         int space = trimmed.indexOf(' ');
@@ -101,9 +107,10 @@ record SanctionTerm(@Nullable Duration length) {
     }
 
     /**
-     * {@code [기간] [사유]} 나머지 인자를 나눈다. 첫 토큰이 기간 형식이면 기간, 아니면 전부 사유로 본다.
+     * Splits the remaining {@code [duration] [reason]} arguments. If the first token is in duration
+     * format it is the duration; otherwise everything is the reason.
      *
-     * @param rest 대상 이름 뒤의 나머지 (빈 문자열 가능)
+     * @param rest the rest after the target name (may be an empty string)
      */
     static Args parseArgs(String rest, SanctionTerm defaultTerm, String defaultReason) {
         String trimmed = rest.strip();
@@ -120,7 +127,10 @@ record SanctionTerm(@Nullable Duration length) {
         return new Args(term.get(), reason.isEmpty() ? defaultReason : reason);
     }
 
-    /** 사람이 읽는 기간 (예: 1일 12시간). 영구면 permanentLabel. 단위 이름은 문구 파일이 아니라 형식 기호라 코드에 둔다. */
+    /**
+     * Human-readable duration (e.g. 1일 12시간, "1 day 12 hours"). permanentLabel if permanent. Unit
+     * names are format symbols rather than message text, so they live in code.
+     */
     String describe(String permanentLabel) {
         Duration value = length;
         if (value == null) {

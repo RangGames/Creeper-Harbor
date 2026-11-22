@@ -7,17 +7,19 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 리그 정의를 재생용으로 굽는다 ('17-3' 9.4 애니메이션): 동작을 정해진 fps로 샘플링하고(시제품 10fps), 부품마다 키프레임을 압축한다. 압축은 앞 키에서
- * 출발해 허용 오차(시제품 이동 0.005블록, 회전 1.2°) 안에서 선형 보간으로 대신할 수 있는 프레임을 건너뛰고, 키 간격은 maxGap 프레임(시제품 8)을 넘지
- * 않는다. 재생할 때는 키 프레임에서만 다음 키 값으로 보간 명령을 보낸다.
+ * Bakes rig definitions for playback ('17-3' 9.4 animation): samples animations at a fixed fps
+ * (prototype 10fps) and compresses keyframes per part. Compression starts from the previous key and
+ * skips frames that linear interpolation can replace within tolerance (prototype: 0.005 blocks
+ * translation, 1.2° rotation); key spacing never exceeds maxGap frames (prototype 8). During
+ * playback, interpolation commands toward the next key value are sent only on key frames.
  */
 public final class RigBaker {
 
     /**
-     * 굽기 설정 (balance.yml rig 구역).
+     * Bake settings (balance.yml rig section).
      *
-     * @param fps 초당 샘플 수. 20의 약수여야 한다 (1, 2, 4, 5, 10, 20)
-     * @param maxGap 키 사이 최대 프레임 수
+     * @param fps samples per second. Must divide 20 (1, 2, 4, 5, 10, 20)
+     * @param maxGap max frames between keys
      */
     public record Settings(int fps, Xform.Tolerance tolerance, int maxGap) {
 
@@ -72,7 +74,7 @@ public final class RigBaker {
                 rig, List.copyOf(parts), List.copyOf(hitboxes), Map.copyOf(animations), rest, tpf);
     }
 
-    /** 프레임 시각: 0, tpf, 2·tpf, …, 마지막은 항상 length. */
+    /** Frame times: 0, tpf, 2·tpf, …; the last is always length. */
     static int[] frameTicks(int length, int tpf) {
         if (length <= 0) {
             return new int[] {0};
@@ -118,7 +120,10 @@ public final class RigBaker {
                 name, length, mode, settings.ticksPerFrame(), List.copyOf(tracks), hitboxFrames);
     }
 
-    /** 프레임 목록을 키로 줄인다. 첫 프레임과 마지막 프레임은 항상 키다. 두 키 사이의 모든 프레임이 두 키의 보간값과 허용 오차 안이면 그 프레임들은 버린다. */
+    /**
+     * Reduces a frame list to keys. The first and last frames are always keys. Frames between two
+     * keys are dropped if all are within tolerance of the keys' interpolation.
+     */
     public static BakedRig.KeyTrack compress(
             int[] ticks, Xform[] values, Xform.Tolerance tolerance, int maxGap) {
         int n = ticks.length;

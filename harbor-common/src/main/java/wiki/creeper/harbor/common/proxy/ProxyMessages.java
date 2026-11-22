@@ -6,14 +6,15 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.redis.Channel;
 
 /**
- * 백엔드 ↔ 프록시 메시지 (docs 20 1.2, 추가 제안). 한 Redis 채널에 여러 메시지 형식이 오가며, 봉투의 type(레코드 이름)으로 구분한다.
+ * Backend ↔ proxy messages (docs 20 1.2, proposed). Several message types share one Redis channel,
+ * told apart by the envelope type (record name).
  *
  * <ul>
- *   <li>{@code harbor:proxy}: 백엔드 → 프록시 (MoveRequest, TransferReady, PackStatus, ChatMessage,
+ *   <li>{@code harbor:proxy}: backend → proxy (MoveRequest, TransferReady, PackStatus, ChatMessage,
  *       InstanceRequest)
- *   <li>{@code harbor:proxy:<서버 ID>}: 프록시 → 특정 백엔드 (TransferPrepare, TransferAbort, MoveResult,
- *       SaveAll)
- *   <li>{@code harbor:server}: 백엔드 → 프록시, 5초마다 (ServerHeartbeat)
+ *   <li>{@code harbor:proxy:<server ID>}: proxy → a specific backend (TransferPrepare,
+ *       TransferAbort, MoveResult, SaveAll)
+ *   <li>{@code harbor:server}: backend → proxy, every 5 seconds (ServerHeartbeat)
  * </ul>
  */
 public final class ProxyMessages {
@@ -23,7 +24,7 @@ public final class ProxyMessages {
 
     private ProxyMessages() {}
 
-    /** 프록시 → 특정 백엔드 채널 이름. */
+    /** Name of the proxy → specific backend channel. */
     public static String toServer(String serverId) {
         return TO_PROXY + ":" + serverId;
     }
@@ -36,37 +37,38 @@ public final class ProxyMessages {
         return new Channel<>(toServer(serverId), type);
     }
 
-    // ------------------------------------------------------------------ 서버 이동
+    // ------------------------------------------------------------------ Server moves
 
-    /** 백엔드 → 프록시: 플레이어를 옮겨 달라 (/로비, 인스턴스 입장, 귀환 …). */
+    /** Backend → proxy: please move the player (/로비, instance entry, return …). */
     public record MoveRequest(
             String requestId, UUID player, String origin, String destination, String reason) {}
 
     /**
-     * 백엔드 → 프록시: 로비에 있는 플레이어를 본 서버 대기열에 넣어 달라 (/출항과 같음, NPC·GUI·Skript용, 추가 제안). 로비에 있지 않으면 무시한다.
+     * Backend → proxy: please put a player in the lobby into the main server queue (same as /출항;
+     * for NPCs, GUIs and Skript, proposed). Ignored if not in the lobby.
      */
     public record DepartRequest(UUID player, String origin) {}
 
-    /** 프록시 → 출발 서버: 저장하고 잠금을 handoff로 바꿔라. */
+    /** Proxy → source server: save and switch the lock to handoff. */
     public record TransferPrepare(String requestId, UUID player, String destination) {}
 
-    /** 출발 서버 → 프록시: 준비 결과. */
+    /** Source server → proxy: preparation result. */
     public record TransferReady(String requestId, UUID player, boolean ok, String reason) {}
 
-    /** 프록시 → 출발 서버: 이동 실패, 잠금을 owned로 되돌려라. */
+    /** Proxy → source server: move failed, revert the lock to owned. */
     public record TransferAbort(String requestId, UUID player) {}
 
-    /** 프록시 → MoveRequest를 보낸 서버: 최종 결과 (추가 제안). */
+    /** Proxy → the server that sent the MoveRequest: final result (proposed). */
     public record MoveResult(String requestId, UUID player, boolean ok, String reason) {}
 
-    /** 프록시 → 모든 백엔드: 점검으로 끊기 전에 저장하라. */
+    /** Proxy → all backends: save before disconnecting for maintenance. */
     public record SaveAll(String reason) {}
 
-    // ------------------------------------------------------------------ 로비 · 대기열
+    // ------------------------------------------------------------------ Lobby · queue
 
-    /** 로비 Core → 프록시: 리소스팩 적용 결과. LOADED만 대기열에 들어간다. */
+    /** Lobby Core → proxy: resource pack apply result. Only LOADED enters the queue. */
     public record PackStatus(UUID player, Status status) {
-        /** 적용 결과. */
+        /** Apply result. */
         public enum Status {
             LOADED,
             DECLINED,
@@ -74,18 +76,20 @@ public final class ProxyMessages {
         }
     }
 
-    /** 프록시 → 로비: 대기열 순번 표시. */
+    /** Proxy → lobby: queue position display. */
     public record QueueStatus(UUID player, int position, int etaSeconds) {}
 
-    // ------------------------------------------------------------------ 채팅 · 인스턴스 · 상태
+    // ------------------------------------------------------------------ Chat · instances · status
 
     /**
-     * 백엔드 → 프록시: 채팅 한 줄. 서명 채팅을 프록시에서 취소하면 접속이 끊기므로 백엔드가 취소하고 넘긴다.
+     * Backend → proxy: one chat line. Cancelling signed chat on the proxy disconnects the player,
+     * so the backend cancels it and forwards it.
      *
      * @param channel global · server · whisper · party
-     * @param recipients 귓속말·파티 수신자 (그 밖은 빈 목록)
-     * @param formatted 백엔드가 만든 채팅 줄 (Adventure JSON, PlaceholderAPI까지 적용, 추가 제안). 메시지 자리는 {@link
-     *     #MESSAGE_SLOT} 글자로 비워 두고 프록시가 걸러낸 메시지로 바꾼다. null이면 프록시의 chat.format을 쓴다
+     * @param recipients whisper/party recipients (empty list otherwise)
+     * @param formatted chat line built by the backend (Adventure JSON with PlaceholderAPI applied,
+     *     proposed). The message slot is left as the {@link #MESSAGE_SLOT} character and the proxy
+     *     replaces it with the filtered message. null means the proxy's chat.format is used
      */
     public record ChatMessage(
             UUID sender,
@@ -97,24 +101,29 @@ public final class ProxyMessages {
             @Nullable String formatted) {}
 
     /**
-     * 로비가 이 플레이어에게 적용한 리소스팩 묶음 서명 (Redis 키 접두사 + UUID, 추가 제안). 같은 접속 안에서 로비에 다시 오면 같은 팩을 또 보내지 않는다.
-     * 프록시가 접속을 끊을 때 지운다 (남아도 {@link #PACK_APPLIED_TTL_SECONDS} 뒤 사라짐).
+     * Signature of the resource pack bundle the lobby applied to this player (Redis key prefix +
+     * UUID, proposed). Coming back to the lobby within the same connection does not resend the same
+     * pack. Deleted when the proxy disconnects the player (if left over, it expires after {@link
+     * #PACK_APPLIED_TTL_SECONDS}).
      */
     public static final String PACK_APPLIED_PREFIX = "harbor:pack_applied:";
 
     public static final long PACK_APPLIED_TTL_SECONDS = 12L * 3600;
 
-    /** {@link ChatMessage#formatted}의 메시지 자리 표시 (사용자 문구에 나올 일 없는 사용자 정의 영역 문자). */
+    /**
+     * Message slot marker in {@link ChatMessage#formatted} (a private-use character that never
+     * appears in user text).
+     */
     public static final String MESSAGE_SLOT = "\uE000message\uE000";
 
     /**
-     * Boss → 프록시: 파티를 인스턴스 서버로 보내 달라 ('17-4' 10.4). server는 Boss가 harbor:instance로 배정한 서버 ID다. 프록시는
-     * 서버를 고르지 않고 이동만 시킨다.
+     * Boss → proxy: please send a party to an instance server ('17-4' 10.4). server is the server
+     * ID Boss assigned via harbor:instance. The proxy does not pick a server; it only moves them.
      */
     public record InstanceRequest(
             String requestId, List<UUID> party, String server, String origin) {}
 
-    /** 백엔드 → 프록시, 5초마다. */
+    /** Backend → proxy, every 5 seconds. */
     public record ServerHeartbeat(
             String serverId,
             String role,

@@ -7,7 +7,10 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
 
-/** sessions 테이블: 마지막 소유 서버 기록 (감사·복구용). 실제 잠금은 Redis가 한다. */
+/**
+ * sessions table: record of the last owning server (for audit/recovery). The actual lock lives in
+ * Redis.
+ */
 public final class SessionAudit {
 
     private SessionAudit() {}

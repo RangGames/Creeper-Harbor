@@ -3,7 +3,7 @@ package wiki.creeper.harbor.proxy;
 import com.velocitypowered.api.command.CommandSource;
 import java.util.List;
 
-/** 프록시 권한 (docs 20 1.5, 0.4: harbor.admin.proxy.&lt;명령&gt;). */
+/** Proxy permissions (docs 20 1.5, 0.4: harbor.admin.proxy.&lt;command&gt;). */
 final class ProxyPerms {
 
     static final String MAINTENANCE = "harbor.admin.proxy.maintenance";
@@ -15,7 +15,7 @@ final class ProxyPerms {
     static final String SANCTION = "harbor.admin.proxy.sanction";
     static final String ANNOUNCE = "harbor.admin.proxy.announce";
 
-    /** /hp 루트를 보여 줄지: 하위 명령 권한 중 하나라도 있으면. */
+    /** Whether to show the /hp root: if any subcommand permission is held. */
     private static final List<String> ADMIN =
             List.of(MAINTENANCE, SEND, QUEUE, SERVERS, LOOKUP, SANCTION, ANNOUNCE);
 

@@ -10,7 +10,7 @@ import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
-/** ID 목록을 읽으면서 참조를 등록하는 도우미. */
+/** Helper that registers references while reading ID lists. */
 final class Refs {
 
     private Refs() {}

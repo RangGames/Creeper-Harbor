@@ -21,8 +21,10 @@ import wiki.creeper.harbor.common.account.AccountLinkReader;
 import wiki.creeper.harbor.common.db.Database;
 
 /**
- * 다계정 탐지 (docs 20 1.4 AltDetector). 로그인마다 같은 ip_hash로 최근 30일 안에 들어온 다른 계정을 찾아 alt_link를 넣거나 hits를
- * 올린다. 판정 규칙은 {@link AltHeuristics}. 다른 모듈은 Common의 AccountLinkReader로 결과를 읽는다.
+ * Multi-account detection (docs 20 1.4 AltDetector). On every login, finds other accounts that
+ * joined from the same ip_hash in the last 30 days and inserts alt_link rows or bumps hits.
+ * Decision rules are in {@link AltHeuristics}. Other modules read the results via Common's
+ * AccountLinkReader.
  */
 final class AltDetector {
 
@@ -32,7 +34,10 @@ final class AltDetector {
     private final ProxyText text;
     private final Logger log;
 
-    /** ip_hash → 마지막 경보 때 계정 수. 프록시 재시작이면 다시 한 번 경보가 갈 수 있다 (허용). */
+    /**
+     * ip_hash → account count at the last alert. After a proxy restart an alert may go out once
+     * more (accepted).
+     */
     private final Map<String, Integer> alerted = new ConcurrentHashMap<>();
 
     AltDetector(
@@ -44,10 +49,13 @@ final class AltDetector {
         this.log = log;
     }
 
-    /** 결과: 그 IP의 계정 수와 공유 IP 여부. */
+    /** Result: account count for that IP and whether it is a shared IP. */
     record Observation(int accounts, boolean sharedIp) {}
 
-    /** 로그인 직후 (join_log 행을 넣은 뒤) 비동기로 부른다. 실패해도 접속에는 영향이 없다. */
+    /**
+     * Called asynchronously right after login (after inserting the join_log row). Failure does not
+     * affect the connection.
+     */
     CompletableFuture<Observation> observe(UUID uuid, String name, String ipHash) {
         Instant since = Instant.now().minus(Duration.ofDays(config.windowDays()));
         return db.async(c -> record(c, uuid, ipHash, since))
@@ -125,9 +133,12 @@ final class AltDetector {
         return new Observation(partners.size() + 1, shared);
     }
 
-    // ------------------------------------------------------------------ 공유 IP (/hp sharedip)
+    // ------------------------------------------------------------------ Shared IP (/hp sharedip)
 
-    /** 플레이어의 가장 최근 ip_hash를 공유 IP로 등록한다. 등록한 해시 (기록이 없으면 빈 문자열). */
+    /**
+     * Registers the player's most recent ip_hash as a shared IP. Returns the registered hash (empty
+     * string if no record).
+     */
     CompletableFuture<String> addShared(UUID player, String label, String addedBy) {
         return db.async(
                 c -> {
@@ -149,7 +160,10 @@ final class AltDetector {
                 });
     }
 
-    /** 플레이어의 가장 최근 ip_hash를 공유 IP에서 뺀다. 지운 행 수. */
+    /**
+     * Removes the player's most recent ip_hash from the shared IPs. Returns the number of deleted
+     * rows.
+     */
     CompletableFuture<Integer> removeShared(UUID player) {
         return db.async(
                 c -> {

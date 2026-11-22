@@ -43,7 +43,7 @@ testcontainers-mariadb = { module = "org.testcontainers:testcontainers-mariadb" 
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 
-# build-logic 전용 (플러그인 마커)
+# build-logic only (plugin markers)
 errorprone-gradle = { module = "net.ltgt.errorprone:net.ltgt.errorprone.gradle.plugin", version.ref = "errorprone-plugin" }
 nullaway-gradle = { module = "net.ltgt.nullaway:net.ltgt.nullaway.gradle.plugin", version.ref = "nullaway-plugin" }
 spotless-gradle = { module = "com.diffplug.spotless:com.diffplug.spotless.gradle.plugin", version.ref = "spotless-plugin" }
@@ -52,5 +52,5 @@ run-paper-gradle = { module = "xyz.jpenilla.run-paper:xyz.jpenilla.run-paper.gra
 run-velocity-gradle = { module = "xyz.jpenilla.run-velocity:xyz.jpenilla.run-velocity.gradle.plugin", version.ref = "run-task-plugin" }
 
 [bundles]
-# Core의 PluginLoader가 시작할 때 Maven에서 받는 라이브러리 (플러그인 jar에 넣지 않음)
+# Libraries that Core's PluginLoader downloads from Maven at startup (not bundled in plugin jars)
 server-runtime = ["hikaricp", "mariadb", "lettuce", "flyway-core", "flyway-mysql"]

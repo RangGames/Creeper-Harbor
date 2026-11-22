@@ -15,24 +15,26 @@ import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * sounds.yml: 리소스팩 소리 이벤트마다 분류·음량·반복 간격·바닐라 대체 소리 ('15. 사운드' 4·5장, 추가 제안). Core {@code
- * HarborSounds}가 이 표로 소리를 고른다. 파일이 없으면 빈 표 (모든 이벤트가 기본값 master·1·1, 대체 소리 없음).
+ * sounds.yml: category, volume, loop interval and vanilla fallback sound per resource pack sound
+ * event ('15. Sound' chapters 4-5, proposed). Core {@code HarborSounds} picks sounds from this
+ * table. If the file is missing, the table is empty (every event defaults to master, 1, 1 with no
+ * fallback).
  *
- * @param events 이벤트 이름(harbor: 뺀 sounds.json 키, 예 {@code fishing.cast}) → 설정
- * @param currency 재화가 바뀔 때 본인에게 낼 소리 (재화 → 신호)
+ * @param events event name (sounds.json key without harbor:, e.g. {@code fishing.cast}) → settings
+ * @param currency sounds played to the player when a currency changes (currency → cue)
  */
 public record SoundTable(Map<String, Event> events, Map<Currency, CurrencyCue> currency) {
 
     public static final ContentType.Single<SoundTable> TYPE =
             new ContentType.Single<>("sounds", "sounds.yml", false, SoundTable::parse);
 
-    /** 소리 분류 이름 (Adventure Sound.Source와 같은 이름, 소문자). */
+    /** Sound category names (same names as Adventure Sound.Source, lowercase). */
     public static final Set<String> SOURCES =
             Set.of(
                     "master", "music", "record", "weather", "block", "hostile", "neutral", "player",
                     "ambient", "voice", "ui");
 
-    /** 리소스 위치 형식 ({@code minecraft:entity.player.splash}). */
+    /** Resource location format ({@code minecraft:entity.player.splash}). */
     public static final Pattern KEY = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
 
     private static final Pattern EVENT = Pattern.compile("[a-z0-9_]+(\\.[a-z0-9_]+)*");
@@ -45,13 +47,14 @@ public record SoundTable(Map<String, Event> events, Map<Currency, CurrencyCue> c
     }
 
     /**
-     * 이벤트 하나의 설정.
+     * Settings of one event.
      *
-     * @param source 소리 분류 ({@link #SOURCES})
-     * @param volume 재생 음량 (위치 소리는 16 × volume 블록까지 들린다)
-     * @param pitch 재생 피치
-     * @param loopTicks 반복 소리면 다시 재생하는 간격(틱, 소리 길이). 0이면 반복 소리가 아니다
-     * @param fallback 팩 소리를 쓸 수 없을 때 낼 바닐라 소리 (null = 소리 없음)
+     * @param source sound category ({@link #SOURCES})
+     * @param volume playback volume (positional sounds are audible up to 16 × volume blocks)
+     * @param pitch playback pitch
+     * @param loopTicks for looping sounds, the replay interval (ticks, the sound length). 0 means
+     *     not a looping sound
+     * @param fallback vanilla sound played when the pack sound cannot be used (null = no sound)
      */
     public record Event(
             String source,
@@ -66,12 +69,12 @@ public record SoundTable(Map<String, Event> events, Map<Currency, CurrencyCue> c
     }
 
     /**
-     * 재화 변경 소리.
+     * Currency change sound.
      *
-     * @param sound 낼 소리 키 ({@code harbor:ui.coin})
-     * @param reasons 이 사유일 때만 (비면 모든 사유)
-     * @param except 이 사유면 내지 않음 (다른 연출이 이미 소리를 내는 경우)
-     * @param gainOnly 늘어날 때만
+     * @param sound sound key to play ({@code harbor:ui.coin})
+     * @param reasons only for these reasons (empty = all reasons)
+     * @param except not played for these reasons (when another effect already plays a sound)
+     * @param gainOnly only on increase
      */
     public record CurrencyCue(
             String sound, Set<LedgerReason> reasons, Set<LedgerReason> except, boolean gainOnly) {
@@ -202,7 +205,7 @@ public record SoundTable(Map<String, Event> events, Map<Currency, CurrencyCue> c
         return value;
     }
 
-    /** 마인크래프트 피치는 0.5~2.0. */
+    /** Minecraft pitch is 0.5~2.0. */
     private static double pitch(YamlNode node, String key, double fallback) {
         double value = node.number(key, fallback);
         if (value < 0.5 || value > 2.0) {

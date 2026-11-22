@@ -12,20 +12,24 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.redis.Redis;
 
 /**
- * 서버 이동 세션 잠금 ({@code harbor:lock:<uuid>}, 30초 만료). Proxy와 Core가 같은 코드를 쓴다.
+ * Server-move session lock ({@code harbor:lock:<uuid>}, 30-second expiry). Proxy and Core share
+ * this code.
  *
- * <p>프로토콜 ('16. 플러그인 설계' 4.5, docs 20 1.4 MoveCoordinator):
+ * <p>Protocol ('16. Plugin design' 4.5, docs 20 1.4 MoveCoordinator):
  *
  * <ol>
- *   <li>백엔드가 MoveRequest를 프록시에 보낸다
- *   <li>프록시가 출발 서버에 TransferPrepare를 보낸다
- *   <li>출발 서버가 즉시 저장하고 잠금을 {@code handoff:<도착>:<요청 ID>}로 바꾼 뒤 ({@link #beginHandoff})
- *       TransferReady를 보낸다
- *   <li>프록시가 도착 서버로 접속을 넘긴다. 실패하면 TransferAbort → 출발 서버가 잠금을 되돌린다 ({@link #abortHandoff})
- *   <li>도착 서버가 handoff 상태를 확인하고 소유권을 가져온 뒤 ({@link #awaitClaim}) 데이터를 로드한다
+ *   <li>The backend sends a MoveRequest to the proxy
+ *   <li>The proxy sends TransferPrepare to the source server
+ *   <li>The source server saves immediately, switches the lock to {@code
+ *       handoff:<destination>:<request ID>} ({@link #beginHandoff}), then sends TransferReady
+ *   <li>The proxy hands the connection to the destination server. On failure, TransferAbort → the
+ *       source server reverts the lock ({@link #abortHandoff})
+ *   <li>The destination server confirms the handoff state, takes ownership ({@link #awaitClaim}),
+ *       then loads the data
  * </ol>
  *
- * 로비를 포함한 모든 백엔드가 잠금을 잡는다 (인벤토리 동기화, 추가 제안). 모든 상태 변경은 Lua 스크립트로 비교 후 교체(CAS)한다. 모든 메서드는 블로킹이다.
+ * Every backend, including the lobby, takes the lock (inventory sync, proposed). Every state change
+ * is a compare-and-swap (CAS) in a Lua script. All methods are blocking.
  */
 public final class SessionLocks {
 
@@ -37,7 +41,8 @@ public final class SessionLocks {
     private static final Pattern SERVER_ID = Pattern.compile("[a-z0-9_-]+");
     private static final long POLL_MILLIS = 200;
 
-    // ARGV[1] = 서버, ARGV[2] = TTL(ms). 결과: 1 = 새로 가져옴, 2 = handoff 인수, 3 = 이미 내 것, 0 = 다른 서버
+    // ARGV[1] = server, ARGV[2] = TTL (ms). Result: 1 = newly taken, 2 = handoff taken over, 3 =
+    // already mine, 0 = another server
     private static final String CLAIM =
             """
             local v = redis.call('get', KEYS[1])
@@ -57,7 +62,7 @@ public final class SessionLocks {
             return 0
             """;
 
-    // ARGV[1] = 출발, ARGV[2] = 도착, ARGV[3] = 요청 ID, ARGV[4] = TTL(ms)
+    // ARGV[1] = source, ARGV[2] = destination, ARGV[3] = request ID, ARGV[4] = TTL (ms)
     private static final String BEGIN_HANDOFF =
             """
             if redis.call('get', KEYS[1]) == 'owned:' .. ARGV[1] then
@@ -67,7 +72,8 @@ public final class SessionLocks {
             return 0
             """;
 
-    // ARGV[1] = 출발, ARGV[2] = 요청 ID, ARGV[3] = TTL(ms). 도착 서버가 아직 가져가지 않았을 때만 되돌린다
+    // ARGV[1] = source, ARGV[2] = request ID, ARGV[3] = TTL (ms). Reverts only if the destination
+    // server has not taken it yet
     private static final String ABORT_HANDOFF =
             """
             local v = redis.call('get', KEYS[1])
@@ -79,7 +85,8 @@ public final class SessionLocks {
             return 0
             """;
 
-    // ARGV[1] = 요청 ID. 이동 중 접속이 끊기면 그 요청의 handoff 잠금만 지운다
+    // ARGV[1] = request ID. If the connection drops mid-move, deletes only that request's handoff
+    // lock
     private static final String RELEASE_HANDOFF =
             """
             local v = redis.call('get', KEYS[1])
@@ -98,7 +105,7 @@ public final class SessionLocks {
             return 0
             """;
 
-    // KEYS = 여러 플레이어. ARGV[1] = 서버, ARGV[2] = TTL(ms). 결과: 연장한 수
+    // KEYS = several players. ARGV[1] = server, ARGV[2] = TTL (ms). Result: number extended
     private static final String REFRESH =
             """
             local n = 0
@@ -127,7 +134,7 @@ public final class SessionLocks {
         }
     }
 
-    /** 한 번 시도한다. */
+    /** Tries once. */
     public ClaimResult claim(UUID player, String server) {
         try {
             @Nullable Long result = eval(CLAIM, new String[] {key(player)}, server, ttl());
@@ -146,8 +153,9 @@ public final class SessionLocks {
     }
 
     /**
-     * 잠금을 가져올 때까지 기다린다. 다른 서버가 handoff를 마칠 시간을 주되, timeout 안에 못 가져오면 BUSY. 접속 전 이벤트
-     * (AsyncPlayerPreLoginEvent)처럼 블로킹해도 되는 스레드에서만 부른다.
+     * Waits until the lock is taken. Gives another server time to finish its handoff, but returns
+     * BUSY if it cannot be taken within timeout. Call only on threads that may block, like the
+     * pre-login event (AsyncPlayerPreLoginEvent).
      */
     public ClaimResult awaitClaim(UUID player, String server, Duration timeout) {
         long deadline = System.nanoTime() + timeout.toNanos();
@@ -165,27 +173,39 @@ public final class SessionLocks {
         }
     }
 
-    /** 출발 서버: 저장을 마친 뒤 잠금을 {@code handoff:<도착>:<요청 ID>}로 바꾼다. 내 잠금이 아니면 false. */
+    /**
+     * Source server: after saving, switches the lock to {@code handoff:<destination>:<request ID>}.
+     * false if the lock is not mine.
+     */
     public boolean beginHandoff(UUID player, String from, String to, String requestId) {
         return cas(BEGIN_HANDOFF, player, "handoff 전환", from, to, requestId, ttl());
     }
 
-    /** 출발 서버: TransferAbort를 받으면 잠금을 owned로 되돌린다. 도착 서버가 이미 가져갔으면 false. */
+    /**
+     * Source server: on TransferAbort, reverts the lock to owned. false if the destination server
+     * already took it.
+     */
     public boolean abortHandoff(UUID player, String from, String requestId) {
         return cas(ABORT_HANDOFF, player, "handoff 취소", from, requestId, ttl());
     }
 
-    /** 출발 서버: 이동 중 접속이 끊기면 그 요청의 handoff 잠금만 지운다 (이미 저장했으므로 추가 저장 없음). */
+    /**
+     * Source server: if the connection drops mid-move, deletes only that request's handoff lock
+     * (already saved, so no extra save).
+     */
     public boolean releaseHandoff(UUID player, String requestId) {
         return cas(RELEASE_HANDOFF, player, "handoff 해제", requestId);
     }
 
-    /** 퇴장: 내 잠금(owned)이면 지운다. handoff 중이거나 다른 서버 것이면 그대로 둔다. */
+    /**
+     * Quit: deletes the lock if it is mine (owned). Leaves it alone if in handoff or held by
+     * another server.
+     */
     public boolean release(UUID player, String server) {
         return cas(RELEASE, player, "세션 잠금 해제", server);
     }
 
-    /** 접속 중인 플레이어들의 잠금을 연장한다 (만료 30초보다 짧은 주기로 부른다). */
+    /** Extends the locks of online players (call more often than the 30-second expiry). */
     public int refresh(Collection<UUID> players, String server) {
         if (players.isEmpty()) {
             return 0;

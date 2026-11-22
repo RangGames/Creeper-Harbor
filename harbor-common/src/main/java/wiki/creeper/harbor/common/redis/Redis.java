@@ -9,10 +9,11 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import java.time.Duration;
 
 /**
- * Lettuce 연결. 명령용 연결 하나와 구독용 연결 하나를 연다.
+ * Lettuce connections. Opens one connection for commands and one for subscriptions.
  *
- * <p>연결이 끊기면 Lettuce가 자동으로 다시 연결하고, 구독 연결은 다시 연결된 뒤 구독을 복구한다. 그 사이 공지·이벤트 전파만 멈추고 게임은 계속 진행한다. 세션
- * 잠금은 Redis가 없으면 실패로 보고 서버 이동을 막는다.
+ * <p>On disconnect Lettuce reconnects automatically, and the subscription connection restores its
+ * subscriptions after reconnecting. Meanwhile only announcement/event propagation stops; the game
+ * continues. Session locks treat a missing Redis as failure and block server moves.
  */
 public final class Redis implements AutoCloseable {
 
@@ -29,7 +30,7 @@ public final class Redis implements AutoCloseable {
         this.pubSub = pubSub;
     }
 
-    /** 연결한다. 실패하면 예외 (서버 시작 중단). */
+    /** Connects. Throws on failure (aborting server startup). */
     public static Redis connect(RedisConfig config) {
         RedisURI uri = RedisURI.create(config.uri());
         uri.setTimeout(Duration.ofSeconds(3));
@@ -47,7 +48,7 @@ public final class Redis implements AutoCloseable {
         }
     }
 
-    /** 동기 명령. 블로킹이므로 메인 스레드에서 쓰지 않는다. */
+    /** Synchronous commands. Blocking, so do not use on the main thread. */
     public RedisCommands<String, String> sync() {
         return connection.sync();
     }

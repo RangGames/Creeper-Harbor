@@ -1,5 +1,5 @@
-// Harbor-Proxy: Velocity 플러그인. Velocity에는 PluginLoader가 없어서 Common과 그 런타임 라이브러리
-// (Lettuce, HikariCP, MariaDB, Flyway)를 jar에 넣고 패키지를 옮긴다. Netty(DNS 리졸버 제외)·SLF4J·Gson·SnakeYAML은 Velocity가 제공한다.
+// Harbor-Proxy: Velocity plugin. Velocity has no PluginLoader, so Common and its runtime libraries
+// (Lettuce, HikariCP, MariaDB, Flyway) go into the jar with relocated packages. Netty (except the DNS resolver), SLF4J, Gson and SnakeYAML are provided by Velocity.
 plugins {
     id("harbor.velocity-plugin")
 }
@@ -13,12 +13,12 @@ dependencies {
 tasks.shadowJar {
     archiveClassifier = ""
     mergeServiceFiles()
-    // Shadow 9는 중복 파일을 기본으로 버려서 mergeServiceFiles가 첫 jar의 서비스 파일만 본다.
-    // Flyway는 flyway-core와 flyway-mysql이 같은 Plugin 서비스 파일을 갖고 있어 둘 다 합쳐야 한다
+    // Shadow 9 drops duplicate files by default, so mergeServiceFiles only sees the first jar's service file.
+    // flyway-core and flyway-mysql both have the same Plugin service file, so both must be merged
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     filesNotMatching(listOf("META-INF/services/**", "META-INF/*.kotlin_module")) { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
     dependencies {
-        // Netty는 Velocity가 제공한다. 단 Lettuce가 쓰는 DNS 리졸버(netty-resolver-dns·netty-codec-dns)는 Velocity에 없어서 넣는다
+        // Netty is provided by Velocity. But the DNS resolver Lettuce uses (netty-resolver-dns, netty-codec-dns) is not in Velocity, so it is bundled
         exclude {
             it.moduleGroup == "io.netty" &&
                 it.moduleName !in setOf("netty-resolver-dns", "netty-codec-dns")

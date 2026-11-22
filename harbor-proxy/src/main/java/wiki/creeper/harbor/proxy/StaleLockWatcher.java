@@ -12,9 +12,11 @@ import wiki.creeper.harbor.common.session.LockState;
 import wiki.creeper.harbor.common.session.SessionLocks;
 
 /**
- * 이전 접속 정리 대기 (docs 20 1.4 "잠금이 남아 있을 때"). 직전 서버가 비정상 종료돼 세션 잠금이 살아 있으면(최대 30초) 대기열이 그 사람을 건너뛰게 하고,
- * 1초마다 잠금을 다시 봐서 풀리는 즉시 입장시킨다. 잠금 TTL보다 오래 기다리면 (잠금 연장이 계속되는 이상 상황) 표시를 풀고 본 서버 Core의 awaitClaim
- * 판단에 맡긴다.
+ * Waiting for previous session cleanup (docs 20 1.4 "when a lock remains"). If the previous server
+ * crashed and the session lock is still alive (up to 30 seconds), the queue skips that person, and
+ * the lock is rechecked every second so they enter as soon as it is released. If waiting longer
+ * than the lock TTL (abnormal case where the lock keeps being extended), the mark is cleared and
+ * the decision is left to the main server Core's awaitClaim.
  */
 final class StaleLockWatcher {
 
@@ -36,7 +38,10 @@ final class StaleLockWatcher {
         this.log = log;
     }
 
-    /** 로그인 때 (가상 스레드): 남은 잠금이 있으면 표시한다. Redis 오류면 표시하지 않는다 (입장 때 Core가 다시 확인). */
+    /**
+     * At login (virtual thread): marks the player if a leftover lock exists. Not marked on Redis
+     * error (Core checks again on entry).
+     */
     void checkAtLogin(UUID player) {
         if (held(player)) {
             since.put(player, Instant.now());
@@ -44,7 +49,7 @@ final class StaleLockWatcher {
         }
     }
 
-    /** 1초마다 (스케줄러 스레드, Redis 동기 호출 가능). */
+    /** Every second (scheduler thread; synchronous Redis calls allowed). */
     void tick() {
         Instant now = Instant.now();
         for (UUID player : queue.cleaning()) {
@@ -61,7 +66,7 @@ final class StaleLockWatcher {
         }
     }
 
-    /** 로비가 아닌 서버의 잠금이 남아 있는지. */
+    /** Whether a lock of a non-lobby server remains. */
     private boolean held(UUID player) {
         try {
             Optional<LockState> state = locks.inspect(player);

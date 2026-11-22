@@ -5,10 +5,10 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 제재 한 건 (sanctions 테이블, docs 20 1.3).
+ * One sanction (sanctions table, docs 20 1.3).
  *
- * @param issuedBy 운영진 UUID 또는 CONSOLE
- * @param expiresAt 만료 시각. null이면 영구
+ * @param issuedBy staff UUID or CONSOLE
+ * @param expiresAt expiry time. null means permanent
  */
 record Sanction(
         long id,
@@ -19,7 +19,7 @@ record Sanction(
         Instant issuedAt,
         @Nullable Instant expiresAt) {
 
-    /** BAN: 접속 거부. MUTE: 채팅·귓속말 차단. */
+    /** BAN: connection refused. MUTE: chat and whispers blocked. */
     enum Type {
         BAN,
         MUTE

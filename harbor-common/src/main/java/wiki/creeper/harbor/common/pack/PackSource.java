@@ -15,8 +15,9 @@ import java.util.zip.ZipFile;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 리소스팩 하나 (폴더 또는 zip). 팩 경로({@code assets/…}, {@code pack.mcmeta}) → 내용. 다운로드한 팩처럼 한 단계 안쪽 폴더에
- * assets가 있으면 그 폴더를 뿌리로 본다. 클라이언트 팩에 넣지 않는 파일({@link PackBuilder#include})은 처음부터 뺀다.
+ * One resource pack (folder or zip). Pack path ({@code assets/…}, {@code pack.mcmeta}) → content.
+ * If assets sits in a folder one level in, like a downloaded pack, that folder is treated as the
+ * root. Files not included in the client pack ({@link PackBuilder#include}) are dropped up front.
  */
 final class PackSource implements Closeable {
 
@@ -64,7 +65,7 @@ final class PackSource implements Closeable {
         }
     }
 
-    /** 폴더 또는 .zip. assets가 없으면 IOException. */
+    /** Folder or .zip. IOException if there is no assets. */
     static PackSource open(Path path) throws IOException {
         String display = String.valueOf(path.getFileName());
         if (Files.isDirectory(path)) {
@@ -121,7 +122,7 @@ final class PackSource implements Closeable {
         throw new IOException("assets 폴더가 없는 리소스팩입니다: " + dir.getFileName());
     }
 
-    /** zip 안에서 assets/가 시작하는 접두사 ("" 또는 "폴더/"). */
+    /** Prefix where assets/ starts inside the zip ("" or "folder/"). */
     private static String zipPrefix(ZipFile zip) throws IOException {
         String found = null;
         Enumeration<? extends ZipEntry> all = zip.entries();

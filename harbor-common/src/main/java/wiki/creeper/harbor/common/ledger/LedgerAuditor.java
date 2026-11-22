@@ -14,10 +14,13 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.model.Currency;
 
-/** 원장 합계와 잔액이 맞는지 검사한다. 매일 새벽 한 서버만 실행하고 (분산 잠금), 틀리면 관리자에게 알린다. */
+/**
+ * Checks that ledger sums match balances. Runs on one server every early morning (distributed lock)
+ * and alerts admins on mismatch.
+ */
 public final class LedgerAuditor {
 
-    /** 원장 합계와 잔액이 다른 플레이어. */
+    /** A player whose ledger sum differs from the balance. */
     public record Mismatch(UUID player, Currency currency, long ledgerSum, long balance) {}
 
     private LedgerAuditor() {}
