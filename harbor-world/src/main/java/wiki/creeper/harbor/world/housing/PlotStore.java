@@ -15,6 +15,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.common.redis.Channel;
 import wiki.creeper.harbor.world.WorldKit;
 import wiki.creeper.harbor.world.api.DisplayAnchor;
 import wiki.creeper.harbor.world.api.PlotInfo;
@@ -35,6 +36,14 @@ final class PlotStore {
     private final Map<UUID, Long> byOwner = new HashMap<>();
     private final Set<Long> loading = new HashSet<>();
 
+    /**
+     * 플롯 설정이 바뀌었다는 알림 (harbor:housing, 추가 제안). 다른 서버도 적재한 플롯을 계속 들고 있으므로, 받은 서버는 그 플롯 정보를 DB에서 다시
+     * 읽는다 (drop이면 캐시에서 내리고 다음 조회 때 다시 읽는다).
+     */
+    public record PlotChanged(long plotId, boolean drop) {}
+
+    static final Channel<PlotChanged> CHANGED = new Channel<>("harbor:housing", PlotChanged.class);
+
     PlotStore(WorldKit kit, Function<UUID, CompletableFuture<Integer>> bestTier) {
         this.kit = kit;
         this.bestTier = bestTier;
@@ -52,6 +61,61 @@ final class PlotStore {
 
     private @Nullable World world() {
         return kit.bukkitWorld(worldId());
+    }
+
+    // ------------------------------------------------------------------ 서버 간 동기화
+
+    void subscribe() {
+        kit.api()
+                .bus()
+                .subscribe(
+                        CHANGED,
+                        envelope -> {
+                            if (envelope.server().equals(kit.api().infra().serverId())) {
+                                return;
+                            }
+                            PlotChanged change = envelope.payload();
+                            kit.tasks().main().execute(() -> onChanged(change));
+                        });
+    }
+
+    /** DB에 커밋한 뒤 부른다 (어느 스레드든 된다). */
+    void publishChanged(long plotId, boolean drop) {
+        kit.api().bus().publish(CHANGED, new PlotChanged(plotId, drop));
+    }
+
+    private void onChanged(PlotChanged change) {
+        long plotId = change.plotId();
+        PlotState state = loaded.get(plotId);
+        if (state == null) {
+            return;
+        }
+        if (change.drop()) {
+            drop(state);
+            return;
+        }
+        var _ =
+                kit.api()
+                        .database()
+                        .async(c -> HousingRepository.byId(c, plotId))
+                        .thenAcceptAsync(
+                                row -> {
+                                    if (loaded.get(plotId) != state) {
+                                        return; // 그사이 내려가거나 다시 올라왔다
+                                    }
+                                    if (row.isEmpty()
+                                            || !row.get().owner().equals(state.info.owner())) {
+                                        drop(state);
+                                        return;
+                                    }
+                                    state.info = info(row.get());
+                                },
+                                kit.tasks().main());
+    }
+
+    private void drop(PlotState state) {
+        loaded.remove(state.info.plotId());
+        byOwner.remove(state.info.owner(), state.info.plotId());
     }
 
     // ------------------------------------------------------------------ 적재
@@ -151,8 +215,11 @@ final class PlotStore {
         WorldBalance b = kit.balance();
         var _ =
                 bestTier.apply(state.info.owner())
-                        .thenAccept(
+                        .thenAcceptAsync(
                                 tier -> {
+                                    if (loaded.get(state.info.plotId()) != state) {
+                                        return; // 그사이 내려갔다
+                                    }
                                     int size =
                                             PlotGrid.size(
                                                     state.info.size(),
@@ -205,7 +272,8 @@ final class PlotStore {
                                                 "world.housing.grown",
                                                 Placeholder.unparsed("size", String.valueOf(size)));
                                     }
-                                });
+                                },
+                                kit.tasks().main());
     }
 
     /** 1분마다: 주인이 없고 안에 아무도 없는 플롯을 내린다. */
@@ -290,6 +358,7 @@ final class PlotStore {
                                     i -> {
                                         loaded.remove(i);
                                         byOwner.remove(owner);
+                                        publishChanged(i, true);
                                     });
                             return id.isPresent();
                         },
@@ -305,18 +374,19 @@ final class PlotStore {
                             Optional<HousingRepository.PlotRow> src =
                                     HousingRepository.byOwner(c, from);
                             if (src.isEmpty() || HousingRepository.byOwner(c, to).isPresent()) {
-                                return false;
+                                return Optional.<Long>empty();
                             }
                             HousingRepository.transfer(c, src.get().plotId(), to);
-                            return true;
+                            return Optional.of(src.get().plotId());
                         })
                 .thenApplyAsync(
-                        ok -> {
+                        moved -> {
                             Long id = byOwner.remove(from);
                             if (id != null) {
                                 loaded.remove(id);
                             }
-                            return ok;
+                            moved.ifPresent(i -> publishChanged(i, true));
+                            return moved.isPresent();
                         },
                         kit.tasks().main());
     }

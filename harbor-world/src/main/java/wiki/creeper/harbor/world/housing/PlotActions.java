@@ -105,7 +105,8 @@ final class PlotActions {
         var _ =
                 kit.api()
                         .database()
-                        .asyncVoid(c -> HousingRepository.updatePolicy(c, plotId, policy));
+                        .asyncVoid(c -> HousingRepository.updatePolicy(c, plotId, policy))
+                        .thenRun(() -> store.publishChanged(plotId, false));
         kit.send(
                 player,
                 "world.housing.policy_set",
@@ -140,6 +141,8 @@ final class PlotActions {
                                                 Placeholder.unparsed("name", name));
                                         return;
                                     }
+                                    // 커밋 뒤: 다른 서버의 캐시도 맞춘다 (뺀 건축자가 그쪽에서 계속 짓지 않게)
+                                    store.publishChanged(plotId, false);
                                     Set<UUID> members = new HashSet<>(s.info.members());
                                     if (add) {
                                         members.add(target.get());
@@ -220,7 +223,8 @@ final class PlotActions {
                                                 at.getX(),
                                                 at.getY(),
                                                 at.getZ(),
-                                                at.getYaw()));
+                                                at.getYaw()))
+                        .thenRun(() -> store.publishChanged(id, false));
         kit.send(player, "world.housing.spawn_set");
     }
 

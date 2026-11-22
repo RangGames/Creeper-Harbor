@@ -2166,6 +2166,7 @@ world:
     summoned: "<aqua><name></aqua><gray>을(를) 띄웠습니다."
     recalled: "<gray>배를 조선소로 돌려보냈습니다."
     not_owner: "<red>내 배가 아닙니다."
+    not_crew: "<red>남의 배는 몰 수 없습니다. 주인이나 파티원이 먼저 타야 합니다."
     no_cargo: "<gray>이 배에는 화물칸이 없습니다."
     cargo_far: "<red>내 배에 타고 있거나 가까이 있어야 합니다."
     cargo_title: "<name> 화물칸"

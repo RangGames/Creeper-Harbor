@@ -5,6 +5,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -118,6 +119,13 @@ final class ShipNavigator {
             }
             List<Entity> passengers = a.boat.getPassengers();
             if (passengers.isEmpty() || !(passengers.getFirst() instanceof Player driver)) {
+                engineSound(a, false);
+                continue;
+            }
+            if (!crew(a, driver)) {
+                // 주인이 내려 남은 승객이 조종석으로 옮겨졌다: 남의 배는 몰 수 없다
+                a.boat.removePassenger(driver);
+                kit.actionBar(driver, "world.ship.not_crew");
                 engineSound(a, false);
                 continue;
             }
@@ -296,6 +304,32 @@ final class ShipNavigator {
                     kit.actionBar(player, "world.ship.storm_blocked");
                 }
             }
+        }
+    }
+
+    /** 주인이거나 주인의 파티원 (파티 구현이 없으면 주인만). */
+    private boolean crew(Afloat a, Player player) {
+        UUID owner = a.row.owner();
+        UUID uuid = player.getUniqueId();
+        return owner.equals(uuid)
+                || kit.api().parties().map(p -> p.sameParty(owner, uuid)).orElse(false);
+    }
+
+    /** 조종석(첫 플레이어 승객)은 주인·파티원만. 이미 선원이 탔으면 나머지 자리는 누구나 탄다. */
+    void onBoard(VehicleEnterEvent event) {
+        Long id = fleet.shipIdOf(event.getVehicle().getUniqueId());
+        if (id == null || !(event.getEntered() instanceof Player player)) {
+            return;
+        }
+        Afloat a = fleet.afloat(id);
+        if (a == null || crew(a, player)) {
+            return;
+        }
+        boolean driverSeatFree =
+                a.boat.getPassengers().stream().noneMatch(e -> e instanceof Player);
+        if (driverSeatFree) {
+            event.setCancelled(true);
+            kit.actionBar(player, "world.ship.not_crew");
         }
     }
 

@@ -304,6 +304,11 @@ public final class ShipManager implements ShipService, Listener {
         navigator.onVehicleMove(event);
     }
 
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBoard(VehicleEnterEvent event) {
+        navigator.onBoard(event);
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEnter(VehicleEnterEvent event) {
         navigator.onEnter(event);
