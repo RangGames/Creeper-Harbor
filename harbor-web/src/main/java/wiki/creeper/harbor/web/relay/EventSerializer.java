@@ -26,7 +26,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.id.HarborId;
+import wiki.creeper.harbor.common.model.JobTier;
 import wiki.creeper.harbor.common.model.Keyed;
 
 /**
@@ -34,7 +36,12 @@ import wiki.creeper.harbor.common.model.Keyed;
  * below Event) under snake_case names. Values are converted for JSON: player/UUID → UUID string,
  * Harbor ID (and wrapper records like FishId) → ID string plus {@code <field>_name} if a name is
  * found, record → map, enum → key, location → {world,x,y,z}, item → {material, amount}, component →
- * plain text.
+ * plain text, set of strings → sorted list.
+ *
+ * <p>Special cases: a {@link JobTier} becomes its numeric level (1~3) plus {@code <field>_key}
+ * (first · second · third). A {@link ContentSnapshot} is not exported; instead {@code entry_counts}
+ * gives the entry count of each type listed in {@code reloaded_types} (or of every type when there
+ * is no such field).
  *
  * <p>The first player found (a Player, or a UUID named player/uuid) becomes the event's player.
  * Safe to call from any thread (reads only content snapshots).
@@ -75,6 +82,7 @@ public final class EventSerializer {
         Map<String, Object> data = new LinkedHashMap<>();
         UUID player = null;
         String playerName = null;
+        ContentSnapshot snapshot = null;
         for (Getter g : getters.computeIfAbsent(event.getClass(), EventSerializer::scan)) {
             Object raw;
             try {
@@ -97,12 +105,38 @@ public final class EventSerializer {
                     player = u;
                 }
             }
+            if (raw instanceof ContentSnapshot s) {
+                snapshot = s;
+                continue;
+            }
             put(data, g.name(), raw, 0);
+        }
+        if (snapshot != null) {
+            data.put("entry_counts", entryCounts(snapshot, data.get("reloaded_types")));
         }
         return new Result(player, playerName, data);
     }
 
+    /** Entry counts of the reloaded types (all types if the list is missing), sorted by name. */
+    static Map<String, Object> entryCounts(ContentSnapshot snapshot, @Nullable Object reloaded) {
+        Map<String, Integer> counts = snapshot.counts();
+        Map<String, Object> out = new java.util.TreeMap<>();
+        if (reloaded instanceof Collection<?> names) {
+            for (Object n : names) {
+                out.put(String.valueOf(n), counts.getOrDefault(String.valueOf(n), 0));
+            }
+        } else {
+            out.putAll(counts);
+        }
+        return out;
+    }
+
     private void put(Map<String, Object> into, String name, Object raw, int depth) {
+        if (raw instanceof JobTier tier) {
+            into.put(name, tier.level());
+            into.put(name + "_key", tier.name().toLowerCase(Locale.ROOT));
+            return;
+        }
         Object value = convert(raw, depth);
         if (value == null) {
             return;
@@ -125,6 +159,7 @@ public final class EventSerializer {
             case HarborId id -> id.toString();
             case Player p -> p.getUniqueId().toString();
             case OfflinePlayer p -> p.getUniqueId().toString();
+            case JobTier t -> t.level();
             case Keyed k -> k.key();
             case Enum<?> e -> e.name().toLowerCase(Locale.ROOT);
             case Component c -> PlainTextComponentSerializer.plainText().serialize(c);
@@ -191,11 +226,17 @@ public final class EventSerializer {
 
     private List<Object> list(Collection<?> c, int depth) {
         List<Object> out = new ArrayList<>();
+        boolean strings = true;
         for (Object x : c) {
             Object n = convert(x, depth + 1);
             if (n != null) {
                 out.add(n);
+                strings &= n instanceof String;
             }
+        }
+        if (c instanceof Set<?> && strings) {
+            // sets have no stable order: sort so the same content gives the same JSON
+            out.sort(Comparator.comparing(Object::toString));
         }
         return out;
     }

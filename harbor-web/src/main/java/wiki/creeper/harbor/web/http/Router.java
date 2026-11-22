@@ -21,13 +21,42 @@ public final class Router {
             return v == null || v.isEmpty() ? fallback : v;
         }
 
-        public int queryInt(String name, int fallback, int min, int max) {
-            try {
-                return Math.clamp(
-                        Integer.parseInt(query(name, String.valueOf(fallback))), min, max);
-            } catch (NumberFormatException e) {
+        /**
+         * Integer query parameter. Missing or empty means fallback; a number outside min..max is
+         * clamped; anything that is not a base-10 integer is 400 bad_parameter.
+         */
+        public long queryLong(String name, long fallback, long min, long max) throws ApiException {
+            String raw = query.get(name);
+            if (raw == null || raw.isEmpty()) {
                 return fallback;
             }
+            try {
+                return Math.clamp(Long.parseLong(raw.strip()), min, max);
+            } catch (NumberFormatException e) {
+                throw ApiException.badParameter(
+                        name, name + "는 정수여야 합니다 (" + min + "~" + max + "): " + raw, List.of());
+            }
+        }
+
+        /** {@link #queryLong} for int ranges. */
+        public int queryInt(String name, int fallback, int min, int max) throws ApiException {
+            return (int) queryLong(name, fallback, min, max);
+        }
+
+        /**
+         * Choice query parameter (exact, lowercase). Missing or empty means fallback; any other
+         * value not in allowed is 400 bad_parameter listing the allowed values.
+         */
+        public String queryChoice(String name, String fallback, List<String> allowed)
+                throws ApiException {
+            String v = query(name, fallback);
+            if (!allowed.contains(v)) {
+                throw ApiException.badParameter(
+                        name,
+                        name + "는 " + String.join(", ", allowed) + " 중 하나여야 합니다: " + v,
+                        allowed);
+            }
+            return v;
         }
     }
 
@@ -42,11 +71,26 @@ public final class Router {
         private static final long serialVersionUID = 1L;
         private final int status;
         private final String code;
+        private final String param;
+        private final List<String> allowed;
 
         public ApiException(int status, String code, String message) {
+            this(status, code, message, "", List.of());
+        }
+
+        private ApiException(
+                int status, String code, String message, String param, List<String> allowed) {
             super(message);
             this.status = status;
             this.code = code;
+            this.param = param;
+            this.allowed = List.copyOf(allowed);
+        }
+
+        /** 400 bad_parameter for a query parameter (allowed: choices, empty if not a choice). */
+        public static ApiException badParameter(
+                String param, String message, List<String> allowed) {
+            return new ApiException(400, "bad_parameter", message, param, allowed);
         }
 
         public int status() {
@@ -55,6 +99,16 @@ public final class Router {
 
         public String code() {
             return code;
+        }
+
+        /** Offending query parameter name (empty if not a parameter error). */
+        public String param() {
+            return param;
+        }
+
+        /** Allowed values of a choice parameter (empty otherwise). */
+        public List<String> allowed() {
+            return allowed;
         }
     }
 

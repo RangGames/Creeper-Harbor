@@ -34,6 +34,8 @@
 
 채널은 `harbor:events` 하나다. 메시지는 Harbor 공통 봉투(Common `redis/Envelope`) JSON 글이다.
 
+> **필드 이름 주의:** Redis 원본 메시지는 Common `ExternalEvent` 레코드를 그대로 쓰므로 **camelCase**(`occurredAt`, `playerName`, 봉투의 `sentAt`)다. REST `/v1/events`와 웹훅 `json` 본문은 같은 이벤트를 **snake_case**(`occurred_at`, `player_name`)로 옮겨 보낸다 ([REST·웹훅 형식](#rest웹훅-형식-snake_case)). data 안의 키는 어디서나 같다 (원래 snake_case).
+
 ```json
 {
   "type": "ExternalEvent",
@@ -46,6 +48,7 @@
     "server": "main-1",
     "occurredAt": "2026-11-20T12:00:05.901Z",
     "player": "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+    "playerName": "Steve",
     "data": {
       "fish": "harbor:fish/harbor_mackerel",
       "fish_name": "항구 고등어",
@@ -78,15 +81,14 @@
 | `server` | string | 예 | 이벤트가 난 서버 ID |
 | `occurredAt` | string | 예 | 이벤트를 만든 시각 (그 서버 시계), ISO-8601 UTC. 소수 초 자릿수는 일정하지 않다 |
 | `player` | string (UUID) | 아니오 | 관련 플레이어. 없으면 **키가 없다** (null을 쓰지 않음) |
-| `playerName` | string | 아니오 | 플레이어 이름. 아래 규칙대로 있을 때만 |
+| `playerName` | string | 아니오 | 플레이어 이름. `player`가 있으면 대부분 있다 (아래 규칙) |
 | `data` | object | 예 | type별 내용. 값은 문자열·숫자·불리언·배열·객체만. null 값은 빠진다 |
 
-**player / playerName이 정해지는 규칙** (`EventSerializer`):
+**player / playerName이 정해지는 규칙** (`EventSerializer`, `EventRelay`):
 
 - 원본 이벤트의 getter를 이름순으로 훑으며, 처음 만나는 `Player` 객체 또는 이름이 `player`/`uuid`인 UUID 값이 `player`가 된다.
-- `playerName`은 그 값이 **`Player` 객체일 때만** 채워진다. 대부분의 모듈 이벤트는 UUID만 주므로 `playerName`이 없다. 카탈로그의 "이름" 열을 보라.
-- 구매자/판매자처럼 `player`라는 getter가 없는 이벤트는 `player`도 없다 (data 안의 `buyer`·`seller`를 본다).
-- 이름이 필요하면 REST `GET /v1/players/{uuid}`로 찾는다.
+- `playerName`: 그 값이 `Player` 객체면 그 이름. UUID만 있으면 발행 서버가 찾는다: 그 서버에 접속 중인 플레이어 → 최근에 본 이름(접속·조회 때 기억) → players 테이블(가상 스레드에서 조회한 뒤 발행). players 행도 없으면 `playerName` 없이 나간다.
+- 구매자/판매자처럼 `player`라는 getter가 없는 이벤트는 `player`도 없다 (data 안의 `buyer`·`seller`를 본다. 이 UUID들의 이름은 채우지 않는다).
 
 ### data 변환 규칙
 
@@ -98,6 +100,9 @@
 | `Player`, `OfflinePlayer`, `UUID` | UUID 문자열 |
 | Harbor ID (`HarborId`, `FishId`·`QuestId`·`RegionId` 같은 래퍼) | `"harbor:<종류>/<이름>"` 문자열. 콘텐츠에서 이름을 찾으면 `<필드>_name`을 옆에 더한다 (예 `fish` + `fish_name`) |
 | enum | 소문자 이름 (`SERVER` → `"server"`) |
+| 직업 단계 `JobTier` | 숫자 단계 1~3, 옆에 `<필드>_key`로 `"first"`·`"second"`·`"third"` (예 `tier: 2`, `tier_key: "second"`) |
+| `ContentSnapshot` | 내보내지 않는다. 대신 `entry_counts`: `reloaded_types`에 있는 형식별 항목 수 |
+| 문자열 Set | 정렬한 배열 (Set은 순서가 없어서) |
 | 레코드 | 객체 (구성 요소 이름을 snake_case로) |
 | 이름이 `…Def`로 끝나는 콘텐츠 정의 레코드 (`FishDef` 등) | `{id, no, name, grade}`만 |
 | `Location` | `{world, x, y, z}` (좌표는 소수 첫째 자리) |
@@ -114,22 +119,37 @@
 - **품질(`Quality`)은 레코드라 `{"stars": 4}` 객체**로 나온다. 시즌(`SeasonId`)도 `{"value": 1}` 객체다.
 - **키 순서는 정해져 있지 않다** (`Map.copyOf`). 순서에 기대지 않는다.
 
-### 숫자 표기 주의 (중요)
+### 숫자 표기
 
 | 경로 | 정수 값 예 (`online` = 13) | 실수 값 예 |
 |---|---|---|
 | Redis 원본 메시지 | `13` | `41.2` |
-| REST `GET /v1/events` | `13.0` | `41.2` |
-| 웹훅 `json` 본문 | `13.0` | `41.2` |
+| REST `GET /v1/events` | `13` | `41.2` |
+| 웹훅 `json` 본문 | `13` | `41.2` |
 
-REST 서버와 웹훅 서버는 Redis 메시지를 Gson으로 다시 읽어서 내보낸다. 이때 `data` 안의 숫자는 모두 `double`로 읽혀서 정수도 `13.0`처럼 나온다. 봉투의 `version`은 정수 필드라 그대로 `1`이다. 받는 쪽은 `data`의 숫자를 **정수/실수 구분 없이 number로 읽고**, 정수가 필요하면 반올림해서 쓴다. long 범위의 큰 수(2^53 이상)는 정밀도를 잃을 수 있다.
+REST 서버와 웹훅 서버는 Redis 메시지의 `data`를 원본 JSON으로 받은 뒤 정수는 정수(long), 소수점이나 지수가 있는 값은 실수(double)로 읽는다 (Gson `ToNumberPolicy.LONG_OR_DOUBLE`, `EventWire`). 그래서 정수는 어디서나 정수로 나오고, 원본이 `33.0`처럼 실수로 쓴 값은 실수로 남는다. long 범위의 정수도 정밀도를 잃지 않는다 (받는 쪽 JSON 파서가 2^53을 넘는 수를 다루는지는 따로 확인한다).
+
+### REST·웹훅 형식 (snake_case)
+
+REST `/v1/events`의 `items[].event`와 웹훅 `json` 본문은 같은 객체다. 필드 순서는 아래 표 순서다 (data 안의 키 순서는 정해져 있지 않다).
+
+| 필드 | Redis 원본 필드 | 항상 있음 |
+|---|---|---|
+| `id` | `id` | 예 |
+| `type` | `type` | 예 |
+| `version` | `version` | 예 |
+| `server` | `server` | 예 |
+| `occurred_at` | `occurredAt` | 예 |
+| `player` | `player` | 아니오 |
+| `player_name` | `playerName` | 아니오 |
+| `data` | `data` | 예 |
 
 ## 3. 이벤트 카탈로그
 
 출처: `relay/EventCatalog.ENTRIES`(모듈 이벤트 50종) + `EventCatalog.SERVER_TYPES`·`HarborWebPlugin`(서버 이벤트 5종) = **55종**. 이 밖의 type은 다른 플러그인이 `emit`으로 더한 것이다 (예 `skript.*`).
 
 - 모듈 이벤트는 **그 모듈 플러그인이 켜진 서버에서만** 구독된다. 이벤트는 그 사건이 처리된 서버에서 한 번 난다. 단, 표에서 "서버마다"라고 쓴 이벤트는 같은 사건이 **서버 수만큼 따로** 발행된다 (id가 서로 다르다).
-- "player" 열: ✔ = `player` 있음, ✔이름 = `player`와 `playerName` 둘 다 있음, – = 없음.
+- "player" 열: ✔ = `player` 있음 (`playerName`은 발행 서버가 찾아 넣으므로 players 행이 있으면 있다), ✔이름 = 원본 이벤트가 `Player`를 줘서 `playerName`이 항상 있음, – = 없음.
 - data 필드의 `?`는 값이 없으면 키가 없다는 뜻이다. `X_name?`은 앞 절의 `_name` 규칙.
 - 공통 객체 형식은 카탈로그 뒤의 [공통 객체](#공통-객체)에 있다.
 
@@ -141,8 +161,8 @@ REST 서버와 웹훅 서버는 Redis 메시지를 Gson으로 다시 읽어서 �
 | `server.stopping` | Harbor-Web 종료 | – | (빈 객체) | 종료 중 비동기 발행이라 못 나갈 수 있다 |
 | `server.player_join` | `PlayerJoinEvent` | ✔이름 | `online`: 그 서버 접속 인원(들어온 사람 포함) | 서버 이동 때도 도착 서버에서 난다 |
 | `server.player_quit` | `PlayerQuitEvent` | ✔이름 | `online`: 나간 뒤 그 서버 인원 | 서버 이동 때도 출발 서버에서 난다 |
-| `server.content_reloaded` | Core `ContentReloadedEvent` | – | `reloaded_types`: string[] (이번에 다시 읽은 콘텐츠 형식), `snapshot`: string | `snapshot`은 Java 객체 `toString()` 값이라 의미 없다. 리로드한 서버마다 |
-| `server.webhook_test` | `/harbor web test <대상>` | 이름만 | `target`: 대상 이름 | **Redis로 발행하지 않는다.** 그 웹훅 대상에만 바로 보낸다. `playerName`은 명령을 친 사람(콘솔이면 `CONSOLE`), `player` 없음 |
+| `server.content_reloaded` | Core `ContentReloadedEvent` | – | `reloaded_types`: string[] (이번에 다시 읽은 콘텐츠 형식, 정렬), `entry_counts`: `{<형식>: int}` (그 형식들의 리로드 후 항목 수, 파일 하나짜리 형식은 1) | 리로드한 서버마다 |
+| `server.webhook_test` | `/harbor web test <대상>` | 이름만 | `target`: 대상 이름 | **Redis로 발행하지 않는다.** 그 웹훅 대상에만 바로 보낸다. `player_name`은 명령을 친 사람(콘솔이면 `CONSOLE`), `player` 없음 |
 
 ### economy.currency_changed (Core)
 
@@ -150,7 +170,7 @@ REST 서버와 웹훅 서버는 Redis 메시지를 Gson으로 다시 읽어서 �
 |---|---|---|---|
 | `economy.currency_changed` | Core `CurrencyChangedEvent` | ✔ | `player`, `currency`: `"gold"`·`"mulbineul"`, `delta`: int(±), `balance`: int(처리 후 잔액), `reason`: LedgerReason 소문자 (예 `"fish_sell"`, `"quest_reward"`) |
 
-변경을 처리한 서버에서 난다. 자주 나는 이벤트라 필요 없으면 `events.exclude`에 넣는다. REST 원장의 `reason`은 대문자(`FISH_SELL`)이고 여기는 소문자다.
+변경을 처리한 서버에서 난다. 자주 나는 이벤트라 필요 없으면 `events.exclude`에 넣는다. `reason`은 REST 원장의 `reason`과 같은 소문자 키다.
 
 ### quest (Harbor-Quest)
 
@@ -200,12 +220,12 @@ REST 서버와 웹훅 서버는 Redis 메시지를 Gson으로 다시 읽어서 �
 
 | type | 원본 이벤트 | player | data |
 |---|---|---|---|
-| `jobs.advanced` | `JobAdvancedEvent` | ✔ | `player`, `tier`: `"first"`·`"second"`·`"third"`, `line?`: `"explore"`·`"collect"`·`"produce"`·`"economy"` |
+| `jobs.advanced` | `JobAdvancedEvent` | ✔ | `player`, `tier`: int 1~3 (새 단계), `tier_key`: `"first"`·`"second"`·`"third"`, `line?`: `"explore"`·`"collect"`·`"produce"`·`"economy"` |
 | `jobs.level_up` | `JobLevelUpEvent` | ✔ | `player`, `level` |
 | `jobs.line_changed` | `JobLineChangedEvent` | ✔ | `player`, `from?`, `to` (계열 키) |
 | `jobs.capstone_used` | `CapstoneUsedEvent` | ✔ | `player`, `node`: 스킬 ID, `node_name?` |
 
-`tier`는 숫자가 아니라 enum 이름(`"second"`)이다. REST의 `job_tier`는 숫자(1~3)다.
+`tier`는 REST 요약의 `job_tier`와 같은 숫자(1~3)다. 바뀌지 않는 문자열 키가 필요하면 `tier_key`를 쓴다.
 
 ### npc (Harbor-Npc)
 
@@ -386,7 +406,7 @@ webhooks:
 
 #### `json`
 
-본문은 ExternalEvent(Redis의 `payload`) JSON 하나다. 봉투는 붙지 않는다.
+본문은 이벤트 하나를 [snake_case 형식](#rest웹훅-형식-snake_case)으로 쓴 JSON이다 (REST `/v1/events`의 `event`와 같다). 봉투는 붙지 않는다.
 
 ```http
 POST /harbor/events HTTP/1.1
@@ -397,7 +417,7 @@ X-Harbor-Id: a8d2b7c4-0f7e-4b39-8a51-1b6f2d3e4c55
 X-Harbor-Timestamp: 1763640006
 X-Harbor-Signature: sha256=5d1f0c…(64자 hex)
 
-{"id":"a8d2b7c4-0f7e-4b39-8a51-1b6f2d3e4c55","type":"collection.record_broken","version":1,"server":"main-1","occurredAt":"2026-11-20T12:00:05.901Z","player":"069a79f4-44e9-4726-a5be-fca90e38aaf5","data":{"scope":"server","fish":"harbor:fish/harbor_mackerel","size":41.2,"league":"all","fish_name":"항구 고등어","previous":39.8,"player":"069a79f4-44e9-4726-a5be-fca90e38aaf5"}}
+{"id":"a8d2b7c4-0f7e-4b39-8a51-1b6f2d3e4c55","type":"collection.record_broken","version":1,"server":"main-1","occurred_at":"2026-11-20T12:00:05.901Z","player":"069a79f4-44e9-4726-a5be-fca90e38aaf5","player_name":"Steve","data":{"scope":"server","fish":"harbor:fish/harbor_mackerel","size":41.2,"league":"all","fish_name":"항구 고등어","previous":39.8,"player":"069a79f4-44e9-4726-a5be-fca90e38aaf5"}}
 ```
 
 | 헤더 | 값 |
@@ -408,24 +428,24 @@ X-Harbor-Signature: sha256=5d1f0c…(64자 hex)
 | `X-Harbor-Signature` | `secret`이 있을 때만. `sha256=` + 소문자 hex |
 
 본문 직렬화에 관한 사실 (서명 검증 때 중요):
-- 필드 순서는 `id, type, version, server, occurredAt, player, playerName, data`. 값이 없는 `player`/`playerName`은 빠진다. data 키 순서는 정해져 있지 않다.
-- Gson 기본 설정으로 써서 **HTML 문자 `<` `>` `&` `=` `'`가 `<` 같은 유니코드 이스케이프**로 나간다. 한글은 그대로 UTF-8이다.
-- data의 숫자는 [앞의 주의](#숫자-표기-주의-중요)대로 정수도 `13.0`처럼 나온다.
+- 필드 순서는 `id, type, version, server, occurred_at, player, player_name, data`. 값이 없는 `player`/`player_name`은 빠진다. data 키 순서는 정해져 있지 않다.
+- HTML 문자(`<` `>` `&` `=` `'`)를 이스케이프하지 않고 그대로 쓴다 (REST 응답과 같다). 한글도 그대로 UTF-8이다.
+- data의 정수는 [숫자 표기](#숫자-표기)대로 정수로 나온다.
 - 그러므로 서명은 **받은 원본 바이트**로 검증한다. JSON을 파싱했다가 다시 직렬화한 값으로 검증하면 틀린다.
 
 #### `discord`
 
 ```json
-{"content":"🏆 **069a79f4-44e9-4726-a5be-fca90e38aaf5**님이 항구 고등어 서버 기록을 갱신했습니다! 41.2cm (리그 all)","allowed_mentions":{"parse":[]}}
+{"content":"🏆 **Steve**님이 항구 고등어 서버 기록을 갱신했습니다! 41.2cm (리그 all)","allowed_mentions":{"parse":[]}}
 ```
 
 - 문구는 `messages_ko.yml`의 `web.discord.<type>` (type의 점이 YAML 단계가 된다: `web.discord.collection.record_broken`). **문구가 없는 type은 보내지 않는다.**
 - MiniMessage로 렌더한 뒤 평문으로 바꾸므로 색 태그는 사라진다. 2000자를 넘으면 1997자 + `...`로 자른다.
 - `allowed_mentions.parse = []`로 모든 멘션을 막는다.
 - 자리표시자:
-  - `<player>`: `playerName`, 없으면 `player` UUID, 둘 다 없으면 `-`. **대부분의 모듈 이벤트는 playerName이 없어 UUID가 찍힌다** (위 예).
+  - `<player>`: `playerName`, 없으면 `player` UUID, 둘 다 없으면 `-`. 모듈 이벤트도 발행 서버가 이름을 찾아 넣으므로 보통 이름이 찍힌다 (players 행이 없을 때만 UUID).
   - `<server>`, `<type>`
-  - data의 평탄화된 모든 칸: 점은 밑줄로, `[a-z0-9_-]` 밖의 글자도 밑줄로 바꾼다 (`fish.name` → `<fish_name>`). data에 `player`·`server`·`type` 칸이 있어도 위 세 값이 우선한다. 값은 글 그대로 넣는다 (태그 해석 안 함).
+  - data의 평탄화된 모든 칸: 점은 밑줄로, `[a-z0-9_-]` 밖의 글자도 밑줄로 바꾼다 (`fish.name` → `<fish_name>`). data에 `player`·`server`·`type` 칸이 있어도 위 세 값이 우선한다. 값은 글 그대로 넣는다 (태그 해석 안 함). 정수는 소수점 없이 들어간다 (`jobs.advanced`의 `<tier>` → `2`, 문구 "2차 전직").
 - X-Harbor-* 헤더와 서명은 붙지 않는다.
 
 현재 문구가 있는 type (`content/messages_ko.yml`):
@@ -533,7 +553,7 @@ async def harbor_events(
 ### 전달 정책 (`WebhookDispatcher`)
 
 - **대기열:** 대상마다 대기열 하나(`queue_size`, 최소 10)와 가상 스레드 하나. 대상끼리는 서로 막지 않는다. 대기열이 가득 차면 **새 이벤트를 버리고** 경고를 남긴다 (오래된 것을 밀어내지 않는다).
-- **순서:** 한 대상 안에서는 대기열 순서대로 하나씩 보낸다 (재시도 중이면 뒤 이벤트는 기다린다). 여러 서버의 이벤트가 Redis에서 섞이는 순서는 보장하지 않으므로, 순서가 중요하면 `occurredAt`으로 정렬한다 (서버마다 시계가 다를 수 있음).
+- **순서:** 한 대상 안에서는 대기열 순서대로 하나씩 보낸다 (재시도 중이면 뒤 이벤트는 기다린다). 여러 서버의 이벤트가 Redis에서 섞이는 순서는 보장하지 않으므로, 순서가 중요하면 `occurred_at`으로 정렬한다 (서버마다 시계가 다를 수 있음). 이름을 DB에서 찾느라 늦게 발행된 이벤트는 같은 서버의 다른 이벤트보다 뒤에 올 수 있다.
 - **성공:** HTTP 2xx. 응답 본문은 보지 않는다.
 - **재시도:** 최대 `retries`번(기본 3, 즉 총 4번 시도). 시도 사이 대기:
 
@@ -550,12 +570,13 @@ async def harbor_events(
 - **멱등성:** 응답을 못 받은 시도(타임아웃 등)도 재시도하므로 **같은 이벤트가 두 번 이상 올 수 있다.** `X-Harbor-Id`로 거른다. "서버마다" 나는 이벤트는 id가 서로 달라 id로는 걸러지지 않는다 (카탈로그 비고 참고).
 - **전달 보장:** 최대 한 번에 가깝다 (at-most-once + 재시도). 리더 교체 중, 대기열 가득 참, 서버 재시작(대기열은 메모리) 때 잃을 수 있다.
 - **상태 확인:** `/harbor web status` → 리더 여부와 `sent`·`failed`·`dropped` 수.
-- **시험:** `/harbor web test <대상>`은 `server.webhook_test` 이벤트를 그 대상 대기열에 바로 넣는다. `events`·`where` 필터와 리더 여부를 보지 않는다. `json` 대상이면 서명도 붙는다. 이 이벤트의 `data.target`은 문자열이다 (Redis를 거치지 않으므로 숫자 변환도 없다).
+- **시험:** `/harbor web test <대상>`은 `server.webhook_test` 이벤트를 그 대상 대기열에 바로 넣는다. `events`·`where` 필터와 리더 여부를 보지 않는다. `json` 대상이면 서명도 붙는다. 이 이벤트의 `data.target`은 문자열이다 (Redis를 거치지 않는다).
 
 ## 6. REST로 최근 이벤트 읽기
 
 `GET /v1/events?after=<seq>&type=<glob>&limit=<1~500>` — 자세한 내용은 [api.md](api.md#get-v1events)와 [openapi.yaml](openapi.yaml).
 
-- REST 서버(`http.enabled`)가 Redis에서 받은 이벤트를 메모리에 최근 `http.recent_events`개(기본 500, 최소 10) 보관한다. 서버마다 따로이고 재시작하면 비워지며 seq도 1부터 다시 시작한다.
+- REST 서버(`http.enabled`)가 Redis에서 받은 이벤트를 메모리에 최근 `http.recent_events`개(기본 500, 최소 10) 보관한다. **seq와 커서는 서버마다 따로**이고(응답의 `server`가 seq를 붙인 서버), 재시작하면 비워지며 seq도 1부터 다시 시작한다 (그때 `next`가 0).
+- 이벤트는 [snake_case 형식](#rest웹훅-형식-snake_case)이다.
 - `server.webhook_test`는 Redis를 거치지 않으므로 여기에 나오지 않는다.
 - 웹훅 리더 잠금과 무관하게, REST가 켜진 서버면 받는다.
