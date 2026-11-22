@@ -8,7 +8,7 @@ import wiki.creeper.harbor.common.model.Keyed;
  * ({@link BossBalance}).
  */
 public enum BossType implements Keyed {
-    /** Intro boss (Gnome). */
+    /** Intro boss ("That One", 그놈). */
     INTRO,
     /** Sea boss (moray eel, sturgeon, giant squid). */
     SEA,

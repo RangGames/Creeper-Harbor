@@ -22,7 +22,7 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *
  * <pre>
  * - id: boss/swamp_catfish
- *   name: "&lt;dark_green&gt;Lord of the Swamp 'Gnome'"
+ *   name: "&lt;dark_green&gt;Lord of the Swamp 'That One' (그놈)"
  *   type: intro
  *   goal: capture
  *   region: region/harbor

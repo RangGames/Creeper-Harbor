@@ -11,7 +11,7 @@ class HpScalingTest {
 
     @Test
     void partyFormula() {
-        // Gnome 2,000 · intro +60%
+        // "That One" (그놈) 2,000 · intro +60%
         assertEquals(2000, HpScaling.partyMaxHp(2000, 0.6, 1), 1e-9);
         assertEquals(3200, HpScaling.partyMaxHp(2000, 0.6, 2), 1e-9);
         // Moray eel 3,000 · sea +50% · 4 players
