@@ -14,9 +14,14 @@ import org.skriptlang.skript.registration.SyntaxRegistry;
 import wiki.creeper.harbor.core.api.event.CurrencyChangedEvent;
 import wiki.creeper.harbor.skript.bridge.BossSyntax;
 import wiki.creeper.harbor.skript.bridge.CollectionSyntax;
+import wiki.creeper.harbor.skript.bridge.CoreEconomySyntax;
+import wiki.creeper.harbor.skript.bridge.CorePlayerSyntax;
+import wiki.creeper.harbor.skript.bridge.CoreServerSyntax;
 import wiki.creeper.harbor.skript.bridge.CoreSyntax;
+import wiki.creeper.harbor.skript.bridge.CoreUiSyntax;
 import wiki.creeper.harbor.skript.bridge.EconomySyntax;
 import wiki.creeper.harbor.skript.bridge.FishingSyntax;
+import wiki.creeper.harbor.skript.bridge.FurnitureSyntax;
 import wiki.creeper.harbor.skript.bridge.JobsSyntax;
 import wiki.creeper.harbor.skript.bridge.NpcSyntax;
 import wiki.creeper.harbor.skript.bridge.QuestSyntax;
@@ -139,6 +144,11 @@ final class SkriptSyntax {
         // class is loaded then)
         Registrar r = new Registrar(registry, values);
         CoreSyntax.register(r);
+        module(plugin, "Harbor-Core", () -> CorePlayerSyntax.register(r));
+        module(plugin, "Harbor-Core", () -> CoreEconomySyntax.register(r));
+        module(plugin, "Harbor-Core", () -> CoreUiSyntax.register(r));
+        module(plugin, "Harbor-Core", () -> CoreServerSyntax.register(r));
+        module(plugin, "Harbor-Core", () -> FurnitureSyntax.register(r));
         module(plugin, "Harbor-Npc", () -> NpcSyntax.register(r));
         module(plugin, "Harbor-Jobs", () -> JobsSyntax.register(r));
         module(plugin, "Harbor-Fishing", () -> FishingSyntax.register(r));
