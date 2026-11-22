@@ -21,7 +21,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 class DefaultContentTest {
 
-    /** 기본 콘텐츠 jar 흉내: 경로 → 내용. */
+    /** Fake default-content jar: path → contents. */
     private static DefaultContent.Resources jar(Map<String, String> files) {
         Map<String, String> all = new LinkedHashMap<>();
         all.put(DefaultContent.INDEX, String.join("\n", files.keySet()) + "\n");
@@ -70,7 +70,7 @@ class DefaultContentTest {
     void fillsOnlyNewKeysIntoEditedFiles(@TempDir Path dir) throws IOException {
         Path target = dir.resolve("content");
         DefaultContent.sync(jar(Map.of("m.yml", "a: 1\nb: 1\n")), target);
-        // 운영자가 a를 고치고 b를 지웠다
+        // The operator edited a and deleted b
         Files.writeString(target.resolve("m.yml"), "a: 9 # 내 값\n");
 
         var result =
@@ -79,7 +79,7 @@ class DefaultContentTest {
         assertEquals(List.of("m.yml"), result.keptModified());
         assertEquals(Map.of("m.yml", List.of("c")), result.filled());
         assertEquals("a: 9 # 내 값\n# 새 항목\nc: 1\n", read(target.resolve("m.yml")));
-        // 한 번 더 돌려도 그대로
+        // Running it again leaves it unchanged
         var again = DefaultContent.sync(jar(Map.of("m.yml", "a: 1\nb: 1\n# 새 항목\nc: 1\n")), target);
         assertTrue(again.filled().isEmpty());
     }

@@ -5,14 +5,17 @@ import wiki.creeper.harbor.common.rig.RigBaker;
 import wiki.creeper.harbor.common.rig.Xform;
 
 /**
- * 리그 재생 설정 (balance.yml rig 구역). 기본값은 balance.yml에 값이 없을 때만 쓴다.
+ * Rig playback settings (balance.yml rig section). Defaults are used only when balance.yml has no
+ * value.
  *
- * @param moveTicks 이동·방향 보간 기본 틱 (teleport_duration)
- * @param blendTicks 동작 전환 이어 붙이기 틱
- * @param lodDistance 가장 가까운 시청자가 이보다 멀면 애니메이션 갱신을 건너뛴다 (블록)
- * @param tickBudgetNanos 틱당 리그 갱신 예산. 넘으면 남은 리그는 다음 틱으로 미룬다 (차례 돌림)
- * @param hitboxInterval 판정 상자 위치 갱신 주기 (틱)
- * @param partBudget 플레이어 1명 주변 표시 부품 기준 ('16. 플러그인 설계' 7장). 넘으면 /harbor rig stats에서 경고
+ * @param moveTicks default interpolation ticks for movement and rotation (teleport_duration)
+ * @param blendTicks blend ticks when switching animations
+ * @param lodDistance skip animation updates when the nearest viewer is farther than this (blocks)
+ * @param tickBudgetNanos rig update budget per tick. Once exceeded, remaining rigs wait for the
+ *     next tick (round robin)
+ * @param hitboxInterval hitbox position update interval (ticks)
+ * @param partBudget display part budget around one player ('16. Plugin design' chapter 7). /harbor
+ *     rig stats warns when exceeded
  */
 record RigSettings(
         RigBaker.Settings bake,
@@ -26,7 +29,8 @@ record RigSettings(
     static RigSettings from(Balance b) {
         int fps = b.integer("rig.fps", 10);
         if (fps <= 0 || 20 % fps != 0) {
-            fps = 10; // CoreContent 검사가 막지만, 검사 전 값이 들어와도 멈추지 않게
+            fps = 10; // CoreContent validation rejects this, but don't stall if an unchecked
+            // value gets in
         }
         Xform.Tolerance tolerance =
                 new Xform.Tolerance(

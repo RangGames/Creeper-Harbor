@@ -11,13 +11,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** player_inventory · player_inventory_history (Core 소유, V3, 추가 제안). */
+/** player_inventory, player_inventory_history (Core owned, V3, proposed). */
 final class InventoryRepository {
 
     /**
-     * 기록 한 줄.
+     * One history record.
      *
-     * @param size 데이터 크기 (바이트)
+     * @param size data size (bytes)
      */
     record HistoryRow(long id, String reason, String server, Instant createdAt, int size) {}
 
@@ -47,7 +47,10 @@ final class InventoryRepository {
         }
     }
 
-    /** 기록을 더하고 최근 keep개만 남긴다. 바로 앞 기록과 내용이 같으면 더하지 않는다 (사망 기록은 늘 더함). */
+    /**
+     * Adds a record and keeps only the latest keep records. Skipped if identical to the previous
+     * record (death records are always added).
+     */
     static void addHistory(
             Connection c, UUID uuid, String reason, String server, byte[] encoded, int keep)
             throws SQLException {

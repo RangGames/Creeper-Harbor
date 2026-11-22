@@ -22,7 +22,7 @@ import wiki.creeper.harbor.core.api.RigService;
 import wiki.creeper.harbor.core.api.Ui;
 import wiki.creeper.harbor.core.api.WorldBorderService;
 
-/** HarborApi 구현: 서비스 묶음. */
+/** HarborApi implementation: the bundle of services. */
 record CoreApi(
         ContentService content,
         PlayerService players,

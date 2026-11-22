@@ -35,19 +35,24 @@ import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 깨진 노트블록 복구 (ItemsAdder fix-glitched-blocks와 같은 목적, 추가 제안). 커스텀 블록에 상태 번호를 새로 배정하면, 그 전부터 월드에 있던
- * 바닐라 노트블록(음을 바꿔 둔 것)이 마침 그 상태면 커스텀 블록 모양으로 보인다. 그런 블록을 바닐라 기본 상태(harp·0)로 되돌린다.
+ * Repairs glitched note blocks (same purpose as ItemsAdder fix-glitched-blocks, proposed). When a
+ * custom block is assigned a new state number, vanilla note blocks already in the world (with a
+ * changed pitch) that happen to have that state look like the custom block. Such blocks are reset
+ * to the vanilla default state (harp, 0).
  *
- * <p>청크마다 "확인을 마친 상태 번호 목록"을 PDC에 남긴다. 청크가 로드될 때 지금 배정된 번호 중 목록에 없는 번호(= 확인 뒤 새로 배정된 번호)만 찾는다. 확인을
- * 마친 번호의 블록은 그 뒤에 놓은 커스텀 블록이므로 건드리지 않는다 (WorldEdit 복사·피스톤 이동도 그대로). 한 번 확인한 청크는 블록 정의가 늘기 전까지 다시 보지
- * 않는다.
+ * <p>Each chunk stores its "list of checked state numbers" in PDC. When a chunk loads, only
+ * currently assigned numbers missing from that list (= numbers assigned after the check) are
+ * searched. Blocks with already checked numbers are custom blocks placed afterward, so they are
+ * left alone (WorldEdit copies and piston moves too). A checked chunk is not revisited until block
+ * definitions grow.
  *
- * <p>청크 스냅숏은 메인 스레드에서 뜨고 찾기는 가상 스레드에서 한다. 한 틱에 {@value #PER_TICK}청크까지. balance.yml
- * furniture.fix_glitched_noteblocks (기본 true)로 끈다.
+ * <p>Chunk snapshots are taken on the main thread and searched on a virtual thread, up to {@value
+ * #PER_TICK} chunks per tick. Disabled with balance.yml furniture.fix_glitched_noteblocks (default
+ * true).
  */
 public final class GlitchedNoteBlocks implements Listener {
 
-    @SuppressWarnings("deprecation") // 플러그인 인스턴스 없이 고정 네임스페이스를 쓴다
+    @SuppressWarnings("deprecation") // Uses a fixed namespace without a plugin instance
     private static final NamespacedKey CHECKED = new NamespacedKey("harbor", "noteblock_states");
 
     private static final String SETTING = "furniture.fix_glitched_noteblocks";
@@ -60,7 +65,7 @@ public final class GlitchedNoteBlocks implements Listener {
     private final Deque<Chunk> queue = new ArrayDeque<>();
     private final Set<ChunkRef> queued = new HashSet<>();
 
-    /** 스캔 중인 청크 → 그 사이에 블록을 놓은 위치 (되돌리지 않는다). */
+    /** Chunk being scanned → positions where blocks were placed meanwhile (not reverted). */
     private final Map<ChunkRef, Set<Long>> scanning = new HashMap<>();
 
     private record ChunkRef(UUID world, int x, int z) {}
@@ -80,7 +85,7 @@ public final class GlitchedNoteBlocks implements Listener {
         return content.get().single(Balance.TYPE).bool(SETTING, true);
     }
 
-    /** 지금 배정된 상태 번호 (정렬). */
+    /** Currently assigned state numbers (sorted). */
     private int[] assigned() {
         return content.get().all(CustomBlockDef.TYPE).values().stream()
                 .flatMap(def -> def.states().stream())
@@ -95,7 +100,7 @@ public final class GlitchedNoteBlocks implements Listener {
         enqueue(event.getChunk());
     }
 
-    /** 블록 정의가 바뀌면 로드된 청크를 다시 본다 (새 번호가 생겼을 수 있다). */
+    /** When block definitions change, rechecks loaded chunks (new numbers may exist). */
     @EventHandler
     public void onReload(ContentReloadedEvent event) {
         var _ = tasks.later(1, this::enqueueLoaded);
@@ -161,7 +166,7 @@ public final class GlitchedNoteBlocks implements Listener {
                 targets.add(noteBlock(state, true).getAsString());
             }
         } catch (IllegalArgumentException e) {
-            return; // CustomBlockManager가 이미 기록한다
+            return; // CustomBlockManager already logs it
         }
         ChunkSnapshot snap = chunk.getChunkSnapshot(false, false, false);
         int minY = chunk.getWorld().getMinHeight();
@@ -179,7 +184,7 @@ public final class GlitchedNoteBlocks implements Listener {
                                 });
     }
 
-    /** 확인한 적 없는 번호 (marked에 없는 current). */
+    /** Numbers never checked (in current but not in marked). */
     static List<Integer> fresh(int[] current, int @Nullable [] marked) {
         Set<Integer> done = new TreeSet<>();
         if (marked != null) {
@@ -215,7 +220,7 @@ public final class GlitchedNoteBlocks implements Listener {
             Chunk chunk, ChunkRef key, List<Long> found, Set<String> targets, int[] current) {
         Set<Long> placed = scanning.remove(key);
         if (!chunk.isLoaded()) {
-            return; // 다음 로드 때 다시
+            return; // Retry on next load
         }
         BlockData vanilla = noteBlock(0, false);
         int fixed = 0;

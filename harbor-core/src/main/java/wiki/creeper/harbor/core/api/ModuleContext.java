@@ -7,34 +7,43 @@ import wiki.creeper.harbor.common.content.ContentCheck;
 import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.core.task.Tasks;
 
-/** 모듈이 Core에 자기 것을 등록하는 창구. {@link HarborModule#enable}에서만 쓴다. */
+/** Where a module registers its things with Core. Use only in {@link HarborModule#enable}. */
 public interface ModuleContext {
 
     HarborModule plugin();
 
     HarborApi api();
 
-    /** 모듈이 꺼질 때 남은 작업을 자동 취소하는 작업 예약 도구. */
+    /** Task scheduler that automatically cancels remaining tasks when the module is disabled. */
     Tasks tasks();
 
-    /** 콘텐츠 형식 등록. 모듈이 켜진 뒤 콘텐츠를 다시 읽는다 (실패하면 서버 시작 중단). */
+    /**
+     * Registers a content type. Content is reloaded after the module is enabled (failure aborts
+     * server startup).
+     */
     void contentType(ContentType<?> type);
 
     <T> void contentCheck(ContentType<T> type, ContentCheck<T> check);
 
     void playerComponent(PlayerComponent<?> component);
 
-    /** {@code /harbor <이름> …} 관리 하위 명령. 권한은 harbor.admin.<이름>으로 자동으로 건다. */
+    /**
+     * {@code /harbor <name> …} admin subcommand. Permission harbor.admin.<name> is applied
+     * automatically.
+     */
     void adminCommand(LiteralArgumentBuilder<CommandSourceStack> command);
 
-    /** 이 모듈의 DB 마이그레이션(db/migration/<모듈 ID>)을 적용한다. */
+    /** Applies this module's DB migrations (db/migration/<module ID>). */
     void migrate();
 
     void listen(Listener listener);
 
-    /** 서버 이동 전 훅. 모듈이 꺼지면 자동 해제한다. */
+    /** Pre-transfer hook. Unregistered automatically when the module is disabled. */
     void handoffBlocker(HandoffBlocker blocker);
 
-    /** 인벤토리 밖에 맡아 둔 아이템을 자동 저장에 싣는다 ({@link ItemCustody}). 모듈이 꺼지면 자동 해제한다. */
+    /**
+     * Includes items held outside the inventory in autosaves ({@link ItemCustody}). Unregistered
+     * automatically when the module is disabled.
+     */
     void itemCustody(ItemCustody custody);
 }

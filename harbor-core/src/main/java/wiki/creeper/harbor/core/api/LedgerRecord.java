@@ -7,11 +7,12 @@ import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.model.Currency;
 
 /**
- * 원장 한 줄 (읽기 전용, 추가 제안). {@link CurrencyService#history}가 돌려준다.
+ * One ledger row (read-only, proposed). Returned by {@link CurrencyService#history}.
  *
- * @param delta 바뀐 양 (지급은 양수, 차감은 음수)
- * @param balanceAfter 처리 후 잔액
- * @param reason 사유 이름 (LedgerReason 이름. 예전 사유가 enum에서 빠졌을 수 있어 글로 둔다)
+ * @param delta amount changed (positive for grants, negative for deductions)
+ * @param balanceAfter balance after the operation
+ * @param reason reason name (a LedgerReason name; kept as text because old reasons may have been
+ *     removed from the enum)
  */
 public record LedgerRecord(
         long id,
@@ -22,7 +23,7 @@ public record LedgerRecord(
         @Nullable String refId,
         Instant createdAt) {
 
-    /** 사유 enum (모르는 이름이면 비어 있음). */
+    /** Reason enum (empty if the name is unknown). */
     public Optional<LedgerReason> reasonType() {
         try {
             return Optional.of(LedgerReason.valueOf(reason));

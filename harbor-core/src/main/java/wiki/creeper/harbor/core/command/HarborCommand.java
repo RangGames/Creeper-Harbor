@@ -60,12 +60,12 @@ import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.content.HarborContent;
 
 /**
- * /harbor 관리 명령 ('16. 플러그인 설계' 5.8). 권한은 harbor.admin.<하위 명령>이고, 모든 실행을 admin_log에 남긴다. 모듈은 {@link
- * #addModuleCommand}로 하위 명령을 더한다.
+ * /harbor admin command ('16. Plugin design' 5.8). The permission is harbor.admin.<subcommand>, and
+ * every execution is recorded in admin_log. Modules add subcommands via {@link #addModuleCommand}.
  */
 public final class HarborCommand {
 
-    /** 리로드할 때 한꺼번에 다시 읽는 형식 묶음. */
+    /** Groups of types re-read together on reload. */
     private static final List<String> RELOAD_SCOPES =
             List.of("all", "content", "balance", "messages");
 
@@ -108,7 +108,10 @@ public final class HarborCommand {
         moduleCommands.add(command.requires(permission(command.getLiteral())));
     }
 
-    /** LifecycleEvents.COMMANDS에서 등록한다 (모든 모듈이 켜진 뒤라 모듈 하위 명령도 들어 있다). */
+    /**
+     * Registered in LifecycleEvents.COMMANDS (after all modules are enabled, so module subcommands
+     * are included).
+     */
     public void register(Commands commands) {
         commands.register(build(), "크리퍼 항구 관리 명령", List.of());
     }
@@ -259,7 +262,7 @@ public final class HarborCommand {
         return root.build();
     }
 
-    // ------------------------------------------------------------------ 하위 명령
+    // ------------------------------------------------------------------ Subcommands
 
     private int reload(CommandContext<CommandSourceStack> ctx, String scope) {
         CommandSender sender = ctx.getSource().getSender();
@@ -473,7 +476,10 @@ public final class HarborCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** 쓸 수 있는 하위 명령 목록. 줄을 누르면 입력창에 넣는다. 설명은 messages command.help.desc.<하위 명령>. */
+    /**
+     * List of available subcommands. Clicking a line puts it in the chat input. Descriptions come
+     * from messages command.help.desc.<subcommand>.
+     */
     private int help(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack src = ctx.getSource();
         CommandNode<CommandSourceStack> root = ctx.getRootNode().getChild("harbor");
@@ -512,7 +518,7 @@ public final class HarborCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ Helpers
 
     private static LiteralArgumentBuilder<CommandSourceStack> sub(String name) {
         return Commands.literal(name).requires(permission(name));
@@ -529,7 +535,7 @@ public final class HarborCommand {
                 .getFirst();
     }
 
-    /** 키 인자는 네임스페이스를 생략하면 minecraft로 읽히므로 harbor로 바꾼다. */
+    /** A key argument without a namespace is read as minecraft, so switch it to harbor. */
     private static HarborId harborId(Key key) {
         String namespace =
                 key.namespace().equals(Key.MINECRAFT_NAMESPACE)

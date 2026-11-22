@@ -24,28 +24,36 @@ import wiki.creeper.harbor.common.content.type.SoundTable;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 리소스팩 소리 재생 ('15. 사운드'). 모든 모듈은 {@code harbor:} 소리를 직접 내지 않고 이것을 거친다 (추가 제안).
+ * Resource pack sound playback ('15. Sound'). Modules never play {@code harbor:} sounds directly;
+ * they go through this (proposed).
  *
- * <p>{@code harbor:<이벤트>} 소리는 두 조건을 모두 만족할 때만 내고, 아니면 sounds.yml의 바닐라 대체 소리(fallback)를 낸다. 대체 소리가
- * 없으면 조용히 넘어간다. 팩에 없는 소리를 보내면 클라이언트가 무시하므로 소리가 빠지기만 하지만, 대체 소리를 고르려고 같은 조건을 본다.
+ * <p>A {@code harbor:<event>} sound is played only when both conditions hold; otherwise the vanilla
+ * fallback sound from sounds.yml is played. If there is no fallback, nothing plays. A sound missing
+ * from the pack is ignored by the client, so it would merely be silent, but the same conditions are
+ * checked to pick the fallback.
  *
  * <ul>
- *   <li>balance.yml {@value #SETTING}이 true (리소스팩을 배포 중). 키가 없으면 {@link ItemModels#SETTING}을 따른다
- *   <li>배포 중인 리소스팩({@link ActivePack}: 자동 빌드 팩, 없으면 resource_pack.yml {@link ResourcePackIndex})에 그
- *       소리가 있다
+ *   <li>balance.yml {@value #SETTING} is true (the resource pack is being served). If the key is
+ *       absent, follows {@link ItemModels#SETTING}
+ *   <li>the served resource pack ({@link ActivePack}: the auto-built pack, otherwise
+ *       resource_pack.yml {@link ResourcePackIndex}) contains that sound
  * </ul>
  *
- * <p>분류(source)·음량·피치·반복 간격은 sounds.yml({@link SoundTable})의 이벤트 설정을 쓴다. {@code minecraft:} 같은 다른
- * 소리 키는 그대로 낸다 (콘텐츠의 sound 필드가 바닐라 소리를 써도 같은 길로 재생). 메인 스레드 전용.
+ * <p>Category (source), volume, pitch and loop interval come from the event settings in sounds.yml
+ * ({@link SoundTable}). Other sound keys such as {@code minecraft:} are played as is (so a content
+ * sound field using a vanilla sound goes through the same path). Main thread only.
  */
 public final class HarborSounds {
 
-    /** 리소스팩 소리를 쓸지. 없으면 items.custom_models를 따른다. */
+    /** Whether to use resource pack sounds. If absent, follows items.custom_models. */
     public static final String SETTING = "sounds.custom";
 
     public static final String NAMESPACE = "harbor";
 
-    /** 위치 소리가 들리는 기본 거리 (블록, 음량 1 기준). 서버는 16 × volume 안의 플레이어에게만 보낸다. */
+    /**
+     * Default audible distance of positional sounds (blocks, at volume 1). The server sends only to
+     * players within 16 × volume.
+     */
     private static final double RANGE = 16;
 
     private static final int DEFAULT_LOOP_TICKS = 40;
@@ -53,12 +61,13 @@ public final class HarborSounds {
     private HarborSounds() {}
 
     /**
-     * 재생 옵션.
+     * Playback options.
      *
-     * @param fallback 이번 호출만 쓸 대체 소리 (null이면 sounds.yml 값)
-     * @param source 표에 없는 소리(바닐라 키 등)의 분류
-     * @param volume 음량 배율 (표 음량에 곱한다. 표에 없는 소리는 이 값이 음량)
-     * @param pitch 피치 배율 (같은 방식)
+     * @param fallback fallback sound for this call only (null = the sounds.yml value)
+     * @param source category for sounds not in the table (vanilla keys, etc.)
+     * @param volume volume multiplier (multiplied with the table volume; for sounds not in the
+     *     table, this is the volume)
+     * @param pitch pitch multiplier (same rule)
      */
     public record Options(
             @Nullable String fallback, Sound.Source source, float volume, float pitch) {
@@ -87,7 +96,10 @@ public final class HarborSounds {
         }
     }
 
-    /** 반복 소리. {@link #stop()}으로 끊는다 (이미 낸 소리도 stopSound로 멈춘다). */
+    /**
+     * Looping sound. Stop it with {@link #stop()} (sounds already played are also stopped with
+     * stopSound).
+     */
     public interface Loop {
 
         Loop NONE =
@@ -106,7 +118,7 @@ public final class HarborSounds {
         boolean active();
     }
 
-    // ------------------------------------------------------------------ 판정
+    // ------------------------------------------------------------------ checks
 
     public static boolean enabled(Balance balance) {
         return balance.string(SETTING)
@@ -114,7 +126,7 @@ public final class HarborSounds {
                 .orElse(ItemModels.enabled(balance));
     }
 
-    /** 이 harbor 소리를 지금 낼 수 있는지 (켜져 있고, 리소스팩 목록에 있다). */
+    /** Whether this harbor sound can be played now (enabled, and listed in the resource pack). */
     public static boolean available(ContentSnapshot snapshot, String key) {
         if (!enabled(snapshot.single(Balance.TYPE))) {
             return false;
@@ -122,7 +134,10 @@ public final class HarborSounds {
         return ActivePack.hasSound(snapshot, key);
     }
 
-    /** 소리 키 → 실제로 낼 소리. 팩 소리를 못 쓰고 대체 소리도 없으면 빈 값. */
+    /**
+     * Sound key → the sound actually played. Empty if the pack sound can't be used and there is no
+     * fallback.
+     */
     public static Optional<Sound> resolve(@Nullable String key, Options options) {
         return resolve(Harbor.api().content().snapshot(), key, options);
     }
@@ -161,9 +176,12 @@ public final class HarborSounds {
                         fallbackKey, source, volume * options.volume(), pitch * options.pitch()));
     }
 
-    // ------------------------------------------------------------------ 한 번 재생
+    // ------------------------------------------------------------------ one-shot playback
 
-    /** 본인에게만, 본인을 따라가는 소리 (UI·포획 등급음처럼 위치가 없는 소리). */
+    /**
+     * To the player only, following the player (positionless sounds such as UI or catch rarity
+     * cues).
+     */
     public static void play(Player player, @Nullable String key) {
         play(player, key, Options.DEFAULT);
     }
@@ -172,7 +190,7 @@ public final class HarborSounds {
         resolve(key, options).ifPresent(s -> player.playSound(s, Sound.Emitter.self()));
     }
 
-    /** 여러 명에게 각자 2D로. */
+    /** To several players, each in 2D. */
     public static void play(
             Collection<? extends Player> players, @Nullable String key, Options options) {
         if (players.isEmpty()) {
@@ -187,7 +205,10 @@ public final class HarborSounds {
                         });
     }
 
-    /** 월드의 한 위치에서 나는 소리. 근처(16 × 음량 블록) 플레이어 모두에게 들린다. */
+    /**
+     * A sound from a position in the world. Heard by all nearby players (within 16 × volume
+     * blocks).
+     */
     public static void playAt(Location at, @Nullable String key) {
         playAt(at, key, Options.DEFAULT, List.of());
     }
@@ -197,9 +218,10 @@ public final class HarborSounds {
     }
 
     /**
-     * 위치 소리 + 범위 밖에 있는 참가자에게도 직접 보낸다 (보스 포효처럼 멀리서도 들려야 하는 소리, '15. 사운드' 4.3).
+     * Positional sound, also sent directly to participants out of range (sounds that must be heard
+     * from afar, like a boss roar; '15. Sound' 4.3).
      *
-     * @param extra 범위 밖이어도 들려줄 플레이어
+     * @param extra players who should hear it even out of range
      */
     public static void playAt(
             Location at,
@@ -224,12 +246,12 @@ public final class HarborSounds {
                         });
     }
 
-    /** 위치 소리를 한 명에게만 (개인 연출). */
+    /** Positional sound for a single player (personal effects). */
     public static void playAt(Player player, Location at, @Nullable String key, Options options) {
         resolve(key, options).ifPresent(s -> player.playSound(s, at.getX(), at.getY(), at.getZ()));
     }
 
-    /** 이 소리(팩 소리와 대체 소리 모두)를 멈춘다. */
+    /** Stops this sound (both the pack sound and the fallback). */
     public static void stop(Player player, @Nullable String key) {
         stop(player, key, Options.DEFAULT);
     }
@@ -256,13 +278,15 @@ public final class HarborSounds {
         }
     }
 
-    // ------------------------------------------------------------------ 반복
+    // ------------------------------------------------------------------ looping
 
     /**
-     * 본인에게만 들리는 반복 소리 (릴 감기, 폭풍 해역). sounds.json에는 반복 옵션이 없어서 sounds.yml loop 간격(소리 길이)마다 다시 낸다
-     * ('15. 사운드' 2장). 플레이어가 나가면 저절로 끝난다.
+     * Looping sound heard only by the player (reeling, storm waters). sounds.json has no loop
+     * option, so it is replayed every sounds.yml loop interval (sound length) ('15. Sound' chapter
+     * 2). Ends on its own when the player leaves.
      *
-     * @param tasks 반복 작업을 맡을 모듈의 예약 도우미 (모듈이 꺼지면 같이 취소)
+     * @param tasks the module's scheduler helper that runs the loop (cancelled when the module is
+     *     disabled)
      */
     public static Loop loop(Tasks tasks, Player player, @Nullable String key, Options options) {
         Optional<Sound> sound = resolve(key, options);
@@ -286,8 +310,9 @@ public final class HarborSounds {
     }
 
     /**
-     * 엔티티를 따라가는 반복 소리 (배 항해, 비행선). 다시 낼 때마다 근처(16 × 음량 블록) 플레이어에게 보내고, 멈출 때 들은 플레이어 모두에게서 끊는다. 엔티티가
-     * 사라지면 저절로 끝난다.
+     * Looping sound that follows an entity (boat sailing, airship). Each replay goes to nearby
+     * players (within 16 × volume blocks); on stop it is cut for every player who heard it. Ends on
+     * its own when the entity disappears.
      */
     public static Loop loopFrom(
             Tasks tasks, Entity emitter, @Nullable String key, Options options) {
@@ -317,7 +342,7 @@ public final class HarborSounds {
                 });
     }
 
-    /** sounds.yml loop 값 (없으면 2초). */
+    /** sounds.yml loop value (2 seconds if absent). */
     public static int loopTicks(@Nullable String key) {
         Key parsed = parse(key);
         if (parsed == null || !parsed.namespace().equals(NAMESPACE)) {
@@ -330,7 +355,7 @@ public final class HarborSounds {
                 .orElse(DEFAULT_LOOP_TICKS);
     }
 
-    /** 반복 한 번: 낸 플레이어 목록, null이면 끝. */
+    /** One loop iteration: the players it was played to, or null when finished. */
     private interface Emit {
         @Nullable Set<Player> emit();
     }
@@ -384,7 +409,7 @@ public final class HarborSounds {
         }
     }
 
-    // ------------------------------------------------------------------ 내부
+    // ------------------------------------------------------------------ internals
 
     private static SoundTable table(ContentSnapshot snapshot) {
         return snapshot.typeNames().contains(SoundTable.TYPE.name())
@@ -397,7 +422,7 @@ public final class HarborSounds {
         return source == null ? Sound.Source.MASTER : source;
     }
 
-    /** Paper의 위치 조회는 null 가능으로 표시되어 있지만 살아 있는 엔티티는 항상 위치가 있다. */
+    /** Paper marks location lookups as nullable, but a living entity always has a location. */
     private static Location loc(Entity entity) {
         return Objects.requireNonNull(entity.getLocation());
     }

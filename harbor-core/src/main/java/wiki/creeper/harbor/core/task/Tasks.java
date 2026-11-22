@@ -10,11 +10,13 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
 /**
- * 작업 예약 도우미. 모듈마다 하나씩 두고, 모듈이 꺼질 때 {@link #cancelAll()}로 남은 작업을 모두 취소한다.
+ * Task scheduling helper. One per module; when the module is disabled, {@link #cancelAll()} cancels
+ * all remaining tasks.
  *
  * <ul>
- *   <li>sync / later / timer: 메인 스레드 (Bukkit 스케줄러)
- *   <li>async: 가상 스레드. DB·Redis·파일 입출력은 여기서 하고, 결과 반영은 {@link #main()}으로 돌려서 한다
+ *   <li>sync / later / timer: main thread (Bukkit scheduler)
+ *   <li>async: virtual threads. Do DB, Redis and file I/O here, and apply results by handing them
+ *       back via {@link #main()}
  * </ul>
  */
 public final class Tasks {
@@ -27,7 +29,7 @@ public final class Tasks {
         this.plugin = plugin;
     }
 
-    /** 다음 틱에 메인 스레드에서 실행한다. */
+    /** Runs on the main thread on the next tick. */
     public BukkitTask sync(Runnable task) {
         return Bukkit.getScheduler().runTask(plugin, task);
     }
@@ -48,20 +50,21 @@ public final class Tasks {
         return CompletableFuture.supplyAsync(task, virtual);
     }
 
-    /** 가상 스레드 실행기. */
+    /** Virtual thread executor. */
     public Executor virtual() {
         return virtual;
     }
 
     /**
-     * 메인 스레드 실행기. {@code future.thenAcceptAsync(result -> …, tasks.main())}처럼 결과를 메인 스레드로 넘길 때 쓴다.
-     * 이미 메인 스레드면 바로 실행하고, 플러그인이 꺼졌으면 버린다.
+     * Main thread executor. Use it to hand results to the main thread, as in {@code
+     * future.thenAcceptAsync(result -> …, tasks.main())}. Runs immediately if already on the main
+     * thread, and drops the task if the plugin is disabled.
      */
     public Executor main() {
         return main;
     }
 
-    /** 이 모듈의 예약 작업을 모두 취소한다. */
+    /** Cancels all scheduled tasks of this module. */
     public void cancelAll() {
         Bukkit.getScheduler().cancelTasks(plugin);
         virtual.shutdownNow();

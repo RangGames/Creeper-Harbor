@@ -29,20 +29,23 @@ import wiki.creeper.harbor.core.api.ActivePack;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 리소스팩 자동 빌드·배포 (ItemsAdder 방식, 추가 제안).
+ * Automatic resource pack build and distribution (ItemsAdder style, proposed).
  *
  * <ul>
- *   <li>모든 서버: 시작할 때 Redis {@value PublishedPack#KEY}에서 지금 팩을 읽어 {@link ActivePack}에 넣는다 (커스텀 모델·소리
- *       판정). {@link PublishedPack#CHANNEL} 알림을 받거나, 알림을 놓쳤을 때를 대비해 1분마다 SHA-1 키를 비교해서 바뀌었으면 다시 읽는다.
- *   <li>빌드 서버 (harbor-infra.yml pack.build: true, lobby 한 대): 시작할 때와 /harbor pack build 때 에셋 폴더를
- *       압축하고, SHA-1이 지금 팩과 다르면 CDN에 올린 뒤 Redis에 저장·발행한다.
+ *   <li>All servers: at startup, read the current pack from Redis {@value PublishedPack#KEY} into
+ *       {@link ActivePack} (custom model and sound checks). Re-read when a {@link
+ *       PublishedPack#CHANNEL} notification arrives, or when the SHA-1 key differs on the 1-minute
+ *       check (in case a notification was missed).
+ *   <li>Build server (harbor-infra.yml pack.build: true, one lobby): at startup and on /harbor pack
+ *       build, zip the asset folder and, if the SHA-1 differs from the current pack, upload to the
+ *       CDN and then store and publish in Redis.
  * </ul>
  *
- * 압축·업로드·Redis는 가상 스레드에서 한다.
+ * Zipping, uploading and Redis run on virtual threads.
  */
 public final class PackManager {
 
-    /** 빌드 결과 (명령 응답용). */
+    /** Build result (for command replies). */
     public sealed interface Outcome {
         record Uploaded(PublishedPack pack, int files) implements Outcome {}
 
@@ -53,7 +56,7 @@ public final class PackManager {
         record Failed(String reason) implements Outcome {}
     }
 
-    /** 알림을 놓쳤을 때를 대비한 확인 간격 (1분, 제안값). */
+    /** Check interval in case a notification was missed (1 minute, proposed value). */
     private static final long POLL_TICKS = 20L * 60;
 
     private final InfraConfig infra;
@@ -84,7 +87,10 @@ public final class PackManager {
         this.log = log;
     }
 
-    /** 지금 팩을 읽고 변경을 구독한다. 빌드 서버면 에셋 폴더를 준비하고 한 번 빌드한다. */
+    /**
+     * Reads the current pack and subscribes to changes. On the build server, prepares the asset
+     * folder and builds once.
+     */
     public void start() {
         bus.subscribe(PublishedPack.CHANNEL, envelope -> refresh(envelope.payload().sha1()));
         refresh(null);
@@ -114,9 +120,10 @@ public final class PackManager {
     }
 
     /**
-     * Redis의 지금 팩이 내가 아는 것과 다르면 다시 읽어 적용한다 (가상 스레드에서 읽고 메인 스레드에서 적용).
+     * If the current pack in Redis differs from what this server knows, re-reads and applies it
+     * (read on a virtual thread, applied on the main thread).
      *
-     * @param knownSha1 알림으로 받은 SHA-1 (null이면 Redis에서 확인)
+     * @param knownSha1 SHA-1 received in the notification (null to check Redis)
      */
     private void refresh(@Nullable String knownSha1) {
         var _ =
@@ -142,7 +149,7 @@ public final class PackManager {
                                 });
     }
 
-    /** 이 서버가 팩을 만드는지. */
+    /** Whether this server builds the pack. */
     public boolean builder() {
         InfraConfig.PackBuild b = infra.packBuild();
         return b != null && !b.apiKey().isBlank();
@@ -158,12 +165,12 @@ public final class PackManager {
         return ActivePack.published();
     }
 
-    /** 새 팩을 알게 됐을 때 (메인 스레드). lobby의 ResourcePacks가 구독한다. */
+    /** When a new pack becomes known (main thread). Subscribed by the lobby's ResourcePacks. */
     public void onChange(Consumer<PublishedPack> listener) {
         listeners.add(listener);
     }
 
-    /** 압축 → (바뀌었으면) 업로드 → 저장·발행. 결과는 메인 스레드에서 완료된다. */
+    /** Zip → upload (if changed) → store and publish. The result completes on the main thread. */
     public CompletableFuture<Outcome> build() {
         InfraConfig.PackBuild config = infra.packBuild();
         if (config == null || config.apiKey().isBlank()) {
@@ -245,7 +252,10 @@ public final class PackManager {
         }
     }
 
-    /** 합칠 팩: harbor-infra.yml pack.merge (적은 순서) + plugins/Harbor/pack-merge/ 안의 폴더·zip (이름순). */
+    /**
+     * Packs to merge: harbor-infra.yml pack.merge (in listed order) + folders and zips in
+     * plugins/Harbor/pack-merge/ (by name).
+     */
     private List<Path> merges(InfraConfig.PackBuild config) throws IOException {
         List<Path> list = new ArrayList<>(config.merge());
         Path dir = mergeDir();

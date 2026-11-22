@@ -13,12 +13,13 @@ import wiki.creeper.harbor.core.api.event.CurrencyChangedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 모듈과 상관없이 Core가 내는 공통 소리 ('15. 사운드' 4.5·4.7, 추가 제안).
+ * Common sounds played by Core regardless of module ('15. Sound' 4.5, 4.7, proposed).
  *
  * <ul>
- *   <li>재화 변경: sounds.yml currency 표 (골드 판매·구매 = ui.coin, 물비늘 획득 = ui.mulbineul). 커밋 뒤 메인 스레드에서
- *       본인에게만
- *   <li>서버 공지(harbor:announce, 전설 포획·신기록·보스): 이 서버에 접속한 모두에게 event.announce. 공지 문구는 프록시가 보낸다
+ *   <li>Currency change: sounds.yml currency table (gold sell/buy = ui.coin, mulbineul gain =
+ *       ui.mulbineul). After commit, on the main thread, to that player only
+ *   <li>Server announcements (harbor:announce: legendary catch, new record, boss): event.announce
+ *       to everyone on this server. The announcement text is sent by the proxy
  * </ul>
  */
 public final class SoundCues implements Listener {
@@ -31,7 +32,10 @@ public final class SoundCues implements Listener {
         this.content = content;
     }
 
-    /** 서버 공지 구독. 메시지는 Redis 스레드에서 오므로 메인 스레드로 넘긴다. */
+    /**
+     * Subscribes to server announcements. Messages arrive on a Redis thread, so they are handed to
+     * the main thread.
+     */
     public void subscribe(MessageBus bus, Tasks tasks) {
         bus.subscribe(
                 Channels.ANNOUNCEMENTS,

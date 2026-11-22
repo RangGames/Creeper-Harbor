@@ -6,7 +6,10 @@ import java.util.List;
 import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.ModifierService.Breakdown;
 
-/** 보정자 계산 (서버 API 없음, 단위 테스트 대상). 기본값 → ADD 합 → MULTIPLY 곱 → 상한·하한. */
+/**
+ * Modifier calculation (no server API, unit-tested). Base value → ADD sum → MULTIPLY product →
+ * upper/lower bounds.
+ */
 public final class ModifierStack {
 
     private ModifierStack() {}

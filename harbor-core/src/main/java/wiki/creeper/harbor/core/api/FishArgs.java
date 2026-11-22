@@ -17,14 +17,19 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.rig.FishRigs;
 
 /**
- * 명령의 어종 인자 (추가 제안). 플레이어는 한국어 이름("항구 고등어", 공백 포함)이나 도감 번호로 적는다. 공백이 들어가므로 명령의 마지막 인자로만 쓴다
- * (greedy). 관리 명령을 위해 어종 ID(harbor_mackerel, fish/…, harbor:fish/…)와 모델 이름도 받는다.
+ * Fish species command argument (proposed). Players type the Korean name ("항구 고등어", spaces allowed)
+ * or the collection number. Because it can contain spaces, use it only as the last (greedy)
+ * argument of a command. For admin commands it also accepts the species ID (harbor_mackerel,
+ * fish/…, harbor:fish/…) and the model name.
  */
 public final class FishArgs {
 
     private FishArgs() {}
 
-    /** 마지막 인자로 붙일 어종 인자. Tab 목록은 한국어 이름 (설명에 도감 번호). */
+    /**
+     * Species argument to attach as the last argument. Tab completion lists Korean names
+     * (collection number in the tooltip).
+     */
     public static RequiredArgumentBuilder<CommandSourceStack, String> argument(
             String name, Supplier<ContentSnapshot> content) {
         return Commands.argument(name, StringArgumentType.greedyString())
@@ -57,7 +62,9 @@ public final class FishArgs {
         return resolve(snapshot, StringArgumentType.getString(ctx, name));
     }
 
-    /** 이름(공백 무시) · 도감 번호(1, 001) · 어종 ID · 모델 이름 순으로 찾는다. */
+    /**
+     * Looks up by name (ignoring spaces), collection number (1, 001), species ID, then model name.
+     */
     public static Optional<FishDef> resolve(ContentSnapshot snapshot, String raw) {
         String key = compact(raw);
         if (key.isEmpty()) {
@@ -89,7 +96,7 @@ public final class FishArgs {
         return Optional.empty();
     }
 
-    /** 비교용: 공백·작은따옴표를 뺀다 ("늪지의 주인 '그놈'" = "늪지의주인그놈"). */
+    /** For comparison: strips spaces and single quotes ("늪지의 주인 '그놈'" = "늪지의주인그놈"). */
     private static String compact(String s) {
         return s.replace(" ", "").replace("'", "").strip();
     }

@@ -3,10 +3,10 @@ package wiki.creeper.harbor.core.api;
 import wiki.creeper.harbor.common.model.PlayerRef;
 
 /**
- * 잔액 순위 한 줄 ({@link CurrencyService#top}, 추가 제안).
+ * One balance ranking row ({@link CurrencyService#top}, proposed).
  *
- * @param rank 1부터 시작하는 순위
- * @param player 플레이어 (이름은 마지막 접속 때 이름)
- * @param balance 이번 시즌 잔액
+ * @param rank rank starting at 1
+ * @param player the player (name as of their last login)
+ * @param balance balance for the current season
  */
 public record BalanceRank(int rank, PlayerRef player, long balance) {}

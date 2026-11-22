@@ -4,7 +4,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 
-/** 서버 플래그가 바뀐 뒤 (다른 서버에서 바뀐 것 포함) 메인 스레드에서 발생한다. value가 null이면 꺼진 것. */
+/**
+ * Fired on the main thread after a server flag changes (including changes from other servers). A
+ * null value means the flag was turned off.
+ */
 public final class ServerFlagChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

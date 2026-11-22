@@ -6,7 +6,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 
-/** 접속할 때 인벤토리·엔더 상자의 Harbor 아이템 모델을 items.custom_models 설정에 맞춘다 (리소스팩 도입 전후 전환). */
+/**
+ * On login, aligns Harbor item models in the inventory and ender chest with the items.custom_models
+ * setting (switching before/after the resource pack rollout).
+ */
 public final class ItemModelSync implements Listener {
 
     private final ItemManager items;

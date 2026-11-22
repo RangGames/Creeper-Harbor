@@ -20,7 +20,7 @@ import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.task.Tasks;
 
-/** Paper Dialog API 래퍼. API가 바뀌면 이 클래스만 고친다. */
+/** Paper Dialog API wrapper. If the API changes, only this class needs fixing. */
 @SuppressWarnings("UnstableApiUsage")
 public final class DialogManager implements Dialogs {
 
@@ -35,14 +35,19 @@ public final class DialogManager implements Dialogs {
 
     private volatile Predicate<UUID> frozen = uuid -> false;
 
-    /** 서버 이동 저장본을 뜬 플레이어 판정 (PlayerManager.frozen). Core 시작 때 넣는다. */
+    /**
+     * Check for players whose server-transfer snapshot has been taken (PlayerManager.frozen). Set
+     * at Core startup.
+     */
     public void setFrozen(Predicate<UUID> frozen) {
         this.frozen = frozen;
     }
 
     /**
-     * 버튼 결과를 메인 스레드에서 실행한다. 서버 이동 저장본을 뜬 뒤면 버리고, 나간 플레이어도 버린다. 버튼 콜백은 창을 닫은 뒤에도 5분 동안 살아 있어서 이동 잠금
-     * 중에 (변조 클라이언트가) 누르면 판매·경매 등록 같은 거래가 저장본 밖에서 실행돼 복제된다.
+     * Runs button results on the main thread. Drops them once the server-transfer snapshot has been
+     * taken, and for players who left. Button callbacks stay alive for 5 minutes even after the
+     * dialog closes, so if one is pressed (by a modified client) during the transfer lock, a trade
+     * such as a sale or auction listing would run outside the snapshot and duplicate items.
      */
     private void onMain(Player player, Runnable action) {
         tasks.main()

@@ -56,19 +56,22 @@ import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 커스텀 블록 (노트블록 상태, {@link CustomBlockDef}, 추가 제안).
+ * Custom blocks (note block states, {@link CustomBlockDef}, proposed).
  *
  * <ul>
- *   <li>아이템은 노트블록 + item_model + {@code harbor:block} 태그. 바닐라처럼 놓이고(보호 구역 검사도 그대로), 놓인 뒤 상태를 바꾼다
- *   <li>부수면 노트블록 대신 그 블록 아이템이 떨어진다. 폭발에는 부서지지 않는다
- *   <li>커스텀 블록이 하나라도 있으면 모든 노트블록의 음 바꾸기(우클릭)·소리(NotePlayEvent)를 막는다 (상태가 곧 모양이라서)
- *   <li>아래 블록이 바뀌면 바닐라가 악기 상태를 바꿔 모양이 변하므로 paper-global.yml {@code
- *       block-updates.disable-noteblock-updates: true}가 필요하다. 꺼져 있으면 시작할 때 경고한다
+ *   <li>The item is a note block + item_model + {@code harbor:block} tag. It is placed like vanilla
+ *       (protection checks still apply), and its state is changed after placement
+ *   <li>Breaking it drops the block item instead of a note block. It is immune to explosions
+ *   <li>If any custom block exists, changing the pitch (right-click) and sound (NotePlayEvent) of
+ *       every note block is blocked (because the state is the shape)
+ *   <li>Vanilla changes the instrument state when the block below changes, altering the shape, so
+ *       paper-global.yml {@code block-updates.disable-noteblock-updates: true} is required. A
+ *       warning is logged at startup if it is off
  * </ul>
  */
 public final class CustomBlockManager implements Listener {
 
-    @SuppressWarnings("deprecation") // 플러그인 인스턴스 없이 고정 네임스페이스를 쓴다
+    @SuppressWarnings("deprecation") // Uses a fixed namespace without a plugin instance
     static final NamespacedKey KEY = new NamespacedKey("harbor", "block");
 
     private static final Pattern NOTEBLOCK_UPDATES_OFF =
@@ -80,7 +83,7 @@ public final class CustomBlockManager implements Listener {
     private final Tasks tasks;
     private final Logger log;
 
-    /** 블록 데이터 문자열 → 블록 (powered 두 상태 모두). 콘텐츠를 다시 읽으면 비운다. */
+    /** Block data string → block (both powered states). Cleared when content is reloaded. */
     private @Nullable Map<String, CustomBlockDef> byState;
 
     public CustomBlockManager(
@@ -96,7 +99,10 @@ public final class CustomBlockManager implements Listener {
         this.log = log;
     }
 
-    /** 커스텀 블록이 있으면 Paper 노트블록 갱신 설정을 확인한다 (파일 읽기는 가상 스레드). */
+    /**
+     * If custom blocks exist, checks Paper's note block update setting (file read on a virtual
+     * thread).
+     */
     public void start() {
         if (states().isEmpty()) {
             return;
@@ -167,7 +173,7 @@ public final class CustomBlockManager implements Listener {
                 .toList();
     }
 
-    /** 놓인 커스텀 블록. */
+    /** A placed custom block. */
     public Optional<CustomBlockDef> at(Block block) {
         if (block.getType() != Material.NOTE_BLOCK) {
             return Optional.empty();
@@ -202,9 +208,12 @@ public final class CustomBlockManager implements Listener {
         return raw == null ? Optional.empty() : HarborId.tryParse(raw);
     }
 
-    // ------------------------------------------------------------------ 이벤트
+    // ------------------------------------------------------------------ Events
 
-    /** 놓인 뒤(보호 구역 검사가 모두 끝난 뒤) 방향에 맞는 상태로 바꾼다. 나중에 취소되면 서버가 원래 블록으로 되돌린다. */
+    /**
+     * After placement (once all protection checks are done), switches to the state matching the
+     * direction. If cancelled later, the server restores the original block.
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
         Optional<CustomBlockDef> def = idOf(event.getItemInHand()).flatMap(this::def);
@@ -221,7 +230,10 @@ public final class CustomBlockManager implements Listener {
         sound(placed, def.get().placeSound());
     }
 
-    /** 놓는 방향: axis = 댄 면의 축 (원목), horizontal = 놓는 사람 쪽 (화로), facing = 바라보는 반대쪽, 위·아래 포함 (발사기). */
+    /**
+     * Placement direction: axis = axis of the clicked face (log), horizontal = toward the placer
+     * (furnace), facing = opposite of where the placer looks, including up/down (dispenser).
+     */
     private static String orientation(CustomBlockDef.Rotation rotation, BlockPlaceEvent event) {
         Player player = event.getPlayer();
         BlockFace face = event.getBlockAgainst().getFace(event.getBlockPlaced());
@@ -244,7 +256,7 @@ public final class CustomBlockManager implements Listener {
         };
     }
 
-    /** 부술 수 없는 블록 · 경험치 · 부수는 소리. */
+    /** Unbreakable blocks, experience, break sound. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
         Optional<CustomBlockDef> def = at(event.getBlock());
@@ -266,7 +278,10 @@ public final class CustomBlockManager implements Listener {
         sound(event.getBlock(), def.get().breakSound());
     }
 
-    /** 노트블록 대신 정한 드롭 (없으면 블록 자신). 도구가 맞지 않으면(requires_tool) 아무것도 없다. */
+    /**
+     * Configured drop instead of a note block (the block itself if none). Nothing drops if the tool
+     * is wrong (requires_tool).
+     */
     @EventHandler(ignoreCancelled = true)
     public void onDrop(BlockDropItemEvent event) {
         Optional<CustomBlockDef> def = at(event.getBlockState());
@@ -338,7 +353,7 @@ public final class CustomBlockManager implements Listener {
         return java.util.Objects.requireNonNull(player.getLocation());
     }
 
-    /** 노트블록 음 바꾸기를 막는다 (블록을 대고 놓기는 그대로). */
+    /** Blocks changing a note block's pitch (placing a block against it still works). */
     @EventHandler(priority = EventPriority.LOW)
     public void onInteract(PlayerInteractEvent event) {
         Block block = event.getClickedBlock();

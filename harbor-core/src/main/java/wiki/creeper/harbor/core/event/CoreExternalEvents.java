@@ -15,7 +15,10 @@ import wiki.creeper.harbor.common.redis.Channels;
 import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.core.api.ExternalEvents;
 
-/** {@link ExternalEvents} 구현: 값을 JSON에 맞게 다듬어 harbor:events로 발행한다. */
+/**
+ * {@link ExternalEvents} implementation: normalizes values for JSON and publishes them to
+ * harbor:events.
+ */
 public final class CoreExternalEvents implements ExternalEvents {
 
     private static final Pattern TYPE = Pattern.compile(TYPE_PATTERN);
@@ -55,7 +58,7 @@ public final class CoreExternalEvents implements ExternalEvents {
         }
     }
 
-    /** JSON에 넣을 수 있는 값만 남긴다 (null 값은 뺀다). */
+    /** Keeps only values that can go into JSON (null values are dropped). */
     public static Map<String, Object> normalize(Map<String, ?> data) {
         Map<String, Object> out = new LinkedHashMap<>();
         data.forEach(

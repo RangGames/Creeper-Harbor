@@ -4,18 +4,19 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 스킬·버프·이벤트·도감 보상이 수치를 바꾸는 표준 방법.
+ * The standard way for skills, buffs, events and collection rewards to change values.
  *
- * <p>계산 순서: 기본값 → ADD 합 → MULTIPLY 곱 → 상한·하한. MULTIPLY의 값은 배율이다 (1.1 = +10%).
+ * <p>Calculation order: base → sum of ADD → product of MULTIPLY → max/min clamp. MULTIPLY values
+ * are multipliers (1.1 = +10%).
  *
- * @param source 출처 (예: {@code skill:collect/legend_breath}, {@code event:storm}). 같은 출처는 한 번에 지울 수
- *     있다.
- * @param expiresAt 만료 시각 (null = 영구)
+ * @param source source (e.g. {@code skill:collect/legend_breath}, {@code event:storm}). All
+ *     modifiers with the same source can be removed at once.
+ * @param expiresAt expiry time (null = permanent)
  */
 public record Modifier(
         StatKey stat, Op op, double value, String source, @Nullable Instant expiresAt) {
 
-    /** 연산. */
+    /** Operation. */
     public enum Op {
         ADD,
         MULTIPLY

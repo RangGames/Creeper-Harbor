@@ -9,11 +9,13 @@ import org.bukkit.inventory.ItemStack;
 import wiki.creeper.harbor.common.id.HarborId;
 
 /**
- * 플레이어가 가구를 회수하기 직전 (메인 스레드, 추가 제안). 취소하면 그대로 둔다. {@link #setReturnItem(boolean)
- * setReturnItem(false)}면 아이템을 돌려주지 않는다 (하우징 장식처럼 듣는 쪽이 따로 보관할 때).
+ * Right before a player picks up furniture (main thread, proposed). Cancelling leaves it in place.
+ * With {@link #setReturnItem(boolean) setReturnItem(false)} the item is not returned (when the
+ * listener stores it separately, like housing decor).
  *
- * <p>{@link #allowed()}: 설치한 사람이거나 harbor.furniture.manage 권한이 있으면 처음부터 true. 아니면 듣는 쪽이 허락해야 한다
- * (하우징: 플롯 건축 권한). 끝까지 false면 회수하지 않는다.
+ * <p>{@link #allowed()}: true from the start for the player who placed it or with the
+ * harbor.furniture.manage permission. Otherwise a listener must allow it (housing: plot build
+ * permission). If it stays false, the furniture is not picked up.
  */
 public final class FurnitureRemoveEvent extends Event implements Cancellable {
 
@@ -40,7 +42,7 @@ public final class FurnitureRemoveEvent extends Event implements Cancellable {
         return player;
     }
 
-    /** 가구가 놓인 블록 바닥 가운데. */
+    /** Center of the floor of the block the furniture sits on. */
     public Location location() {
         return location.clone();
     }
@@ -49,7 +51,7 @@ public final class FurnitureRemoveEvent extends Event implements Cancellable {
         return furniture;
     }
 
-    /** 설치할 때 쓴 아이템 (1개, 복사본). */
+    /** The item used to place it (1, a copy). */
     public ItemStack item() {
         return item.clone();
     }

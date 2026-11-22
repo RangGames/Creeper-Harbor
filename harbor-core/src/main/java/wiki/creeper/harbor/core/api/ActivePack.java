@@ -8,8 +8,9 @@ import wiki.creeper.harbor.common.content.type.ResourcePackIndex;
 import wiki.creeper.harbor.common.pack.PublishedPack;
 
 /**
- * 지금 배포 중인 리소스팩의 모델·소리 목록. 자동 빌드로 올린 팩({@link PublishedPack}, Redis)이 있으면 그것을, 없으면 콘텐츠의
- * resource_pack.yml을 본다. {@link ItemModels}·{@link HarborSounds}가 쓴다.
+ * Model and sound lists of the resource pack currently being served. Uses the auto-built pack
+ * ({@link PublishedPack}, Redis) if there is one, otherwise the content's resource_pack.yml. Used
+ * by {@link ItemModels} and {@link HarborSounds}.
  */
 public final class ActivePack {
 
@@ -19,13 +20,13 @@ public final class ActivePack {
 
     private ActivePack() {}
 
-    /** 자동 빌드로 배포 중인 팩 (없으면 빈 값). */
+    /** The auto-built pack currently being served (empty if none). */
     public static Optional<PublishedPack> published() {
         State s = state;
         return s == null ? Optional.empty() : Optional.of(s.pack());
     }
 
-    /** Core 내부용: 새 팩을 알게 됐을 때. */
+    /** Core internal: called when a new pack becomes known. */
     public static void publish(@Nullable PublishedPack pack) {
         state =
                 pack == null

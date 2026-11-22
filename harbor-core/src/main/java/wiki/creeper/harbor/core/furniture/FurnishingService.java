@@ -8,7 +8,7 @@ import wiki.creeper.harbor.common.content.type.CustomBlockDef;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.FurnitureService;
 
-/** {@link FurnitureService} 구현: 가구·커스텀 블록 관리자를 묶는다. */
+/** {@link FurnitureService} implementation: bundles the furniture and custom block managers. */
 public final class FurnishingService implements FurnitureService {
 
     private final FurnitureManager furniture;

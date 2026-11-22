@@ -5,25 +5,27 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 파티 (docs 20 0.2). 파티는 Boss 소유다. 인터페이스만 Core에 두고 Boss가 구현을 등록해, Boss보다 먼저 만드는 Jobs(캡스톤·연회 요리)와
- * Proxy 파티 채팅이 쓴다. 구현이 없으면 ({@link HarborApi#parties()}가 비어 있으면) 모두 혼자인 것으로 본다. 메인 스레드 전용.
+ * Parties (docs 20 0.2). Parties are owned by Boss. Only the interface lives in Core and Boss
+ * registers the implementation, so Jobs (capstone, banquet cooking), built before Boss, and Proxy
+ * party chat can use it. If there is no implementation (if {@link HarborApi#parties()} is empty),
+ * everyone is treated as solo. Main thread only.
  */
 public interface PartyService {
 
-    /** 최대 인원 ('7. 밸런스 기획' 9장). */
+    /** Maximum members ('7. Balance design' chapter 9). */
     int MAX_MEMBERS = 10;
 
     enum Role {
         LEADER,
-        /** 선장: 선박 조종·회피 담당. */
+        /** Captain: steers the ship and dodges. */
         CAPTAIN,
-        /** 작살수: 부위 공격 담당. */
+        /** Harpooner: attacks parts. */
         HARPOONER,
-        /** 감는 사람(닻): 텐션 담당. */
+        /** Reeler (anchor): manages tension. */
         REELER,
-        /** 정비사: 선체 수리. */
+        /** Mechanic: repairs the hull. */
         MECHANIC,
-        /** 보급관: 보급 (수리로 집계). */
+        /** Quartermaster: supplies (counted as repair). */
         QUARTERMASTER,
         MEMBER
     }
@@ -47,7 +49,7 @@ public interface PartyService {
 
     Optional<Party> partyOf(UUID player);
 
-    /** 같은 파티면 true. 파티가 없으면 자기 자신과만 같다. */
+    /** True if in the same party. Without a party, a player matches only themselves. */
     default boolean sameParty(UUID a, UUID b) {
         if (a.equals(b)) {
             return true;
@@ -55,7 +57,7 @@ public interface PartyService {
         return partyOf(a).map(p -> p.contains(b)).orElse(false);
     }
 
-    /** 파티원 목록 (자신 포함). 파티가 없으면 자신만. */
+    /** Party members (including self). Only self if there is no party. */
     default List<UUID> membersOf(UUID player) {
         return partyOf(player).map(Party::players).orElse(List.of(player));
     }

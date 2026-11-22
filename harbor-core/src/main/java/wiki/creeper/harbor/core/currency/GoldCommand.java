@@ -31,13 +31,14 @@ import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.PlayerService;
 
 /**
- * /골드: 잔액·순위·관리자 지급 (CMI 이코노미 비슷하게, 추가 제안). 잔액은 이번 시즌 골드이고, 바꾸는 것은 모두 원장을 거친다.
+ * /골드 (gold): balance, ranking and admin grants (similar to CMI economy, proposed). The balance is
+ * the current season's gold, and every change goes through the ledger.
  *
  * <pre>
- * /골드                              내 잔액과 순위                (harbor.gold)
- * /골드 순위 [쪽]                     시즌 골드 순위 (쪽마다 10명)   (harbor.gold)
- * /골드 &lt;플레이어&gt;                    다른 사람 잔액                 (harbor.admin.gold)
- * /골드 지급|회수|설정 &lt;플레이어&gt; &lt;금액&gt;  오프라인·다른 서버 접속자 포함 (harbor.admin.gold, admin_log 기록)
+ * /골드                              own balance and rank          (harbor.gold)
+ * /골드 순위 [page]                  season gold ranking (10 per page) (harbor.gold)
+ * /골드 &lt;player&gt;                    another player's balance      (harbor.admin.gold)
+ * /골드 지급|회수|설정 &lt;player&gt; &lt;amount&gt;  give/take/set, including offline players and players on other servers (harbor.admin.gold, logged to admin_log)
  * </pre>
  */
 public final class GoldCommand {
@@ -70,7 +71,7 @@ public final class GoldCommand {
         SET
     }
 
-    /** LifecycleEvents.COMMANDS에서 등록한다. */
+    /** Registered in LifecycleEvents.COMMANDS. */
     public void register(Commands commands) {
         Predicate<CommandSourceStack> admin = src -> src.getSender().hasPermission(PERM_ADMIN);
         LiteralArgumentBuilder<CommandSourceStack> root =
@@ -128,7 +129,7 @@ public final class GoldCommand {
                         });
     }
 
-    // ------------------------------------------------------------------ 하위 명령
+    // ------------------------------------------------------------------ Subcommands
 
     private int self(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();

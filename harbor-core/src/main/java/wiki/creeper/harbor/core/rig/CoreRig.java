@@ -33,7 +33,10 @@ import wiki.creeper.harbor.common.rig.Xform;
 import wiki.creeper.harbor.core.api.RigHit;
 import wiki.creeper.harbor.core.api.RigInstance;
 
-/** RigInstance 구현: 저장하지 않는 실제 엔티티 묶음 (루트 ItemDisplay + 부품 Display 승객 + 판정 Interaction). */
+/**
+ * RigInstance implementation: a group of real, non-persistent entities (root ItemDisplay + part
+ * Display passengers + hitbox Interactions).
+ */
 final class CoreRig implements RigInstance {
 
     private static final Quaternionf NO_ROTATION = new Quaternionf();
@@ -96,9 +99,12 @@ final class CoreRig implements RigInstance {
         this.entityPitch = heading[1];
     }
 
-    // ------------------------------------------------------------------ 변환 도우미
+    // ------------------------------------------------------------------ Transform helpers
 
-    /** 리그 원점 기준 변환 → Display 변환. 인스턴스 크기를 앞에 곱하고, item 부품은 오른쪽 회전으로 뒤집힘을 보정한다. */
+    /**
+     * Rig-origin transform → Display transform. Pre-multiplies the instance scale, and item parts
+     * correct the flip with the right rotation.
+     */
     static Transformation toBukkit(Xform pose, double scale, boolean flip) {
         Xform x = scale == 1.0 ? pose : Xform.uniform(scale).then(pose);
         Vec3 t = x.translation();
@@ -123,12 +129,13 @@ final class CoreRig implements RigInstance {
         return hitboxes;
     }
 
-    // ------------------------------------------------------------------ 틱
+    // ------------------------------------------------------------------ Tick
 
     /**
-     * 한 틱 갱신. 아무도 안 보거나 가장 가까운 시청자가 LOD 거리 밖이면 건너뛰고, 다시 보이면 지금 위치에서 재동기화한다.
+     * One tick update. Skipped when nobody is watching or the nearest viewer is beyond the LOD
+     * distance; resynced at the current position once visible again.
      *
-     * @return 애니메이션 명령을 보냈는지 (활성 상태)
+     * @return whether animation commands were sent (active)
      */
     boolean tick(long now, RigSettings settings) {
         if (!root.isValid()) {
@@ -146,7 +153,7 @@ final class CoreRig implements RigInstance {
         Location here = root.getLocation();
         double nearest = Double.MAX_VALUE;
         for (Entity viewer : trackers) {
-            // Entity로 받아야 OfflinePlayer의 널 가능 getLocation이 아니라 Entity 것을 쓴다
+            // Take it as Entity so Entity's getLocation is used, not OfflinePlayer's nullable one
             Location at = viewer.getLocation();
             if (Objects.equals(at.getWorld(), here.getWorld())) {
                 nearest = Math.min(nearest, at.distanceSquared(here));
@@ -196,7 +203,7 @@ final class CoreRig implements RigInstance {
         }
     }
 
-    /** 판정 상자 번호의 뼈 이름. */
+    /** Bone name of a hitbox index. */
     String hitboxBone(int index) {
         return baked.hitboxes().get(index).name();
     }
@@ -259,7 +266,8 @@ final class CoreRig implements RigInstance {
         Location dest = to.clone();
         dest.setYaw(entityYaw);
         dest.setPitch(entityPitch);
-        var _ = root.teleport(dest); // 26.x는 승객을 태운 채 옮긴다 (EntityState 플래그는 폐기 예정)
+        var _ = root.teleport(dest); // 26.x teleports with passengers (the EntityState flags are
+        // deprecated)
     }
 
     @Override
@@ -404,7 +412,7 @@ final class CoreRig implements RigInstance {
         players.forEach(p -> next.add(p.getUniqueId()));
         Set<UUID> previous = viewers;
         if (previous == null) {
-            // 모두에게 보이던 리그 → 개인 리그: 기본 숨김으로 바꾸고 대상에게만 보인다
+            // Public rig → private rig: switch to hidden by default and show only to the target
             for (Entity e : entities()) {
                 e.setVisibleByDefault(false);
             }
@@ -453,7 +461,7 @@ final class CoreRig implements RigInstance {
         if (current != null) {
             current.remove(player.getUniqueId());
         }
-        hide(player); // 모두에게 보이는 리그면 이 플레이어에게만 숨긴다
+        hide(player); // For a public rig, hide it from this player only
     }
 
     @Override
@@ -468,7 +476,9 @@ final class CoreRig implements RigInstance {
         }
     }
 
-    /** 퇴장한 플레이어를 시청자 목록에서 뺀다 (엔티티 숨김은 접속이 끊기면 의미 없음). */
+    /**
+     * Removes a player who quit from the viewers (entity hiding is meaningless once disconnected).
+     */
     void forget(UUID player) {
         Set<UUID> current = viewers;
         if (current != null) {
@@ -516,7 +526,8 @@ final class CoreRig implements RigInstance {
             try {
                 listener.accept(animation, event);
             } catch (RuntimeException e) {
-                // 모듈 리스너 하나의 예외가 재생 틱 전체를 멈추지 않게 (다른 리그가 건너뛰어지고 반복 애니메이션이면 매번 되풀이됐다)
+                // Don't let one module listener's exception stop the whole playback tick (other
+                // rigs were skipped, and for looping animations it repeated every time)
                 System.getLogger("Harbor/Rig")
                         .log(
                                 System.Logger.Level.ERROR,
@@ -541,7 +552,7 @@ final class CoreRig implements RigInstance {
         manager.remove(this, RemoveReason.REQUESTED);
     }
 
-    /** 엔티티를 지우고 제거 알림을 보낸다 (RigManager만 부른다). */
+    /** Removes the entities and sends the removal notice (called only by RigManager). */
     void destroy(RemoveReason reason, Logger log) {
         if (!valid) {
             return;

@@ -15,11 +15,11 @@ import wiki.creeper.harbor.core.admin.AdminLog;
 import wiki.creeper.harbor.core.api.MessageService;
 
 /**
- * /harbor pack 관리 명령 (권한 harbor.admin.pack).
+ * /harbor pack admin commands (permission harbor.admin.pack).
  *
  * <pre>
- * /harbor pack            지금 팩 (주소·SHA-1·모델/소리 수)
- * /harbor pack build      에셋 폴더를 다시 압축하고, 바뀌었으면 CDN에 올려 모든 서버에 알린다 (빌드 서버만)
+ * /harbor pack            current pack (URL, SHA-1, model/sound counts)
+ * /harbor pack build      re-zip the asset folder, and if changed upload to the CDN and notify all servers (build server only)
  * </pre>
  */
 public final class PackCommand {

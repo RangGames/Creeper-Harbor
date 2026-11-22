@@ -22,12 +22,12 @@ import wiki.creeper.harbor.core.api.PlayerService;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 인벤토리 기록·복구 (권한 harbor.admin.inventory, 추가 제안).
+ * Inventory history and restore (permission harbor.admin.inventory, proposed).
  *
  * <pre>
- * /harbor inventory history &lt;플레이어&gt;             최근 기록 (번호·시각·이유·서버)
- * /harbor inventory view &lt;플레이어&gt; [번호]          지금(또는 기록) 인벤토리를 읽기 전용 창으로
- * /harbor inventory restore &lt;플레이어&gt; &lt;번호&gt;      기록으로 되돌림 (이 서버 접속 중이면 바로, 오프라인이면 DB, 다른 서버 접속 중이면 거부)
+ * /harbor inventory history &lt;player&gt;             recent records (number, time, reason, server)
+ * /harbor inventory view &lt;player&gt; [number]          current (or recorded) inventory in a read-only window
+ * /harbor inventory restore &lt;player&gt; &lt;number&gt;      restore a record (immediately if on this server, DB if offline, refused if on another server)
  * </pre>
  */
 public final class InventoryCommand {
@@ -206,7 +206,7 @@ public final class InventoryCommand {
         return 1;
     }
 
-    /** 복구할 기록과 지금 세션 잠금 값 (없으면 ""). */
+    /** The record to restore and the current session lock value ("" if none). */
     private record Loaded(Optional<InventoryData> data, String lock) {}
 
     private void restore(CommandSender sender, PlayerRef ref, long id) {

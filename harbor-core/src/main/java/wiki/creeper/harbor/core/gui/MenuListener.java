@@ -8,7 +8,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 
-/** Harbor GUI가 열려 있으면 아이템 이동을 모두 막고 버튼 클릭만 처리한다. */
+/** While a Harbor GUI is open, blocks all item movement and handles only button clicks. */
 public final class MenuListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW)

@@ -26,18 +26,22 @@ import wiki.creeper.harbor.core.player.PlayerManager;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * FlagService 구현. 플레이어 플래그는 접속 때 플레이어 컴포넌트로 읽어 캐시하고, 쓰기는 즉시 DB에 반영한다. 서버 플래그는 시작할 때 모두 읽고, 바뀌면
- * harbor:flags 채널로 다른 서버에 알린다.
+ * FlagService implementation. Player flags are read into a player component on login and cached;
+ * writes go to the DB immediately. Server flags are all read at startup and, when changed,
+ * announced to other servers on the harbor:flags channel.
  */
 public final class FlagManager implements FlagService {
 
-    /** 서버 플래그 변경 알림. value가 null이면 꺼짐. */
+    /** Server flag change notice. A null value means cleared. */
     public record ServerFlagMessage(String flag, @Nullable String value) {}
 
     static final Channel<ServerFlagMessage> CHANNEL =
             new Channel<>("harbor:flags", ServerFlagMessage.class);
 
-    /** 플레이어 플래그 캐시 (변경 불가 맵). 저장은 즉시 쓰기라 컴포넌트 저장 함수는 아무것도 하지 않는다. */
+    /**
+     * Player flag cache (immutable map). Writes are immediate, so the component's save function
+     * does nothing.
+     */
     private final PlayerComponent<Map<String, String>> component;
 
     private final Database db;
@@ -58,7 +62,10 @@ public final class FlagManager implements FlagService {
                 new PlayerComponent<>("flags", this::loadPlayer, (c, uuid, s, value) -> {});
     }
 
-    /** 시작: 컴포넌트 등록, 서버 플래그 로드 (가상 스레드에서 읽고 시작 단계라 기다린다), 다른 서버의 변경 구독. */
+    /**
+     * Startup: register the component, load server flags (read on a virtual thread and awaited
+     * since this is startup), subscribe to changes from other servers.
+     */
     public void start() throws SQLException {
         players.register(component);
         try {
@@ -80,7 +87,7 @@ public final class FlagManager implements FlagService {
                                                         envelope.payload().value())));
     }
 
-    // ------------------------------------------------------------------ 플레이어
+    // ------------------------------------------------------------------ Player
 
     @Override
     public boolean hasPlayer(UUID player, String flag) {
@@ -96,8 +103,9 @@ public final class FlagManager implements FlagService {
     public CompletableFuture<Void> setPlayer(UUID player, Scope scope, String flag, String value) {
         FlagService.requireName(flag);
         int flagSeason = scope == Scope.PERM ? 0 : season.value();
-        // 메인 스레드면 캐시를 먼저 바꾼다: DB 쓰기를 기다리는 동안 hasPlayer가 거짓이라 "플래그 없을 때만" 막는 보상을 연타로 두 번
-        // 받을 수 있었다. 쓰기가 실패하면 되돌린다
+        // On the main thread, update the cache first: while waiting for the DB write hasPlayer was
+        // false, so a reward guarded by "only if the flag is absent" could be
+        // claimed twice by rapid clicks. Revert if the write fails
         boolean optimistic = Bukkit.isPrimaryThread();
         Optional<String> before = optimistic ? playerValue(player, flag) : Optional.empty();
         if (optimistic) {
@@ -183,7 +191,7 @@ public final class FlagManager implements FlagService {
         return Map.copyOf(flags);
     }
 
-    // ------------------------------------------------------------------ 서버
+    // ------------------------------------------------------------------ Server
 
     @Override
     public boolean hasServer(String flag) {

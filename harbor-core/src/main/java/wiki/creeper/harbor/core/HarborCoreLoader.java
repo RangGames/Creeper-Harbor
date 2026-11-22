@@ -14,8 +14,9 @@ import org.eclipse.aether.graph.Dependency;
 import org.eclipse.aether.repository.RemoteRepository;
 
 /**
- * 외부 라이브러리(HikariCP·MariaDB·Lettuce·Flyway)를 시작할 때 Maven에서 받아 적재한다. 플러그인 jar에 넣지 않아 크기와 충돌 위험이
- * 줄어든다. 목록(harbor-libraries.txt)은 빌드 때 버전 카탈로그에서 만들어진다.
+ * Downloads external libraries (HikariCP, MariaDB, Lettuce, Flyway) from Maven at startup and loads
+ * them. Keeping them out of the plugin jar reduces its size and the risk of conflicts. The list
+ * (harbor-libraries.txt) is generated from the version catalog at build time.
  */
 public final class HarborCoreLoader implements PluginLoader {
 

@@ -10,21 +10,24 @@ import java.util.Optional;
 import java.util.UUID;
 import wiki.creeper.harbor.core.api.HarborItem;
 
-/** 고유 ID 장부 (fish_ledger). ★5·전설·신화 어종과 보스 장비를 생성할 때 기록하고, 경매 등록·거래 때 상태를 대조해 복사된 아이템을 막는다. */
+/**
+ * Unique ID ledger (fish_ledger). Records ★5, legendary and mythic fish and boss gear when created,
+ * and checks their status on auction listing and trades to block duplicated items.
+ */
 public final class FishLedger {
 
-    /** 장부 상태. */
+    /** Ledger status. */
     public enum State {
         ACTIVE,
         LISTED,
         RELEASED,
-        /** 수족관에 기부됨 (Collection). */
+        /** Donated to the aquarium (Collection). */
         DONATED,
-        /** NPC에게 판매됨 (Economy). */
+        /** Sold to an NPC (Economy). */
         SOLD,
-        /** 경매에 등록됨 (Economy). */
+        /** Listed on the auction (Economy). */
         IN_AUCTION,
-        /** NPC에게 선물함 (NPC 호감도). */
+        /** Gifted to an NPC (NPC affinity). */
         GIFTED,
         DESTROYED
     }
@@ -56,7 +59,10 @@ public final class FishLedger {
         }
     }
 
-    /** 상태를 바꾼다. expected 상태일 때만 바뀌므로, 같은 uid가 두 번 등록·거래되면 두 번째가 실패한다. */
+    /**
+     * Changes the status. It only changes from the expected status, so if the same uid is listed or
+     * traded twice the second attempt fails.
+     */
     public static boolean transition(Connection c, UUID uid, State expected, State next)
             throws SQLException {
         try (PreparedStatement ps =

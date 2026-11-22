@@ -19,12 +19,14 @@ import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.core.api.ProxyBridge;
 import wiki.creeper.harbor.core.task.Tasks;
 
-/** 프록시 연동: 이동 요청(ProxyBridge)과 5초마다 하트비트. */
+/** Proxy link: transfer requests (ProxyBridge) and a heartbeat every 5 seconds. */
 public final class ProxyLink implements ProxyBridge {
 
     private static final long HEARTBEAT_TICKS = 5 * 20L;
 
-    /** 이동 요청 응답 제한. 프록시의 핸드오프 제한(5초)보다 길게 둔다. */
+    /**
+     * Transfer request response timeout. Kept longer than the proxy's handoff timeout (5 seconds).
+     */
     private static final Duration MOVE_TIMEOUT = Duration.ofSeconds(10);
 
     private final InfraConfig infra;

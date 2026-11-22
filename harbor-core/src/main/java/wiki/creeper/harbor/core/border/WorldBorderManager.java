@@ -13,7 +13,10 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import wiki.creeper.harbor.core.api.WorldBorderService;
 
-/** 개인 세계 경계 중재 (docs 20 0.2). 가장 높은 우선순위 요청 하나만 플레이어에게 보낸다. */
+/**
+ * Per-player world border arbitration (docs 20 0.2). Only the single highest-priority request is
+ * sent to the player.
+ */
 public final class WorldBorderManager implements WorldBorderService, Listener {
 
     private final Map<UUID, EnumMap<Priority, Border>> requests = new ConcurrentHashMap<>();
@@ -45,14 +48,14 @@ public final class WorldBorderManager implements WorldBorderService, Listener {
         }
         Border top = null;
         for (Border b : map.values()) {
-            top = b; // EnumMap은 선언 순서(낮은 순위 → 높은 순위)로 돈다
+            top = b; // EnumMap iterates in declaration order (low priority → high priority)
         }
         if (top == null) {
             player.setWorldBorder(null);
             return;
         }
         if (top.center().getWorld() != null && !top.center().getWorld().equals(player.getWorld())) {
-            // 다른 월드의 요청은 보여 주지 않는다 (월드를 옮기면 다시 계산)
+            // Requests for another world are not shown (recomputed when the player changes worlds)
             player.setWorldBorder(null);
             return;
         }

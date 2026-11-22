@@ -14,16 +14,18 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.core.api.HarborSounds;
 
 /**
- * 상자 GUI. 칸마다 아이템과 클릭 동작을 둔다. 플레이어가 아이템을 꺼내거나 넣는 것은 {@link MenuListener}가 모두 막는다. 메인 스레드 전용.
+ * Chest GUI. Each slot holds an item and a click action. {@link MenuListener} blocks players from
+ * taking out or putting in items. Main thread only.
  *
- * <p>도감의 미등록 어종처럼 "실루엣 슬롯"은 실루엣 모델을 쓴 아이템을 버튼으로 넣으면 된다.
+ * <p>For a "silhouette slot", such as an unregistered species in the collection book, add an item
+ * using the silhouette model as the button.
  */
 public class Menu implements InventoryHolder {
 
-    /** 버튼을 누를 때 내는 소리. */
+    /** Sound played when a button is pressed. */
     public static final String CLICK_SOUND = "harbor:ui.click";
 
-    /** 버튼 클릭. */
+    /** Button click. */
     @FunctionalInterface
     public interface ClickHandler extends Consumer<InventoryClickEvent> {}
 
@@ -47,7 +49,7 @@ public class Menu implements InventoryHolder {
         return inventory.getSize();
     }
 
-    /** 칸에 버튼을 둔다. handler가 null이면 표시만 한다. */
+    /** Puts a button in a slot. If handler is null, it is display-only. */
     public Menu button(int slot, ItemStack item, @Nullable ClickHandler handler) {
         inventory.setItem(slot, item);
         if (handler == null) {
@@ -77,7 +79,7 @@ public class Menu implements InventoryHolder {
         ClickHandler handler = handlers.get(event.getRawSlot());
         if (handler != null) {
             if (event.getWhoClicked() instanceof Player player) {
-                // 버튼 클릭음 ('15. 사운드' 4.5 ui.click). 표시만 하는 칸은 소리 없음
+                // Button click sound ('15. Sound' 4.5 ui.click). Display-only slots make no sound
                 HarborSounds.play(player, CLICK_SOUND);
             }
             handler.accept(event);

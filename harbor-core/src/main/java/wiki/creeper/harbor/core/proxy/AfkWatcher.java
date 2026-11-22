@@ -27,9 +27,11 @@ import wiki.creeper.harbor.core.api.ProxyBridge;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 잠수 시 로비로 (본 서버만, 추가 제안). 움직임·시점·키 입력·채팅·명령·클릭이 balance.yml afk.lobby_minutes 동안 없으면 로비로 보낸다. 프록시가
- * 자리 유예를 주고(그동안 돌아오면 대기열 앞줄) 로비에서 자동 출항하지 않게 한다. afk.warn_seconds 전에 한 번 알린다. harbor.afk.exempt 권한이
- * 있으면 보내지 않는다. afk.lobby_minutes가 0이면 끈다.
+ * Sends AFK players to the lobby (main servers only, proposed). If there is no movement, look, key
+ * input, chat, command or click for balance.yml afk.lobby_minutes, the player is sent to the lobby.
+ * The proxy grants a slot grace period (returning within it puts them at the front of the queue)
+ * and prevents automatic departure from the lobby. Warns once afk.warn_seconds beforehand. Players
+ * with the harbor.afk.exempt permission are not sent. An afk.lobby_minutes of 0 disables it.
  */
 public final class AfkWatcher implements Listener {
 

@@ -1,8 +1,5 @@
 package wiki.creeper.harbor.core.inventory;
 
-import io.papermc.paper.registry.RegistryAccess;
-import io.papermc.paper.registry.RegistryKey;
-import java.io.IOException;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -11,11 +8,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
-import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -29,8 +23,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.config.ServerRole;
@@ -46,35 +38,38 @@ import wiki.creeper.harbor.core.player.PlayerManager;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 서버 간 인벤토리 동기화 (추가 제안, HuskSync의 Lockstep 동작을 참고해 Harbor 세션 잠금 위에 만든 것).
+ * Cross-server inventory sync (proposed, built on Harbor session locks with reference to HuskSync's
+ * Lockstep behavior).
  *
  * <ul>
- *   <li>대상: 인벤토리(갑옷·왼손), 엔더 상자, 플레이어 PDC, 경험치, 체력·배고픔, 포션 효과(신호기 같은 주변 효과 제외), 선택한 핫바 칸
- *   <li>로드: 다른 플레이어 데이터와 같이 접속 전에 DB에서 읽는다 (세션 잠금을 넘겨받은 뒤라 이전 서버의 저장이 끝난 상태). 접속 즉시(다른 모듈보다 먼저)
- *       적용한다: 제작 칸·커서를 비우고 덮어쓴다
- *   <li>저장: 저장 훅으로 메인 스레드에서 뜬다. 퇴장·이동·종료 때는 열린 창을 닫아(커서·제작 칸 아이템을 인벤토리로) 뜬 뒤, 잠금을 넘기기 전에 DB에 쓴다 (지연
- *       쓰기 큐 flushNow)
- *   <li>처음 도입: DB에 행이 없는 플레이어는 본 서버(main)의 기존 인벤토리(플레이어 파일)를 원본으로 삼는다. 로비·인스턴스에서는 행이 생길 때까지 동기화하지
- *       않는다 (빈 로비 인벤토리가 원본을 덮지 않게)
- *   <li>기록: 퇴장·이동·종료·사망·복구 때 player_inventory_history에 남기고 최근 balance.yml inventory.history_keep개만
- *       둔다
+ *   <li>Scope: inventory (armor, offhand), ender chest, player PDC, experience, health and food,
+ *       potion effects (excluding ambient effects such as beacons), selected hotbar slot
+ *   <li>Load: read from the DB before join along with other player data (after taking over the
+ *       session lock, so the previous server has finished saving). Applied right on join (before
+ *       other modules): crafting grid and cursor are cleared, then overwritten
+ *   <li>Save: captured on the main thread via the save hook. On quit, transfer and shutdown, open
+ *       windows are closed (cursor and crafting items go to the inventory) before capture, then
+ *       written to the DB before handing over the lock (write-behind queue flushNow)
+ *   <li>First rollout: for players with no DB row, the existing inventory on the main server
+ *       (player file) is the source. Lobby and instances do not sync until a row exists (so an
+ *       empty lobby inventory doesn't overwrite the source)
+ *   <li>History: recorded to player_inventory_history on quit, transfer, shutdown, death and
+ *       restore, keeping only the latest balance.yml inventory.history_keep records
  * </ul>
  *
- * balance.yml inventory.sync가 false면 아무것도 하지 않는다.
+ * Does nothing if balance.yml inventory.sync is false.
  */
 public final class InventorySync implements Listener {
 
     /**
-     * 컴포넌트 값.
+     * Component value.
      *
-     * @param data DB의 지금 상태 (없으면 null = 아직 동기화한 적 없는 플레이어)
+     * @param data current state in the DB (null if none = player never synced yet)
      */
     public record Synced(@Nullable InventoryData data) {}
 
     private static final DateTimeFormatter TIME =
             DateTimeFormatter.ofPattern("MM-dd HH:mm:ss").withZone(ZoneId.of("Asia/Seoul"));
-
-    private static final int CRAFTING_SLOTS = 5;
 
     private final PlayerManager players;
     private final Database db;
@@ -87,7 +82,7 @@ public final class InventorySync implements Listener {
     private final ServerRole role;
     private final PlayerComponent<Synced> component;
 
-    /** 이 서버에서 동기화 중인 플레이어 (적용했거나 본 서버의 원본). */
+    /** Players being synced on this server (applied, or the main server's source). */
     private final Set<UUID> synced = new HashSet<>();
 
     public InventorySync(
@@ -122,7 +117,7 @@ public final class InventorySync implements Listener {
                         });
     }
 
-    /** 컴포넌트·저장 훅 등록 (플레이어가 들어오기 전에). */
+    /** Registers the component and save hook (before players join). */
     public void register() {
         players.register(component);
         players.addSaveHook(this::beforeSave);
@@ -131,8 +126,10 @@ public final class InventorySync implements Listener {
     }
 
     /**
-     * 재화가 커밋되면 인벤토리도 곧 저장한다. 재화는 즉시 트랜잭션이고 인벤토리는 지연 쓰기라, 판매 직후 서버가 죽으면 골드는 남고 판 아이템은 마지막 저장 상태로
-     * 돌아온다 (HuskSync도 같은 구조라 막지 못하는 부분, 추가 제안). 지급·차감 모두 해당한다.
+     * Saves the inventory soon after a currency commit. Currency is an immediate transaction while
+     * the inventory is write-behind, so if the server dies right after a sale the gold stays but
+     * the sold items revert to the last saved state (HuskSync has the same structure and can't
+     * prevent this either, proposed). Applies to both grants and deductions.
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onCurrency(CurrencyChangedEvent event) {
@@ -157,9 +154,12 @@ public final class InventorySync implements Listener {
         return "player:" + uuid + ":";
     }
 
-    // ------------------------------------------------------------------ 적용
+    // ------------------------------------------------------------------ Apply
 
-    /** 다른 모듈의 접속 처리(시즌 정리·보상 지급 등)보다 먼저 적용한다. PlayerManager가 LOWEST에서 데이터를 붙인다. */
+    /**
+     * Applied before other modules' join handling (season cleanup, reward grants, etc.).
+     * PlayerManager attaches data at LOWEST.
+     */
     @EventHandler(priority = EventPriority.LOW)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
@@ -175,15 +175,17 @@ public final class InventorySync implements Listener {
         InventoryData data = hp.get(component).data();
         if (data != null) {
             try {
-                apply(player, data);
+                InventorySnapshots.apply(player, data);
                 synced.add(uuid);
             } catch (RuntimeException e) {
-                // 적용하지 못한 채 저장하면 원본을 덮으므로 동기화하지 않는다 (다음 접속 때 다시)
+                // Saving without applying would overwrite the source, so don't sync (retry on next
+                // join)
                 log.error("인벤토리 적용 실패, 이 접속에서는 동기화하지 않습니다: {}", player.getName(), e);
                 messages.send(player, "inventory.apply_failed");
             }
         } else if (role == ServerRole.MAIN) {
-            // 처음: 본 서버의 기존 인벤토리가 원본 (다음 저장 때 행이 생긴다)
+            // First time: the main server's existing inventory is the source (a row is created on
+            // the next save)
             synced.add(uuid);
         }
     }
@@ -191,7 +193,7 @@ public final class InventorySync implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
-        // PlayerManager(MONITOR)의 퇴장 저장이 끝난 뒤에 지운다
+        // Removed after PlayerManager's (MONITOR) quit save finishes
         var _ =
                 tasks.later(
                         1,
@@ -202,73 +204,7 @@ public final class InventorySync implements Listener {
                         });
     }
 
-    /** HuskSync BukkitData의 적용 순서를 따른다: 제작 칸·커서 비움 → 인벤토리 → 엔더 상자 → PDC → 효과 → 체력·배고픔·경험치. */
-    static void apply(Player player, InventoryData data) {
-        Inventory top = player.getOpenInventory().getTopInventory();
-        if (top.getType() == InventoryType.CRAFTING) {
-            for (int i = 0; i < Math.min(CRAFTING_SLOTS, top.getSize()); i++) {
-                top.setItem(i, null);
-            }
-        }
-        player.setItemOnCursor(null);
-        player.getInventory()
-                .setContents(
-                        fit(
-                                ItemStack.deserializeItemsFromBytes(data.contents()),
-                                player.getInventory().getSize()));
-        Inventory ender = player.getEnderChest();
-        ender.setContents(fit(ItemStack.deserializeItemsFromBytes(data.ender()), ender.getSize()));
-        try {
-            player.getPersistentDataContainer().readFromBytes(data.pdc(), true);
-        } catch (IOException e) {
-            throw new IllegalStateException("PDC를 읽지 못했습니다", e);
-        }
-        for (PotionEffect effect : player.getActivePotionEffects()) {
-            player.removePotionEffect(effect.getType());
-        }
-        var registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.MOB_EFFECT);
-        for (InventoryData.Effect e : data.effects()) {
-            PotionEffectType type =
-                    Key.parseable(e.type()) ? registry.get(Key.key(e.type())) : null;
-            if (type != null) {
-                player.addPotionEffect(
-                        new PotionEffect(
-                                type,
-                                e.duration(),
-                                e.amplifier(),
-                                e.ambient(),
-                                e.particles(),
-                                e.icon()));
-            }
-        }
-        AttributeInstance max = player.getAttribute(Attribute.MAX_HEALTH);
-        double maxHealth = max == null ? 20.0 : max.getValue();
-        double health = data.health() <= 0 ? maxHealth : Math.min(data.health(), maxHealth);
-        player.setHealth(health);
-        player.setFoodLevel(data.food());
-        player.setSaturation(data.saturation());
-        player.setExhaustion(data.exhaustion());
-        player.setTotalExperience(data.totalExp());
-        player.setLevel(data.level());
-        if (data.exp() >= 0f && data.exp() <= 1f) {
-            player.setExp(data.exp());
-        }
-        if (data.heldSlot() >= 0 && data.heldSlot() <= 8) {
-            player.getInventory().setHeldItemSlot(data.heldSlot());
-        }
-        player.updateInventory();
-    }
-
-    /** 저장된 칸 수가 지금 크기와 다르면 맞춘다 (모자라면 빈 칸, 넘치면 자른다). */
-    private static ItemStack[] fit(ItemStack[] items, int size) {
-        ItemStack[] out = new ItemStack[size];
-        for (int i = 0; i < size; i++) {
-            out[i] = i < items.length ? items[i] : ItemStack.empty();
-        }
-        return out;
-    }
-
-    // ------------------------------------------------------------------ 저장
+    // ------------------------------------------------------------------ Save
 
     private void beforeSave(Player player, HarborPlayer hp, PlayerManager.SaveReason reason) {
         UUID uuid = player.getUniqueId();
@@ -280,26 +216,32 @@ public final class InventorySync implements Listener {
                         || reason == PlayerManager.SaveReason.HANDOFF
                         || reason == PlayerManager.SaveReason.SHUTDOWN;
         if (leaving) {
-            // 커서·제작 칸·열린 창의 아이템을 인벤토리로 돌린 뒤 뜬다
+            // Return items from the cursor, crafting grid and open window to the inventory before
+            // capturing
             player.closeInventory();
         }
-        // 자동 저장·거래 뒤 저장은 창을 닫지 않으므로, 인벤토리 밖에 있는 아이템(커서·제작 칸·모듈이 맡은 것)을 저장본에 넣어 둔다.
-        // 그대로 두면 그 사이 서버가 죽었을 때 사라진다. 떠날 때는 위에서 창을 닫아 이미 인벤토리로 돌아왔다
+        // Autosaves and post-trade saves don't close windows, so items outside the inventory
+        // (cursor, crafting grid, items held by modules) are put into the snapshot.
+        // Otherwise they would be lost if the server died meanwhile. When leaving, windows were
+        // already closed above and the items returned to the inventory
         List<ItemStack> outside = leaving ? List.of() : outside(player);
-        InventoryData data = capture(player, outside);
+        InventoryData data = InventorySnapshots.capture(player, outside);
         hp.set(component, new Synced(data));
         if (leaving) {
             byte[] encoded = data.encode();
             int keep = keep();
             String why = reason.name();
-            // 같은 큐에 넣어서 잠금을 넘기기 전 flushNow에 함께 쓰인다
+            // Queued in the same queue so it's written by flushNow before the lock is handed over
             queue.enqueue(
                     prefix(uuid) + "inventory_history",
                     c -> InventoryRepository.addHistory(c, uuid, why, server, encoded, keep));
         }
     }
 
-    /** 메인 스레드: 인벤토리 칸 밖에 있는 이 플레이어 아이템 (커서, 2x2 제작 칸, 모듈이 맡은 것). */
+    /**
+     * Main thread: this player's items outside inventory slots (cursor, 2x2 crafting grid, items
+     * held by modules).
+     */
     private List<ItemStack> outside(Player player) {
         List<ItemStack> out = new ArrayList<>();
         ItemStack cursor = player.getItemOnCursor();
@@ -308,8 +250,8 @@ public final class InventorySync implements Listener {
         }
         Inventory top = player.getOpenInventory().getTopInventory();
         if (top.getType() == InventoryType.CRAFTING) {
-            // 결과 칸(0)은 재료에서 만들어진 미리보기라 넣지 않는다
-            for (int i = 1; i < Math.min(CRAFTING_SLOTS, top.getSize()); i++) {
+            // The result slot (0) is a preview made from the ingredients, so it is excluded
+            for (int i = 1; i < Math.min(InventorySnapshots.CRAFTING_SLOTS, top.getSize()); i++) {
                 ItemStack item = top.getItem(i);
                 if (item != null && !item.isEmpty()) {
                     out.add(item.clone());
@@ -320,124 +262,7 @@ public final class InventorySync implements Listener {
         return out;
     }
 
-    static InventoryData capture(Player player) {
-        return capture(player, List.of());
-    }
-
-    /**
-     * 지금 상태를 뜬다. {@code outside}는 저장본에서만 인벤토리 빈 칸(넘치면 엔더 상자)에 넣는다 (실제 인벤토리는 바꾸지 않는다). 둘 다 차면 그만큼은
-     * 저장본에 없다 (기록만 남긴다).
-     */
-    static InventoryData capture(Player player, List<ItemStack> outside) {
-        ItemStack[] contents = nonNull(player.getInventory().getContents());
-        ItemStack[] ender = nonNull(player.getEnderChest().getContents());
-        if (!outside.isEmpty()) {
-            contents = copy(contents);
-            ender = copy(ender);
-            for (ItemStack item : outside) {
-                ItemStack rest = place(contents, STORAGE_SLOTS, item.clone());
-                if (!rest.isEmpty()) {
-                    rest = place(ender, ender.length, rest);
-                }
-                if (!rest.isEmpty()) {
-                    System.getLogger("Harbor/InventorySync")
-                            .log(
-                                    System.Logger.Level.WARNING,
-                                    "저장본에 넣을 자리가 없어 맡은 아이템을 빼고 저장합니다: "
-                                            + player.getName()
-                                            + " "
-                                            + rest);
-                }
-            }
-        }
-        List<InventoryData.Effect> effects = new ArrayList<>();
-        for (PotionEffect e : player.getActivePotionEffects()) {
-            if (e.isAmbient()) {
-                continue; // 신호기·전달체 효과는 그 자리에서만 (HuskSync와 같음)
-            }
-            effects.add(
-                    new InventoryData.Effect(
-                            e.getType().key().asString(),
-                            e.getDuration(),
-                            e.getAmplifier(),
-                            false,
-                            e.hasParticles(),
-                            e.hasIcon()));
-        }
-        return new InventoryData(
-                ItemStack.serializeItemsAsBytes(contents),
-                ItemStack.serializeItemsAsBytes(ender),
-                serializePdc(player),
-                player.getLevel(),
-                player.getExp(),
-                player.getTotalExperience(),
-                player.getHealth(),
-                player.getFoodLevel(),
-                player.getSaturation(),
-                player.getExhaustion(),
-                player.getInventory().getHeldItemSlot(),
-                effects);
-    }
-
-    private static byte[] serializePdc(Player player) {
-        try {
-            return player.getPersistentDataContainer().serializeToBytes();
-        } catch (IOException e) {
-            throw new IllegalStateException("PDC를 저장하지 못했습니다", e);
-        }
-    }
-
-    /** 플레이어 인벤토리의 보관 칸 수 (핫바 포함, 갑옷·보조손 제외). */
-    private static final int STORAGE_SLOTS = 36;
-
-    private static ItemStack[] copy(ItemStack[] items) {
-        ItemStack[] out = new ItemStack[items.length];
-        for (int i = 0; i < items.length; i++) {
-            out[i] = items[i].clone();
-        }
-        return out;
-    }
-
-    /** 같은 아이템 묶음을 먼저 채우고 빈 칸에 넣는다 (addItem과 같은 규칙). 남은 것을 돌려준다 (다 넣었으면 빈 아이템). */
-    private static ItemStack place(ItemStack[] slots, int limit, ItemStack item) {
-        int left = item.getAmount();
-        int max = item.getMaxStackSize();
-        int end = Math.min(limit, slots.length);
-        for (int i = 0; i < end && left > 0; i++) {
-            ItemStack slot = slots[i];
-            if (!slot.isEmpty() && slot.isSimilar(item) && slot.getAmount() < max) {
-                int n = Math.min(left, max - slot.getAmount());
-                slot.setAmount(slot.getAmount() + n);
-                left -= n;
-            }
-        }
-        for (int i = 0; i < end && left > 0; i++) {
-            if (slots[i].isEmpty()) {
-                int n = Math.min(left, max);
-                ItemStack put = item.clone();
-                put.setAmount(n);
-                slots[i] = put;
-                left -= n;
-            }
-        }
-        if (left <= 0) {
-            return ItemStack.empty();
-        }
-        ItemStack rest = item.clone();
-        rest.setAmount(left);
-        return rest;
-    }
-
-    private static ItemStack[] nonNull(@Nullable ItemStack[] items) {
-        ItemStack[] out = new ItemStack[items.length];
-        for (int i = 0; i < items.length; i++) {
-            ItemStack item = items[i];
-            out[i] = item == null ? ItemStack.empty() : item;
-        }
-        return out;
-    }
-
-    /** 사망 직전 인벤토리를 기록에 남긴다 (복구용, 지금 상태는 바꾸지 않는다). */
+    /** Records the inventory right before death (for restore; the current state is not changed). */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
@@ -445,7 +270,7 @@ public final class InventorySync implements Listener {
         if (!enabled() || !synced.contains(uuid)) {
             return;
         }
-        byte[] encoded = capture(player).encode();
+        byte[] encoded = InventorySnapshots.capture(player).encode();
         int keep = keep();
         var _ =
                 db.asyncVoid(
@@ -454,16 +279,16 @@ public final class InventorySync implements Listener {
                                         c, uuid, "DEATH", server, encoded, keep));
     }
 
-    // ------------------------------------------------------------------ 관리 (InventoryCommand)
+    // ------------------------------------------------------------------ Admin (InventoryCommand)
 
-    /** 이 서버에서 동기화 중인지. */
+    /** Whether this player is being synced on this server. */
     boolean isSynced(UUID uuid) {
         return synced.contains(uuid);
     }
 
-    /** 접속 중인 플레이어에게 기록을 적용하고 바로 저장한다 (복구). 메인 스레드. */
+    /** Applies a record to an online player and saves immediately (restore). Main thread. */
     void restoreOnline(Player player, InventoryData data) {
-        apply(player, data);
+        InventorySnapshots.apply(player, data);
         synced.add(player.getUniqueId());
         players.get(player.getUniqueId()).ifPresent(hp -> hp.set(component, new Synced(data)));
         byte[] encoded = data.encode();
@@ -477,7 +302,7 @@ public final class InventorySync implements Listener {
                                         c, uuid, "RESTORE", server, encoded, keep));
     }
 
-    /** 오프라인 플레이어의 지금 상태를 기록으로 바꾼다 (복구). */
+    /** Replaces an offline player's current state with a record (restore). */
     java.util.concurrent.CompletableFuture<Void> restoreOffline(UUID uuid, InventoryData data) {
         byte[] encoded = data.encode();
         int keep = keep();
@@ -506,9 +331,9 @@ public final class InventorySync implements Listener {
         return TIME.format(at);
     }
 
-    // ------------------------------------------------------------------ 보기 창
+    // ------------------------------------------------------------------ View window
 
-    /** /harbor inventory view 창 (읽기 전용). */
+    /** /harbor inventory view window (read-only). */
     static final class ViewHolder implements InventoryHolder {
         private @Nullable Inventory inventory;
 
@@ -526,7 +351,10 @@ public final class InventorySync implements Listener {
         }
     }
 
-    /** 54칸: 1줄 = 투구·흉갑·각반·신발·왼손, 2~4줄 = 가방, 5줄 = 핫바. */
+    /**
+     * 54 slots: row 1 = helmet, chestplate, leggings, boots, offhand; rows 2-4 = storage; row 5 =
+     * hotbar.
+     */
     Inventory view(InventoryData data, String name) {
         ViewHolder holder = new ViewHolder();
         Inventory inv =

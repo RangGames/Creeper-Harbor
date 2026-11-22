@@ -7,13 +7,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * 페이지가 있는 상자 GUI. 위쪽 (rows-1)줄에 항목을 채우고 마지막 줄에 이전·다음 버튼을 둔다.
+ * Paged chest GUI. Fills the top (rows-1) rows with entries and puts previous/next buttons on the
+ * last row.
  *
- * @param <T> 항목 데이터
+ * @param <T> entry data
  */
 public final class PagedMenu<T> extends Menu {
 
-    /** 항목 하나를 버튼으로 바꾼다. */
+    /** Turns one entry into a button. */
     public record Entry(ItemStack icon, Menu.ClickHandler onClick) {}
 
     private final List<T> items;

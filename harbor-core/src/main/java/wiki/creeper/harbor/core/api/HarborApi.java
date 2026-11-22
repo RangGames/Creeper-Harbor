@@ -10,7 +10,7 @@ import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.common.redis.Redis;
 import wiki.creeper.harbor.common.time.HarborTime;
 
-/** Core가 다른 모듈에 제공하는 서비스 묶음. */
+/** The set of services Core provides to other modules. */
 public interface HarborApi {
 
     ContentService content();
@@ -33,13 +33,13 @@ public interface HarborApi {
 
     ProxyBridge proxy();
 
-    /** 개인 세계 경계 중재. */
+    /** Per-player world border arbitration. */
     WorldBorderService worldBorders();
 
-    /** 디스플레이 리그 재생 ('16. 플러그인 설계' 5.10). */
+    /** Display rig playback ('16. Plugin design' 5.10). */
     RigService rigs();
 
-    /** 가구·커스텀 블록 (추가 제안). */
+    /** Furniture and custom blocks (proposed). */
     FurnitureService furniture();
 
     InfraConfig infra();
@@ -54,28 +54,35 @@ public interface HarborApi {
 
     DistributedLock locks();
 
-    /** Redis 키·값 접근 (캐시, 인스턴스 배정, 재접속 키). 입출력이므로 메인 스레드에서 부르지 않는다. */
+    /**
+     * Redis key/value access (caches, instance assignment, reconnect keys). This is I/O, so don't
+     * call it on the main thread.
+     */
     Redis redis();
 
     /**
-     * 다른 모듈이 등록한 서비스 (Bukkit ServicesManager). 선택 의존 모듈의 서비스는 없을 수 있어서 Optional이다. 모듈이 켜진 뒤(다른 모듈의
-     * enable 이후)에 찾는다.
+     * Services registered by other modules (Bukkit ServicesManager). Services of
+     * optional-dependency modules may be absent, hence Optional. Look them up after the module is
+     * enabled (after the other module's enable).
      */
     default <T> Optional<T> service(Class<T> type) {
         return Optional.ofNullable(Bukkit.getServicesManager().load(type));
     }
 
-    /** 외부 연동 이벤트 발행 (웹훅·REST, Harbor-Web). Core가 켜져 있으면 늘 있다. */
+    /**
+     * Publishes external integration events (webhooks, REST, Harbor-Web). Always present while Core
+     * is enabled.
+     */
     default ExternalEvents events() {
         return service(ExternalEvents.class).orElse(ExternalEvents.NOOP);
     }
 
-    /** 우편함 (Economy가 구현). 없으면 호출한 쪽이 보류한다. */
+    /** Mailbox (implemented by Economy). If absent, the caller defers. */
     default Optional<MailService> mail() {
         return service(MailService.class);
     }
 
-    /** 파티 (Boss가 구현). 없으면 모두 혼자다. */
+    /** Parties (implemented by Boss). If absent, everyone is solo. */
     default Optional<PartyService> parties() {
         return service(PartyService.class);
     }

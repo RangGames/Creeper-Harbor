@@ -20,10 +20,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
-import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Interaction;
@@ -38,7 +36,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.event.world.EntitiesUnloadEvent;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -53,7 +50,6 @@ import wiki.creeper.harbor.common.rig.RigBaker;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.common.rig.RigPlayback;
 import wiki.creeper.harbor.common.rig.RigSampler;
-import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.RigHit;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
@@ -62,18 +58,22 @@ import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 디스플레이 리그 재생 ('16. 플러그인 설계' 5.10). 리그를 굽고(가상 스레드, 콘텐츠가 바뀔 때마다), 띄우고, 메인 스레드에서 틱마다 애니메이션 명령을 보낸다.
+ * Display rig playback ('16. Plugin design' 5.10). Bakes rigs (on a virtual thread, whenever
+ * content changes), spawns them, and sends animation commands every tick on the main thread.
  *
  * <ul>
- *   <li>예산: 틱당 balance.yml rig.tick_budget_ms. 넘으면 남은 리그는 다음 틱으로 미룬다. 재생 시각은 서버 틱 번호로 계산하므로 미뤄진 리그도
- *       다음 갱신에서 제자리를 찾는다
- *   <li>LOD: 아무도 안 보거나 가장 가까운 시청자가 rig.lod_distance 밖이면 갱신하지 않고, 다시 가까워지면 지금 위치에서 재동기화한다
- *   <li>정리: 모든 엔티티는 저장하지 않고 PDC harbor:rig 표시를 단다. 청크 언로드 때 그 리그를 지우고, 시작·청크 적재 때 주인 없는 표시 엔티티를 지운다
+ *   <li>Budget: balance.yml rig.tick_budget_ms per tick. Once exceeded, remaining rigs wait for the
+ *       next tick. Playback time is computed from the server tick number, so deferred rigs land in
+ *       the right place on their next update
+ *   <li>LOD: not updated when nobody is watching or the nearest viewer is beyond rig.lod_distance;
+ *       resynced at the current position once close again
+ *   <li>Cleanup: all entities are non-persistent and tagged with PDC harbor:rig. On chunk unload
+ *       the rig is removed; on startup and chunk load, orphaned tagged entities are removed
  * </ul>
  */
 public final class RigManager implements RigService, Listener {
 
-    /** 리그 엔티티 표시 (값 = 인스턴스 ID). */
+    /** Rig entity tag (value = instance ID). */
     static final NamespacedKey RIG_KEY = new NamespacedKey(HarborId.DEFAULT_NAMESPACE, "rig");
 
     private final Plugin plugin;
@@ -82,13 +82,13 @@ public final class RigManager implements RigService, Listener {
     private final Logger log;
     private final Map<UUID, CoreRig> instances = new LinkedHashMap<>();
 
-    /** 엔티티 UUID → 리그. */
+    /** Entity UUID → rig. */
     private final Map<UUID, CoreRig> byEntity = new HashMap<>();
 
-    /** Interaction 엔티티 UUID → 판정 상자 번호. */
+    /** Interaction entity UUID → hitbox index. */
     private final Map<UUID, Integer> hitboxIndex = new HashMap<>();
 
-    /** 구운 리그 (가상 스레드에서 채우고 메인 스레드에서 읽는다). */
+    /** Baked rigs (filled on a virtual thread, read on the main thread). */
     private volatile Map<RigId, BakedRig> baked = Map.of();
 
     private final Map<RigId, BakedRig> bakedOnDemand = new ConcurrentHashMap<>();
@@ -98,6 +98,7 @@ public final class RigManager implements RigService, Listener {
     private long lastTickNanos;
     private int lastDeferred;
     private @Nullable BukkitTask task;
+    private final RigEntitySpawner spawner;
 
     public RigManager(Plugin plugin, Supplier<ContentSnapshot> content, Tasks tasks, Logger log) {
         this.plugin = plugin;
@@ -105,9 +106,10 @@ public final class RigManager implements RigService, Listener {
         this.tasks = tasks;
         this.log = log;
         this.settings = RigSettings.from(content.get().single(Balance.TYPE));
+        this.spawner = new RigEntitySpawner(content);
     }
 
-    /** 틱 작업 시작, 리그 굽기, 남은 리그 엔티티 정리. */
+    /** Starts the tick task, bakes rigs and cleans up leftover rig entities. */
     public void start() {
         rebake(content.get());
         for (World world : Bukkit.getWorlds()) {
@@ -118,7 +120,7 @@ public final class RigManager implements RigService, Listener {
         task = tasks.timer(1, 1, this::tick);
     }
 
-    /** 모든 리그를 지운다 (Core 종료). */
+    /** Removes all rigs (Core shutdown). */
     public void shutdown() {
         BukkitTask t = task;
         if (t != null) {
@@ -144,12 +146,12 @@ public final class RigManager implements RigService, Listener {
         return settings;
     }
 
-    /** 리그 시계 (틱 작업이 한 번 돌 때마다 1씩 오른다). */
+    /** Rig clock (incremented by 1 each time the tick task runs). */
     long now() {
         return now;
     }
 
-    // ------------------------------------------------------------------ 굽기
+    // ------------------------------------------------------------------ Baking
 
     private void rebake(ContentSnapshot snapshot) {
         RigSettings next = RigSettings.from(snapshot.single(Balance.TYPE));
@@ -179,7 +181,7 @@ public final class RigManager implements RigService, Listener {
                                 });
     }
 
-    /** 구운 리그. 아직 비동기 굽기가 안 끝났으면 바로 굽는다. */
+    /** The baked rig. Bakes it right away if the async bake hasn't finished yet. */
     private Optional<BakedRig> bakedRig(RigId id) {
         Optional<RigDef> def = definition(id);
         if (def.isEmpty()) {
@@ -197,7 +199,8 @@ public final class RigManager implements RigService, Listener {
     public void onContentReloaded(ContentReloadedEvent event) {
         Set<String> types = event.reloadedTypes();
         if (types.contains(RigDef.TYPE.name()) || types.contains(Balance.TYPE.name())) {
-            // 이미 떠 있는 리그는 예전 구운 결과로 계속 재생한다 (다시 띄우는 것은 각 모듈 몫)
+            // Rigs already spawned keep playing with the old bake (respawning them is up to each
+            // module)
             rebake(event.snapshot());
         }
     }
@@ -251,57 +254,12 @@ public final class RigManager implements RigService, Listener {
         base.setYaw(heading[0]);
         base.setPitch(heading[1]);
 
-        ItemDisplay root =
-                world.spawn(
-                        base,
-                        ItemDisplay.class,
-                        e -> {
-                            prepare(e, visible, instanceId);
-                            e.setItemStack(ItemStack.empty());
-                            e.setTeleportDuration(moveTicks);
-                        });
-        List<Entity> spawned = new ArrayList<>();
-        spawned.add(root);
-        Display[] parts = new Display[rig.parts().size()];
-        Interaction[] hitboxes =
-                options.onHit() == null
-                        ? new Interaction[0]
-                        : new Interaction[rig.hitboxes().size()];
-        try {
-            for (int p = 0; p < parts.length; p++) {
-                parts[p] =
-                        spawnPart(
-                                world,
-                                base,
-                                rig,
-                                p,
-                                playback,
-                                options,
-                                visible,
-                                instanceId,
-                                moveTicks);
-                spawned.add(parts[p]);
-                var _ = root.addPassenger(parts[p]);
-            }
-            for (int h = 0; h < hitboxes.length; h++) {
-                RigDef.Hitbox box = rig.hitboxes().get(h).hitbox();
-                double k = options.scale() * def.scale();
-                hitboxes[h] =
-                        world.spawn(
-                                base,
-                                Interaction.class,
-                                e -> {
-                                    prepare(e, visible, instanceId);
-                                    e.setInteractionWidth((float) (box.width() * k));
-                                    e.setInteractionHeight((float) (box.height() * k));
-                                    e.setResponsive(true);
-                                });
-                spawned.add(hitboxes[h]);
-            }
-        } catch (RuntimeException e) {
-            spawned.forEach(Entity::remove);
-            throw e;
-        }
+        RigEntitySpawner.Spawned entities =
+                spawner.spawn(
+                        world, base, rig, playback, options, visible, instanceId, moveTicks, now);
+        ItemDisplay root = entities.root();
+        Display[] parts = entities.parts();
+        Interaction[] hitboxes = entities.hitboxes();
 
         CoreRig instance =
                 new CoreRig(
@@ -340,69 +298,6 @@ public final class RigManager implements RigService, Listener {
         return instance;
     }
 
-    private Display spawnPart(
-            World world,
-            Location base,
-            BakedRig rig,
-            int index,
-            RigPlayback playback,
-            RigOptions options,
-            boolean visible,
-            UUID instanceId,
-            int moveTicks) {
-        BakedRig.PartRef ref = rig.parts().get(index);
-        RigDef.Part part = ref.part();
-        Consumer<Display> common =
-                d -> {
-                    prepare(d, visible, instanceId);
-                    d.setTeleportDuration(moveTicks);
-                    d.setInterpolationDuration(0);
-                    d.setViewRange((float) rig.def().viewRange());
-                    d.setTransformation(
-                            CoreRig.toBukkit(
-                                    playback.pose(index, now), options.scale(), part.flip()));
-                    if (options.blockLight() >= 0) {
-                        d.setBrightness(
-                                new Display.Brightness(options.blockLight(), options.skyLight()));
-                    } else if (part.brightness() instanceof RigDef.Brightness(int block, int sky)) {
-                        d.setBrightness(new Display.Brightness(block, sky));
-                    }
-                };
-        return switch (part.kind()) {
-            case ITEM ->
-                    world.spawn(
-                            base,
-                            ItemDisplay.class,
-                            d -> {
-                                common.accept(d);
-                                // 커스텀 모델을 못 쓰면 (리소스팩 준비 전) 종이 대신 빈 표시로 둔다
-                                ItemStack stack = ItemStack.of(Material.PAPER);
-                                if (ItemModels.apply(stack, part.model(), content.get())) {
-                                    d.setItemStack(stack);
-                                }
-                                d.setItemDisplayTransform(
-                                        ItemDisplay.ItemDisplayTransform.valueOf(
-                                                part.transform().name()));
-                            });
-            case BLOCK ->
-                    world.spawn(
-                            base,
-                            BlockDisplay.class,
-                            d -> {
-                                common.accept(d);
-                                d.setBlock(Bukkit.createBlockData(part.model()));
-                            });
-        };
-    }
-
-    private static void prepare(Entity e, boolean visible, UUID instanceId) {
-        e.setPersistent(false);
-        e.setVisibleByDefault(visible);
-        e.setSilent(true);
-        e.getPersistentDataContainer()
-                .set(RIG_KEY, PersistentDataType.STRING, instanceId.toString());
-    }
-
     @Override
     public Collection<? extends RigInstance> instances() {
         return Collections.unmodifiableCollection(instances.values());
@@ -424,7 +319,7 @@ public final class RigManager implements RigService, Listener {
         return count;
     }
 
-    // ------------------------------------------------------------------ 틱
+    // ------------------------------------------------------------------ Tick
 
     private void tick() {
         now++;
@@ -454,17 +349,17 @@ public final class RigManager implements RigService, Listener {
         lastTickNanos = System.nanoTime() - start;
     }
 
-    /** 지난 틱 갱신 시간 (나노초). */
+    /** Update time of the last tick (nanoseconds). */
     long lastTickNanos() {
         return lastTickNanos;
     }
 
-    /** 지난 틱 예산 초과로 미룬 리그 수. */
+    /** Number of rigs deferred in the last tick due to the budget. */
     int lastDeferred() {
         return lastDeferred;
     }
 
-    /** 리그를 지운다 (멱등). */
+    /** Removes a rig (idempotent). */
     void remove(CoreRig rig, RigInstance.RemoveReason reason) {
         if (instances.remove(rig.id()) == null) {
             return;
@@ -476,7 +371,7 @@ public final class RigManager implements RigService, Listener {
         rig.destroy(reason, log);
     }
 
-    // ------------------------------------------------------------------ 정리
+    // ------------------------------------------------------------------ Cleanup
 
     private void removeIfOrphan(Entity e) {
         String tag = e.getPersistentDataContainer().get(RIG_KEY, PersistentDataType.STRING);
@@ -502,7 +397,8 @@ public final class RigManager implements RigService, Listener {
             }
         }
         if (!affected.isEmpty()) {
-            // 언로드 처리 중에 엔티티를 지우지 않고 다음 틱에 리그째 정리한다 (다른 청크에 걸친 판정 상자 포함)
+            // Don't remove entities during unload handling; clean up the whole rig next tick
+            // (including hitboxes spanning other chunks)
             var _ =
                     tasks.sync(
                             () ->
@@ -523,7 +419,7 @@ public final class RigManager implements RigService, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 판정 상자
+    // ------------------------------------------------------------------ Hitboxes
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onInteract(PlayerInteractEntityEvent event) {
@@ -534,7 +430,8 @@ public final class RigManager implements RigService, Listener {
         }
         event.setCancelled(true);
         if (event instanceof PlayerInteractAtEntityEvent || event.getHand() != EquipmentSlot.HAND) {
-            return; // 같은 클릭이 두 번 오므로 주 손의 일반 상호작용만 넘긴다
+            return; // The same click arrives twice, so only pass on the main hand's plain
+            // interaction
         }
         hit(event.getPlayer(), rig, clicked, false);
     }
@@ -563,9 +460,9 @@ public final class RigManager implements RigService, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 관리 명령용
+    // ------------------------------------------------------------------ For admin commands
 
-    /** 이 위치에서 가장 가까운 리그 (반경 안). */
+    /** The rig nearest to this location (within the radius). */
     Optional<CoreRig> nearest(Location at, double radius) {
         CoreRig best = null;
         double bestSq = radius * radius;
@@ -582,7 +479,7 @@ public final class RigManager implements RigService, Listener {
         return Optional.ofNullable(best);
     }
 
-    /** 반경 안의 리그를 지운다. radius가 음수면 전부. */
+    /** Removes rigs within the radius. All of them if radius is negative. */
     int clear(@Nullable Location at, double radius) {
         int removed = 0;
         for (CoreRig rig : new ArrayList<>(instances.values())) {
@@ -600,12 +497,12 @@ public final class RigManager implements RigService, Listener {
         return removed;
     }
 
-    /** 엔티티 수 합계 (루트·부품·판정 상자). */
+    /** Total entity count (roots, parts, hitboxes). */
     int entityCount() {
         return byEntity.size();
     }
 
-    /** 구운 리그의 동작별 키 수 (압축 확인용). */
+    /** Key count per animation of a baked rig (to check compression). */
     Map<String, Integer> keyCounts(RigId id) {
         Map<String, Integer> counts = new LinkedHashMap<>();
         bakedRig(id)

@@ -6,23 +6,26 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
- * 진행 플래그 (예: climax_done, cutscene/ch1_intro). Quest보다 먼저 적재되는 Fishing·NPC·Collection도 읽고 쓸 수 있도록
- * Core에 둔다 (docs 20 0.2).
+ * Progress flags (e.g. climax_done, cutscene/ch1_intro). Kept in Core so that Fishing, NPC and
+ * Collection, which load before Quest, can also read and write them (docs 20 0.2).
  *
  * <ul>
- *   <li>플레이어 플래그: 접속 중에는 메모리 캐시에서 읽고, 쓰기는 즉시 DB에 반영한다. 범위는 시즌(시즌 전환 때 초기화)과 영구 두 가지
- *   <li>서버 플래그: 모든 서버가 같이 쓰는 진행도 (예: climax_done). 바뀌면 Redis로 다른 서버에 알린다
+ *   <li>Player flags: read from the in-memory cache while online; writes go to the DB immediately.
+ *       Two scopes: seasonal (reset at season rollover) and permanent
+ *   <li>Server flags: progress shared by all servers (e.g. climax_done). Changes are announced to
+ *       other servers over Redis
  * </ul>
  *
- * 읽기·쓰기는 메인 스레드에서 한다. 바뀌면 PlayerFlagChangedEvent·ServerFlagChangedEvent가 발생한다.
+ * Reads and writes happen on the main thread. Changes fire PlayerFlagChangedEvent or
+ * ServerFlagChangedEvent.
  */
 public interface FlagService {
 
-    /** 플래그 범위. */
+    /** Flag scope. */
     enum Scope {
-        /** 시즌 전환 때 초기화. */
+        /** Reset at season rollover. */
         SEASON,
-        /** 영구 (메인 스토리, 컷씬 본 기록). */
+        /** Permanent (main story, cutscenes watched). */
         PERM
     }
 
@@ -39,7 +42,9 @@ public interface FlagService {
 
     Optional<String> playerValue(UUID player, String flag);
 
-    /** 플레이어 플래그를 켠다 (value는 기본 "1"). 접속 중이 아니어도 DB에 쓴다. */
+    /**
+     * Sets a player flag (value defaults to "1"). Writes to the DB even if the player is offline.
+     */
     CompletableFuture<Void> setPlayer(UUID player, Scope scope, String flag, String value);
 
     default CompletableFuture<Void> setPlayer(UUID player, Scope scope, String flag) {
@@ -52,7 +57,7 @@ public interface FlagService {
 
     Optional<String> serverValue(String flag);
 
-    /** 서버 플래그. seasonal이면 시즌 전환 때 초기화한다. */
+    /** Server flag. If seasonal, it is reset at season rollover. */
     CompletableFuture<Void> setServer(String flag, String value, boolean seasonal);
 
     CompletableFuture<Void> unsetServer(String flag);
