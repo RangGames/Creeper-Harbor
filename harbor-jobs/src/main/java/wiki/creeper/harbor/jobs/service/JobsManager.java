@@ -376,6 +376,11 @@ public final class JobsManager implements JobsService, Listener {
             return;
         }
         String ref = "adv:" + season.value() + ":" + uuid + ":" + target.level();
+        // 캐시를 먼저 바꾼다: 커밋 뒤에 바꾸면 그 사이 퇴장·자동 저장(saveBase)이 메모리의 이전 단계로 커밋된 job_tier를 덮는다.
+        // 실패하면 되돌린다
+        JobLine prevLine = hp.jobLine().orElse(null);
+        JobTier prevTier = hp.jobTier();
+        hp.setJob(line, target, hp.level(), hp.exp());
         var _ =
                 api.currency()
                         .atomic(
@@ -396,11 +401,20 @@ public final class JobsManager implements JobsService, Listener {
                                             result.complete(AdvanceResult.OK);
                                         }
                                         case Result.Err<List<Long>, LedgerError>(
-                                                        LedgerError error) ->
-                                                result.complete(
-                                                        error == LedgerError.INSUFFICIENT_FUNDS
-                                                                ? AdvanceResult.NOT_ENOUGH_GOLD
-                                                                : AdvanceResult.FAILED);
+                                                        LedgerError error) -> {
+                                            if (error == LedgerError.DUPLICATE) {
+                                                // 같은 참조 ID로 이미 결제·전직이 커밋됐다 (단계가 저장 경합으로 덮였던 경우).
+                                                // 다시 걷지 않고 단계만 맞춘다
+                                                afterAdvance(hp, target, line);
+                                                result.complete(AdvanceResult.OK);
+                                                return;
+                                            }
+                                            hp.setJob(prevLine, prevTier, hp.level(), hp.exp());
+                                            result.complete(
+                                                    error == LedgerError.INSUFFICIENT_FUNDS
+                                                            ? AdvanceResult.NOT_ENOUGH_GOLD
+                                                            : AdvanceResult.FAILED);
+                                        }
                                     }
                                 });
     }

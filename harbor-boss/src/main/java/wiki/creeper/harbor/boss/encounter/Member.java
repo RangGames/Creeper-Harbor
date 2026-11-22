@@ -1,7 +1,10 @@
 package wiki.creeper.harbor.boss.encounter;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
+import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.boss.api.BossRole;
 import wiki.creeper.harbor.boss.logic.ContributionCalc;
@@ -28,6 +31,9 @@ final class Member {
     double evasion;
     long activeTicks;
     long lastActivity = Long.MIN_VALUE / 2;
+
+    /** 입장 때 본 접속 IP (같은 IP 다계정 판정용, 처치 전에 나가도 남는다). */
+    @Nullable String ip;
 
     // 상태
     /** 경기장 밖·접속 종료가 시작된 틱 (−1이면 있음). */
@@ -61,6 +67,15 @@ final class Member {
         this.name = name;
         this.role = role;
         this.fromStart = fromStart;
+    }
+
+    /** 접속 IP를 기억한다 (알 수 없으면 이전 값 유지). */
+    void rememberIp(Player p) {
+        InetSocketAddress addr = p.getAddress();
+        InetAddress host = addr == null ? null : addr.getAddress();
+        if (host != null) {
+            ip = host.getHostAddress();
+        }
     }
 
     boolean present() {

@@ -205,7 +205,8 @@ public final class WorldBossManager
                                                                 map.getOrDefault("progress", "1")),
                                                         Long.parseLong(
                                                                 map.getOrDefault("seed", "0")),
-                                                        contributions(map.get("contrib")));
+                                                        contributions(map.get("contrib")),
+                                                        activeTicks(map.get("active")));
                                         var _ = begin(boss, saved).thenAccept(out::complete);
                                     } catch (IllegalArgumentException e) {
                                         out.complete(StartResult.FAILED);
@@ -225,7 +226,35 @@ public final class WorldBossManager
     }
 
     private record Saved(
-            UUID event, double progress, long seed, Map<UUID, Contribution> contributions) {}
+            UUID event,
+            double progress,
+            long seed,
+            Map<UUID, Contribution> contributions,
+            Map<UUID, Long> activeTicks) {}
+
+    /** 참가자별 활동 시간 (UUID 문자열 → 틱). 이 필드가 없던 저장본이면 빈 맵. */
+    private static Map<UUID, Long> activeTicks(@Nullable String json) {
+        Map<UUID, Long> out = new HashMap<>();
+        if (json == null || json.isEmpty()) {
+            return out;
+        }
+        try {
+            Map<String, Long> raw =
+                    Json.GSON.fromJson(json, new TypeToken<Map<String, Long>>() {}.getType());
+            if (raw != null) {
+                raw.forEach(
+                        (k, v) -> {
+                            if (v != null) {
+                                out.put(UUID.fromString(k), v);
+                            }
+                        });
+            }
+        } catch (RuntimeException e) {
+            // 형식이 틀리면 활동 시간 없이 이어 간다 (기여도는 그대로)
+            out.clear();
+        }
+        return out;
+    }
 
     private static Map<UUID, Contribution> contributions(@Nullable String json) {
         Map<UUID, Contribution> out = new HashMap<>();
@@ -291,7 +320,10 @@ public final class WorldBossManager
                                         return;
                                     }
                                     if (saved != null) {
-                                        e.restore(saved.progress(), saved.contributions());
+                                        e.restore(
+                                                saved.progress(),
+                                                saved.contributions(),
+                                                saved.activeTicks());
                                     }
                                     running = e;
                                     Component msg =
@@ -365,6 +397,9 @@ public final class WorldBossManager
         fields.put("server", api.infra().serverId());
         fields.put("updated", String.valueOf(System.currentTimeMillis()));
         fields.put("contrib", Json.GSON.toJson(contrib));
+        Map<String, Long> active = new HashMap<>();
+        e.activeTicks().forEach((k, v) -> active.put(k.toString(), v));
+        fields.put("active", Json.GSON.toJson(active));
         double progress = e.fight.hpRatio();
         int season = wiki.creeper.harbor.season.api.SeasonServices.clock().current().value();
         DistributedLock.Handle handle = lock;

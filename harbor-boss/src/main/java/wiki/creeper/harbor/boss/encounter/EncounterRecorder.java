@@ -1,11 +1,14 @@
 package wiki.creeper.harbor.boss.encounter;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import wiki.creeper.harbor.boss.api.Contribution;
 import wiki.creeper.harbor.boss.api.EncounterState;
 import wiki.creeper.harbor.boss.data.BossRepository;
+import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.season.api.SeasonClock;
 import wiki.creeper.harbor.season.api.SeasonServices;
 
@@ -95,17 +98,30 @@ final class EncounterRecorder {
         var _ =
                 mgr.api()
                         .database()
-                        .async(c -> BossRepository.abortRunning(c, server))
+                        .async(
+                                c -> {
+                                    // 닫기와 환급을 한 트랜잭션으로: 사이에서 실패하면 둘 다 되돌아가 다음 재시작에 다시 한다
+                                    List<BossRepository.Aborted> aborted =
+                                            BossRepository.abortRunning(c, server);
+                                    List<UUID> refunded = new ArrayList<>();
+                                    for (BossRepository.Aborted a : aborted) {
+                                        UUID leader = mgr.rewards().refundBaitInTx(c, a);
+                                        if (leader != null) {
+                                            refunded.add(leader);
+                                        }
+                                    }
+                                    return new Recovered(aborted.size(), refunded);
+                                })
                         .thenAcceptAsync(
-                                aborted -> {
-                                    if (!aborted.isEmpty()) {
+                                r -> {
+                                    if (r.aborted() > 0) {
                                         mgr.log()
                                                 .warn(
                                                         "비정상 종료로 남은 보스 조우 {}개를 ABORTED로 닫았습니다",
-                                                        aborted.size());
+                                                        r.aborted());
                                     }
-                                    for (BossRepository.Aborted a : aborted) {
-                                        mgr.rewards().refundBait(a);
+                                    for (UUID leader : r.refunded()) {
+                                        mgr.rewards().notifyRefund(leader);
                                     }
                                 },
                                 mgr.tasks().main())
@@ -118,6 +134,8 @@ final class EncounterRecorder {
                                     return null;
                                 });
     }
+
+    private record Recovered(int aborted, List<UUID> refunded) {}
 
     /** 서버 종료 중 ABORTED 기록 (미끼는 pending으로 돌려준다). 종료 중이라 최대 5초 기다린다. */
     void abortOnShutdown(Encounter e) {
@@ -134,9 +152,10 @@ final class EncounterRecorder {
                                                 Instant.now(),
                                                 e.fight.elapsed() * 50L,
                                                 Math.max(1, e.members.size()));
-                                        if (e.launched() && e.summonItem != null) {
-                                            mgr.rewards()
-                                                    .refundInTx(c, e.id, e.leader, e.summonItem);
+                                        // 출발 중(기록 전)이라도 미끼를 뺐으면 돌려준다
+                                        ItemId item = e.summonItem;
+                                        if (e.baitTaken && item != null) {
+                                            mgr.rewards().refundInTx(c, e.id, e.leader, item);
                                         }
                                     })
                             .get(5, java.util.concurrent.TimeUnit.SECONDS);
