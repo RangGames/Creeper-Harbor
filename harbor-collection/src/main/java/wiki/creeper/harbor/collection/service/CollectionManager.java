@@ -21,19 +21,19 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
-import wiki.creeper.harbor.collection.api.CodexEntry;
-import wiki.creeper.harbor.collection.api.CodexScope;
-import wiki.creeper.harbor.collection.api.CodexService;
+import wiki.creeper.harbor.collection.api.CollectionEntry;
+import wiki.creeper.harbor.collection.api.CollectionScope;
+import wiki.creeper.harbor.collection.api.CollectionService;
 import wiki.creeper.harbor.collection.api.HintService;
 import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.api.RecordService;
-import wiki.creeper.harbor.collection.api.event.CodexMilestoneEvent;
-import wiki.creeper.harbor.collection.api.event.CodexRegisteredEvent;
+import wiki.creeper.harbor.collection.api.event.CollectionMilestoneEvent;
+import wiki.creeper.harbor.collection.api.event.CollectionRegisteredEvent;
 import wiki.creeper.harbor.collection.api.event.RecordBrokenEvent;
-import wiki.creeper.harbor.collection.content.CodexRules;
-import wiki.creeper.harbor.collection.content.CodexTitles;
+import wiki.creeper.harbor.collection.content.CollectionRules;
+import wiki.creeper.harbor.collection.content.CollectionTitles;
 import wiki.creeper.harbor.collection.content.StatBonus;
-import wiki.creeper.harbor.collection.data.CodexData;
+import wiki.creeper.harbor.collection.data.CollectionData;
 import wiki.creeper.harbor.collection.data.CollectionRepository;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.FishDef;
@@ -54,25 +54,25 @@ import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
-import wiki.creeper.harbor.fishing.api.CodexProvider;
+import wiki.creeper.harbor.fishing.api.CollectionProvider;
 import wiki.creeper.harbor.fishing.api.event.FishCaughtEvent;
 import wiki.creeper.harbor.season.api.event.WeeklyResetEvent;
 
 /**
- * Codex, hints and biggest-fish records (docs 20 4.4). Catch handling uses only main-thread memory;
- * codex and hints go through the write-behind queue, records are upserted immediately on a virtual
- * thread ({@link RecordBoard}).
+ * Collection, hints and biggest-fish records (docs 20 4.4). Catch handling uses only main-thread
+ * memory; collection and hints go through the write-behind queue, records are upserted immediately
+ * on a virtual thread ({@link RecordBoard}).
  */
 public final class CollectionManager
-        implements CodexService, HintService, RecordService, CodexProvider, Listener {
+        implements CollectionService, HintService, RecordService, CollectionProvider, Listener {
 
     /**
-     * Codex cache. Writes are queued separately on the write-behind queue for every catch, so the
-     * component save function does nothing.
+     * Collection cache. Writes are queued separately on the write-behind queue for every catch, so
+     * the component save function does nothing.
      */
-    public static final PlayerComponent<CodexData> COMPONENT =
+    public static final PlayerComponent<CollectionData> COMPONENT =
             new PlayerComponent<>(
-                    "codex", CollectionRepository::load, (c, uuid, season, data) -> {});
+                    "collection", CollectionRepository::load, (c, uuid, season, data) -> {});
 
     /** Refreshes other servers' record caches (harbor:collection, proposed). */
     public record RecordUpdated(
@@ -81,7 +81,7 @@ public final class CollectionManager
     static final Channel<RecordUpdated> RECORDS =
             new Channel<>("harbor:collection", RecordUpdated.class);
 
-    private static final String BUFF_SOURCE = "codex_season";
+    private static final String BUFF_SOURCE = "collection_season";
     private static final StatKey HINT_STAT = StatKey.of("feature_condition_hint");
 
     /** One server record of this week (billboard 'new records this week' page). */
@@ -131,42 +131,45 @@ public final class CollectionManager
         return seasonLink;
     }
 
-    CodexRules rules() {
-        return api.content().snapshot().single(CodexRules.TYPE);
+    CollectionRules rules() {
+        return api.content().snapshot().single(CollectionRules.TYPE);
     }
 
-    CodexData data(UUID uuid) {
-        return api.players().get(uuid).map(p -> p.get(COMPONENT)).orElse(CodexData.EMPTY);
+    CollectionData data(UUID uuid) {
+        return api.players().get(uuid).map(p -> p.get(COMPONENT)).orElse(CollectionData.EMPTY);
     }
 
-    // ------------------------------------------------------------------ CodexProvider ·
-    // CodexService
+    // ------------------------------------------------------------------ CollectionProvider ·
+    // CollectionService
 
-    /** Fishing's first-catch multiplier and codex hunter weight: based on the season codex. */
+    /**
+     * Fishing's first-catch multiplier and collection hunter weight: based on the season
+     * collection.
+     */
     @Override
     public boolean hasCaught(UUID player, FishId fish) {
         return data(player).season().containsKey(fish);
     }
 
     @Override
-    public Optional<CodexEntry> entry(UUID player, FishId fish, CodexScope scope) {
-        CodexData data = data(player);
+    public Optional<CollectionEntry> entry(UUID player, FishId fish, CollectionScope scope) {
+        CollectionData data = data(player);
         return Optional.ofNullable(
-                (scope == CodexScope.TOTAL ? data.total() : data.season()).get(fish));
+                (scope == CollectionScope.TOTAL ? data.total() : data.season()).get(fish));
     }
 
     @Override
-    public boolean isRegistered(UUID player, FishId fish, CodexScope scope) {
+    public boolean isRegistered(UUID player, FishId fish, CollectionScope scope) {
         return entry(player, fish, scope).isPresent();
     }
 
     @Override
-    public double percent(UUID player, CodexScope scope, @Nullable RegionId region) {
-        Map<FishId, CodexEntry> map =
-                scope == CodexScope.TOTAL ? data(player).total() : data(player).season();
+    public double percent(UUID player, CollectionScope scope, @Nullable RegionId region) {
+        Map<FishId, CollectionEntry> map =
+                scope == CollectionScope.TOTAL ? data(player).total() : data(player).season();
         Set<FishId> denominator =
                 region == null
-                        ? (scope == CodexScope.TOTAL ? index.all() : index.seasonal())
+                        ? (scope == CollectionScope.TOTAL ? index.all() : index.seasonal())
                         : index.regionFish().getOrDefault(region, Set.of());
         if (denominator.isEmpty()) {
             return 0;
@@ -177,7 +180,7 @@ public final class CollectionManager
 
     @Override
     public void open(Player viewer, UUID owner, int page) {
-        new CodexMenu(api, this).open(viewer, owner, page);
+        new CollectionMenu(api, this).open(viewer, owner, page);
     }
 
     // ------------------------------------------------------------------ catch handling
@@ -197,7 +200,7 @@ public final class CollectionManager
     }
 
     /**
-     * Applies a catch to the codex and records.
+     * Applies a catch to the collection and records.
      *
      * @param countsForRecord only direct catches count for records (traps and releases excluded)
      */
@@ -210,36 +213,38 @@ public final class CollectionManager
             boolean countsForRecord) {
         UUID uuid = hp.uuid();
         SeasonId season = hp.season();
-        CodexData data = hp.get(COMPONENT);
-        CodexEntry oldTotal = data.total().get(fish.id());
-        CodexEntry oldSeason = data.season().get(fish.id());
-        CodexEntry newTotal =
+        CollectionData data = hp.get(COMPONENT);
+        CollectionEntry oldTotal = data.total().get(fish.id());
+        CollectionEntry oldSeason = data.season().get(fish.id());
+        CollectionEntry newTotal =
                 oldTotal == null
-                        ? CodexEntry.first(at, size, quality)
+                        ? CollectionEntry.first(at, size, quality)
                         : oldTotal.merge(size, quality);
-        CodexEntry newSeason =
+        CollectionEntry newSeason =
                 oldSeason == null
-                        ? CodexEntry.first(at, size, quality)
+                        ? CollectionEntry.first(at, size, quality)
                         : oldSeason.merge(size, quality);
-        double percentBefore = percent(uuid, CodexScope.TOTAL, null);
+        double percentBefore = percent(uuid, CollectionScope.TOTAL, null);
         hp.set(COMPONENT, data.withCatch(fish.id(), newTotal, newSeason));
         api.writeBehind()
                 .enqueue(
                         "player:" + uuid + ":collection:t:" + fish.id(),
-                        c -> CollectionRepository.upsertCodex(c, uuid, null, fish.id(), newTotal));
+                        c ->
+                                CollectionRepository.upsertCollection(
+                                        c, uuid, null, fish.id(), newTotal));
         api.writeBehind()
                 .enqueue(
                         "player:" + uuid + ":collection:s:" + fish.id(),
                         c ->
-                                CollectionRepository.upsertCodex(
+                                CollectionRepository.upsertCollection(
                                         c, uuid, season, fish.id(), newSeason));
 
         Player player = Bukkit.getPlayer(uuid);
         if (oldTotal == null) {
             Bukkit.getPluginManager()
                     .callEvent(
-                            new CodexRegisteredEvent(
-                                    uuid, fish.id(), CodexScope.TOTAL, fish.grade()));
+                            new CollectionRegisteredEvent(
+                                    uuid, fish.id(), CollectionScope.TOTAL, fish.grade()));
         }
         if (oldSeason == null) {
             onFirstSeasonCatch(hp, player, fish);
@@ -272,12 +277,12 @@ public final class CollectionManager
         if (countsForRecord) {
             records.serverRecord(hp, fish, size, at);
         }
-        totalMilestones(uuid, percentBefore, percent(uuid, CodexScope.TOTAL, null));
+        totalMilestones(uuid, percentBefore, percent(uuid, CollectionScope.TOTAL, null));
     }
 
     private void onFirstSeasonCatch(HarborPlayer hp, @Nullable Player player, FishDef fish) {
         UUID uuid = hp.uuid();
-        CodexRules rules = rules();
+        CollectionRules rules = rules();
         if (player != null) {
             // Custom advancement toasts come after the datapack is ready; notify with title and
             // sound for now
@@ -293,11 +298,12 @@ public final class CollectionManager
                             Duration.ofSeconds(2),
                             Duration.ofMillis(500));
             HarborSounds.play(
-                    player, "harbor:ui.codex_register"); // '15. Sound' 4.5 codex registration
+                    player, "harbor:ui.codex_register"); // '15. Sound' 4.5 collection registration
         }
         Bukkit.getPluginManager()
                 .callEvent(
-                        new CodexRegisteredEvent(uuid, fish.id(), CodexScope.SEASON, fish.grade()));
+                        new CollectionRegisteredEvent(
+                                uuid, fish.id(), CollectionScope.SEASON, fish.grade()));
         if (fish.grade().isAtLeast(rules.firstCatchMinGrade()) && rules.firstCatchMulbineul() > 0) {
             String ref = "codex1:" + hp.season().value() + ":" + uuid + ":" + fish.id().id().name();
             var _ =
@@ -309,7 +315,7 @@ public final class CollectionManager
                                     LedgerReason.CODEX_FIRST_CATCH,
                                     ref);
         }
-        // Region completion (season codex, mythic excluded)
+        // Region completion (season collection, mythic excluded)
         Set<FishId> regionFish = index.regionFish().getOrDefault(fish.region(), Set.of());
         if (!regionFish.isEmpty()
                 && regionFish.stream().allMatch(hp.get(COMPONENT).season()::containsKey)) {
@@ -319,7 +325,7 @@ public final class CollectionManager
             var _ =
                     seasonLink.grant(
                             uuid,
-                            CodexTitles.regionTitle(rules.regionTitlePrefix(), fish.region()));
+                            CollectionTitles.regionTitle(rules.regionTitlePrefix(), fish.region()));
             if (rules.regionCompleteMulbineul() > 0) {
                 String ref = "codexr:" + hp.season().value() + ":" + region + ":" + uuid;
                 var _ =
@@ -340,9 +346,9 @@ public final class CollectionManager
             }
             Bukkit.getPluginManager()
                     .callEvent(
-                            new CodexMilestoneEvent(
+                            new CollectionMilestoneEvent(
                                     uuid,
-                                    CodexMilestoneEvent.Kind.REGION_COMPLETE,
+                                    CollectionMilestoneEvent.Kind.REGION_COMPLETE,
                                     region,
                                     100,
                                     rules.regionTitlePrefix() + "/" + region));
@@ -351,13 +357,13 @@ public final class CollectionManager
     }
 
     private void totalMilestones(UUID uuid, double before, double after) {
-        for (CodexRules.Milestone m : rules().totalMilestones()) {
+        for (CollectionRules.Milestone m : rules().totalMilestones()) {
             if (before < m.percent() && after >= m.percent()) {
                 Bukkit.getPluginManager()
                         .callEvent(
-                                new CodexMilestoneEvent(
+                                new CollectionMilestoneEvent(
                                         uuid,
-                                        CodexMilestoneEvent.Kind.TOTAL_PERCENT,
+                                        CollectionMilestoneEvent.Kind.TOTAL_PERCENT,
                                         "total_" + m.percent(),
                                         m.percent(),
                                         m.title()));
@@ -377,13 +383,13 @@ public final class CollectionManager
     }
 
     /**
-     * Season codex completion buffs (source codex_season): recomputed and registered by
+     * Season collection completion buffs (source collection_season): recomputed and registered by
      * replacement.
      */
     void applySeasonBuffs(UUID uuid) {
         api.modifiers().removeSource(uuid, BUFF_SOURCE);
-        double percent = percent(uuid, CodexScope.SEASON, null);
-        for (CodexRules.SeasonBuff buff : rules().seasonBuffs()) {
+        double percent = percent(uuid, CollectionScope.SEASON, null);
+        for (CollectionRules.SeasonBuff buff : rules().seasonBuffs()) {
             if (percent >= buff.percent()) {
                 for (StatBonus bonus : buff.modifiers()) {
                     api.modifiers()
@@ -419,7 +425,7 @@ public final class CollectionManager
 
     @Override
     public Optional<Double> personalBest(UUID player, FishId fish) {
-        return entry(player, fish, CodexScope.TOTAL).map(CodexEntry::maxSize);
+        return entry(player, fish, CollectionScope.TOTAL).map(CollectionEntry::maxSize);
     }
 
     @Override
@@ -458,7 +464,7 @@ public final class CollectionManager
 
     @Override
     public Optional<FishId> grantRandom(UUID player, @Nullable RegionId region, String source) {
-        CodexData data = data(player);
+        CollectionData data = data(player);
         ContentSnapshot snapshot = api.content().snapshot();
         // Region order: the requested region, then regions by recommended level, highest first
         List<RegionDef> regions = new ArrayList<>(snapshot.all(RegionDef.TYPE).values());
@@ -509,7 +515,7 @@ public final class CollectionManager
                                     api.database()
                                             .asyncVoid(
                                                     c ->
-                                                            CollectionRepository.deleteCodex(
+                                                            CollectionRepository.deleteCollection(
                                                                     c, player, season, fish));
                             applySeasonBuffs(player);
                         });
@@ -533,9 +539,9 @@ public final class CollectionManager
                             seasonLink.retry(uuid);
                             seasonLink.backfill(
                                     uuid,
-                                    CodexTitles.earned(
+                                    CollectionTitles.earned(
                                             rules(),
-                                            percent(uuid, CodexScope.TOTAL, null),
+                                            percent(uuid, CollectionScope.TOTAL, null),
                                             index.regionFish(),
                                             data(uuid).season().keySet()));
                         });

@@ -9,11 +9,11 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import wiki.creeper.harbor.collection.api.CodexScope;
-import wiki.creeper.harbor.collection.content.CodexRules;
-import wiki.creeper.harbor.collection.content.CodexTitles;
+import wiki.creeper.harbor.collection.api.CollectionScope;
+import wiki.creeper.harbor.collection.content.CollectionRules;
+import wiki.creeper.harbor.collection.content.CollectionTitles;
 import wiki.creeper.harbor.collection.content.StatBonus;
-import wiki.creeper.harbor.collection.view.CodexView;
+import wiki.creeper.harbor.collection.view.CollectionView;
 import wiki.creeper.harbor.collection.view.MilestoneTrack;
 import wiki.creeper.harbor.common.content.type.RegionDef;
 import wiki.creeper.harbor.core.api.HarborApi;
@@ -21,18 +21,19 @@ import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.Menu;
 
 /**
- * Codex reward track (proposed, /도감 → star). Row 1 cumulative codex titles (total_milestones), row
- * 2 season codex buffs (season_buffs), row 3 region completion (season codex, title + water
- * scales). Received stages glint. Granting is still automatic; this screen only displays.
+ * Collection reward track (proposed, /도감 → star). Row 1 cumulative collection titles
+ * (total_milestones), row 2 season collection buffs (season_buffs), row 3 region completion (season
+ * collection, title + water scales). Received stages glint. Granting is still automatic; this
+ * screen only displays.
  */
 final class MilestoneMenu {
 
     private final HarborApi api;
-    private final CollectionManager codex;
+    private final CollectionManager collection;
 
-    MilestoneMenu(HarborApi api, CollectionManager codex) {
+    MilestoneMenu(HarborApi api, CollectionManager collection) {
         this.api = api;
-        this.codex = codex;
+        this.collection = collection;
     }
 
     private MessageService msg() {
@@ -40,9 +41,9 @@ final class MilestoneMenu {
     }
 
     void open(Player viewer, UUID owner, Runnable back) {
-        CodexRules rules = codex.rules();
-        double total = codex.percent(owner, CodexScope.TOTAL, null);
-        double season = codex.percent(owner, CodexScope.SEASON, null);
+        CollectionRules rules = collection.rules();
+        double total = collection.percent(owner, CollectionScope.TOTAL, null);
+        double season = collection.percent(owner, CollectionScope.SEASON, null);
         List<MilestoneTrack.Step> steps = MilestoneTrack.steps(rules, total, season);
         int width = MenuItems.barWidth(api);
         Menu menu = new Menu(msg().get("collection.track.title"), 4);
@@ -53,9 +54,10 @@ final class MilestoneMenu {
                         Material.BOOK,
                         msg().get(
                                         "collection.track.total",
-                                        Placeholder.unparsed("percent", CodexMenu.pct(total))),
+                                        Placeholder.unparsed("percent", CollectionMenu.pct(total))),
                         List.of(
-                                MenuItems.bar(api, CodexView.filled(total / 100, width), width),
+                                MenuItems.bar(
+                                        api, CollectionView.filled(total / 100, width), width),
                                 next(steps, MilestoneTrack.Kind.TOTAL_TITLE)),
                         false),
                 null);
@@ -66,9 +68,11 @@ final class MilestoneMenu {
                         Material.CLOCK,
                         msg().get(
                                         "collection.track.season",
-                                        Placeholder.unparsed("percent", CodexMenu.pct(season))),
+                                        Placeholder.unparsed(
+                                                "percent", CollectionMenu.pct(season))),
                         List.of(
-                                MenuItems.bar(api, CodexView.filled(season / 100, width), width),
+                                MenuItems.bar(
+                                        api, CollectionView.filled(season / 100, width), width),
                                 next(steps, MilestoneTrack.Kind.SEASON_BUFF)),
                         false),
                 null);
@@ -112,9 +116,9 @@ final class MilestoneMenu {
             if (slot >= 27) {
                 break;
             }
-            double p = codex.percent(owner, CodexScope.SEASON, region.id());
+            double p = collection.percent(owner, CollectionScope.SEASON, region.id());
             boolean done = p >= 100;
-            String title = CodexTitles.regionTitle(rules.regionTitlePrefix(), region.id());
+            String title = CollectionTitles.regionTitle(rules.regionTitlePrefix(), region.id());
             menu.button(
                     slot++,
                     MenuItems.icon(
@@ -124,14 +128,17 @@ final class MilestoneMenu {
                                                     ? "collection.track.region_done"
                                                     : "collection.track.region",
                                             Placeholder.unparsed("name", region.name()),
-                                            Placeholder.unparsed("percent", CodexMenu.pct(p))),
+                                            Placeholder.unparsed("percent", CollectionMenu.pct(p))),
                             List.of(
-                                    MenuItems.bar(api, CodexView.filled(p / 100, width), width),
+                                    MenuItems.bar(
+                                            api, CollectionView.filled(p / 100, width), width),
                                     msg().get(
                                                     "collection.track.title_line",
                                                     Placeholder.component(
                                                             "title",
-                                                            codex.seasonLink().titleName(title)))),
+                                                            collection
+                                                                    .seasonLink()
+                                                                    .titleName(title)))),
                             done),
                     null);
         }
@@ -164,9 +171,10 @@ final class MilestoneMenu {
                     msg().get(
                                     "collection.track.title_line",
                                     Placeholder.component(
-                                            "title", codex.seasonLink().titleName(step.title()))));
+                                            "title",
+                                            collection.seasonLink().titleName(step.title()))));
         }
-        if (!step.title().isEmpty() && codex.seasonLink().owns(owner, step.title())) {
+        if (!step.title().isEmpty() && collection.seasonLink().owns(owner, step.title())) {
             lore.add(msg().get("collection.track.owned"));
         }
         lore.add(msg().get("collection.track.cosmetic_hint"));

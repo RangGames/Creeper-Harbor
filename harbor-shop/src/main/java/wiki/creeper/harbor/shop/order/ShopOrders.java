@@ -12,8 +12,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import wiki.creeper.harbor.collection.api.CodexScope;
-import wiki.creeper.harbor.collection.api.CodexService;
+import wiki.creeper.harbor.collection.api.CollectionScope;
+import wiki.creeper.harbor.collection.api.CollectionService;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
@@ -89,8 +89,10 @@ public final class ShopOrders {
             return true;
         }
         return rt.api()
-                .service(CodexService.class)
-                .map(codex -> codex.isRegistered(player, fish.get(), CodexScope.TOTAL))
+                .service(CollectionService.class)
+                .map(
+                        collection ->
+                                collection.isRegistered(player, fish.get(), CollectionScope.TOTAL))
                 .orElse(false);
     }
 

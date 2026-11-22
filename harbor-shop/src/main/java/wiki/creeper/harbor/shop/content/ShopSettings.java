@@ -24,8 +24,8 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * @param topup top-up validation (currency KRW, free amount in 10 KRW steps, minimum 1,000 KRW)
  * @param adminConfirmOver admin pearl grants above this need confirmation from another admin
  *     (proposed value 5,000)
- * @param codexRewards Collection CodexMilestoneEvent key (total_25, region name) → cosmetic granted
- *     ('17-2' 4.4)
+ * @param collectionRewards Collection CollectionMilestoneEvent key (total_25, region name) →
+ *     cosmetic granted ('17-2' 4.4)
  */
 public record ShopSettings(
         Features features,
@@ -41,7 +41,7 @@ public record ShopSettings(
         int reconcileWindowHours,
         Pet pet,
         Map<Grade, FxStrength> catchFx,
-        Map<String, HarborId> codexRewards) {
+        Map<String, HarborId> collectionRewards) {
 
     /** Feature switches. */
     public record Features(
@@ -128,7 +128,7 @@ public record ShopSettings(
                         "reconcile",
                         "pet",
                         "catch_fx",
-                        "codex_rewards"));
+                        "collection_rewards"));
         YamlNode f = node.get("features").orElse(node);
         Features features =
                 new Features(
@@ -218,8 +218,8 @@ public record ShopSettings(
                                                                                 v.error(
                                                                                         "알 수 없는 등급: "
                                                                                                 + k))));
-        Map<String, HarborId> codex = new LinkedHashMap<>();
-        node.get("codex_rewards")
+        Map<String, HarborId> collection = new LinkedHashMap<>();
+        node.get("collection_rewards")
                 .ifPresent(
                         c ->
                                 c.entries()
@@ -228,7 +228,7 @@ public record ShopSettings(
                                                         v.asId(CosmeticDef.PREFIX)
                                                                 .ifPresent(
                                                                         id -> {
-                                                                            codex.put(k, id);
+                                                                            collection.put(k, id);
                                                                             ctx.ref(
                                                                                     CosmeticDef.TYPE
                                                                                             .name(),
@@ -261,6 +261,6 @@ public record ShopSettings(
                         pet.integer("update_ticks", 4, 1, 40),
                         pet.integer("max_parts", 20, 1, 300)),
                 Map.copyOf(fx),
-                Map.copyOf(codex));
+                Map.copyOf(collection));
     }
 }

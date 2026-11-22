@@ -2,7 +2,7 @@ package wiki.creeper.harbor.quest.service;
 
 import org.bukkit.Bukkit;
 import wiki.creeper.harbor.collection.api.AquariumService;
-import wiki.creeper.harbor.collection.api.CodexService;
+import wiki.creeper.harbor.collection.api.CollectionService;
 import wiki.creeper.harbor.collection.api.HintService;
 import wiki.creeper.harbor.fishing.api.FishingService;
 import wiki.creeper.harbor.jobs.api.JobsService;
@@ -28,7 +28,7 @@ public record Deps(
         AffinityService affinity,
         ReputationService reputation,
         FishingService fishing,
-        CodexService codex,
+        CollectionService collection,
         HintService hints,
         AquariumService aquarium,
         JobsService jobs,
@@ -44,7 +44,7 @@ public record Deps(
                 require(AffinityService.class),
                 require(ReputationService.class),
                 require(FishingService.class),
-                require(CodexService.class),
+                require(CollectionService.class),
                 require(HintService.class),
                 require(AquariumService.class),
                 require(JobsService.class),

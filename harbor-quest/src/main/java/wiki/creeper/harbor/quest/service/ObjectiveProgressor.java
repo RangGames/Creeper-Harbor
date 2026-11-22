@@ -9,7 +9,7 @@ import java.util.function.BiPredicate;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
-import wiki.creeper.harbor.collection.api.CodexScope;
+import wiki.creeper.harbor.collection.api.CollectionScope;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.common.id.RegionId;
@@ -29,7 +29,7 @@ import wiki.creeper.harbor.quest.logic.QuestMachine;
 /**
  * Objective progress (docs 20 6.4 applying progress): looks only at quests of that type in the
  * inverted index, updates memory → QuestProgressEvent → action bar → write-behind queue. Gauge
- * objectives (level, reputation, affinity, codex, flags) are set to the current value, and the
+ * objectives (level, reputation, affinity, collection, flags) are set to the current value, and the
  * quest moves to READY when all objectives are filled. Main thread only.
  */
 final class ObjectiveProgressor {
@@ -167,8 +167,8 @@ final class ObjectiveProgressor {
     }
 
     /**
-     * Sets gauge and flag objectives to the current value (on accept, join, level up, codex entry,
-     * flag change).
+     * Sets gauge and flag objectives to the current value (on accept, join, level up, collection
+     * entry, flag change).
      */
     void refreshGauges(Player player, @Nullable QuestId only) {
         Optional<HarborPlayer> found = engine.api.players().get(player.getUniqueId());
@@ -219,16 +219,16 @@ final class ObjectiveProgressor {
                     QuestEngine.npcOf(def, o)
                             .map(n -> engine.deps.affinity().level(uuid, n))
                             .orElse(0);
-            case "codex" -> {
+            case "collection" -> {
                 HarborId region = o.target().kind() == Target.Kind.REGION ? o.target().id() : null;
                 double percent =
                         engine.deps
-                                .codex()
+                                .collection()
                                 .percent(
                                         uuid,
                                         o.scope().equals("total")
-                                                ? CodexScope.TOTAL
-                                                : CodexScope.SEASON,
+                                                ? CollectionScope.TOTAL
+                                                : CollectionScope.SEASON,
                                         region == null ? null : new RegionId(region));
                 yield (int) Math.floor(percent);
             }

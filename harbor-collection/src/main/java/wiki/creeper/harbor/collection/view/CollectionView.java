@@ -11,10 +11,11 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.Grade;
 
 /**
- * Codex screen list computation (proposed, no server API). Filters by region tab, registration, and
- * grade, and sorts by number, grade, or recent registration. The screen is service.CodexMenu.
+ * Collection screen list computation (proposed, no server API). Filters by region tab,
+ * registration, and grade, and sorts by number, grade, or recent registration. The screen is
+ * service.CollectionMenu.
  */
-public final class CodexView {
+public final class CollectionView {
 
     /** Registration filter. */
     public enum Filter {
@@ -102,7 +103,7 @@ public final class CodexView {
         }
     }
 
-    private CodexView() {}
+    private CollectionView() {}
 
     /** Filters and sorts. */
     public static List<Item> apply(List<Item> all, State state) {

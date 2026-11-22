@@ -11,8 +11,8 @@ import wiki.creeper.harbor.season.api.League;
  * @param id board ID (lowercase letters, digits, underscores). Used for the Redis cache name and
  *     commands
  * @param name display name (MiniMessage)
- * @param source source: records · level · codex_season · boss_records, or a source registered by
- *     another module
+ * @param source source: records · level · collection_season · boss_records, or a source registered
+ *     by another module
  * @param subject subject (records = species ID, boss_records = boss ID). null for sources that do
  *     not need one
  * @param leagues leagues to aggregate (the first is the default)

@@ -24,7 +24,7 @@ public record RankingBoards(List<RankingBoardDef> boards) {
     public static final String RECORDS = "records";
 
     public static final String LEVEL = "level";
-    public static final String CODEX_SEASON = "codex_season";
+    public static final String COLLECTION_SEASON = "collection_season";
     public static final String BOSS_RECORDS = "boss_records";
 
     private static final Pattern ID = Pattern.compile("[a-z0-9_]{1,48}");
@@ -78,7 +78,7 @@ public record RankingBoards(List<RankingBoardDef> boards) {
             if (leagues.isEmpty()) {
                 leagues.add(League.ALL);
             }
-            if ((source.equals(CODEX_SEASON) || source.equals(BOSS_RECORDS))
+            if ((source.equals(COLLECTION_SEASON) || source.equals(BOSS_RECORDS))
                     && leagues.stream().anyMatch(l -> l != League.ALL)) {
                 node.error("source: " + source + "는 리그 all만 지원합니다");
             }

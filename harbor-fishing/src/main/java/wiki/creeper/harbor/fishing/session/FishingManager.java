@@ -47,7 +47,7 @@ import wiki.creeper.harbor.fishing.Locs;
 import wiki.creeper.harbor.fishing.api.CatchOptions;
 import wiki.creeper.harbor.fishing.api.CatchPresentationOverride;
 import wiki.creeper.harbor.fishing.api.CatchResult;
-import wiki.creeper.harbor.fishing.api.CodexProvider;
+import wiki.creeper.harbor.fishing.api.CollectionProvider;
 import wiki.creeper.harbor.fishing.api.FishingService;
 import wiki.creeper.harbor.fishing.api.MinigameResult;
 import wiki.creeper.harbor.fishing.api.RegionKeyResolver;
@@ -250,8 +250,8 @@ public final class FishingManager implements FishingService, Listener {
     }
 
     @Override
-    public void registerCodex(CodexProvider provider) {
-        ctx.registerCodex(provider);
+    public void registerCollection(CollectionProvider provider) {
+        ctx.registerCollection(provider);
     }
 
     @Override

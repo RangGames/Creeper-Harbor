@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import wiki.creeper.harbor.collection.api.CodexEntry;
+import wiki.creeper.harbor.collection.api.CollectionEntry;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.model.SeasonId;
 
@@ -40,17 +40,18 @@ public final class CollectionRepository {
 
     private CollectionRepository() {}
 
-    // ------------------------------------------------------------------ codex
+    // ------------------------------------------------------------------ collection
 
-    public static CodexData load(Connection c, UUID uuid, SeasonId season) throws SQLException {
-        Map<FishId, CodexEntry> total =
+    public static CollectionData load(Connection c, UUID uuid, SeasonId season)
+            throws SQLException {
+        Map<FishId, CollectionEntry> total =
                 entries(
                         c,
                         "SELECT fish_id, first_caught, max_size, best_quality, catch_count"
                                 + " FROM codex_total WHERE uuid = ?",
                         uuid,
                         null);
-        Map<FishId, CodexEntry> seasonal =
+        Map<FishId, CollectionEntry> seasonal =
                 entries(
                         c,
                         "SELECT fish_id, first_caught, max_size, best_quality, catch_count"
@@ -81,12 +82,12 @@ public final class CollectionRepository {
                 }
             }
         }
-        return new CodexData(total, seasonal, hints, donations);
+        return new CollectionData(total, seasonal, hints, donations);
     }
 
-    private static Map<FishId, CodexEntry> entries(
+    private static Map<FishId, CollectionEntry> entries(
             Connection c, String sql, UUID uuid, @Nullable SeasonId season) throws SQLException {
-        Map<FishId, CodexEntry> result = new HashMap<>();
+        Map<FishId, CollectionEntry> result = new HashMap<>();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, uuid.toString());
             if (season != null) {
@@ -94,8 +95,8 @@ public final class CollectionRepository {
             }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    CodexEntry entry =
-                            new CodexEntry(
+                    CollectionEntry entry =
+                            new CollectionEntry(
                                     rs.getTimestamp(2).toInstant(),
                                     rs.getBigDecimal(3).doubleValue(),
                                     rs.getInt(4),
@@ -108,11 +109,11 @@ public final class CollectionRepository {
     }
 
     /**
-     * Codex upsert (write-behind). Player data is written only by the one server holding the
+     * Collection upsert (write-behind). Player data is written only by the one server holding the
      * session lock, so the catch count uses the in-memory value as-is.
      */
-    public static void upsertCodex(
-            Connection c, UUID uuid, @Nullable SeasonId season, FishId fish, CodexEntry e)
+    public static void upsertCollection(
+            Connection c, UUID uuid, @Nullable SeasonId season, FishId fish, CollectionEntry e)
             throws SQLException {
         String table =
                 season == null
@@ -143,7 +144,7 @@ public final class CollectionRepository {
         }
     }
 
-    public static void deleteCodex(Connection c, UUID uuid, SeasonId season, FishId fish)
+    public static void deleteCollection(Connection c, UUID uuid, SeasonId season, FishId fish)
             throws SQLException {
         for (String sql :
                 List.of(

@@ -10,7 +10,7 @@ public final class CollectionContent {
 
     public static final List<ContentType<?>> TYPES =
             List.of(
-                    CodexRules.TYPE,
+                    CollectionRules.TYPE,
                     AquariumRules.TYPE,
                     DisplayCaseRules.TYPE,
                     ReleaseRules.TYPE,

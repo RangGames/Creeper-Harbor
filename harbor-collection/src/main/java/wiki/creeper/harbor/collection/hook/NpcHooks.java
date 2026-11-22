@@ -35,7 +35,7 @@ import wiki.creeper.harbor.npc.api.event.ReputationTierChangedEvent;
  *
  * <ul>
  *   <li>Dialog action {@code aquarium:donate}: opens the donation box GUI (Iseul, aquarium keeper)
- *   <li>Dialog action {@code codex:hint}: one hint stage (HintService.grantRandom). Arguments
+ *   <li>Dialog action {@code collection:hint}: one hint stage (HintService.grantRandom). Arguments
  *       {@code region} (optional, start from that region), {@code daily} (daily count, default 1,
  *       proposed value). The count is the season-scoped player flag collection/hint_day =
  *       "date:count"
@@ -67,7 +67,7 @@ public final class NpcHooks implements NpcBridge, Listener {
                         aquarium.openDonationBox(ctx.player());
                         return ActionResult.HANDOFF;
                     });
-            dialogs.registerAction(plugin, "codex:hint", hooks.hintAction(hints));
+            dialogs.registerAction(plugin, "collection:hint", hooks.hintAction(hints));
         }
         Bukkit.getPluginManager().registerEvents(hooks, plugin);
         return hooks;
@@ -89,12 +89,12 @@ public final class NpcHooks implements NpcBridge, Listener {
                                     if (id.isEmpty()
                                             || !id.get().hasPrefix(RegionId.PREFIX)
                                             || !check.snapshot().has("region", id.get())) {
-                                        check.error("codex:hint region이 없는 지역입니다: " + raw);
+                                        check.error("collection:hint region이 없는 지역입니다: " + raw);
                                     }
                                 });
                 if (args.has("daily")
                         && (!args.isInteger("daily") || args.integer("daily", 1) < 1)) {
-                    check.error("codex:hint daily는 1 이상 정수여야 합니다");
+                    check.error("collection:hint daily는 1 이상 정수여야 합니다");
                 }
             }
         };

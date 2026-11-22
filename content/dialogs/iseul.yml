@@ -7,7 +7,7 @@
       pages: [npc.dialog.iseul.greet.1]
       options:
         - {label: npc.dialog.option.donate, actions: [aquarium:donate]}
-        - {label: npc.dialog.option.hint, conditions: [{affinity_min: {level: 1}}], actions: [codex:hint]}
+        - {label: npc.dialog.option.hint, conditions: [{affinity_min: {level: 1}}], actions: [collection:hint]}
         - {label: npc.dialog.option.quests, actions: [quest:list]}
         - {label: npc.dialog.option.ritual, conditions: [rep_tier_min: 3], goto: ritual}
         - {label: npc.dialog.option.gift, actions: [gift:open]}

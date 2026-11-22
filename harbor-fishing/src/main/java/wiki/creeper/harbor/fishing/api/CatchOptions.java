@@ -6,7 +6,7 @@ package wiki.creeper.harbor.fishing.api;
  * @param qualityBonusStars stars added to the rolled quality (boss fight quality bonus). Never
  *     exceeds the job cap
  * @param extraLuck value added to the size roll luck
- * @param fireCaughtEvent whether to fire FishCaughtEvent (source BOSS) (Collection codex, Quest
+ * @param fireCaughtEvent whether to fire FishCaughtEvent (source BOSS) (Collection entries, Quest
  *     objectives)
  */
 public record CatchOptions(int qualityBonusStars, double extraLuck, boolean fireCaughtEvent) {

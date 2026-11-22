@@ -7,8 +7,8 @@ import java.util.regex.Pattern;
 import wiki.creeper.harbor.common.model.SeasonId;
 
 /**
- * Data a module attaches to a player (e.g. Jobs skill allocation, Collection collection cache).
- * Core manages only when it is loaded and saved, not its contents.
+ * Data a module attaches to a player (e.g. Jobs skill allocation, Collection entry cache). Core
+ * manages only when it is loaded and saved, not its contents.
  *
  * <p>Values are immutable objects (record, List.copyOf …). To change one, put a new value with
  * {@link HarborPlayer#set}. Saving happens on another thread, so mutating a value directly can mix

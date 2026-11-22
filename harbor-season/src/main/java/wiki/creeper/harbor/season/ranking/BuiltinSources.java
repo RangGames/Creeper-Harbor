@@ -27,8 +27,8 @@ import wiki.creeper.harbor.season.content.RankingBoards;
  * <ul>
  *   <li>records: Collection records (biggest catch per species, index fish_id·season·league·size)
  *   <li>level: Core player_season (level → experience, league = job tier)
- *   <li>codex_season: Collection codex_season (season codex entry count; whoever registered their
- *       last entry earlier ranks higher)
+ *   <li>collection_season: Collection codex_season (season collection entry count; whoever
+ *       registered their last entry earlier ranks higher)
  *   <li>boss_records: Boss boss_records (fastest kill, members = JSON array of UUID strings, first
  *       one is the party leader)
  * </ul>
@@ -38,7 +38,7 @@ public final class BuiltinSources {
     private BuiltinSources() {}
 
     public static List<RankingSource> all() {
-        return List.of(new Records(), new Level(), new Codex(), new Boss());
+        return List.of(new Records(), new Level(), new CollectionSeason(), new Boss());
     }
 
     static String recordsSql(@Nullable String schema) {
@@ -57,7 +57,7 @@ public final class BuiltinSources {
                 + " ORDER BY s.level DESC, s.exp DESC, s.uuid ASC LIMIT ?";
     }
 
-    static String codexSql(@Nullable String schema) {
+    static String collectionSql(@Nullable String schema) {
         return "SELECT c.uuid, MAX(p.name), COUNT(*) AS n, MAX(c.first_caught) AS last_at FROM "
                 + SchemaName.prefix(schema)
                 + "codex_season c LEFT JOIN players p ON p.uuid = c.uuid WHERE c.season = ?"
@@ -182,10 +182,10 @@ public final class BuiltinSources {
         }
     }
 
-    static final class Codex implements RankingSource {
+    static final class CollectionSeason implements RankingSource {
         @Override
         public String id() {
-            return RankingBoards.CODEX_SEASON;
+            return RankingBoards.COLLECTION_SEASON;
         }
 
         @Override
@@ -198,7 +198,7 @@ public final class BuiltinSources {
                 int limit)
                 throws SQLException {
             List<Row> rows = new ArrayList<>();
-            try (PreparedStatement ps = c.prepareStatement(codexSql(schema))) {
+            try (PreparedStatement ps = c.prepareStatement(collectionSql(schema))) {
                 ps.setInt(1, season);
                 ps.setInt(2, limit);
                 try (ResultSet rs = ps.executeQuery()) {

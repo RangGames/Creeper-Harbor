@@ -90,7 +90,7 @@
 ## 다른 모듈과의 연결
 
 - **제공 서비스:** `FishingService`(포획 결과·세션·그림자·도감 제공자 등록), `TrapService`
-- **확장 지점:** `RegionKeyResolver`(World가 세부 구역 판정을 등록), `TreasureDropHook`(World 보물 지도 드롭), `CodexProvider`(Collection이 첫 포획 여부를 알려 줌), `ShadowDriver`(Wildlife가 그림자 대신 야생 물고기를 움직임), `CatchPresentationOverride`(Shop 포획 연출 코스메틱)
+- **확장 지점:** `RegionKeyResolver`(World가 세부 구역 판정을 등록), `TreasureDropHook`(World 보물 지도 드롭), `CollectionProvider`(Collection이 첫 포획 여부를 알려 줌), `ShadowDriver`(Wildlife가 그림자 대신 야생 물고기를 움직임), `CatchPresentationOverride`(Shop 포획 연출 코스메틱)
 - **이벤트:** `FishingCastEvent`, `FishBiteEvent`, `FishRollEvent`, `QualityRolledEvent`, `MinigameEndEvent`, `FishCaughtEvent`, `FishingSessionEndEvent`, `TrapHarvestEvent`
 - **쓰는 것:** Jobs(경험치 지급, 품질 상한, 전직 첫 품질 보상), Season(시즌 훅: 통발 정리), Core 보정자
 - **원장 사유:** `TRAP_SLOT_EXPAND`

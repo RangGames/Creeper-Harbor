@@ -89,7 +89,7 @@ public final class CoreContent {
         }
     }
 
-    /** Codex numbers (no) must be unique per fish. */
+    /** Collection numbers (no) must be unique per fish. */
     private static void checkFishNumber(FishDef fish, ContentCheck.Context ctx) {
         if (fish.no() < 1) {
             ctx.error("도감 번호 no는 1 이상이어야 합니다");

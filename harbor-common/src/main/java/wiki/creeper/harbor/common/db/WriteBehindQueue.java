@@ -14,12 +14,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Write-behind queue. Batches data that can be a few seconds late, like codex, records and quest
- * progress.
+ * Write-behind queue. Batches data that can be a few seconds late, like collection, records and
+ * quest progress.
  *
  * <ul>
  *   <li>Writes in one transaction every 5 seconds or once 500 entries pile up.
- *   <li>Only the last value per key is written (e.g. {@code codex:<uuid>:<fish>}).
+ *   <li>Only the last value per key is written (e.g. {@code collection:<uuid>:<fish>}).
  *   <li>So one constantly failing entry cannot block everything, a failed batch write is retried
  *       one entry at a time. Connection errors go back to the queue; data errors are logged and
  *       dropped.

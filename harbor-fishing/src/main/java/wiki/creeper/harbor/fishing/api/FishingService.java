@@ -18,7 +18,7 @@ import wiki.creeper.harbor.common.model.Grade;
  * modules):
  *
  * <ul>
- *   <li>{@link CodexProvider}: Collection (codex registration status)
+ *   <li>{@link CollectionProvider}: Collection (collection registration status)
  *   <li>{@link ShadowDriver}: Wildlife (shadow takeover while waiting, claimShadow in
  *       FishingCastEvent)
  *   <li>{@link RegionKeyResolver}, {@link TreasureDropHook}: World (region key, treasure maps)
@@ -40,8 +40,8 @@ public interface FishingService {
     /** Number of big fish lost to the job quality cap (this session). */
     int missedBigCount(UUID player);
 
-    /** Registers the codex lookup SPI (Collection). */
-    void registerCodex(CodexProvider provider);
+    /** Registers the collection lookup SPI (Collection). */
+    void registerCollection(CollectionProvider provider);
 
     /** Registers the region key extension point (World). Calling again replaces it. */
     void registerRegionResolver(RegionKeyResolver resolver);

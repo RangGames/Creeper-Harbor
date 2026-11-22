@@ -29,7 +29,7 @@ import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.StatKey;
-import wiki.creeper.harbor.fishing.api.CodexProvider;
+import wiki.creeper.harbor.fishing.api.CollectionProvider;
 import wiki.creeper.harbor.fishing.api.RegionKeyResolver;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
@@ -40,7 +40,7 @@ import wiki.creeper.harbor.fishing.sea.SeaEventBook;
 
 /**
  * Fishing roll inputs (region key, time/weather/moon, roll modifiers, rod and bait values). Holds
- * the codex and region key implementations registered with FishingManager. Main thread only.
+ * the collection and region key implementations registered with FishingManager. Main thread only.
  */
 final class CastContext {
 
@@ -49,7 +49,7 @@ final class CastContext {
     private final HarborApi api;
     private final Logger log;
     private final SeaEventBook seaEvents;
-    private @Nullable CodexProvider codex;
+    private @Nullable CollectionProvider collection;
     private @Nullable RegionKeyResolver regionResolver;
 
     CastContext(HarborApi api, SeaEventBook seaEvents, Logger log) {
@@ -58,16 +58,16 @@ final class CastContext {
         this.log = log;
     }
 
-    void registerCodex(CodexProvider provider) {
-        this.codex = provider;
+    void registerCollection(CollectionProvider provider) {
+        this.collection = provider;
     }
 
     void registerRegionResolver(RegionKeyResolver resolver) {
         this.regionResolver = resolver;
     }
 
-    @Nullable CodexProvider codex() {
-        return codex;
+    @Nullable CollectionProvider collection() {
+        return collection;
     }
 
     FishingBalance balance() {
@@ -134,7 +134,7 @@ final class CastContext {
         String moon =
                 phase == MoonPhase.FULL_MOON ? "full" : phase == MoonPhase.NEW_MOON ? "new" : "";
         HarborPlayer hp = api.players().get(player);
-        CodexProvider provider = codex;
+        CollectionProvider provider = collection;
         UUID uuid = player.getUniqueId();
         ContentSnapshot snapshot = api.content().snapshot();
         return new RollContext(

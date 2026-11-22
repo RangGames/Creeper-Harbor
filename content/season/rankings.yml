@@ -11,7 +11,7 @@ boards:
 
   - id: codex
     name: "<aqua>시즌 도감"
-    source: codex_season
+    source: collection_season
     leagues: [all]
 
   - id: mackerel

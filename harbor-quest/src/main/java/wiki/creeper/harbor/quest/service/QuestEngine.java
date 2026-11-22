@@ -434,8 +434,8 @@ public final class QuestEngine
     }
 
     /**
-     * Sets gauge and flag objectives to the current value (on accept, join, level up, codex entry,
-     * flag change).
+     * Sets gauge and flag objectives to the current value (on accept, join, level up, collection
+     * entry, flag change).
      */
     public void refreshGauges(Player player, @Nullable QuestId only) {
         progressor.refreshGauges(player, only);

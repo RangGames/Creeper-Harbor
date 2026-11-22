@@ -15,8 +15,8 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.ItemModels;
 
 /**
- * Icon helpers for the codex, records, and aquarium screens. Species icons use the species model if
- * registered, otherwise a silhouette (balance.yml items.*).
+ * Icon helpers for the collection, records, and aquarium screens. Species icons use the species
+ * model if registered, otherwise a silhouette (balance.yml items.*).
  */
 final class MenuItems {
 

@@ -33,7 +33,7 @@
 
 | 줄 | 내용 | 설정 |
 |---|---|---|
-| 1줄 | 누적 도감 칭호 | `codex.yml total_milestones`. 치장품은 Shop이 같은 이벤트로 준다 |
+| 1줄 | 누적 도감 칭호 | `collection.yml total_milestones`. 치장품은 Shop이 같은 이벤트로 준다 |
 | 2줄 | 시즌 도감 버프 | `season_buffs`. 달성한 단계는 "적용 중" |
 | 3줄 | 지역 완성(시즌 도감): 칭호 + 물비늘 | `region_complete` |
 

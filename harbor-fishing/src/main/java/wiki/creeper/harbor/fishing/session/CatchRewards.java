@@ -32,7 +32,7 @@ import wiki.creeper.harbor.fishing.api.CatchOptions;
 import wiki.creeper.harbor.fishing.api.CatchPresentationOverride;
 import wiki.creeper.harbor.fishing.api.CatchResult;
 import wiki.creeper.harbor.fishing.api.CatchSource;
-import wiki.creeper.harbor.fishing.api.CodexProvider;
+import wiki.creeper.harbor.fishing.api.CollectionProvider;
 import wiki.creeper.harbor.fishing.api.TreasureDropHook;
 import wiki.creeper.harbor.fishing.api.event.FishCaughtEvent;
 import wiki.creeper.harbor.fishing.api.event.QualityRolledEvent;
@@ -137,7 +137,7 @@ final class CatchRewards {
             info = readFish(stack, fish, qualityEvent, hp, now);
         }
         if (options.fireCaughtEvent()) {
-            CodexProvider provider = ctx.codex();
+            CollectionProvider provider = ctx.collection();
             boolean firstCatch = provider != null && !provider.hasCaught(uuid, fish.id());
             Bukkit.getPluginManager()
                     .callEvent(
@@ -201,7 +201,7 @@ final class CatchRewards {
                         player, fish, rolled.sizeCm(), rolled.quality(), rolled.capped());
         Bukkit.getPluginManager().callEvent(qualityEvent);
 
-        CodexProvider provider = ctx.codex();
+        CollectionProvider provider = ctx.collection();
         boolean firstCatch = provider != null && !provider.hasCaught(uuid, fish.id());
         Instant now = Instant.now();
         HarborItem.Fish caught;

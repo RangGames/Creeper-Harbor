@@ -14,7 +14,7 @@
 | 플래그 | 플레이어·서버 플래그 확인·값·설정·해제 (`harbor set flag …`) |
 | 퀘스트 | 상태·완료 여부·진행 수, 수락·포기·추적, `harbor quest signal/set`으로 목표 진행, `on harbor quest accept/complete` |
 | 낚시 | `on harbor fish catch` (어종·등급·지역·크기·품질·첫 포획) |
-| 도감·기록 | 도감 %·등록 여부·개인 최고 크기, 도감 열기, `on harbor codex register`, `on harbor record broken` |
+| 도감·기록 | 도감 %·등록 여부·개인 최고 크기, 도감 열기, `on harbor collection register`, `on harbor record broken` |
 | NPC | 평판 등급·호감도, 컷씬 재생, NPC 대화 열기 |
 | 직업 | `on harbor level up`, `on harbor job advance` |
 | 시즌 | 주차·이름·칭호 보유·장착·해제 |

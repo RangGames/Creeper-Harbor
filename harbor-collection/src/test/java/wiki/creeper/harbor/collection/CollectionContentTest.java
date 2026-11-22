@@ -31,7 +31,7 @@ class CollectionContentTest {
 
     private static final Set<String> OWNED =
             Set.of(
-                    "codex.yml",
+                    "collection.yml",
                     "aquarium.yml",
                     "display_case.yml",
                     "release.yml",

@@ -4,8 +4,8 @@ import wiki.creeper.harbor.common.util.SourcePos;
 
 /**
  * Extra check run after parsing and reference checks. Checks that compare against other entries
- * (duplicate codex numbers, etc.) or that need the server API (vanilla item ID validation, etc.) go
- * here.
+ * (duplicate collection numbers, etc.) or that need the server API (vanilla item ID validation,
+ * etc.) go here.
  */
 @FunctionalInterface
 public interface ContentCheck<T> {

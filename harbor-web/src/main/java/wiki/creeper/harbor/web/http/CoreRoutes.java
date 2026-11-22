@@ -13,9 +13,9 @@ import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.web.relay.EventRelay;
 
 /**
- * Core routes: server, player summary, player codex and quests (when those modules are enabled),
- * recent events, fish list. Player data is read from the DB (read-only), so for online players
- * progress not yet written may lag a few minutes (write-behind queue).
+ * Core routes: server, player summary, player collection and quests (when those modules are
+ * enabled), recent events, fish list. Player data is read from the DB (read-only), so for online
+ * players progress not yet written may lag a few minutes (write-behind queue).
  */
 public final class CoreRoutes {
 
@@ -51,9 +51,9 @@ public final class CoreRoutes {
                                 r.queryInt("limit", 50, 1, 200)));
         if (enabled("Harbor-Collection")) {
             router.get(
-                    "players/{id}/codex",
+                    "players/{id}/collection",
                     "플레이어 도감 (?scope=total|season)",
-                    r -> codex(calls, r.param("id"), r.query("scope", "total")));
+                    r -> collection(calls, r.param("id"), r.query("scope", "total")));
         }
         if (enabled("Harbor-Quest")) {
             router.get(
@@ -160,7 +160,8 @@ public final class CoreRoutes {
         return result;
     }
 
-    private static Object codex(Calls calls, String id, String scope) throws Router.ApiException {
+    private static Object collection(Calls calls, String id, String scope)
+            throws Router.ApiException {
         UUID uuid = resolve(calls, id);
         boolean season = scope.equals("season");
         int seasonNo = calls.api().infra().season().value();

@@ -39,9 +39,9 @@ import wiki.creeper.harbor.skript.lambda.Registrar;
  * on harbor currency change           after gold or mulbineul changes (event-offlineplayer, event-number = change, event-string = gold·mulbineul)
  * </pre>
  *
- * <p>Other syntax (levels, flags, screens, mail, and per-module quest, fishing, codex, NPC, season,
- * market price and sea event syntax) is registered as lambda syntax by {@code bridge/*Syntax}. The
- * full list is in harbor-skript/README.md.
+ * <p>Other syntax (levels, flags, screens, mail, and per-module quest, fishing, collection, NPC,
+ * season, market price and sea event syntax) is registered as lambda syntax by {@code
+ * bridge/*Syntax}. The full list is in harbor-skript/README.md.
  */
 final class SkriptSyntax {
 

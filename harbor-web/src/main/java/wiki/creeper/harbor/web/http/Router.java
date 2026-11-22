@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** GET route matching ("/players/{id}/codex" style, no server API). */
+/** GET route matching ("/players/{id}/collection" style, no server API). */
 public final class Router {
 
     /** Request info. */

@@ -110,7 +110,7 @@ class ContentLoaderTest {
     }
 
     @Test
-    void reportsDuplicateCodexNumber() throws IOException {
+    void reportsDuplicateCollectionNumber() throws IOException {
         write(
                 "fish/harbor.yml",
                 fish("fish/a", 1, "[20, 45]", "region/harbor")

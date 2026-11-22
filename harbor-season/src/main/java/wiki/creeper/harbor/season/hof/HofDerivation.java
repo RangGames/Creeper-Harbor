@@ -26,8 +26,8 @@ import wiki.creeper.harbor.season.ranking.BossMembers;
 import wiki.creeper.harbor.season.ranking.SchemaName;
 
 /**
- * Builds hall-of-fame entries from game data: first-come lists for level_first · codex_first, and
- * the recomputation used when a season is finalized.
+ * Builds hall-of-fame entries from game data: first-come lists for level_first · collection_first,
+ * and the recomputation used when a season is finalized.
  */
 final class HofDerivation {
 
@@ -40,7 +40,7 @@ final class HofDerivation {
     }
 
     /**
-     * Builds the first-come list for level_first · codex_first categories from data (by time
+     * Builds the first-come list for level_first · collection_first categories from data (by time
      * achieved).
      */
     List<HallOfFameSubmission> derive(
@@ -48,7 +48,7 @@ final class HofDerivation {
             throws SQLException {
         return switch (cat.source()) {
             case LEVEL_FIRST -> deriveLevel(c, cat, season, schema);
-            case CODEX_FIRST -> deriveCodex(c, cat, season, schema);
+            case COLLECTION_FIRST -> deriveCollection(c, cat, season, schema);
             default -> List.of();
         };
     }
@@ -107,9 +107,10 @@ final class HofDerivation {
     }
 
     /**
-     * First to complete the season codex (all species except mythic, by the last first-catch time).
+     * First to complete the season collection (all species except mythic, by the last first-catch
+     * time).
      */
-    private List<HallOfFameSubmission> deriveCodex(
+    private List<HallOfFameSubmission> deriveCollection(
             Connection c, HallOfFameCategory cat, int season, @Nullable String schema)
             throws SQLException {
         List<String> fish =
@@ -167,7 +168,7 @@ final class HofDerivation {
             return switch (cat.source()) {
                 case RECORDS -> topRecords(c, cat, season, archiveSchema);
                 case BOSS_RECORDS -> topBoss(c, cat, season);
-                case LEVEL_FIRST, CODEX_FIRST -> derive(c, cat, season, archiveSchema);
+                case LEVEL_FIRST, COLLECTION_FIRST -> derive(c, cat, season, archiveSchema);
                 case SUBMITTED -> List.of();
             };
         } catch (SQLSyntaxErrorException e) {

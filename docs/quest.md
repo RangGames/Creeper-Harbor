@@ -17,7 +17,7 @@ YAML 퀘스트를 상태 기계(조건 → 목표 → 보상)로 돌리는 엔�
   | `collect` | 수집 의뢰 (수집 의뢰 NPC의 게시판) |
 
 - **수락과 보고:** 시작 NPC 대화에서 수락 제안이 뜨고, 목표를 마치면 보고 NPC에게 보고한다. 제안 방식은 퀘스트마다 `offer_style`로 정하고, 비우면 시작 NPC의 대화 방식을 따른다. 요구 조건은 레벨·전직 단계·주차·선행 퀘스트다.
-- **목표 유형:** `catch` `deliver` `visit` `talk` `donate` `codex` `job_level` `job_tier` `boss` `chart_percent` `use_item` `flag` `cutscene` `affinity` `reputation`. `codex`·`job_level` 같은 게이지형은 세지 않고 지금 값을 반영한다. 다른 모듈이 목표 유형을 더 등록할 수 있다.
+- **목표 유형:** `catch` `deliver` `visit` `talk` `donate` `collection` `job_level` `job_tier` `boss` `chart_percent` `use_item` `flag` `cutscene` `affinity` `reputation`. `collection`·`job_level` 같은 게이지형은 세지 않고 지금 값을 반영한다. 다른 모듈이 목표 유형을 더 등록할 수 있다.
 - **보상:** 골드·경험치·아이템·물비늘·평판·호감도·플래그·칭호·연대기 조각·전직·도감 힌트 (`rewards`의 `gold` `exp` `items` `mulbineul` `reputation` `affinity` `flags` `title` `chronicle` `job_advance` `hints`). 메인 장 마지막 보상은 진실의 조각·물비늘 3·평판·다음 지역 진입 플래그다.
 - **추적:** 퀘스트 하나를 추적하면 보스바와 액션바 방향 표시(화살표·거리·높이)가 뜬다. 다른 액션바(지역·배·보스)가 나간 직후에는 덮지 않는다.
 - **알림:** 수락·보고 가능·완료·포기·실패를 채팅·타이틀·액션바로 알린다. 메인 퀘스트는 따로 정할 수 있다.

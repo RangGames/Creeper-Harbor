@@ -70,7 +70,7 @@ NPC 엔티티는 본 서버(`role: main`)에만 세운다. 인스턴스 서버�
 | Quest | `quest:list` `quest:offer` `quest:accept` `quest:talk` `quest:turn_in` |
 | Economy | `shop:open` `mail:open` `auction:open` `craft:open` |
 | Jobs | `job:change_line` `job:reset_skill` |
-| Collection | `aquarium:donate` `codex:hint` |
+| Collection | `aquarium:donate` `collection:hint` |
 | Boss | `boss:enter` |
 
 **대화 조건:** `affinity_min` `rep_tier_min` `flag` `not_flag` `server_flag` `not_server_flag` `job_tier` `level_min` `time` `weather` (기본), `quest_state` `quest_available` (Quest 등록)

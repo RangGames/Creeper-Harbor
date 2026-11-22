@@ -10,7 +10,7 @@ dependencies {
     compileOnly(project(":harbor-season"))
     // 선택: 개인 어항 DisplayAnchor·편집 권한 (World api). Shop은 Shop → Collection 의존이라 AquariumThemeOwnership 서비스로만 묻는다
     compileOnly(project(":harbor-world"))
-    // 선택: 대화 액션(aquarium:donate·codex:hint), 최고 평판 등급(어항 칸), 방류 평판
+    // 선택: 대화 액션(aquarium:donate·collection:hint), 최고 평판 등급(어항 칸), 방류 평판
     compileOnly(project(":harbor-npc"))
     testImplementation(project(":harbor-fishing"))
     testImplementation(project(":harbor-season"))

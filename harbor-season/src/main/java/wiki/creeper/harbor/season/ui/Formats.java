@@ -26,7 +26,7 @@ public final class Formats {
             case RankingBoards.RECORDS -> HofMath.format(entry.value(), "cm");
             case RankingBoards.LEVEL ->
                     "Lv." + (long) entry.value() + " (" + (long) entry.secondary() + " EXP)";
-            case RankingBoards.CODEX_SEASON -> (long) entry.value() + "종";
+            case RankingBoards.COLLECTION_SEASON -> (long) entry.value() + "종";
             case RankingBoards.BOSS_RECORDS -> HofMath.format(entry.value(), "time_ms");
             default -> HofMath.format(entry.value(), "");
         };

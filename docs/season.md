@@ -9,10 +9,10 @@
 - **주간 제한:** 모듈이 쓰는 주간 횟수 제한(예: 보스 주간 보상 횟수)을 계정별로 센다.
 - **칭호:** 칭호를 모으고 하나를 장착한다. 칭호는 도감·보스·명예의 전당·연대기·후원 등에서 받는다. 상태형 칭호(`permanent: false`)는 조건이 끝나면 회수될 수 있다.
 - **랭킹:** 한 서버가 보드별 주기(기본 10분)마다 상위 N명을 집계해 모든 서버에 보낸다. 동점이면 먼저 달성한 사람이 앞선다.
-  - 원천: `level`(시즌 레벨), `codex_season`(시즌 도감), `records`(어종 최대어), `boss_records`, 그리고 다른 모듈이 등록한 원천.
+  - 원천: `level`(시즌 레벨), `collection_season`(시즌 도감), `records`(어종 최대어), `boss_records`, 그리고 다른 모듈이 등록한 원천.
   - 리그: `all` · `tier1` · `tier2`. 기록 시점의 직업 단계로 정하고, 이후 전직해도 그 기록의 리그는 바뀌지 않는다.
 - **명예의 전당:** 시즌 진행 중에는 잠정 기록이다. 시즌 전환 SNAPSHOT 단계에서 아카이브 데이터로 다시 계산해 확정하고 칭호를 준다.
-  - 원천: `records` `boss_records` `level_first` `codex_first` `submitted`
+  - 원천: `records` `boss_records` `level_first` `collection_first` `submitted`
   - 규칙: `top1`(대상별 1위) · `first_n`(선착순) · `all`
 - **시즌 전환 (10단계):**
 

@@ -5,7 +5,7 @@ import java.util.List;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.core.api.StatKey;
 
-/** A single modifier (ADD). Used for codex and aquarium buffs. */
+/** A single modifier (ADD). Used for collection and aquarium buffs. */
 public record StatBonus(StatKey stat, double value) {
 
     static List<StatBonus> parseList(List<YamlNode> nodes) {

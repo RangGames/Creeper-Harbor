@@ -9,16 +9,16 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * Codex title key rules (docs 20 4.4). Title keys are the names in codex.yml as-is (codex_25,
- * codex_region/harbor), and Season TitleId.of adds the prefix (harbor:title/codex_25). Uses no
- * server API, so unit tests and harbor-tools share it.
+ * Collection title key rules (docs 20 4.4). Title keys are the names in collection.yml as-is
+ * (codex_25, codex_region/harbor), and Season TitleId.of adds the prefix (harbor:title/codex_25).
+ * Uses no server API, so unit tests and harbor-tools share it.
  */
-public final class CodexTitles {
+public final class CollectionTitles {
 
     /** Max length of a Season TitleService reference ID. */
     public static final int REF_MAX = 64;
 
-    private CodexTitles() {}
+    private CollectionTitles() {}
 
     /** Region completion title key: prefix/region name (e.g. codex_region/harbor). */
     public static String regionTitle(String prefix, RegionId region) {
@@ -44,21 +44,21 @@ public final class CodexTitles {
     }
 
     /**
-     * Title keys the player should have given the current codex state (for the pending queue and
-     * achievements from before Season existed). Cumulative completion stages, and regions completed
-     * in the season codex.
+     * Title keys the player should have given the current collection state (for the pending queue
+     * and achievements from before Season existed). Cumulative completion stages, and regions
+     * completed in the season collection.
      *
-     * @param totalPercent cumulative codex completion (0~100)
+     * @param totalPercent cumulative collection completion (0~100)
      * @param regionFish denominator per region (excluding mythic)
-     * @param seasonRegistered species registered in the season codex
+     * @param seasonRegistered species registered in the season collection
      */
     public static List<String> earned(
-            CodexRules rules,
+            CollectionRules rules,
             double totalPercent,
             Map<RegionId, Set<FishId>> regionFish,
             Set<FishId> seasonRegistered) {
         List<String> result = new ArrayList<>();
-        for (CodexRules.Milestone m : rules.totalMilestones()) {
+        for (CollectionRules.Milestone m : rules.totalMilestones()) {
             if (totalPercent >= m.percent() && !m.title().isEmpty()) {
                 result.add(m.title());
             }

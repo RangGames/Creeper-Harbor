@@ -150,7 +150,7 @@ class SeasonContentTest {
                 """
                 boards:
                   - {id: fish, source: records}
-                  - {id: codex, source: codex_season, leagues: [tier1]}
+                  - {id: codex, source: collection_season, leagues: [tier1]}
                 """,
                 RankingBoards::parse,
                 errors);

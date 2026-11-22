@@ -15,7 +15,7 @@ import wiki.creeper.harbor.common.id.RegionId;
  * @param weather clear · rain · thunder
  * @param moon full · new · (empty string otherwise)
  * @param serverFlags server progress flag check (unlock_flag)
- * @param caught codex registration status (unregistered weight)
+ * @param caught collection registration status (unregistered weight)
  * @param areas sub-areas at the bobber location (RegionKeyResolver)
  * @param areasKnown whether sub-areas are known. If false (World not registered), species area
  *     conditions are not checked

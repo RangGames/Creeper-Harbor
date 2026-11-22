@@ -14,11 +14,11 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import wiki.creeper.harbor.collection.api.CodexEntry;
-import wiki.creeper.harbor.collection.api.CodexScope;
+import wiki.creeper.harbor.collection.api.CollectionEntry;
+import wiki.creeper.harbor.collection.api.CollectionScope;
 import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.api.RecordService;
-import wiki.creeper.harbor.collection.view.CodexView;
+import wiki.creeper.harbor.collection.view.CollectionView;
 import wiki.creeper.harbor.collection.view.RecordRanks;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.core.api.HarborApi;
@@ -27,10 +27,10 @@ import wiki.creeper.harbor.core.gui.Menu;
 
 /**
  * Biggest-catch records screen (/기록, proposed). Opened without arguments it shows species selection
- * (only species registered in the cumulative codex are clickable); after picking a species it shows
- * league tabs (tier 1 · tier 2 · all), this season's server TOP 10 (player heads), and my rank,
- * season best, and size remaining to TOP 10. Data comes from the same server record cache as the
- * billboard, so the DB is not read.
+ * (only species registered in the cumulative collection are clickable); after picking a species it
+ * shows league tabs (tier 1 · tier 2 · all), this season's server TOP 10 (player heads), and my
+ * rank, season best, and size remaining to TOP 10. Data comes from the same server record cache as
+ * the billboard, so the DB is not read.
  */
 final class RecordsMenu {
 
@@ -38,11 +38,11 @@ final class RecordsMenu {
     private static final int TOP = 10;
 
     private final HarborApi api;
-    private final CollectionManager codex;
+    private final CollectionManager collection;
 
-    RecordsMenu(HarborApi api, CollectionManager codex) {
+    RecordsMenu(HarborApi api, CollectionManager collection) {
         this.api = api;
-        this.codex = codex;
+        this.collection = collection;
     }
 
     private MessageService msg() {
@@ -55,14 +55,14 @@ final class RecordsMenu {
         List<FishDef> fish = new ArrayList<>(api.content().snapshot().all(FishDef.TYPE).values());
         fish.sort(Comparator.comparingInt(FishDef::no));
         UUID uuid = viewer.getUniqueId();
-        int pages = CodexView.pages(fish.size(), PER_PAGE);
+        int pages = CollectionView.pages(fish.size(), PER_PAGE);
         int shown = Math.clamp(page, 0, pages - 1);
         Menu menu = new Menu(msg().get("collection.records.pick_title"), 6);
         int start = shown * PER_PAGE;
         for (int i = 0; i < PER_PAGE && start + i < fish.size(); i++) {
             FishDef f = fish.get(start + i);
-            boolean known = codex.entry(uuid, f.id(), CodexScope.TOTAL).isPresent();
-            List<RecordEntry> top = codex.serverTop(f.id(), "all", 1);
+            boolean known = collection.entry(uuid, f.id(), CollectionScope.TOTAL).isPresent();
+            List<RecordEntry> top = collection.serverTop(f.id(), "all", 1);
             List<Component> lore = new ArrayList<>();
             if (known && !top.isEmpty()) {
                 lore.add(
@@ -143,7 +143,7 @@ final class RecordsMenu {
         for (int i = slot; i < 9; i++) {
             menu.button(i, MenuItems.filler(), null);
         }
-        List<RecordEntry> top = codex.serverTop(fish.id(), league, TOP);
+        List<RecordEntry> top = collection.serverTop(fish.id(), league, TOP);
         for (int i = 0; i < TOP; i++) {
             int at = 9 + i;
             if (i < top.size()) {
@@ -205,8 +205,9 @@ final class RecordsMenu {
     /** My rank · this season's best · size remaining to TOP 10. */
     private ItemStack mine(Player viewer, FishDef fish, List<RecordEntry> top) {
         UUID uuid = viewer.getUniqueId();
-        Optional<CodexEntry> season = codex.entry(uuid, fish.id(), CodexScope.SEASON);
-        Optional<CodexEntry> total = codex.entry(uuid, fish.id(), CodexScope.TOTAL);
+        Optional<CollectionEntry> season =
+                collection.entry(uuid, fish.id(), CollectionScope.SEASON);
+        Optional<CollectionEntry> total = collection.entry(uuid, fish.id(), CollectionScope.TOTAL);
         List<Component> lore = new ArrayList<>();
         OptionalInt rank = RecordRanks.rank(top, uuid);
         if (rank.isPresent()) {

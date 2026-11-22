@@ -10,7 +10,7 @@ import wiki.creeper.harbor.season.content.RankingBoardDef;
 
 /**
  * Ranking source (proposed). Lets other modules register aggregations not covered by the built-in
- * sources (records · level · codex_season · boss_records). Example: World's weekly fishing
+ * sources (records · level · collection_season · boss_records). Example: World's weekly fishing
  * tournament score ({@code source: tournament}). Season does not know that module's code and reads
  * only through this interface.
  *

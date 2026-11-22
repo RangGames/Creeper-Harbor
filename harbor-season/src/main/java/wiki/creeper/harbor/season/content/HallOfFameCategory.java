@@ -47,10 +47,10 @@ public record HallOfFameCategory(
          */
         LEVEL_FIRST,
         /**
-         * First to complete the season codex. Computed from the last first-catch time in
+         * First to complete the season collection. Computed from the last first-catch time in
          * codex_season.
          */
-        CODEX_FIRST,
+        COLLECTION_FIRST,
         /** Finalizes submitted provisional records as-is (climax participation etc.). */
         SUBMITTED;
 
