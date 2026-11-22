@@ -15,19 +15,23 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 코스메틱 정의 (cosmetics.yml, '11. 데이터 설계' 2.8, docs 20 12.3). 진주로 산 것은 아이템이 아니라 계정 소유
- * 기록(cosmetics_owned)이라 거래·경매로 옮겨지지 않는다. 그래서 tradeable은 없거나 false여야 한다 ('6. BM 기획' 1장 경제 분리).
+ * Cosmetic definition (cosmetics.yml, '11. Data design' 2.8, docs 20 12.3). Purchases with pearls
+ * are not items but account ownership records (cosmetics_owned), so they cannot move through trades
+ * or auctions. Hence tradeable must be absent or false ('6. BM plan' ch. 1, economy separation).
  *
- * @param price 진주 가격 (0이면 상점에서 팔지 않음: 패스·보물함·후원·무료 지급 전용)
- * @param season 시즌 한정 상품의 시즌 (0이면 상시). availability = season이면 그 시즌 동안만 판다
- * @param requiresFish 구매 조건: 이 어종을 직접 잡았어야 함 (전설 어종 기념 스킨, Collection codex_total)
- * @param model 아이템 모델 (낚싯대 스킨의 item_model, 상점 아이콘)
- * @param preset 포획 연출 프리셋 (catch_fx, shop/catch_fx.yml)
- * @param rig 펫·선박 장식 리그 (Core RigService)
- * @param color 이름 색 (name_color, MiniMessage 태그 예 {@code <gradient:#55ffff:#5555ff>})
- * @param glyph 채팅 아이콘·칭호 테두리 글리프 (리소스팩 폰트 문자, 비우면 글자 표시)
- * @param particle 찌·낚싯줄 효과 파티클 (line_fx, 바닐라 파티클 키)
- * @param particleColor 파티클 색 (#rrggbb, dust 계열만)
+ * @param price pearl price (0 means not sold in the shop: pass, chest, sponsorship or free grant
+ *     only)
+ * @param season season of a season-limited item (0 means permanent). With availability = season,
+ *     sold only during that season
+ * @param requiresFish purchase condition: must have caught this species personally (legendary
+ *     species commemorative skin, Collection codex_total)
+ * @param model item model (item_model of a rod skin, shop icon)
+ * @param preset catch effect preset (catch_fx, shop/catch_fx.yml)
+ * @param rig pet / boat decoration rig (Core RigService)
+ * @param color name color (name_color, MiniMessage tag e.g. {@code <gradient:#55ffff:#5555ff>})
+ * @param glyph chat icon / title frame glyph (resource pack font character; text is shown if empty)
+ * @param particle bobber / fishing line effect particle (line_fx, vanilla particle key)
+ * @param particleColor particle color (#rrggbb, dust types only)
  */
 public record CosmeticDef(
         HarborId id,
@@ -48,7 +52,7 @@ public record CosmeticDef(
         @Nullable String particleColor,
         boolean giftable) {
 
-    /** 분류 ('11. 데이터 설계' 2.8). 장착 칸도 분류와 같다 (분류마다 한 개). */
+    /** Category ('11. Data design' 2.8). The equip slot equals the category (one per category). */
     public enum Category implements Keyed {
         ROD_SKIN,
         LINE_FX,
@@ -69,7 +73,7 @@ public record CosmeticDef(
         }
     }
 
-    /** 얻는 경로. 상점 진열은 permanent·rotation·season만. */
+    /** How it is obtained. Only permanent, rotation and season are listed in the shop. */
     public enum Availability implements Keyed {
         PERMANENT,
         ROTATION,
@@ -84,7 +88,7 @@ public record CosmeticDef(
             return Keyed.keyOf(this);
         }
 
-        /** 진주 상점에서 파는 경로인지. */
+        /** Whether this route is sold in the pearl shop. */
         public boolean sold() {
             return this == PERMANENT || this == ROTATION || this == SEASON;
         }
@@ -121,7 +125,10 @@ public record CosmeticDef(
                     "giftable",
                     "tradeable");
 
-    /** 진주 상점에서 지금 팔 수 있는지 (시즌 한정은 그 시즌만). 로테이션 여부는 {@link RotationPlan}이 따로 본다. */
+    /**
+     * Whether it can be sold in the pearl shop now (season-limited only in that season). Rotation
+     * is checked separately by {@link RotationPlan}.
+     */
     public boolean sellableIn(int currentSeason) {
         if (price <= 0 || !availability.sold()) {
             return false;
@@ -151,7 +158,7 @@ public record CosmeticDef(
         if (availability == Availability.SEASON && season == 0) {
             node.error("availability: season이면 season 번호가 있어야 합니다");
         }
-        // 경제 분리 ('6. BM 기획' 1장): 코스메틱은 거래 불가
+        // Economy separation ('6. BM plan' ch. 1): cosmetics cannot be traded
         node.get("tradeable")
                 .ifPresent(
                         t -> {

@@ -3,7 +3,7 @@ package wiki.creeper.harbor.shop.util;
 import java.security.SecureRandom;
 import java.util.UUID;
 
-/** UUID v7 (시간순 정렬되는 UUID, RFC 9562). 주문 ID(shop_order.order_id)에 쓴다. */
+/** UUID v7 (time-ordered UUID, RFC 9562). Used for order IDs (shop_order.order_id). */
 public final class UuidV7 {
 
     private static final SecureRandom RANDOM = new SecureRandom();

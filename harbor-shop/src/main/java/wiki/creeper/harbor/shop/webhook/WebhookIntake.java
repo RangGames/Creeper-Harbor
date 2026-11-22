@@ -5,31 +5,33 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 웹훅 수신 처리 (docs 20 12.4 1~5단계). HTTP 서버와 분리해 서버 없이 테스트한다.
+ * Webhook intake (docs 20 12.4 steps 1~5). Separated from the HTTP server so it can be tested
+ * without a server.
  *
  * <ol>
- *   <li>본문 64KB 초과 거부 (413)
- *   <li>서명 검증 실패 → 403 (경고 로그는 서버 쪽)
- *   <li>validation.webhook → {@code {"id": …}} 응답으로 끝
- *   <li>수신함에 INSERT IGNORE(webhook_id). 이미 있으면 처리하지 않고 200 (재전송 멱등)
- *   <li>수신함 커밋 직후 200. 처리는 InboxProcessor가 이어서 한다
+ *   <li>Reject bodies over 64KB (413)
+ *   <li>Signature verification failure → 403 (warning log on the server side)
+ *   <li>validation.webhook → ends with a {@code {"id": …}} response
+ *   <li>INSERT IGNORE (webhook_id) into the inbox. If already present, 200 without processing
+ *       (resend idempotency)
+ *   <li>200 right after the inbox commit. InboxProcessor continues the processing
  * </ol>
  */
 public final class WebhookIntake {
 
     public static final int MAX_BODY = 64 * 1024;
 
-    /** 수신함 한 행. */
+    /** One inbox row. */
     public record InboxRow(
             String webhookId, String type, @Nullable String txId, String bodySha256, String body) {}
 
-    /** 수신함 저장소. 새로 넣었으면 true, 같은 webhook_id가 이미 있으면 false. */
+    /** Inbox store. True if newly inserted, false if the same webhook_id already exists. */
     @FunctionalInterface
     public interface InboxStore {
         boolean insertIfAbsent(InboxRow row) throws Exception;
     }
 
-    /** 응답. */
+    /** Response. */
     public enum Outcome {
         TOO_LARGE,
         BAD_SIGNATURE,
@@ -81,7 +83,7 @@ public final class WebhookIntake {
                     ? new Response(200, "", Outcome.ACCEPTED)
                     : new Response(200, "", Outcome.DUPLICATE);
         } catch (Exception e) {
-            // 500을 돌려주면 Tebex가 다시 보낸다
+            // Returning 500 makes Tebex resend
             return new Response(500, "", Outcome.STORE_FAILED);
         }
     }

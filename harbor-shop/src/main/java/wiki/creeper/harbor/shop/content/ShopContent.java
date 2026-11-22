@@ -5,7 +5,7 @@ import wiki.creeper.harbor.common.content.ContentCheck;
 import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.id.HarborId;
 
-/** Shop 콘텐츠 형식. 서버 API를 쓰지 않아 harbor-tools(CI)도 같은 코드로 검사한다. */
+/** Shop content types. Uses no server API, so harbor-tools (CI) validates with the same code. */
 public final class ShopContent {
 
     public static final List<ContentType<?>> TYPES =
@@ -21,7 +21,7 @@ public final class ShopContent {
                     CreatorDef.TYPE,
                     ShopSettings.TYPE);
 
-    /** Tebex 패키지 번호가 겹치면 웹훅 매핑이 모호해진다. */
+    /** Duplicate Tebex package numbers make the webhook mapping ambiguous. */
     public static final ContentCheck<ProductDef> PRODUCT_UNIQUE =
             (product, check) -> {
                 long same =
@@ -33,7 +33,10 @@ public final class ShopContent {
                 }
             };
 
-    /** 보물함 구성품은 보물함 전용(availability: chest) 코스메틱이어야 하고, 등급은 코스메틱 등급과 같아야 한다. */
+    /**
+     * Chest entries must be chest-only (availability: chest) cosmetics, and their grade must match
+     * the cosmetic's grade.
+     */
     public static final ContentCheck<ChestDef> CHEST_ENTRIES =
             (chest, check) -> {
                 for (ChestDef.Entry entry : chest.entries()) {
@@ -57,7 +60,7 @@ public final class ShopContent {
                 }
             };
 
-    /** 크리에이터 코드가 겹치면 정산이 모호해진다. */
+    /** Duplicate creator codes make payouts ambiguous. */
     public static final ContentCheck<CreatorDef> CREATOR_UNIQUE =
             (creator, check) -> {
                 long same =
@@ -69,7 +72,7 @@ public final class ShopContent {
                 }
             };
 
-    /** 같은 시즌의 패스가 둘이면 어느 쪽을 쓸지 모호하다. */
+    /** Two passes for the same season make it ambiguous which to use. */
     public static final ContentCheck<PassDef> PASS_UNIQUE =
             (pass, check) -> {
                 long same =
@@ -81,7 +84,7 @@ public final class ShopContent {
                 }
             };
 
-    /** 모든 검사를 등록한다 (플러그인과 harbor-tools가 같이 쓴다). */
+    /** Registers all checks (shared by the plugin and harbor-tools). */
     public static void registerChecks(Registrar registrar) {
         registrar.add(ProductDef.TYPE, PRODUCT_UNIQUE);
         registrar.add(ChestDef.TYPE, CHEST_ENTRIES);
@@ -89,12 +92,12 @@ public final class ShopContent {
         registrar.add(PassDef.TYPE, PASS_UNIQUE);
     }
 
-    /** 검사 등록 창구 (Core ModuleContext.contentCheck 또는 ContentLoader.addCheck). */
+    /** Check registration hook (Core ModuleContext.contentCheck or ContentLoader.addCheck). */
     public interface Registrar {
         <T> void add(ContentType<T> type, ContentCheck<T> check);
     }
 
-    /** ID 문자열 표시용 (harbor: 접두사 생략). */
+    /** For displaying ID strings (without the harbor: prefix). */
     public static String shortId(HarborId id) {
         return id.path();
     }

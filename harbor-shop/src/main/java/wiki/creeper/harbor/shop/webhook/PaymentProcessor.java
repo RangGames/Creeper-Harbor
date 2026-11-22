@@ -9,10 +9,8 @@ import java.time.Instant;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.donor.DonorTier;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
@@ -21,7 +19,9 @@ import wiki.creeper.harbor.shop.content.CreatorDef;
 import wiki.creeper.harbor.shop.content.FestivalDef;
 import wiki.creeper.harbor.shop.content.ProductDef;
 import wiki.creeper.harbor.shop.content.ShopSettings;
+import wiki.creeper.harbor.shop.data.NoticeRepository;
 import wiki.creeper.harbor.shop.data.ShopRepository;
+import wiki.creeper.harbor.shop.data.SubscriptionRepository;
 import wiki.creeper.harbor.shop.donor.DonorGrace;
 import wiki.creeper.harbor.shop.festival.FestivalManager;
 import wiki.creeper.harbor.shop.pearl.PearlLedger;
@@ -29,13 +29,18 @@ import wiki.creeper.harbor.shop.pearl.PearlManager;
 import wiki.creeper.harbor.shop.pearl.PearlTx;
 
 /**
- * 수신함 한 건 처리 (docs 20 12.4 6~7단계, '환불 · 지불 거절', '후원 등급'). 가상 스레드에서 블로킹으로 돈다. 모든 지급은 tx_id 참조 ID
- * 유니크로 한 번만 일어나고, 결제 행(purchases.state)을 잠근 뒤 상태를 보고 처리하므로 같은 웹훅이 여러 번 와도, 완료 → 환불 → 분쟁 순서가 뒤섞여도
- * 결과가 같다 (아직 없는 결제의 환불은 재시도로 미룬다).
+ * Processes one inbox entry (docs 20 12.4 steps 6-7, "refunds and chargebacks", "donor tiers").
+ * Runs blocking on a virtual thread. Every grant happens exactly once via the unique tx_id
+ * reference ID, and processing locks the purchase row (purchases.state) and acts on its state, so
+ * the result is the same even if a webhook arrives several times or completed → refunded → disputed
+ * arrive out of order (a refund for a payment not yet recorded is deferred to a retry).
  */
 public final class PaymentProcessor {
 
-    /** 처리 결과. after는 커밋 뒤 메인 스레드에서 할 일 (캐시·알림). */
+    /**
+     * Processing result. {@code after} is work to run on the main thread after commit (cache,
+     * notices).
+     */
     public sealed interface Outcome {
         record Done(List<Runnable> after) implements Outcome {}
 
@@ -49,8 +54,9 @@ public final class PaymentProcessor {
     private final ShopRuntime rt;
     private final PearlManager pearls;
     private final Hooks hooks;
+    private final PaymentReversals reversals;
 
-    /** 커밋 뒤 다른 매니저에 넘길 일. */
+    /** Work handed to other managers after commit. */
     public interface Hooks {
         void donorChanged(UUID player);
 
@@ -63,6 +69,7 @@ public final class PaymentProcessor {
         this.rt = rt;
         this.pearls = pearls;
         this.hooks = hooks;
+        this.reversals = new PaymentReversals(rt, pearls, hooks);
     }
 
     public Outcome process(String body) throws SQLException {
@@ -73,10 +80,13 @@ public final class PaymentProcessor {
         WebhookEvent event = parsed.get();
         return switch (event.type()) {
             case WebhookEvent.PAYMENT_COMPLETED -> completed(event);
-            case WebhookEvent.PAYMENT_REFUNDED -> reverse(event, Reversal.REFUND);
-            case WebhookEvent.DISPUTE_OPENED -> reverse(event, Reversal.CHARGEBACK);
-            case WebhookEvent.DISPUTE_WON -> disputeWon(event);
-            case WebhookEvent.DISPUTE_LOST, WebhookEvent.DISPUTE_CLOSED -> disputeClosed(event);
+            case WebhookEvent.PAYMENT_REFUNDED ->
+                    reversals.reverse(event, PaymentReversals.Reversal.REFUND);
+            case WebhookEvent.DISPUTE_OPENED ->
+                    reversals.reverse(event, PaymentReversals.Reversal.CHARGEBACK);
+            case WebhookEvent.DISPUTE_WON -> reversals.disputeWon(event);
+            case WebhookEvent.DISPUTE_LOST, WebhookEvent.DISPUTE_CLOSED ->
+                    reversals.disputeClosed(event);
             case WebhookEvent.RECURRING_STARTED, WebhookEvent.RECURRING_RENEWED ->
                     recurring(event, DonorGrace.State.ACTIVE);
             case WebhookEvent.RECURRING_CANCEL_ABORTED -> recurring(event, DonorGrace.State.ACTIVE);
@@ -89,7 +99,7 @@ public final class PaymentProcessor {
         };
     }
 
-    // ------------------------------------------------------------------ 결제 완료
+    // ------------------------------------------------------------------ payment completed
 
     private Outcome completed(WebhookEvent event) throws SQLException {
         Optional<WebhookEvent.Payment> payment = event.payment();
@@ -166,7 +176,7 @@ public final class PaymentProcessor {
         return new Outcome.Done(after);
     }
 
-    /** 품목 하나 지급. 이미 처리된 결제면 false. */
+    /** Grants one line item. Returns false if the payment was already processed. */
     private boolean grant(
             PearlTx tx,
             PaymentRules.Grant g,
@@ -189,9 +199,10 @@ public final class PaymentProcessor {
             ps.setLong(6, g.pearls());
             ps.executeUpdate();
         }
-        String state = purchaseState(c, g.lineTxId()).orElse("RECEIVED");
+        String state = PurchaseSql.purchaseState(c, g.lineTxId()).orElse("RECEIVED");
         if ("HELD".equals(state)) {
-            // 관리자가 원인(상품 매핑 등)을 고친 뒤 재처리: 이번 검증을 통과했으므로 지급 내용을 다시 적는다
+            // Reprocessed after an admin fixed the cause (product mapping etc.): it passed
+            // validation this time, so rewrite the grant details
             try (PreparedStatement ps =
                     c.prepareStatement(
                             "UPDATE purchases SET uuid = ?, product = ?, kind = ?, amount_krw = ?, pearls = ?,"
@@ -205,13 +216,14 @@ public final class PaymentProcessor {
                 ps.executeUpdate();
             }
         } else if (!"RECEIVED".equals(state)) {
-            return false; // 이미 지급·환불된 결제 (재전송)
+            return false; // Payment already granted or refunded (resend)
         }
         if (!g.lineTxId().equals(payment.txId())) {
-            // 품목이 여럿이면 보류 행은 tx_id 하나뿐이다: 보류 중 환불·분쟁으로 닫혔으면 재처리해도 지급하지 않는다
-            Optional<String> base = purchaseState(c, payment.txId());
+            // With several line items the held row has only the one tx_id: if a refund or dispute
+            // closed it while held, do not grant even when reprocessed
+            Optional<String> base = PurchaseSql.purchaseState(c, payment.txId());
             if (base.isPresent() && !"HELD".equals(base.get()) && !"RECEIVED".equals(base.get())) {
-                setState(c, g.lineTxId(), base.get(), "지급 전 " + base.get());
+                PurchaseSql.setState(c, g.lineTxId(), base.get(), "지급 전 " + base.get());
                 return false;
             }
         }
@@ -224,23 +236,25 @@ public final class PaymentProcessor {
                 if (g.pearls() > 0) {
                     credit(tx, player, g.pearls(), LedgerReason.SUBSCRIPTION_MONTHLY, g.lineTxId());
                 }
-                Optional<ShopRepository.Subscription> existing =
-                        ShopRepository.subscription(c, player);
+                Optional<SubscriptionRepository.Subscription> existing =
+                        SubscriptionRepository.subscription(c, player);
                 Instant end =
                         DonorGrace.renewedEnd(
-                                existing.map(ShopRepository.Subscription::periodEnd).orElse(null),
+                                existing.map(SubscriptionRepository.Subscription::periodEnd)
+                                        .orElse(null),
                                 Instant.now(),
                                 MONTH);
-                ShopRepository.upsertSubscription(
+                SubscriptionRepository.upsertSubscription(
                         c,
-                        new ShopRepository.Subscription(
+                        new SubscriptionRepository.Subscription(
                                 player,
                                 product.tier(),
                                 payment.recurringRef(),
                                 DonorGrace.State.ACTIVE,
                                 end));
                 donors.add(player);
-                // 선단 후원자 월 1회 한정 코스메틱 (소유형 혜택, 해지 후에도 유지)
+                // Monthly limited cosmetic for Fleet donors (an owned perk, kept after
+                // cancellation)
                 if (product.tier() == DonorTier.FLEET) {
                     Optional<HarborId> monthly =
                             settings.monthlyCosmetic(
@@ -269,13 +283,16 @@ public final class PaymentProcessor {
             }
         }
         creatorPayout(c, g, settings);
-        setState(c, g.lineTxId(), "GRANTED", null);
-        ShopRepository.insertNotice(
+        PurchaseSql.setState(c, g.lineTxId(), "GRANTED", null);
+        NoticeRepository.insertNotice(
                 c, player, product.kind().name(), g.pearls(), product.id().path());
         return true;
     }
 
-    /** 유료 묶음으로 지급하고, debt가 있으면 새 묶음에서 먼저 갚는다 (docs 20 12.4 '잔액 음수 금지'). */
+    /**
+     * Credits as a paid lot, repaying any debt from the new lot first (docs 20 12.4 "no negative
+     * balance").
+     */
     private void credit(PearlTx tx, UUID player, long pearls, LedgerReason reason, String txId)
             throws SQLException {
         Connection c = tx.connection();
@@ -293,10 +310,10 @@ public final class PaymentProcessor {
                         "debt:" + txId,
                         false,
                         null,
-                        lotId(c, player, txId)));
+                        PurchaseSql.lotId(c, player, txId)));
         ShopRepository.addDebt(c, player, -repay);
         if (debt - repay <= 0) {
-            unlockIfDebt(c, player);
+            PurchaseSql.unlockIfDebt(c, player);
         }
     }
 
@@ -340,211 +357,7 @@ public final class PaymentProcessor {
         }
     }
 
-    // ------------------------------------------------------------------ 환불·지불 거절
-
-    private enum Reversal {
-        REFUND,
-        CHARGEBACK
-    }
-
-    /** 결제 행 하나 (tx_id 또는 tx_id#순번). */
-    private record Row(
-            String txId,
-            @Nullable UUID player,
-            String kind,
-            long pearls,
-            String state,
-            long reversed,
-            long debtAdded) {}
-
-    private Outcome reverse(WebhookEvent event, Reversal type) throws SQLException {
-        String tx = event.txId();
-        if (tx == null) {
-            return new Outcome.Held("거래 ID 없음", List.of());
-        }
-        List<UUID> donors = new ArrayList<>();
-        List<String> ungranted = new ArrayList<>();
-        PearlManager.Committed<Integer> committed =
-                pearls.runBlocking(
-                        t -> {
-                            List<Row> rows = rows(t.connection(), tx);
-                            if (rows.isEmpty()) {
-                                return -1;
-                            }
-                            int done = 0;
-                            for (Row row : rows) {
-                                if ("HELD".equals(row.state()) || "RECEIVED".equals(row.state())) {
-                                    // 아직 지급 전: 회수할 것은 없고, 나중에 관리자가 재처리해도 grant()가 멈추도록 상태만 닫는다
-                                    setState(
-                                            t.connection(),
-                                            row.txId(),
-                                            type == Reversal.REFUND ? "REFUNDED" : "CHARGEBACK",
-                                            "지급 전 " + type.name());
-                                    ungranted.add(row.txId());
-                                    continue;
-                                }
-                                if (!"GRANTED".equals(row.state()) || row.player() == null) {
-                                    continue;
-                                }
-                                reverseRow(t, row, type, donors);
-                                done++;
-                            }
-                            return done;
-                        });
-        if (committed.value() < 0) {
-            // 완료 웹훅보다 먼저 왔다: 재시도로 미룬다
-            return new Outcome.Retry("결제 기록이 아직 없음: " + tx);
-        }
-        List<Runnable> after = new ArrayList<>();
-        after.add(() -> pearls.afterCommit(committed));
-        donors.forEach(d -> after.add(() -> hooks.donorChanged(d)));
-        rows(tx).forEach(
-                        r -> {
-                            if (r.player() != null && !ungranted.contains(r.txId())) {
-                                UUID player = r.player();
-                                after.add(() -> rt.notifyPlayer(player, type.name(), r.reversed()));
-                            }
-                        });
-        if (type == Reversal.CHARGEBACK) {
-            after.add(() -> rt.alert("chargeback", tx));
-        }
-        return new Outcome.Done(after);
-    }
-
-    private List<Row> rows(String tx) throws SQLException {
-        return rt.api().database().tx(c -> rowsNoLock(c, tx));
-    }
-
-    private void reverseRow(PearlTx t, Row row, Reversal type, List<UUID> donors)
-            throws SQLException {
-        Connection c = t.connection();
-        UUID player = Objects.requireNonNull(row.player());
-        LedgerReason reason =
-                type == Reversal.REFUND
-                        ? LedgerReason.REFUND_REVERSAL
-                        : LedgerReason.CHARGEBACK_REVERSAL;
-        String ref = (type == Reversal.REFUND ? "refund:" : "chargeback:") + row.txId();
-        long taken = 0;
-        if (row.pearls() > 0) {
-            Long lot = lotId(c, player, row.txId());
-            long remaining = lot == null ? 0 : lotRemaining(c, lot);
-            ShopRepository.lockDebt(c, player);
-            if (remaining > 0) {
-                t.apply(new PearlLedger.Change(player, -remaining, reason, ref, false, null, lot));
-                taken = remaining;
-            }
-        }
-        long shortage = Math.max(0, row.pearls() - taken);
-        if (shortage > 0) {
-            ShopRepository.addDebt(c, player, shortage);
-            // 관리자 정지 등 다른 사유가 이미 있으면 덮어쓰지 않는다 (debt를 다 갚을 때 unlockIfDebt가 그 정지를 풀어 버린다)
-            Optional<String> existing = ShopRepository.lockReason(c, player);
-            if (existing.isEmpty() || existing.get().startsWith("debt:")) {
-                ShopRepository.setLock(c, player, true, "debt:" + ref);
-            }
-        }
-        if (ProductDef.Kind.SUBSCRIPTION.key().equals(row.kind())) {
-            ShopRepository.endSubscription(c, player);
-            donors.add(player);
-        }
-        if (ProductDef.Kind.FESTIVAL.key().equals(row.kind())) {
-            FestivalManager.withdraw(c, row.txId());
-        }
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "UPDATE purchases SET state = ?, reversed_pearls = ?, debt_added = ? WHERE tx_id = ?")) {
-            ps.setString(1, type == Reversal.REFUND ? "REFUNDED" : "CHARGEBACK");
-            ps.setLong(2, taken);
-            ps.setLong(3, shortage);
-            ps.setString(4, row.txId());
-            ps.executeUpdate();
-        }
-    }
-
-    /** 분쟁 승소: 회수분을 돌려주고 debt·잠금을 푼다. */
-    private Outcome disputeWon(WebhookEvent event) throws SQLException {
-        String tx = event.txId();
-        if (tx == null) {
-            return new Outcome.Held("거래 ID 없음", List.of());
-        }
-        PearlManager.Committed<Integer> committed =
-                pearls.runBlocking(
-                        t -> {
-                            Connection c = t.connection();
-                            List<Row> rows = rows(c, tx);
-                            if (rows.isEmpty()) {
-                                return -1;
-                            }
-                            int done = 0;
-                            for (Row row : rows) {
-                                if (!"CHARGEBACK".equals(row.state()) || row.player() == null) {
-                                    continue;
-                                }
-                                UUID player = Objects.requireNonNull(row.player());
-                                long debt = ShopRepository.lockDebt(c, player);
-                                if (row.reversed() > 0) {
-                                    t.apply(
-                                            new PearlLedger.Change(
-                                                    player,
-                                                    row.reversed(),
-                                                    LedgerReason.CHARGEBACK_RESTORE,
-                                                    "restore:" + row.txId(),
-                                                    true,
-                                                    "restore:" + row.txId(),
-                                                    null));
-                                }
-                                // debt는 플레이어 합계라 건별로 남은 양을 모른다: 이 건 몫이 최대한 남아 있다고 보고
-                                // (min(debtAdded, debt)) 그만큼만 지우고, 나머지는 이미 충전에서 갚은 것이라 돌려준다
-                                long remaining = Math.min(row.debtAdded(), Math.max(0, debt));
-                                long repaid = row.debtAdded() - remaining;
-                                if (repaid > 0) {
-                                    t.apply(
-                                            new PearlLedger.Change(
-                                                    player,
-                                                    repaid,
-                                                    LedgerReason.CHARGEBACK_RESTORE,
-                                                    "repaid:" + row.txId(),
-                                                    true,
-                                                    "repaid:" + row.txId(),
-                                                    null));
-                                }
-                                ShopRepository.addDebt(c, player, -remaining);
-                                if (ShopRepository.wallet(c, player).debt() <= 0) {
-                                    unlockIfDebt(c, player);
-                                }
-                                setState(c, row.txId(), "CHARGEBACK_WON", null);
-                                done++;
-                            }
-                            return done;
-                        });
-        if (committed.value() < 0) {
-            return new Outcome.Retry("결제 기록이 아직 없음: " + tx);
-        }
-        return new Outcome.Done(List.of(() -> pearls.afterCommit(committed)));
-    }
-
-    private Outcome disputeClosed(WebhookEvent event) throws SQLException {
-        String tx = event.txId();
-        if (tx == null) {
-            return new Outcome.Held("거래 ID 없음", List.of());
-        }
-        rt.api()
-                .database()
-                .txVoid(
-                        c -> {
-                            try (PreparedStatement ps =
-                                    c.prepareStatement(
-                                            "UPDATE purchases SET detail = ? WHERE (tx_id = ? OR tx_id LIKE ?) AND state = 'CHARGEBACK'")) {
-                                ps.setString(1, event.type());
-                                ps.setString(2, tx);
-                                ps.setString(3, tx + "#%");
-                                ps.executeUpdate();
-                            }
-                        });
-        return new Outcome.Done(List.of(() -> rt.alert("dispute_closed", tx + " " + event.type())));
-    }
-
-    // ------------------------------------------------------------------ 구독
+    // ------------------------------------------------------------------ subscriptions
 
     private Outcome recurring(WebhookEvent event, DonorGrace.State state) throws SQLException {
         Optional<WebhookEvent.Recurring> found = event.recurring();
@@ -563,25 +376,28 @@ public final class PaymentProcessor {
                         .database()
                         .tx(
                                 c -> {
-                                    Optional<ShopRepository.Subscription> existing =
-                                            ShopRepository.subscriptionByRecurring(
+                                    Optional<SubscriptionRepository.Subscription> existing =
+                                            SubscriptionRepository.subscriptionByRecurring(
                                                     c, r.reference());
                                     Optional<UUID> who =
-                                            existing.map(ShopRepository.Subscription::player)
+                                            existing.map(
+                                                            SubscriptionRepository.Subscription
+                                                                    ::player)
                                                     .or(() -> playerFromBody);
                                     if (who.isEmpty()) {
                                         return Optional.<UUID>empty();
                                     }
-                                    Optional<ShopRepository.Subscription> current =
+                                    Optional<SubscriptionRepository.Subscription> current =
                                             existing.isPresent()
                                                     ? existing
-                                                    : ShopRepository.subscription(c, who.get());
+                                                    : SubscriptionRepository.subscription(
+                                                            c, who.get());
                                     DonorTier tier =
                                             product.map(ProductDef::tier)
                                                     .or(
                                                             () ->
                                                                     current.map(
-                                                                            ShopRepository
+                                                                            SubscriptionRepository
                                                                                             .Subscription
                                                                                     ::tier))
                                                     .orElse(DonorTier.NONE);
@@ -589,12 +405,15 @@ public final class PaymentProcessor {
                                         return Optional.<UUID>empty();
                                     }
                                     Instant previous =
-                                            current.map(ShopRepository.Subscription::periodEnd)
+                                            current.map(
+                                                            SubscriptionRepository.Subscription
+                                                                    ::periodEnd)
                                                     .orElse(null);
                                     Instant next = r.nextPaymentAt();
                                     Instant end;
                                     if (WebhookEvent.RECURRING_ENDED.equals(event.type())) {
-                                        // 끝: 남은 기간 + 유예 뒤 정리 작업이 ENDED로 닫는다
+                                        // Ended: the cleanup job closes it as ENDED after the
+                                        // remaining period plus grace
                                         end = previous != null ? previous : Instant.now();
                                     } else if (next != null) {
                                         end = next;
@@ -604,9 +423,9 @@ public final class PaymentProcessor {
                                                         ? previous
                                                         : Instant.now().plus(MONTH);
                                     }
-                                    ShopRepository.upsertSubscription(
+                                    SubscriptionRepository.upsertSubscription(
                                             c,
-                                            new ShopRepository.Subscription(
+                                            new SubscriptionRepository.Subscription(
                                                     who.get(), tier, r.reference(), state, end));
                                     return who;
                                 });
@@ -615,94 +434,5 @@ public final class PaymentProcessor {
         }
         UUID who = player.get();
         return new Outcome.Done(List.of(() -> hooks.donorChanged(who)));
-    }
-
-    // ------------------------------------------------------------------ SQL
-
-    private static Optional<String> purchaseState(Connection c, String tx) throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement("SELECT state FROM purchases WHERE tx_id = ? FOR UPDATE")) {
-            ps.setString(1, tx);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.of(rs.getString(1)) : Optional.empty();
-            }
-        }
-    }
-
-    private static List<Row> rows(Connection c, String tx) throws SQLException {
-        return rows(c, tx, true);
-    }
-
-    private static List<Row> rowsNoLock(Connection c, String tx) throws SQLException {
-        return rows(c, tx, false);
-    }
-
-    private static List<Row> rows(Connection c, String tx, boolean lock) throws SQLException {
-        List<Row> rows = new ArrayList<>();
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "SELECT tx_id, uuid, COALESCE(kind, ''), pearls, state, reversed_pearls, debt_added"
-                                + " FROM purchases WHERE tx_id = ? OR tx_id LIKE ?"
-                                + (lock ? " FOR UPDATE" : ""))) {
-            ps.setString(1, tx);
-            ps.setString(2, tx + "#%");
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String uuid = rs.getString(2);
-                    rows.add(
-                            new Row(
-                                    rs.getString(1),
-                                    uuid == null ? null : UUID.fromString(uuid),
-                                    rs.getString(3),
-                                    rs.getLong(4),
-                                    rs.getString(5),
-                                    rs.getLong(6),
-                                    rs.getLong(7)));
-                }
-            }
-        }
-        return rows;
-    }
-
-    private static void setState(Connection c, String tx, String state, @Nullable String detail)
-            throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "UPDATE purchases SET state = ?, detail = COALESCE(?, detail) WHERE tx_id = ?")) {
-            ps.setString(1, state);
-            ShopRepository.setNullable(ps, 2, detail);
-            ps.setString(3, tx);
-            ps.executeUpdate();
-        }
-    }
-
-    private static @Nullable Long lotId(Connection c, UUID player, String sourceRef)
-            throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "SELECT lot_id FROM pearl_lot WHERE uuid = ? AND source_ref = ?")) {
-            ps.setString(1, player.toString());
-            ps.setString(2, sourceRef);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getLong(1) : null;
-            }
-        }
-    }
-
-    private static long lotRemaining(Connection c, long lot) throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement("SELECT remaining FROM pearl_lot WHERE lot_id = ?")) {
-            ps.setLong(1, lot);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getLong(1) : 0;
-            }
-        }
-    }
-
-    private static void unlockIfDebt(Connection c, UUID player) throws SQLException {
-        Optional<String> reason = ShopRepository.lockReason(c, player);
-        if (reason.isPresent() && reason.get().startsWith("debt:")) {
-            ShopRepository.setLock(c, player, false, null);
-        }
     }
 }

@@ -12,11 +12,12 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 주간 로테이션 진열 (shop/rotation.yml, docs 20 12.3). 시즌 주차(Season SeasonClock.week)마다 진열할 코스메틱 목록. 상시
- * 판매(permanent)는 여기에 없어도 늘 진열된다.
+ * Weekly rotation listing (shop/rotation.yml, docs 20 12.3). Cosmetics to list for each season week
+ * (Season SeasonClock.week). Permanent items (permanent) are always listed even if not here.
  *
- * @param weeks 주차 → 진열 목록
- * @param repeat true면 정의되지 않은 주차(연장 주 포함)는 정의된 주차 목록을 처음부터 돌아가며 쓴다
+ * @param weeks week → listing
+ * @param repeat if true, undefined weeks (including extension weeks) cycle through the defined week
+ *     lists from the start
  */
 public record RotationPlan(Map<Integer, List<HarborId>> weeks, boolean repeat) {
 
@@ -24,7 +25,7 @@ public record RotationPlan(Map<Integer, List<HarborId>> weeks, boolean repeat) {
             new ContentType.Single<>(
                     "shop_rotation", "shop/rotation.yml", false, RotationPlan::parse);
 
-    /** 이 주차의 로테이션 진열. 주차가 0(시즌 시작 전)이면 비어 있다. */
+    /** Rotation listing for this week. Empty when the week is 0 (before the season starts). */
     public List<HarborId> itemsFor(int week) {
         if (week <= 0 || weeks.isEmpty()) {
             return List.of();

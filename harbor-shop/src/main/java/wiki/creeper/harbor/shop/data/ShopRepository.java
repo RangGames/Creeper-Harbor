@@ -25,14 +25,14 @@ import wiki.creeper.harbor.shop.api.PearlService;
 import wiki.creeper.harbor.shop.content.CosmeticDef;
 import wiki.creeper.harbor.shop.donor.DonorGrace;
 
-/** Shop 테이블 SQL. 모두 블로킹이므로 가상 스레드(Database.async/tx)에서만 부른다. */
+/** Shop table SQL. All calls block, so call them only on virtual threads (Database.async/tx). */
 public final class ShopRepository {
 
     private ShopRepository() {}
 
-    // ------------------------------------------------------------------ 접속 로드
+    // ------------------------------------------------------------------ join load
 
-    /** 접속 전 로드 (PlayerComponent). */
+    /** Pre-join load (PlayerComponent). */
     public static ShopProfile load(Connection c, UUID player, SeasonId season, Duration grace)
             throws SQLException {
         PearlService.Balance wallet = wallet(c, player);
@@ -54,7 +54,8 @@ public final class ShopRepository {
                 }
             }
         }
-        Subscription sub = subscription(c, player).orElse(null);
+        SubscriptionRepository.Subscription sub =
+                SubscriptionRepository.subscription(c, player).orElse(null);
         DonorTier tier =
                 sub == null
                         ? DonorTier.NONE
@@ -91,11 +92,11 @@ public final class ShopRepository {
                 sub == null ? null : sub.periodEnd(),
                 pass,
                 displayName,
-                shards(c, player),
+                ChestRepository.shards(c, player),
                 creator);
     }
 
-    // ------------------------------------------------------------------ 지갑·정지
+    // ------------------------------------------------------------------ wallet and lock
 
     public static PearlService.Balance wallet(Connection c, UUID player) throws SQLException {
         try (PreparedStatement ps =
@@ -110,7 +111,7 @@ public final class ShopRepository {
         }
     }
 
-    /** 지갑 행을 잠그고 debt를 읽는다 (환불·결제 처리 트랜잭션 안). */
+    /** Locks the wallet row and reads debt (inside a refund/payment transaction). */
     public static long lockDebt(Connection c, UUID player) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement("INSERT IGNORE INTO pearl_wallet (uuid) VALUES (?)")) {
@@ -127,8 +128,10 @@ public final class ShopRepository {
     }
 
     /**
-     * 주문 트랜잭션 맨 앞에서 산 사람 지갑 행을 잠근다. 같은 플레이어의 주문을 줄 세워 한도·소유 검사가 동시에 통과하지 않게 하고, 잠금 뒤에 첫 일반 읽기가 일어나야
-     * REPEATABLE READ 스냅샷이 앞 주문의 커밋을 본다.
+     * Locks the buyer's wallet row at the very start of an order transaction. This serializes the
+     * same player's orders so limit and ownership checks cannot pass concurrently, and the first
+     * plain read must happen after the lock so the REPEATABLE READ snapshot sees the previous
+     * order's commit.
      */
     public static void lockWallet(Connection c, UUID player) throws SQLException {
         lockDebt(c, player);
@@ -167,7 +170,7 @@ public final class ShopRepository {
         }
     }
 
-    /** 정지 사유. */
+    /** Lock reason. */
     public static Optional<String> lockReason(Connection c, UUID player) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement("SELECT reason FROM shop_flags WHERE uuid = ? AND locked = 1")) {
@@ -178,7 +181,7 @@ public final class ShopRepository {
         }
     }
 
-    /** 최근 진주 원장 (/진주). */
+    /** Recent pearl ledger entries (/진주). */
     public record LedgerLine(long delta, String reason, @Nullable String refId, Instant at) {}
 
     public static List<LedgerLine> recentLedger(Connection c, UUID player, int limit)
@@ -204,7 +207,7 @@ public final class ShopRepository {
         return lines;
     }
 
-    // ------------------------------------------------------------------ 코스메틱
+    // ------------------------------------------------------------------ cosmetics
 
     public static Set<HarborId> owned(Connection c, UUID player) throws SQLException {
         Set<HarborId> owned = new HashSet<>();
@@ -234,7 +237,7 @@ public final class ShopRepository {
     }
 
     /**
-     * @return 새로 넣었으면 true (이미 있으면 false)
+     * @return true if newly inserted (false if it already existed)
      */
     public static boolean insertOwned(
             Connection c, UUID player, HarborId cosmetic, String source, @Nullable String refId)
@@ -292,9 +295,12 @@ public final class ShopRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 주문
+    // ------------------------------------------------------------------ orders
 
-    /** 주문 기록. 같은 order_id가 이미 있으면 false (연타·지연 재전송). */
+    /**
+     * Records an order. Returns false if the same order_id already exists (double clicks, delayed
+     * resends).
+     */
     public static boolean insertOrder(
             Connection c,
             UUID orderId,
@@ -348,7 +354,7 @@ public final class ShopRepository {
 
     // ------------------------------------------------------------------ players (Common)
 
-    /** 누적 플레이 시간 (초). */
+    /** Total playtime (seconds). */
     public static long playtime(Connection c, UUID player) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement("SELECT playtime FROM players WHERE uuid = ?")) {
@@ -359,7 +365,7 @@ public final class ShopRepository {
         }
     }
 
-    /** 이름으로 UUID (마지막 접속 이름 기준). */
+    /** UUID by name (based on the last-join name). */
     public static Optional<UUID> uuidByName(Connection c, String name) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
@@ -371,7 +377,7 @@ public final class ShopRepository {
         }
     }
 
-    /** 다른 사람이 같은 표시 이름이나 계정 이름을 쓰는지. */
+    /** Whether someone else uses the same display name or account name. */
     public static boolean nameTaken(Connection c, UUID player, String name) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
@@ -395,7 +401,7 @@ public final class ShopRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 시즌 패스
+    // ------------------------------------------------------------------ season pass
 
     public static ShopProfile.Pass pass(Connection c, UUID player, int season) throws SQLException {
         long exp = 0;
@@ -417,7 +423,7 @@ public final class ShopRepository {
         return new ShopProfile.Pass(season, exp, bought, premium, claimed(c, player, season));
     }
 
-    /** 패스 행을 잠그고 읽는다 (구매·보상 트랜잭션). */
+    /** Locks and reads the pass row (purchase/reward transaction). */
     public static ShopProfile.Pass lockPass(Connection c, UUID player, int season)
             throws SQLException {
         try (PreparedStatement ps =
@@ -443,7 +449,10 @@ public final class ShopRepository {
         }
     }
 
-    /** 경험치·단계 저장 (지연 쓰기). 늦게 도착한 옛 값이 새 값을 덮지 않게 GREATEST로 합친다. */
+    /**
+     * Saves exp and level (write-behind). Merged with GREATEST so a late-arriving old value never
+     * overwrites a newer one.
+     */
     public static void savePassExp(Connection c, UUID player, int season, long exp, int level)
             throws SQLException {
         try (PreparedStatement ps =
@@ -459,7 +468,7 @@ public final class ShopRepository {
         }
     }
 
-    /** 프리미엄·구매 단계 갱신 (즉시 트랜잭션). */
+    /** Updates premium and purchased levels (immediate transaction). */
     public static void updatePassPurchase(
             Connection c, UUID player, int season, int premium, int bought, int level)
             throws SQLException {
@@ -493,7 +502,7 @@ public final class ShopRepository {
     }
 
     /**
-     * @return 새로 기록했으면 true (이미 받았으면 false)
+     * @return true if newly recorded (false if already claimed)
      */
     public static boolean insertClaim(
             Connection c, UUID player, int season, int level, String track) throws SQLException {
@@ -508,7 +517,7 @@ public final class ShopRepository {
         }
     }
 
-    /** 패스 행 (시즌 마감 훅). */
+    /** A pass row (season close hook). */
     public record PassRow(UUID player, long exp, int bought, int premium) {}
 
     public static List<PassRow> passRows(Connection c, int season) throws SQLException {
@@ -531,255 +540,7 @@ public final class ShopRepository {
         return rows;
     }
 
-    // ------------------------------------------------------------------ 보물함
-
-    public static int lockPity(Connection c, UUID player, int season, HarborId chest)
-            throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "INSERT IGNORE INTO chest_pity (uuid, season, chest_id) VALUES (?, ?, ?)")) {
-            ps.setString(1, player.toString());
-            ps.setInt(2, season);
-            ps.setString(3, chest.toString());
-            ps.executeUpdate();
-        }
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "SELECT count FROM chest_pity WHERE uuid = ? AND season = ? AND chest_id = ? FOR UPDATE")) {
-            ps.setString(1, player.toString());
-            ps.setInt(2, season);
-            ps.setString(3, chest.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : 0;
-            }
-        }
-    }
-
-    public static int pity(Connection c, UUID player, int season, HarborId chest)
-            throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "SELECT count FROM chest_pity WHERE uuid = ? AND season = ? AND chest_id = ?")) {
-            ps.setString(1, player.toString());
-            ps.setInt(2, season);
-            ps.setString(3, chest.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : 0;
-            }
-        }
-    }
-
-    public static void setPity(Connection c, UUID player, int season, HarborId chest, int count)
-            throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "UPDATE chest_pity SET count = ? WHERE uuid = ? AND season = ? AND chest_id = ?")) {
-            ps.setInt(1, count);
-            ps.setString(2, player.toString());
-            ps.setInt(3, season);
-            ps.setString(4, chest.toString());
-            ps.executeUpdate();
-        }
-    }
-
-    /** 개봉 기록 한 줄. */
-    public record OpenLog(
-            UUID player,
-            HarborId chest,
-            int tableVersion,
-            int roll,
-            HarborId result,
-            String grade,
-            boolean pityHit,
-            boolean duplicate,
-            int pityBefore,
-            UUID orderId) {}
-
-    public static void logOpen(Connection c, OpenLog log) throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "INSERT INTO chest_open_log (uuid, chest_id, table_version, roll, result, grade,"
-                                + " pity_hit, duplicate, pity_before, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
-            ps.setString(1, log.player().toString());
-            ps.setString(2, log.chest().toString());
-            ps.setInt(3, log.tableVersion());
-            ps.setInt(4, log.roll());
-            ps.setString(5, log.result().toString());
-            ps.setString(6, log.grade());
-            ps.setBoolean(7, log.pityHit());
-            ps.setBoolean(8, log.duplicate());
-            ps.setInt(9, log.pityBefore());
-            ps.setString(10, log.orderId().toString());
-            ps.executeUpdate();
-        }
-    }
-
-    public static long shards(Connection c, UUID player) throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement("SELECT shards FROM shop_shards WHERE uuid = ?")) {
-            ps.setString(1, player.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getLong(1) : 0;
-            }
-        }
-    }
-
-    /** 진주 조각을 더하거나 뺀다. 음수가 되면 false (변경 없음). */
-    public static boolean addShards(Connection c, UUID player, long delta) throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement("INSERT IGNORE INTO shop_shards (uuid) VALUES (?)")) {
-            ps.setString(1, player.toString());
-            ps.executeUpdate();
-        }
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "UPDATE shop_shards SET shards = shards + ? WHERE uuid = ? AND shards + ? >= 0")) {
-            ps.setLong(1, delta);
-            ps.setString(2, player.toString());
-            ps.setLong(3, delta);
-            return ps.executeUpdate() == 1;
-        }
-    }
-
-    // ------------------------------------------------------------------ 구독
-
-    /** subscriptions 한 행. */
-    public record Subscription(
-            UUID player,
-            DonorTier tier,
-            @Nullable String recurringId,
-            DonorGrace.State state,
-            @Nullable Instant periodEnd) {}
-
-    public static Optional<Subscription> subscription(Connection c, UUID player)
-            throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "SELECT uuid, tier, tebex_recurring_id, state, period_end FROM subscriptions WHERE uuid = ?")) {
-            ps.setString(1, player.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.of(subscriptionRow(rs)) : Optional.empty();
-            }
-        }
-    }
-
-    public static Optional<Subscription> subscriptionByRecurring(Connection c, String recurringId)
-            throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "SELECT uuid, tier, tebex_recurring_id, state, period_end FROM subscriptions"
-                                + " WHERE tebex_recurring_id = ? FOR UPDATE")) {
-            ps.setString(1, recurringId);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.of(subscriptionRow(rs)) : Optional.empty();
-            }
-        }
-    }
-
-    /** 끝나지 않은 구독 전체 (시작 대조·유예 정리). */
-    public static List<Subscription> openSubscriptions(Connection c) throws SQLException {
-        List<Subscription> rows = new ArrayList<>();
-        try (PreparedStatement ps =
-                        c.prepareStatement(
-                                "SELECT uuid, tier, tebex_recurring_id, state, period_end FROM subscriptions"
-                                        + " WHERE state <> 'ENDED'");
-                ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                rows.add(subscriptionRow(rs));
-            }
-        }
-        return rows;
-    }
-
-    public static void upsertSubscription(Connection c, Subscription s) throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "INSERT INTO subscriptions (uuid, tier, tebex_recurring_id, state, period_end)"
-                                + " VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE tier = VALUES(tier),"
-                                + " tebex_recurring_id = COALESCE(VALUES(tebex_recurring_id), tebex_recurring_id),"
-                                + " state = VALUES(state), period_end = VALUES(period_end)")) {
-            ps.setString(1, s.player().toString());
-            ps.setString(2, s.tier().name());
-            setNullable(ps, 3, s.recurringId());
-            ps.setString(4, s.state().name());
-            if (s.periodEnd() == null) {
-                ps.setNull(5, Types.TIMESTAMP);
-            } else {
-                ps.setTimestamp(5, Timestamp.from(s.periodEnd()));
-            }
-            ps.executeUpdate();
-        }
-    }
-
-    /** 유예가 지난 구독을 ENDED로 (기대 상태 조건부). 바뀌었으면 true. */
-    public static boolean endSubscription(Connection c, UUID player) throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "UPDATE subscriptions SET state = 'ENDED' WHERE uuid = ? AND state <> 'ENDED'")) {
-            ps.setString(1, player.toString());
-            return ps.executeUpdate() == 1;
-        }
-    }
-
-    private static Subscription subscriptionRow(ResultSet rs) throws SQLException {
-        Timestamp end = rs.getTimestamp(5);
-        return new Subscription(
-                UUID.fromString(rs.getString(1)),
-                DonorTier.parse(rs.getString(2)),
-                rs.getString(3),
-                DonorGrace.State.parse(rs.getString(4)),
-                end == null ? null : end.toInstant());
-    }
-
-    // ------------------------------------------------------------------ 알림
-
-    /** 미확인 알림 한 건. */
-    public record Notice(long id, String kind, long amount, @Nullable String detail) {}
-
-    public static void insertNotice(
-            Connection c, UUID player, String kind, long amount, @Nullable String detail)
-            throws SQLException {
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "INSERT INTO shop_notice (uuid, kind, amount, detail) VALUES (?, ?, ?, ?)")) {
-            ps.setString(1, player.toString());
-            ps.setString(2, kind);
-            ps.setLong(3, amount);
-            setNullable(ps, 4, detail);
-            ps.executeUpdate();
-        }
-    }
-
-    /** 미확인 알림을 읽고 확인 처리한다 (한 트랜잭션). */
-    public static List<Notice> takeNotices(Connection c, UUID player) throws SQLException {
-        List<Notice> notices = new ArrayList<>();
-        try (PreparedStatement ps =
-                c.prepareStatement(
-                        "SELECT id, kind, amount, detail FROM shop_notice WHERE uuid = ? AND seen_at IS NULL"
-                                + " ORDER BY id LIMIT 20 FOR UPDATE")) {
-            ps.setString(1, player.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    notices.add(
-                            new Notice(
-                                    rs.getLong(1),
-                                    rs.getString(2),
-                                    rs.getLong(3),
-                                    rs.getString(4)));
-                }
-            }
-        }
-        for (Notice n : notices) {
-            try (PreparedStatement ps =
-                    c.prepareStatement("UPDATE shop_notice SET seen_at = NOW(3) WHERE id = ?")) {
-                ps.setLong(1, n.id());
-                ps.executeUpdate();
-            }
-        }
-        return notices;
-    }
-
-    // ------------------------------------------------------------------ 공용
+    // ------------------------------------------------------------------ shared
 
     public static void setNullable(PreparedStatement ps, int index, @Nullable String value)
             throws SQLException {

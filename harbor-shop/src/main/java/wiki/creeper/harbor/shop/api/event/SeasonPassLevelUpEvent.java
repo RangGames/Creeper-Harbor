@@ -4,7 +4,10 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 시즌 패스 단계가 오른 뒤 (메인 스레드). bought면 진주 단계 구매·프리미엄+ 즉시 단계. */
+/**
+ * After the season pass level rises (main thread). bought means a pearl level purchase or premium+
+ * instant levels.
+ */
 public final class SeasonPassLevelUpEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

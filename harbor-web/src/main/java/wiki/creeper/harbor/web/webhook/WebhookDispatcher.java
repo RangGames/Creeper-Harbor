@@ -28,18 +28,20 @@ import wiki.creeper.harbor.common.redis.DistributedLock;
 import wiki.creeper.harbor.core.api.HarborApi;
 
 /**
- * 웹훅 발송 (config.yml webhooks). harbor:events(모든 서버)를 구독해서 대상마다 거르고 보낸다. 여러 서버에서 켜도 Redis 잠금 {@value
- * #LOCK}을 잡은 서버 하나만 보낸다 (잠금은 10초마다 연장, 30초 TTL).
+ * Webhook delivery (config.yml webhooks). Subscribes to harbor:events (all servers), filters per
+ * target and sends. Even if enabled on several servers, only the one holding the Redis lock {@value
+ * #LOCK} sends (the lock is extended every 10 seconds, 30-second TTL).
  *
  * <ul>
- *   <li>json: 이벤트 전체를 POST. 헤더 X-Harbor-Event · X-Harbor-Id · X-Harbor-Timestamp, secret이 있으면
- *       X-Harbor-Signature
- *   <li>discord: messages_ko.yml {@code web.discord.<type>} 문구를 content로 (문구가 없는 type은 보내지 않는다).
- *       자리표시자는 player · server · type과 data의 모든 칸 (점은 밑줄로, 예: rewards.gold → rewards_gold)
+ *   <li>json: POSTs the whole event. Headers X-Harbor-Event · X-Harbor-Id · X-Harbor-Timestamp,
+ *       plus X-Harbor-Signature if a secret is set
+ *   <li>discord: the messages_ko.yml {@code web.discord.<type>} text as content (types without text
+ *       are not sent). Placeholders are player · server · type and every data field (dots become
+ *       underscores, e.g. rewards.gold → rewards_gold)
  * </ul>
  *
- * 대상마다 대기열 하나와 가상 스레드 하나. 실패하면 1·5·15초 뒤 재시도, 429면 retry_after만큼 기다린다. 대기열이 차면 오래된 것부터 버리지 않고 새 것을
- * 버리며 경고를 남긴다.
+ * One queue and one virtual thread per target. On failure retries after 1/5/15 seconds; on 429
+ * waits retry_after. When the queue is full, new items are dropped (not the oldest) with a warning.
  */
 public final class WebhookDispatcher {
 
@@ -120,7 +122,7 @@ public final class WebhookDispatcher {
         return targets;
     }
 
-    /** 잠금 유지 (가상 스레드). */
+    /** Keeps the lock (virtual thread). */
     private void lead() {
         while (running) {
             try {
@@ -169,7 +171,7 @@ public final class WebhookDispatcher {
         }
     }
 
-    /** 테스트 발송 (/harbor web test). */
+    /** Test delivery (/harbor web test). */
     public boolean test(String targetName, ExternalEvent event) {
         for (int i = 0; i < targets.size(); i++) {
             WebhookTarget target = targets.get(i);
@@ -183,7 +185,7 @@ public final class WebhookDispatcher {
         return false;
     }
 
-    // ------------------------------------------------------------------ 본문
+    // ------------------------------------------------------------------ body
 
     Optional<String> body(WebhookTarget target, ExternalEvent event) {
         return switch (target.format()) {
@@ -228,7 +230,7 @@ public final class WebhookDispatcher {
         return GSON.toJson(o);
     }
 
-    // ------------------------------------------------------------------ 발송
+    // ------------------------------------------------------------------ delivery
 
     private void work(BlockingQueue<Delivery> queue) {
         while (running) {
@@ -263,7 +265,7 @@ public final class WebhookDispatcher {
                     wait = retryAfter(res).orElse(wait);
                 } else if (code >= 400 && code < 500) {
                     log.warn("웹훅 {} 거절 ({}): {}", d.target().name(), code, abbreviate(res.body()));
-                    return false; // 요청이 틀렸으면 다시 보내도 같다
+                    return false; // a bad request will fail the same way if resent
                 }
                 Thread.sleep(wait);
             } catch (InterruptedException e) {
@@ -311,7 +313,7 @@ public final class WebhookDispatcher {
                 return Optional.of((long) Math.ceil(o.get("retry_after").getAsDouble() * 1000));
             }
         } catch (RuntimeException e) {
-            // 헤더로
+            // as a header
         }
         return res.headers()
                 .firstValue("Retry-After")

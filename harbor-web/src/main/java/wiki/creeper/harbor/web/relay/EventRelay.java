@@ -15,8 +15,10 @@ import org.slf4j.Logger;
 import wiki.creeper.harbor.core.api.HarborApi;
 
 /**
- * 게임 이벤트를 외부 이벤트로 옮긴다 (모든 서버). 목록({@link EventCatalog})의 이벤트를 그 플러그인이 켜져 있을 때만 MONITOR로 구독하고,
- * {@link EventSerializer}로 data를 만들어 {@code api.events().emit}으로 harbor:events에 발행한다. 접속·퇴장은 직접 낸다.
+ * Relays game events as external events (every server). Subscribes at MONITOR to the events in the
+ * catalog ({@link EventCatalog}) only when their plugin is enabled, builds data with {@link
+ * EventSerializer} and publishes to harbor:events via {@code api.events().emit}. Join and quit are
+ * emitted directly.
  */
 public final class EventRelay implements Listener {
 
@@ -41,7 +43,7 @@ public final class EventRelay implements Listener {
     }
 
     /**
-     * @return 구독한 이벤트 수
+     * @return number of subscribed events
      */
     public int register() {
         var pm = Bukkit.getPluginManager();
@@ -89,7 +91,7 @@ public final class EventRelay implements Listener {
         }
     }
 
-    /** server.* 이벤트 (제외 목록을 따른다). */
+    /** server.* events (respecting the exclude list). */
     public void emitServer(String type, Map<String, ?> data) {
         if (!Globs.any(exclude, type)) {
             api.events().emit(type, null, null, data);
@@ -124,7 +126,7 @@ public final class EventRelay implements Listener {
         return registered;
     }
 
-    /** Harbor ID → 콘텐츠 이름 (형식 이름 = ID 종류, 항목에 name()이 있으면). */
+    /** Harbor ID → content name (type name = ID kind, if the entry has name()). */
     public static Optional<String> contentName(
             HarborApi api, wiki.creeper.harbor.common.id.HarborId id) {
         return api.content()

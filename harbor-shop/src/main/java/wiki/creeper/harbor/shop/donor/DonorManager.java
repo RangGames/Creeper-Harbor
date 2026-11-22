@@ -24,15 +24,17 @@ import wiki.creeper.harbor.shop.api.event.DonorTierChangedEvent;
 import wiki.creeper.harbor.shop.content.CosmeticDef;
 import wiki.creeper.harbor.shop.content.ShopSettings;
 import wiki.creeper.harbor.shop.data.ShopProfile;
-import wiki.creeper.harbor.shop.data.ShopRepository;
+import wiki.creeper.harbor.shop.data.SubscriptionRepository;
 
 /**
- * 후원 등급 (DonorService 구현, docs 20 12.4 '후원 등급'). 구독 원본은 subscriptions이고, 상태가 바뀔 때마다 Redis 해시
- * harbor:donor(필드 = UUID, 값 = 등급 이름)를 맞춘다. 3일 유예는 값을 지우는 시점에 반영한다. 서버가 켜질 때 DB 기준으로 해시 전체를 다시 맞춘다
- * (Redis 재시작·누락 대비).
+ * Donor tiers (DonorService implementation, docs 20 12.4 'donor tiers'). The source of truth is
+ * subscriptions; on every state change the Redis hash harbor:donor (field = UUID, value = tier
+ * name) is synced. The 3-day grace is applied when the value is removed. On server start the whole
+ * hash is re-synced from the DB (in case of Redis restart or missed updates).
  *
- * <p>상태형 혜택(이름 색·후원자 칭호·채팅 아이콘·대기열 우선·어항 테마 칸 +2)은 구독 상태로 계산하고 끝나면 사라진다. 소유형 혜택(선단 월 1회 한정 코스메틱, 월
- * 진주)은 지급 기록이라 해지 후에도 남는다.
+ * <p>Status perks (name color, donor title, chat icon, queue priority, +2 aquarium theme slots) are
+ * computed from subscription state and disappear when it ends. Owned perks (monthly limited fleet
+ * cosmetic, monthly pearls) are grant records and remain after cancellation.
  */
 public final class DonorManager implements DonorService {
 
@@ -81,7 +83,10 @@ public final class DonorManager implements DonorService {
 
     // ------------------------------------------------------------------ Redis harbor:donor
 
-    /** 해시 한 칸을 맞춘다 (가상 스레드). Redis 장애면 로그만 남긴다 (다음 시작 대조가 맞춘다). */
+    /**
+     * Syncs one hash field (virtual thread). On Redis failure only logs (the next startup
+     * reconciliation fixes it).
+     */
     public void syncRedis(UUID player, DonorTier tier) {
         try {
             if (tier == DonorTier.NONE) {
@@ -94,12 +99,15 @@ public final class DonorManager implements DonorService {
         }
     }
 
-    /** DB 기준으로 harbor:donor 전체를 맞춘다 (가상 스레드, 한 서버만). 유예가 지난 구독은 이때 ENDED로 닫는다. */
+    /**
+     * Syncs all of harbor:donor from the DB (virtual thread, one server only). Subscriptions past
+     * grace are closed as ENDED here.
+     */
     public void reconcile() {
         reconcile(false);
     }
 
-    /** quiet면 바뀐 것(제거·종료)이 있을 때만 로그를 남긴다 (10분 주기 점검용). */
+    /** If quiet, logs only when something changed (removed or ended) (for the 10-minute check). */
     private void reconcile(boolean quiet) {
         Optional<DistributedLock.Handle> lock;
         try {
@@ -114,11 +122,11 @@ public final class DonorManager implements DonorService {
         try (DistributedLock.Handle _ = lock.get()) {
             Instant now = Instant.now();
             Duration grace = rt.grace();
-            List<ShopRepository.Subscription> open =
-                    rt.api().database().tx(ShopRepository::openSubscriptions);
+            List<SubscriptionRepository.Subscription> open =
+                    rt.api().database().tx(SubscriptionRepository::openSubscriptions);
             Map<String, String> expected = new HashMap<>();
             int ended = 0;
-            for (ShopRepository.Subscription s : open) {
+            for (SubscriptionRepository.Subscription s : open) {
                 if (DonorGrace.shouldEnd(s.state(), s.periodEnd(), now, grace)) {
                     endAndRevoke(s.player(), s.tier());
                     ended++;
@@ -149,20 +157,24 @@ public final class DonorManager implements DonorService {
         }
     }
 
-    /** 10분마다 유예가 지난 구독을 닫는다 (가상 스레드, 대조와 같은 잠금). */
+    /**
+     * Every 10 minutes closes subscriptions past grace (virtual thread, same lock as
+     * reconciliation).
+     */
     void sweep() {
         reconcile(true);
     }
 
     private void endAndRevoke(UUID player, DonorTier tier) throws java.sql.SQLException {
-        boolean ended = rt.api().database().tx(c -> ShopRepository.endSubscription(c, player));
+        boolean ended =
+                rt.api().database().tx(c -> SubscriptionRepository.endSubscription(c, player));
         syncRedis(player, DonorTier.NONE);
         if (ended) {
             rt.log().info("후원 종료 (유예 만료): {} {}", player, tier);
             ShopSettings.DonorPerk perk = rt.settings().perk(tier);
             String title = perk.title();
             if (title != null) {
-                // TitleService는 메인 스레드에서 부른다 (접속 중인 플레이어 캐시)
+                // TitleService is called on the main thread (online player cache)
                 rt.tasks()
                         .main()
                         .execute(
@@ -174,10 +186,13 @@ public final class DonorManager implements DonorService {
         }
     }
 
-    /** 구독 행을 다시 읽어 캐시·Redis·칭호·이름 색을 맞춘다 (메인 스레드에서 부른다). */
+    /**
+     * Re-reads the subscription row and syncs cache, Redis, title and name color (called on the
+     * main thread).
+     */
     public void refresh(UUID player) {
         var _ =
-                rt.db(c -> ShopRepository.subscription(c, player))
+                rt.db(c -> SubscriptionRepository.subscription(c, player))
                         .thenAccept(
                                 sub -> {
                                     DonorTier before = tier(player);
@@ -197,12 +212,12 @@ public final class DonorManager implements DonorService {
                                                     p.withDonor(
                                                             after,
                                                             sub.map(
-                                                                            ShopRepository
+                                                                            SubscriptionRepository
                                                                                             .Subscription
                                                                                     ::state)
                                                                     .orElse(DonorGrace.State.ENDED),
                                                             sub.map(
-                                                                            ShopRepository
+                                                                            SubscriptionRepository
                                                                                             .Subscription
                                                                                     ::periodEnd)
                                                                     .orElse(null)));
@@ -217,7 +232,10 @@ public final class DonorManager implements DonorService {
                                 });
     }
 
-    /** 접속 중인 플레이어에게 상태형 혜택을 적용한다: 후원자 칭호 지급·회수, 이름 색 (메인 스레드). */
+    /**
+     * Applies status perks to an online player: grant or revoke donor title, name color (main
+     * thread).
+     */
     public void apply(Player player) {
         DonorTier tier = tier(player.getUniqueId());
         ShopSettings settings = rt.settings();
@@ -244,8 +262,9 @@ public final class DonorManager implements DonorService {
     }
 
     /**
-     * 표시 이름 = (닉네임 변경권 표시 이름 또는 계정 이름) + 색. 색은 장착한 이름 색 코스메틱 → 후원 등급 색 순서. 탭 목록에도 같은 이름을 쓴다. 서버 간
-     * 채팅 형식(Proxy)은 이 값을 아직 읽지 않는다 (Core·Proxy 변경 요청).
+     * Display name = (nickname change display name or account name) + color. Color is the equipped
+     * name color cosmetic → donor tier color, in that order. The tab list uses the same name.
+     * Cross-server chat format (Proxy) does not read this value yet (Core/Proxy change request).
      */
     public void applyName(Player player) {
         ShopProfile profile = rt.profile(player.getUniqueId());

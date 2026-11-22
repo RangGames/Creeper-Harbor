@@ -10,14 +10,15 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 포획 연출 코스메틱 프리셋 (shop/catch_fx.yml, 추가 제안, docs 20 12.4 '포획 연출'). Fishing의 연출
- * 프리셋(fishing/presets.yml)은 등급별 강도만 정하므로, 코스메틱이 바꾸는 색·모양은 여기에 둔다. 강도(빛기둥 높이·폭죽 여부·공지)는 등급 값을 그대로 쓴다
- * ('등급이 눈에 보여야 한다').
+ * Catch effect cosmetic preset (shop/catch_fx.yml, proposed, docs 20 12.4 'Catch effects').
+ * Fishing's effect presets (fishing/presets.yml) only define intensity per grade, so the colors and
+ * shapes a cosmetic changes live here. Intensity (pillar height, fireworks, announcements) uses the
+ * grade values as-is ('the grade must be visible').
  *
- * @param pillarParticle 빛기둥 파티클 (dust면 pillarColors 색을 돌아가며 쓴다)
- * @param fireworkType 폭죽 모양 (ball · ball_large · star · burst · creeper)
- * @param sound 효과음 키 (비우면 등급 기본 효과음)
- * @param splashParticle 물보라 파티클 (등급 프리셋의 particle 대신)
+ * @param pillarParticle light pillar particle (for dust, cycles through pillarColors)
+ * @param fireworkType firework shape (ball · ball_large · star · burst · creeper)
+ * @param sound sound key (empty means the grade's default sound)
+ * @param splashParticle splash particle (instead of the grade preset's particle)
  */
 public record CatchFxPreset(
         HarborId id,

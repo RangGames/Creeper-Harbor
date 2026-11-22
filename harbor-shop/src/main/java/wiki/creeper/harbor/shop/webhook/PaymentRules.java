@@ -10,21 +10,23 @@ import wiki.creeper.harbor.shop.content.ProductDef;
 import wiki.creeper.harbor.shop.content.ShopSettings;
 
 /**
- * 결제 완료 검증 (docs 20 12.4 6단계, 서버 없이 테스트한다): 통화 KRW, products.yml 매핑, 결제 금액과 상품 가격 일치, 자유 금액은 10원
- * 단위·최소 1,000원, uuid 형식. 하나라도 틀리면 HELD로 두고 관리자에게 알린다. 장바구니에 품목이 여럿이면 tx_id#순번으로 나눈다.
+ * Payment completion validation (docs 20 12.4 step 6, tested without a server): currency KRW,
+ * products.yml mapping, paid amount equals product price, free amounts in 10-won units with a
+ * 1,000-won minimum, uuid format. If anything fails it is set HELD and admins are alerted. A basket
+ * with several items is split into tx_id#index.
  */
 public final class PaymentRules {
 
     /**
-     * 지급할 품목 하나.
+     * One item to grant.
      *
-     * @param lineTxId purchases.tx_id (품목이 하나면 tx_id, 여럿이면 tx_id#1 …)
-     * @param pearls 지급 진주 (구독은 월 진주, 축제는 0)
+     * @param lineTxId purchases.tx_id (tx_id for a single item, tx_id#1 … for several)
+     * @param pearls pearls to grant (monthly pearls for subscriptions, 0 for festivals)
      */
     public record Grant(
             String lineTxId, ProductDef product, UUID player, long amountKrw, long pearls) {}
 
-    /** 검증 결과. */
+    /** Validation result. */
     public sealed interface Verdict {
         record Ok(List<Grant> grants) implements Verdict {}
 
@@ -68,7 +70,8 @@ public final class PaymentRules {
                 return new Verdict.Held("품목 금액이 원 단위가 아닙니다: " + line.paid());
             }
             int quantity = Math.max(1, line.quantity());
-            // paid_price는 품목 줄 합계로 본다 (Phase 3 착수 때 Tebex 문서로 재확인)
+            // paid_price is taken as the item line total (recheck against Tebex docs at Phase 3
+            // start)
             long lineTotal = paid.get();
             sum += lineTotal;
             long pearls;
@@ -121,7 +124,7 @@ public final class PaymentRules {
         return new Verdict.Ok(List.copyOf(grants));
     }
 
-    /** 원 단위 정수 (소수부가 0이어야 함). */
+    /** Whole won as an integer (fractional part must be 0). */
     static Optional<Long> won(BigDecimal amount) {
         try {
             return Optional.of(amount.stripTrailingZeros().longValueExact());

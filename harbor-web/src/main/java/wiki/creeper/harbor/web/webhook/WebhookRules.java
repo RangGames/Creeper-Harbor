@@ -12,12 +12,12 @@ import javax.crypto.spec.SecretKeySpec;
 import wiki.creeper.harbor.common.event.ExternalEvent;
 import wiki.creeper.harbor.web.relay.Globs;
 
-/** 웹훅 거르기·서명·평탄화 (서버 API 없음, 단위 테스트 대상). */
+/** Webhook filtering, signing and flattening (no server API, unit-tested). */
 public final class WebhookRules {
 
     private WebhookRules() {}
 
-    /** type glob과 where 조건이 맞는지. */
+    /** Whether the type glob and where conditions match. */
     public static boolean accepts(WebhookTarget target, ExternalEvent event) {
         if (!Globs.any(target.events(), event.type())) {
             return false;
@@ -34,7 +34,10 @@ public final class WebhookRules {
         return true;
     }
 
-    /** {a: {b: 1}, c: [x, y]} → {a.b: "1", c: "x, y"}. 정수로 떨어지는 수는 소수점 없이. */
+    /**
+     * {a: {b: 1}, c: [x, y]} → {a.b: "1", c: "x, y"}. Integral numbers are written without a
+     * decimal point.
+     */
     public static Map<String, String> flatten(Map<String, Object> data) {
         Map<String, String> out = new LinkedHashMap<>();
         flatten("", data, out);
@@ -85,7 +88,7 @@ public final class WebhookRules {
         }
     }
 
-    /** 재시도 대기 (1초, 5초, 15초, …). */
+    /** Retry delay (1s, 5s, 15s, …). */
     public static long backoffMillis(int attempt) {
         return switch (attempt) {
             case 0 -> 1_000;

@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** GET 경로 고르기 ("/players/{id}/codex" 꼴, 서버 API 없음). */
+/** GET route matching ("/players/{id}/codex" style, no server API). */
 public final class Router {
 
-    /** 요청 정보. */
+    /** Request info. */
     public record Request(Map<String, String> params, Map<String, String> query) {
 
         public String param(String name) {
@@ -31,13 +31,13 @@ public final class Router {
         }
     }
 
-    /** 처리기: 응답 data를 돌려준다 (Gson이 JSON으로). */
+    /** Handler: returns the response data (serialized to JSON by Gson). */
     @FunctionalInterface
     public interface Handler {
         Object handle(Request request) throws ApiException;
     }
 
-    /** 오류 응답. */
+    /** Error response. */
     public static final class ApiException extends Exception {
         private static final long serialVersionUID = 1L;
         private final int status;
@@ -60,7 +60,7 @@ public final class Router {
 
     private record Route(List<String> parts, Handler handler, String description) {}
 
-    /** 경로 목록 (GET /v1 안내). */
+    /** Route list (GET /v1 index). */
     public record RouteInfo(String path, String description) {}
 
     private static final java.util.regex.Pattern SLASH = java.util.regex.Pattern.compile("/");
@@ -78,7 +78,7 @@ public final class Router {
                 .toList();
     }
 
-    /** 맞는 경로 (경로 변수 포함). */
+    /** Matching route (with path variables). */
     public Optional<Map.Entry<Handler, Map<String, String>>> match(String path) {
         List<String> parts = split(path);
         for (Route r : routes) {

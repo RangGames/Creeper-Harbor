@@ -5,25 +5,26 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * 진주 묶음(pearl_lot) 차감 순서 (docs 20 12.4 '유료·무료 구분', 서버 없이 테스트한다). 무료 묶음(패스·이벤트) 먼저, 그다음 오래된 유료 묶음부터
- * 쓴다. 사용자가 청약철회할 수 있는 유료분이 오래 남게 하려는 제안이며, 순서는 상점 약관과 화면에 표시한다 (법률 검토 항목).
+ * Pearl lot (pearl_lot) deduction order (docs 20 12.4 'paid vs free', tested without a server).
+ * Free lots (pass, events) first, then paid lots from oldest. Proposed so that paid pearls eligible
+ * for withdrawal stay longest; the order is shown in the shop terms and UI (legal review item).
  *
- * <p>불변식: 한 플레이어의 묶음 남은 양 합계 = pearl_wallet.balance, 유료 묶음 합계 = paid_balance.
+ * <p>Invariant: per player, remaining lot sum = pearl_wallet.balance, paid lot sum = paid_balance.
  */
 public final class PearlLots {
 
-    /** 묶음 하나. order는 만든 순서 (lot_id). */
+    /** One lot. order is creation order (lot_id). */
     public record Lot(long id, boolean paid, long remaining) {}
 
-    /** 묶음에서 뺄 양. */
+    /** Amount to take from a lot. */
     public record Take(long lotId, boolean paid, long amount) {}
 
     private PearlLots() {}
 
     /**
-     * 차감 계획을 만든다.
+     * Builds a deduction plan.
      *
-     * @throws IllegalArgumentException 남은 양 합계가 모자랄 때
+     * @throws IllegalArgumentException when the remaining sum is insufficient
      */
     public static List<Take> allocate(List<Lot> lots, long amount) {
         if (amount <= 0) {
@@ -50,7 +51,7 @@ public final class PearlLots {
         return takes;
     }
 
-    /** 계획 중 유료 묶음에서 빠지는 양. */
+    /** Amount of the plan taken from paid lots. */
     public static long paidPart(List<Take> takes) {
         return takes.stream().filter(Take::paid).mapToLong(Take::amount).sum();
     }

@@ -13,10 +13,13 @@ import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.jspecify.annotations.Nullable;
 
-/** 파티클·폭죽 도우미 (코스메틱 연출). 콘텐츠의 파티클 키는 바닐라 키(minecraft: 생략 가능). 메인 스레드 전용. */
+/**
+ * Particle and firework helpers (cosmetic effects). Content particle keys are vanilla keys
+ * (minecraft: optional). Main thread only.
+ */
 final class Fx {
 
-    /** 연출용 폭죽 표시 (피해를 막는다). */
+    /** Marks effect fireworks (prevents damage). */
     static final NamespacedKey FX_TAG = new NamespacedKey("harbor", "shop_fx");
 
     private Fx() {}
@@ -34,7 +37,10 @@ final class Fx {
         }
     }
 
-    /** 파티클 하나를 뿌린다. 데이터가 필요한 파티클은 dust(색)만 지원하고 나머지는 건너뛴다. */
+    /**
+     * Spawns one particle. Of particles that need data, only dust (color) is supported; others are
+     * skipped.
+     */
     static void spawn(
             String key, @Nullable String hex, Location at, int count, double spread, int radius) {
         Particle particle = particle(key);
@@ -56,7 +62,9 @@ final class Fx {
         builder.spawn();
     }
 
-    /** 폭죽을 바로 터뜨린다 (피해 없음: 엔티티를 만들자마자 터뜨림). */
+    /**
+     * Detonates a firework immediately (no damage: detonated right after the entity is created).
+     */
     static void firework(Location at, String type, List<String> colors) {
         FireworkEffect.Type shape;
         try {

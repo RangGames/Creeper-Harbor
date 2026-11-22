@@ -28,23 +28,25 @@ import wiki.creeper.harbor.shop.content.FestivalDef;
 import wiki.creeper.harbor.shop.cosmetic.CosmeticManager;
 
 /**
- * 항구 축제 후원 게이지 (docs 20 12.4, '6. BM 기획' 3.5). Tebex 축제 패키지 결제액을 게이지에 더하고 harbor:festival로 전 서버에
- * 알린다. 목표에 닿으면 모든 유저에게 같은 축제 코스메틱을 준다 (접속 중이면 바로, 아니면 다음 접속 때). 후원자에게는 기여 칭호(참조 ID
- * festival:&lt;id&gt;:&lt;uuid&gt;)를 준다. 성능 버프는 넣지 않는다.
+ * Harbor festival donation gauge (docs 20 12.4, '6. BM plan' 3.5). Adds Tebex festival package
+ * payments to the gauge and broadcasts via harbor:festival to all servers. When the goal is
+ * reached, every user gets the same festival cosmetic (immediately if online, otherwise on next
+ * join). Donors get a contribution title (reference ID festival:&lt;id&gt;:&lt;uuid&gt;). No
+ * performance buffs are included.
  */
 public final class FestivalManager {
 
-    /** 게이지 갱신 (harbor:festival, 추가 제안). */
+    /** Gauge update (harbor:festival, proposed). */
     public record FestivalUpdate(
             String festival, long totalKrw, long goalKrw, boolean reachedNow) {}
 
     public static final Channel<FestivalUpdate> CHANNEL =
             new Channel<>("harbor:festival", FestivalUpdate.class);
 
-    /** 게이지 캐시. */
+    /** Gauge cache. */
     public record Gauge(long totalKrw, boolean reached) {}
 
-    /** 트랜잭션 안 기여 결과. */
+    /** Contribution result within the transaction. */
     public record Contribution(HarborId festival, UUID player, long totalKrw, boolean reachedNow) {}
 
     private final ShopRuntime rt;
@@ -88,7 +90,7 @@ public final class FestivalManager {
         return Optional.ofNullable(gauges.get(festival));
     }
 
-    /** 지금 시즌 축제. */
+    /** Festival of the current season. */
     public List<FestivalDef> current() {
         int season = rt.season();
         return rt.snapshot().all(FestivalDef.TYPE).values().stream()
@@ -96,7 +98,7 @@ public final class FestivalManager {
                 .toList();
     }
 
-    /** 결제 처리 트랜잭션 안에서 기여를 기록한다. 같은 거래 ID는 한 번만. */
+    /** Records a contribution inside the payment transaction. The same transaction ID only once. */
     public static @Nullable Contribution contribute(
             Connection c, FestivalDef festival, UUID player, String txId, long amountKrw)
             throws SQLException {
@@ -143,7 +145,9 @@ public final class FestivalManager {
         return new Contribution(festival.id(), player, total, reachedNow);
     }
 
-    /** 환불된 축제 결제를 게이지에서 뺀다 (이미 달성한 축제는 그대로). */
+    /**
+     * Subtracts a refunded festival payment from the gauge (already reached festivals stay as is).
+     */
     public static void withdraw(Connection c, String txId) throws SQLException {
         String festival = null;
         long amount = 0;
@@ -175,7 +179,9 @@ public final class FestivalManager {
         }
     }
 
-    /** 커밋 뒤 (메인 스레드): 전 서버 알림, 기여 칭호, 달성 공지. */
+    /**
+     * After commit (main thread): cross-server notice, contribution title, completion announcement.
+     */
     public void afterContribution(Contribution contribution) {
         Optional<FestivalDef> def = rt.snapshot().get(FestivalDef.TYPE, contribution.festival());
         if (def.isEmpty()) {
@@ -233,7 +239,10 @@ public final class FestivalManager {
         }
     }
 
-    /** 달성한 축제 보상을 준다 (접속 때, 달성 알림 때). 이미 가졌으면 아무 일도 없다. */
+    /**
+     * Grants rewards of reached festivals (on join and on completion notice). Does nothing if
+     * already owned.
+     */
     public void grantRewards(Player player) {
         for (FestivalDef def : current()) {
             Gauge gauge = gauges.get(def.id());
@@ -253,7 +262,7 @@ public final class FestivalManager {
         }
     }
 
-    /** 축제 명판: 기여 상위 n명 (이름, 합계). */
+    /** Festival plaque: top n contributors (name, total). */
     public CompletableFuture<List<String[]>> topContributors(HarborId festival, int limit) {
         return rt.db(
                 c -> {

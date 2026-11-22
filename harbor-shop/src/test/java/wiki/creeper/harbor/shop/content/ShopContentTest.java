@@ -42,7 +42,7 @@ class ShopContentTest {
         }
         ContentSnapshot snap = result.orThrow();
         PassDef pass = snap.get(PassDef.TYPE, HarborId.parse("pass/s1")).orElseThrow();
-        // '6. BM 기획' 3.1: 무료 진주 합계 150, 프리미엄 합계 1,000
+        // '6. BM planning' 3.1: free pearls total 150, premium total 1,000
         assertEquals(150, PassMath.pearlTotal(pass, PassDef.Track.FREE));
         assertEquals(1000, PassMath.pearlTotal(pass, PassDef.Track.PREMIUM));
         assertEquals(50, pass.levels());

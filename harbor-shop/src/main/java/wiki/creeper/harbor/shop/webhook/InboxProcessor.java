@@ -18,9 +18,11 @@ import wiki.creeper.harbor.shop.content.ShopSettings;
 import wiki.creeper.harbor.shop.data.ShopRepository;
 
 /**
- * 웹훅 수신함 처리기 (docs 20 12.4 5단계·'처리 실패'). 수신 서버(config webhook.enabled)에서만 돈다. 혹시 두 서버가 켜도 분산 잠금
- * harbor:lock:shop-inbox로 한 서버만 처리한다. 실패하면 state=FAILED로 두고 1분·5분·30분 간격으로 다시 시도하며, 5번 실패하면 DEAD로
- * 바꾸고 관리자에게 알린다. 수신함이 DB에 남아 있으므로 서버가 죽어도 재시작 뒤 이어서 처리한다.
+ * Webhook inbox processor (docs 20 12.4 step 5, 'processing failures'). Runs only on the receiving
+ * server (config webhook.enabled). Even if two servers enable it, the distributed lock
+ * harbor:lock:shop-inbox lets only one process. On failure it sets state=FAILED and retries at 1, 5
+ * and 30 minute intervals; after 5 failures it becomes DEAD and admins are alerted. The inbox stays
+ * in the DB, so processing resumes after a restart even if the server crashes.
  */
 public final class InboxProcessor implements WebhookIntake.InboxStore {
 
@@ -44,7 +46,7 @@ public final class InboxProcessor implements WebhookIntake.InboxStore {
         var _ = rt.tasks().timer(period, period, this::signal);
     }
 
-    /** 곧바로 한 번 처리한다 (수신 직후). */
+    /** Processes once immediately (right after receipt). */
     public void signal() {
         if (running.compareAndSet(false, true)) {
             var _ =
@@ -80,7 +82,7 @@ public final class InboxProcessor implements WebhookIntake.InboxStore {
                         });
     }
 
-    /** 처리 대기 중인 수신함을 한 묶음 처리한다 (가상 스레드). */
+    /** Processes one batch of pending inbox rows (virtual thread). */
     void runOnce() {
         Optional<DistributedLock.Handle> lock;
         try {
@@ -215,9 +217,9 @@ public final class InboxProcessor implements WebhookIntake.InboxStore {
                         });
     }
 
-    // ------------------------------------------------------------------ 관리자
+    // ------------------------------------------------------------------ admin
 
-    /** 수신함 실패·보류 건 (/harbor shop inbox). */
+    /** Failed and held inbox entries (/harbor shop inbox). */
     public record Row(String webhookId, String type, String state, int attempts, String error) {}
 
     public List<Row> problems(Connection c) throws SQLException {
@@ -241,7 +243,10 @@ public final class InboxProcessor implements WebhookIntake.InboxStore {
         return rows;
     }
 
-    /** 실패·DEAD 건을 다시 시도하게 한다 (HELD는 원인을 고친 뒤 webhookId로 지정해 재처리). */
+    /**
+     * Makes failed and DEAD entries retry (HELD is reprocessed by webhookId after fixing the
+     * cause).
+     */
     public int retry(Connection c, @Nullable String webhookId) throws SQLException {
         String sql =
                 webhookId == null

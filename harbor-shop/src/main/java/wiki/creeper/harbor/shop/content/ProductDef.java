@@ -11,14 +11,16 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * Tebex 패키지 ↔ 지급 내용 매핑 (shop/products.yml, docs 20 12.3). 충전은 10원 = 진주 1개 고정, 보너스 없음 ('6. BM 기획'
- * 2장).
+ * Tebex package ↔ grant mapping (shop/products.yml, docs 20 12.3). Top-ups are fixed at 10 KRW = 1
+ * pearl, no bonus ('6. BM plan' ch. 2).
  *
- * @param tebexPackageId Tebex 패키지 번호 (웹훅 subject.products[].id)
- * @param pearls 지급 진주 (pearls). pearls_custom은 결제액 ÷ 10, subscription은 월 진주
- * @param tier 후원 등급 (subscription)
- * @param priceKrw 상품 가격 (원). 결제 금액과 다르면 HELD. pearls_custom·festival은 0 (자유 금액)
- * @param festival 축제 후원 패키지가 더하는 축제 (festival)
+ * @param tebexPackageId Tebex package number (webhook subject.products[].id)
+ * @param pearls pearls granted (pearls). pearls_custom is payment amount ÷ 10, subscription is
+ *     monthly pearls
+ * @param tier donor tier (subscription)
+ * @param priceKrw product price (KRW). HELD if it differs from the paid amount. 0 for pearls_custom
+ *     and festival (free amount)
+ * @param festival festival that a festival sponsorship package contributes to (festival)
  */
 public record ProductDef(
         HarborId id,
@@ -29,7 +31,7 @@ public record ProductDef(
         long priceKrw,
         @Nullable HarborId festival) {
 
-    /** 상품 종류. */
+    /** Product kind. */
     public enum Kind implements Keyed {
         PEARLS,
         PEARLS_CUSTOM,
@@ -44,7 +46,7 @@ public record ProductDef(
 
     public static final String PREFIX = "product/";
 
-    /** 10원 = 진주 1개 ('6. BM 기획' 2장 충전 규칙, 고정값). */
+    /** 10 KRW = 1 pearl ('6. BM plan' ch. 2 top-up rule, fixed value). */
     public static final long KRW_PER_PEARL = 10;
 
     public static final ContentType.Entries<ProductDef> TYPE =
@@ -55,7 +57,7 @@ public record ProductDef(
                     ProductDef::parse,
                     ProductDef::id);
 
-    /** 고정 가격 상품인지 (결제 금액과 상품 가격이 같아야 함). */
+    /** Whether this is a fixed-price product (paid amount must equal the product price). */
     public boolean fixedPrice() {
         return kind == Kind.PEARLS || kind == Kind.SUBSCRIPTION;
     }
@@ -88,7 +90,7 @@ public record ProductDef(
                 if (pearls <= 0 || price <= 0) {
                     node.error("pearls 상품은 pearls와 price_krw가 있어야 합니다");
                 } else if (pearls * KRW_PER_PEARL != price) {
-                    // 충전 보너스 없음 ('6. BM 기획' 2장): 10원 = 진주 1개 고정
+                    // No top-up bonus ('6. BM plan' ch. 2): fixed at 10 KRW = 1 pearl
                     node.error("진주 상품은 price_krw = pearls × 10이어야 합니다 (보너스 없음)");
                 }
             }

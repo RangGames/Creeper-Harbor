@@ -12,48 +12,52 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.shop.content.CosmeticDef;
 
 /**
- * 코스메틱 소유·장착 (docs 20 12.2). 소유는 계정 기록(cosmetics_owned)이라 시즌 초기화·거래 대상이 아니다. 장착 칸은 분류마다 하나.
+ * Cosmetic ownership and equipping (docs 20 12.2). Ownership is an account record
+ * (cosmetics_owned), so it is not subject to season resets or trading. One equip slot per category.
  *
- * <p>낚싯대 스킨은 아이템의 item_model만 바꾸고 custom_data(PDC)에 harbor:skin(스킨 ID·소유자)을 적는다. 경매 등록·거래·다른 사람이 주운
- * 경우 Economy 등이 {@link #stripSkin}으로 원래 모델로 되돌린다. 성능 값(stats)은 건드리지 않는다.
+ * <p>Rod skins only change the item's item_model and write harbor:skin (skin ID, owner) into
+ * custom_data (PDC). On auction listing, trading, or pickup by someone else, Economy and others
+ * revert to the original model with {@link #stripSkin}. Performance values (stats) are not touched.
  *
- * <p>캐시를 읽는 메서드는 메인 스레드 전용이고, future는 메인 스레드에서 완료된다.
+ * <p>Methods reading the cache are main-thread only, and futures complete on the main thread.
  */
 public interface CosmeticService {
 
-    /** 접속 중인 플레이어가 가졌는지 (캐시). */
+    /** Whether an online player owns it (cache). */
     boolean owns(UUID player, HarborId cosmetic);
 
-    /** 접속 중인 플레이어의 보유 목록 (캐시). */
+    /** Owned list of an online player (cache). */
     Set<HarborId> owned(UUID player);
 
-    /** 장착한 코스메틱 (접속 중, 캐시). */
+    /** Equipped cosmetics (online, cache). */
     Optional<HarborId> equipped(UUID player, CosmeticDef.Category slot);
 
     /**
-     * 준다 (접속 여부 무관, 즉시 쓰기). 이미 가졌으면 false.
+     * Grants it (regardless of whether online, immediate write). false if already owned.
      *
      * @param source cosmetics_owned.source (PASS · CODEX · FESTIVAL · ADMIN …)
      */
     CompletableFuture<Boolean> grant(UUID player, HarborId cosmetic, String source, String refId);
 
-    /** 회수한다 (관리자). 장착 중이면 장착도 푼다. 있었으면 true. */
+    /** Revokes it (admin). Also unequips if equipped. true if it was owned. */
     CompletableFuture<Boolean> revoke(UUID player, HarborId cosmetic);
 
-    /** 장착한다. 가지고 있지 않으면 false. */
+    /** Equips it. false if not owned. */
     boolean equip(Player player, HarborId cosmetic);
 
-    /** 그 칸을 비운다. */
+    /** Clears that slot. */
     void unequip(Player player, CosmeticDef.Category slot);
 
-    /** 아이템에 입힌 낚싯대 스킨 ID. */
+    /** Rod skin ID applied to the item. */
     Optional<HarborId> skinOf(ItemStack stack);
 
-    /** 낚싯대 스킨을 벗겨 원래 모델로 되돌린다. 스킨이 있었으면 true. */
+    /** Strips the rod skin and reverts to the original model. true if there was a skin. */
     boolean stripSkin(ItemStack stack);
 
     /**
-     * 펫·선박 장식을 숨길 조건을 등록한다 (예: Boss가 보스 경기장 안 플레이어). 하나라도 true면 숨긴다. owner가 꺼지면 빠진다. 메인 스레드에서 불린다.
+     * Registers a condition for hiding pets and boat decorations (e.g. Boss: players inside a boss
+     * arena). Hidden if any returns true. Removed when owner is disabled. Called on the main
+     * thread.
      */
     void registerPetSuppressor(Plugin owner, Predicate<Player> hide);
 }

@@ -21,15 +21,18 @@ import wiki.creeper.harbor.common.redis.DistributedLock;
 import wiki.creeper.harbor.shop.ShopRuntime;
 
 /**
- * 일일 결제 대조 (docs 20 12.4 '일일 대조'). 매일 새벽 Tebex API에서 최근 48시간 결제 목록을 받아 purchases와 비교한다. 빠진 결제는 수신함에
- * 합성 웹훅(webhook_id = reconcile:&lt;tx&gt;)으로 넣어 같은 처리기로 지급하고, 금액이 다른 건은 관리자에게 알린다. 한 서버만
- * (harbor:lock:shop-reconcile). API 응답 필드 이름은 Phase 3 착수 때 확인한다 (txn_id · transaction_id 둘 다 받음).
+ * Daily payment reconciliation (docs 20 12.4 'daily reconciliation'). Every day before dawn fetches
+ * the last 48 hours of payments from the Tebex API and compares with purchases. Missing payments
+ * are put into the inbox as synthetic webhooks (webhook_id = reconcile:&lt;tx&gt;) and granted by
+ * the same processor; amount mismatches are reported to admins. One server only
+ * (harbor:lock:shop-reconcile). API response field names are to be confirmed at Phase 3 start
+ * (accepts both txn_id and transaction_id).
  */
 public final class Reconciler {
 
     private static final String LOCK = "harbor:lock:shop-reconcile";
 
-    /** 원격 결제 한 건. */
+    /** One remote payment. */
     public record RemotePayment(
             String txId,
             String currency,
@@ -66,7 +69,7 @@ public final class Reconciler {
                                 });
     }
 
-    /** 대조 한 번 (가상 스레드). 결과 요약 문자열. */
+    /** Runs one reconciliation (virtual thread). Returns a summary string. */
     public String runOnce() {
         if (secret.isBlank()) {
             return "Tebex API 비밀키가 없어 대조를 건너뜁니다";
@@ -93,7 +96,8 @@ public final class Reconciler {
                 Optional<Long> local = localAmount(p.txId());
                 Optional<Long> amount = PaymentRules.won(new java.math.BigDecimal(p.amount()));
                 if (local.isPresent() && local.get() == IN_INBOX) {
-                    // 수신함에 이미 있다 (처리 대기·재시도 대기·실패). 여기서 또 넣으면 원래 웹훅이 재처리될 때 두 번 지급된다
+                    // Already in the inbox (pending, awaiting retry or failed). Inserting it again
+                    // here would grant twice when the original webhook is reprocessed
                     continue;
                 }
                 if (local.isEmpty()) {
@@ -142,7 +146,8 @@ public final class Reconciler {
                                             "SELECT 1 FROM shop_webhook_inbox WHERE tx_id = ? LIMIT 1")) {
                                 ps.setString(1, tx);
                                 try (ResultSet rs = ps.executeQuery()) {
-                                    // 수신함에 이미 있으면(처리 중) 누락이 아니다
+                                    // Already in the inbox (being processed) means it is not
+                                    // missing
                                     return rs.next()
                                             ? Optional.of(IN_INBOX)
                                             : Optional.<Long>empty();
@@ -151,10 +156,13 @@ public final class Reconciler {
                         });
     }
 
-    /** {@link #localAmount}: 지급 기록은 없지만 수신함에 이미 있음. 예전에는 필터가 이 값을 "누락"으로 바꿔 진주를 두 번 지급할 수 있었다. */
+    /**
+     * {@link #localAmount}: no grant record, but already in the inbox. Previously the filter turned
+     * this value into "missing", which could grant pearls twice.
+     */
     private static final long IN_INBOX = -1L;
 
-    /** 원격 결제 → 웹훅 형식 본문 (품목 하나로 본다). */
+    /** Remote payment → webhook-format body (treated as a single item). */
     static WebhookIntake.InboxRow synthetic(RemotePayment p) {
         JsonObject subject = new JsonObject();
         subject.addProperty("transaction_id", p.txId());

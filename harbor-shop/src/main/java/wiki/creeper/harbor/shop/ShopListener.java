@@ -11,15 +11,17 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import wiki.creeper.harbor.collection.api.event.CodexMilestoneEvent;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.shop.cosmetic.CosmeticManager;
-import wiki.creeper.harbor.shop.data.ShopRepository;
+import wiki.creeper.harbor.shop.data.NoticeRepository;
 import wiki.creeper.harbor.shop.donor.DonorManager;
 import wiki.creeper.harbor.shop.festival.FestivalManager;
 import wiki.creeper.harbor.shop.pass.PassManager;
 import wiki.creeper.harbor.shop.pearl.PearlManager;
 
 /**
- * 접속·서버 간 알림 처리 (docs 20 12.2: PlayerJoinEvent → 미표시 결제 알림, 구독 혜택 적용). harbor:shop 알림을 받으면 그 플레이어가
- * 이 서버에 있을 때 캐시를 DB에서 다시 읽고 미확인 알림을 보여 준다. Collection 도감 마일스톤 치장품도 여기서 준다 ('17-2' 4.4).
+ * Join and cross-server notice handling (docs 20 12.2: PlayerJoinEvent → unshown payment notices,
+ * apply subscription perks). On a harbor:shop notice, if that player is on this server, re-read the
+ * cache from the DB and show unacknowledged notices. Collection codex milestone cosmetics are also
+ * granted here ('17-2' 4.4).
  */
 public final class ShopListener implements Listener {
 
@@ -88,17 +90,17 @@ public final class ShopListener implements Listener {
         showNotices(uuid);
     }
 
-    /** 미확인 결제·선물 알림을 보여 주고 확인 처리한다. */
+    /** Shows unacknowledged payment and gift notices and marks them acknowledged. */
     private void showNotices(UUID uuid) {
         var _ =
-                rt.db(c -> ShopRepository.takeNotices(c, uuid))
+                rt.db(c -> NoticeRepository.takeNotices(c, uuid))
                         .thenAccept(
                                 notices -> {
                                     Player player = Bukkit.getPlayer(uuid);
                                     if (player == null) {
                                         return;
                                     }
-                                    for (ShopRepository.Notice n : notices) {
+                                    for (NoticeRepository.Notice n : notices) {
                                         String detail = n.detail() == null ? "" : n.detail();
                                         String from =
                                                 detail.contains("|")
@@ -131,7 +133,10 @@ public final class ShopListener implements Listener {
                                 });
     }
 
-    /** 도감 달성률·지역 완성 치장품 (shop.yml codex_rewards). 칭호는 Collection이 Season에 직접 요청한다. */
+    /**
+     * Codex completion and region completion cosmetics (shop.yml codex_rewards). Titles are
+     * requested by Collection directly from Season.
+     */
     @EventHandler
     public void onMilestone(CodexMilestoneEvent event) {
         HarborId reward = rt.settings().codexRewards().get(event.key());

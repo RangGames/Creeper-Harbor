@@ -34,9 +34,10 @@ import wiki.creeper.harbor.shop.content.CosmeticDef;
 import wiki.creeper.harbor.shop.data.ShopRepository;
 
 /**
- * 코스메틱 소유·장착·낚싯대 스킨 (CosmeticService 구현, docs 20 12.4 '코스메틱'). 낚싯대 스킨은 장착한 사람의 Harbor 낚싯대 아이템에만
- * item_model을 바꿔 입히고 PDC harbor:skin에 "스킨 ID|소유자 UUID"를 적는다. 성능 값(stats)은 그대로다. 스킨 주인이 아닌 사람이 들거나
- * 주우면 벗긴다.
+ * Cosmetic ownership, equipping and rod skins (CosmeticService implementation, docs 20 12.4
+ * 'cosmetics'). A rod skin only re-skins the item_model of the wearer's Harbor rod items and writes
+ * "skin ID|owner UUID" to PDC harbor:skin. Stats stay unchanged. Removed when someone other than
+ * the skin owner holds or picks it up.
  */
 public final class CosmeticManager implements CosmeticService, Listener {
 
@@ -84,7 +85,7 @@ public final class CosmeticManager implements CosmeticService, Listener {
                         });
     }
 
-    /** 커밋된 지급을 캐시·이벤트에 반영한다 (메인 스레드). */
+    /** Applies a committed grant to the cache and events (main thread). */
     public void granted(UUID player, Set<HarborId> cosmetics, String source) {
         if (cosmetics.isEmpty()) {
             return;
@@ -119,7 +120,7 @@ public final class CosmeticManager implements CosmeticService, Listener {
                         });
     }
 
-    /** 다른 서버에서 지급된 코스메틱을 다시 읽는다. */
+    /** Re-reads cosmetics granted on another server. */
     public CompletableFuture<Void> refresh(UUID player) {
         return rt.db(c -> ShopRepository.owned(c, player))
                 .thenAccept(
@@ -171,7 +172,7 @@ public final class CosmeticManager implements CosmeticService, Listener {
         rt.call(new CosmeticEquipEvent(player, slot, previous, cosmetic));
     }
 
-    // ------------------------------------------------------------------ 낚싯대 스킨
+    // ------------------------------------------------------------------ rod skins
 
     @Override
     public Optional<HarborId> skinOf(ItemStack stack) {
@@ -209,7 +210,7 @@ public final class CosmeticManager implements CosmeticService, Listener {
         return true;
     }
 
-    /** Harbor 낚싯대면 그 정의. */
+    /** The definition, if it is a Harbor rod. */
     private Optional<ItemDef> rodDef(ItemStack stack) {
         if (stack.isEmpty()) {
             return Optional.empty();
@@ -225,7 +226,7 @@ public final class CosmeticManager implements CosmeticService, Listener {
                 .filter(d -> d.type() == ItemDef.Type.ROD);
     }
 
-    /** 플레이어 인벤토리의 낚싯대에 장착한 스킨을 입히거나 벗긴다 (메인 스레드). */
+    /** Applies or removes the equipped skin on rods in the player's inventory (main thread). */
     public void applySkins(Player player) {
         HarborId skin =
                 rt.profile(player.getUniqueId()).equipped().get(CosmeticDef.Category.ROD_SKIN);
@@ -274,7 +275,7 @@ public final class CosmeticManager implements CosmeticService, Listener {
                 skin == null ? null : rt.cosmetic(skin).map(CosmeticDef::model).orElse(null));
     }
 
-    /** 다른 사람이 주운 스킨 낚싯대는 원래 모델로 (docs 20 12.4). */
+    /** A skinned rod picked up by someone else reverts to the original model (docs 20 12.4). */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPickup(EntityPickupItemEvent event) {
         if (!(event.getEntity() instanceof Player player)) {
@@ -288,14 +289,14 @@ public final class CosmeticManager implements CosmeticService, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 펫 숨김 조건
+    // ------------------------------------------------------------------ pet hide conditions
 
     @Override
     public void registerPetSuppressor(Plugin owner, Predicate<Player> hide) {
         suppressors.add(new Suppressor(owner, hide));
     }
 
-    /** 펫·선박 장식을 숨겨야 하는지. */
+    /** Whether pets and ship decorations should be hidden. */
     public boolean suppressed(Player player) {
         suppressors.removeIf(s -> !s.owner().isEnabled());
         for (Suppressor s : suppressors) {
@@ -310,7 +311,7 @@ public final class CosmeticManager implements CosmeticService, Listener {
         return false;
     }
 
-    /** 장착 칸 표 (보관함 화면). */
+    /** Equip slot table (wardrobe screen). */
     public Map<CosmeticDef.Category, HarborId> equippedAll(UUID player) {
         return rt.profile(player).equipped();
     }

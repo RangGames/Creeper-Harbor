@@ -10,7 +10,10 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.ledger.BalanceStore;
 import wiki.creeper.harbor.common.model.Currency;
 
-/** 진주 잔액 저장소 (pearl_wallet). Common LedgerWriter가 잠금·갱신을 부른다. 진주 말고는 다루지 않는다. */
+/**
+ * Pearl balance store (pearl_wallet). Common LedgerWriter calls lock and update. Handles nothing
+ * but pearls.
+ */
 public final class PearlWalletStore implements BalanceStore {
 
     @Override

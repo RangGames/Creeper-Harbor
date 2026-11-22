@@ -7,10 +7,13 @@ import java.util.List;
 import wiki.creeper.harbor.common.event.ExternalEvent;
 import wiki.creeper.harbor.web.relay.Globs;
 
-/** 최근 외부 이벤트 (GET /v1/events). 들어온 순서 번호(seq)를 붙여 after로 이어 받게 한다. 스레드 안전. */
+/**
+ * Recent external events (GET /v1/events). Tags each with an arrival sequence number (seq) so
+ * clients can continue with after. Thread-safe.
+ */
 public final class RecentEvents {
 
-    /** seq + 이벤트. */
+    /** seq + event. */
     public record Item(long seq, ExternalEvent event) {}
 
     private final int capacity;
@@ -28,7 +31,7 @@ public final class RecentEvents {
         }
     }
 
-    /** after보다 뒤의 것 (type glob이 있으면 거름), 오래된 것부터 limit개. */
+    /** Events after the given seq (filtered by type glob if given), oldest first, up to limit. */
     public synchronized List<Item> after(long after, String typeGlob, int limit) {
         List<Item> out = new ArrayList<>();
         for (Item i : items) {

@@ -36,15 +36,18 @@ import wiki.creeper.harbor.shop.pearl.PearlTx;
 import wiki.creeper.harbor.shop.pearl.ShopReject;
 
 /**
- * 시즌 패스 「항해 일지」 (SeasonPassService 구현, docs 20 12.4). 경험치는 메모리에서 먼저 올리고 지연 쓰기 큐(키
- * player:&lt;uuid&gt;:shop_pass, 최대 5초 유실 허용)로 저장한다. 단계 보상은 즉시 트랜잭션으로 season_pass_claim 유니크와 함께 한
- * 번만 준다. 프리미엄·단계 구매는 진주 차감과 한 트랜잭션이다. 지난 시즌 패스는 팔지 않는다 (지금 시즌 패스만 다룸).
+ * Season pass "Voyage Log" (SeasonPassService implementation, docs 20 12.4). Exp is raised in
+ * memory first and saved through the write-behind queue (key player:&lt;uuid&gt;:shop_pass, up to 5
+ * seconds of loss tolerated). Level rewards are granted only once in an immediate transaction
+ * together with the season_pass_claim unique key. Premium and level purchases share one transaction
+ * with the pearl deduction. Past seasons' passes are not sold (only the current season's pass is
+ * handled).
  */
 public final class PassManager implements SeasonPassService, Listener {
 
     private record Source(Plugin owner, String key) {}
 
-    /** 보상 지급 결과. */
+    /** Reward grant result. */
     record Claimed(Set<String> keys, Set<HarborId> cosmetics, long pearls, List<String> titles) {}
 
     private final ShopRuntime rt;
@@ -58,7 +61,7 @@ public final class PassManager implements SeasonPassService, Listener {
         this.cosmetics = cosmetics;
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ Queries
 
     private ShopProfile.Pass pass(UUID player) {
         return rt.profile(player).pass();
@@ -81,7 +84,7 @@ public final class PassManager implements SeasonPassService, Listener {
         return pass(player).premium();
     }
 
-    // ------------------------------------------------------------------ 경험치
+    // ------------------------------------------------------------------ Exp
 
     @Override
     public boolean addExp(UUID player, String source, int units) {
@@ -143,7 +146,7 @@ public final class PassManager implements SeasonPassService, Listener {
         return keys;
     }
 
-    /** 기본 출처: 포획 (등급별). */
+    /** Built-in source: catch (per grade). */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onCatch(FishCaughtEvent event) {
         addExp(event.getPlayer().getUniqueId(), PassMath.catchSource(event.fish().grade()), 1);
@@ -163,9 +166,9 @@ public final class PassManager implements SeasonPassService, Listener {
         claim(player);
     }
 
-    // ------------------------------------------------------------------ 보상
+    // ------------------------------------------------------------------ Rewards
 
-    /** 받을 수 있는 보상을 모두 지급한다 (단계 도달·프리미엄 구매·접속 때). */
+    /** Grants all available rewards (on reaching a level, buying premium, or joining). */
     public void claim(UUID player) {
         Optional<PassDef> def = rt.currentPass();
         if (def.isEmpty()) {
@@ -190,10 +193,11 @@ public final class PassManager implements SeasonPassService, Listener {
     }
 
     /**
-     * 트랜잭션 안에서 보상을 지급한다. 패스 행을 잠그고 DB의 경험치와 캐시 경험치 중 큰 값으로 단계를 정한다. 이미 받은 보상은 season_pass_claim
-     * 유니크로 건너뛴다.
+     * Grants rewards inside a transaction. Locks the pass row and determines the level from the
+     * larger of the DB exp and the cached exp. Already-claimed rewards are skipped via the
+     * season_pass_claim unique key.
      *
-     * @param forcedPremium 0 이상이면 이 프리미엄 단계로 계산 (구매 직후)
+     * @param forcedPremium if 0 or more, compute with this premium tier (right after purchase)
      */
     Claimed claimInTx(PearlTx tx, UUID player, PassDef def, long cacheExp, int forcedPremium)
             throws SQLException {
@@ -206,7 +210,7 @@ public final class PassManager implements SeasonPassService, Listener {
                 tx, player, def, PassMath.claimable(def, level, premium, row.claimed()));
     }
 
-    /** 보상 목록을 지급한다 (클레임 행이 새로 들어간 것만). */
+    /** Grants the reward list (only those whose claim row was newly inserted). */
     static Claimed grantRewards(PearlTx tx, UUID player, PassDef def, List<PassDef.Reward> rewards)
             throws SQLException {
         Set<String> keys = new HashSet<>();
@@ -271,23 +275,23 @@ public final class PassManager implements SeasonPassService, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 구매
+    // ------------------------------------------------------------------ Purchases
 
-    /** 구매 결과 (새 상태). */
+    /** Purchase result (new state). */
     record Purchase(int premium, int bought, int level, Claimed claimed) {}
 
-    /** 프리미엄 단계를 올린다 (1 프리미엄 · 2 프리미엄+). */
+    /** Raises the premium tier (1 premium · 2 premium+). */
     public CompletableFuture<Optional<String>> buyPremium(Player player, int target, UUID orderId) {
         return purchase(player, orderId, "PASS_PREMIUM", target, 0);
     }
 
-    /** 단계 n개를 산다 (보상 코스메틱만 앞당김). */
+    /** Buys n levels (only advances reward cosmetics). */
     public CompletableFuture<Optional<String>> buyLevels(Player player, int count, UUID orderId) {
         return purchase(player, orderId, "PASS_LEVEL", -1, count);
     }
 
     /**
-     * @return 실패 문구 키 (성공이면 빈 값)
+     * @return failure message key (empty on success)
      */
     private CompletableFuture<Optional<String>> purchase(
             Player player, UUID orderId, String kind, int targetPremium, int levels) {
@@ -376,7 +380,7 @@ public final class PassManager implements SeasonPassService, Listener {
                                 });
     }
 
-    /** 관리자: 경험치를 직접 준다 (출처 admin). */
+    /** Admin: grants exp directly (source admin). */
     public boolean adminExp(UUID player, long amount) {
         Optional<PassDef> def = rt.currentPass();
         if (def.isEmpty() || rt.online(player).isEmpty() || amount <= 0) {
@@ -399,7 +403,7 @@ public final class PassManager implements SeasonPassService, Listener {
         return true;
     }
 
-    /** 다른 서버에서 바뀐 패스 상태를 다시 읽는다 (경험치는 큰 값 유지). */
+    /** Re-reads pass state changed on another server (exp keeps the larger value). */
     public void refresh(UUID player) {
         int season = rt.season();
         var _ =

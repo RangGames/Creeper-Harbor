@@ -14,8 +14,10 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Tebex 웹훅 HTTP 수신기 (docs 20 12.4 '실행 위치'). JDK 내장 HttpServer + 가상 스레드 실행기, 추가 라이브러리 없음. 게임 포트와 분리된
- * 내부 포트에만 묶고, 앞단 리버스 프록시가 TLS와 Tebex IP 제한을 맡는다. 응답 목표: 수신함 커밋 후 200까지 300ms 이하.
+ * Tebex webhook HTTP receiver (docs 20 12.4 'where it runs'). JDK built-in HttpServer + virtual
+ * thread executor, no extra libraries. Bound only to an internal port separate from the game port;
+ * the front reverse proxy handles TLS and Tebex IP restrictions. Response target: 300 ms or less
+ * until 200 after the inbox commit.
  */
 public final class WebhookServer {
 

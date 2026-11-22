@@ -10,12 +10,13 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 크리에이터 코드 (shop/creators.yml, 추가 제안, '6. BM 기획' 3.6, docs 20 12.1: 시즌 2 이후 기능, 스위치
- * features.creator_codes). 방송인 코드를 등록한 구매자의 충전액 일부를 정산 기록(creator_payout)에 남기고, 구매자에게 칭호를 준다.
+ * Creator code (shop/creators.yml, proposed, '6. BM plan' 3.6, docs 20 12.1: post-season-2 feature,
+ * switch features.creator_codes). Records a share of top-ups by buyers who registered a streamer's
+ * code in the payout record (creator_payout) and gives the buyer a title.
  *
- * @param code 입력 코드 (대문자·숫자·밑줄, 3~16자)
- * @param shareRate 정산 비율 (제안값, 예 0.05)
- * @param supporterTitle 코드를 등록한 구매자에게 주는 칭호
+ * @param code code to enter (uppercase, digits, underscore, 3–16 chars)
+ * @param shareRate payout rate (proposed value, e.g. 0.05)
+ * @param supporterTitle title given to buyers who registered the code
  */
 public record CreatorDef(
         HarborId id, String code, String name, double shareRate, @Nullable String supporterTitle) {

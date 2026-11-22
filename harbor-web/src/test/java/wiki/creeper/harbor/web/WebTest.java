@@ -28,7 +28,10 @@ import wiki.creeper.harbor.web.webhook.WebhookTarget;
 
 class WebTest {
 
-    /** 목록의 이벤트 클래스가 모두 있고 Bukkit Event이며, type이 겹치지 않고 형식에 맞는다. */
+    /**
+     * Every event class in the catalog exists and is a Bukkit Event, and types are unique and
+     * well-formed.
+     */
     @Test
     void catalogClassesExist() throws ClassNotFoundException {
         Set<String> types = new HashSet<>();
