@@ -113,7 +113,8 @@
 
 ## 다른 모듈과의 연결
 
-- **제공 서비스:** `BossService`, `BossRecordService`, `WorldBossService`, Core `PartyService` 구현
+- **제공 서비스:** `BossService`(`weeklyRewards`: 플레이어·보스별 이번 주 보상 횟수 사용·남음·제한, 비동기), `BossRecordService`, `WorldBossService`, Core `PartyService` 구현(`PartyActions`: `/파티`와 API가 같은 규칙·알림을 쓴다)
+
 - **이벤트:** `BossEncounterStartEvent`, `BossEncounterEndEvent`, `BossPhaseChangeEvent`, `WorldBossProgressEvent`
 - **쓰는 것:** Fishing(텐션 세션, 보스 어종 포획), Season(주간 제한, 명예의 전당 제출, 칭호), Core 리그(보스·부위 판정)
 - **선택 의존:** Npc(대화 액션 `boss:enter`, 첫 처치·월드 보스 평판), Shop(보스전 중 펫 숨김. Shop이 Boss 이벤트를 듣기 때문에 Shop이 뒤에 켜진다)

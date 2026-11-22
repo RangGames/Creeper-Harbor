@@ -17,9 +17,9 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.PagedMenu;
+import wiki.creeper.harbor.jobs.api.InvestResult;
 import wiki.creeper.harbor.jobs.content.SkillNode;
 import wiki.creeper.harbor.jobs.data.JobsData;
-import wiki.creeper.harbor.jobs.service.InvestResult;
 import wiki.creeper.harbor.jobs.service.JobsManager;
 
 /**

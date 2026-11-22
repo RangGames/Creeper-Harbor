@@ -75,7 +75,8 @@
 
 ## 다른 모듈과의 연결
 
-- **제공 서비스:** `JobsService`: `state`, `qualityCap`, `grantExp`(감쇠·캐치업·`exp_gain` 적용), `requestAdvance`(Quest의 전직 보고), `claimTierFirstQuality`(Fishing이 포획 때), `capstone`, `consumeWeeklyUse`(Economy 큰손 거래)
+- **제공 서비스:** `JobsService`: `state`, `qualityCap`, `grantExp`(감쇠·캐치업·`exp_gain` 적용), `requestAdvance`(Quest의 전직 보고), `claimTierFirstQuality`(Fishing이 포획 때), `capstone`, `consumeWeeklyUse`(Economy 큰손 거래). 스킬: `skillNodes`·`skillNode`(`SkillNodeInfo`), `skills`(보유 등급), `skillPoints`(물비늘), `checkInvest`·`invest`(스킬 GUI와 같은 검사·원장, `InvestResult`), `resetCommonSkills`·`changeLine`(NPC 대화와 같은 비용). 관리: `adminResetSkills`·`adminSetTier`·`adminSetLevel`(`/harbor jobs reset|tier|level`과 같은 경로)
+
 - **이벤트:** `JobExpGainEvent`, `JobLevelUpEvent`, `JobAdvancedEvent`, `JobLineChangedEvent`, `SkillAllocatedEvent`, `SkillResetEvent`, `CapstoneUsedEvent`
 - **원장 사유:** `LEVEL_UP`, `JOB_ADVANCE`, `LINE_CHANGE`, `SKILL_INVEST`, `SKILL_REFUND`, `SKILL_RESET`, `TIER_FIRST_QUALITY`
 - **NPC (선택):** 대화 액션 `job:change_line`(계열 변경), `job:reset_skill`(공통 트리 초기화), 전직 컷씬(`cutscene/job_advance`). Harbor-Npc가 없으면 이 연결만 빠진다.

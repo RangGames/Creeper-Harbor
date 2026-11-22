@@ -27,6 +27,8 @@ import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
 import wiki.creeper.harbor.core.api.WorldBorderService;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
+import wiki.creeper.harbor.core.api.event.RigAnimationEvent;
+import wiki.creeper.harbor.core.api.event.RigHitboxClickEvent;
 import wiki.creeper.harbor.skript.Ids;
 import wiki.creeper.harbor.skript.ScriptArgs;
 import wiki.creeper.harbor.skript.lambda.Args;
@@ -380,12 +382,60 @@ public final class CoreServerSyntax {
                     if (scale > 0) {
                         options = options.withScale(scale);
                     }
+                    boolean events = c.mark() == 1;
+                    if (events) {
+                        options = options.withHitboxEvents();
+                    }
                     RigInstance rig = api().rigs().spawn(id.get(), at.get(), options);
+                    if (events) {
+                        rig.callBukkitEvents();
+                    }
                     c.set(5, List.of(rig.id().toString()));
                 },
                 "spawn harbor rig %string% at %location% [with animation %-string%] [with scale"
-                        + " %-number%] [(for|to) %-players%] [and (store|save) [the] (id|rig) in"
-                        + " %-objects%]");
+                        + " %-number%] [(for|to) %-players%] [1:with events] [and (store|save)"
+                        + " [the] (id|rig) in %-objects%]");
+
+        r.event(
+                "Harbor Rig Event",
+                RigAnimationEvent.class,
+                "\"with events\"로 띄운 리그의 애니메이션 이벤트 (event-string = 이벤트 이름, harbor event rig ="
+                        + " 리그 ID, harbor event animation = 애니메이션)",
+                "harbor rig [animation] event");
+        r.value(RigAnimationEvent.class, String.class, RigAnimationEvent::name);
+        r.event(
+                "Harbor Rig Hitbox Click",
+                RigHitboxClickEvent.class,
+                "\"with events\"로 띄운 리그의 부품 히트박스 클릭 (event-player, event-string = 뼈 이름, harbor"
+                        + " event rig = 리그 ID)",
+                "harbor rig [hitbox] click");
+        r.value(RigHitboxClickEvent.class, Player.class, RigHitboxClickEvent::player);
+        r.value(RigHitboxClickEvent.class, String.class, RigHitboxClickEvent::bone);
+        Ext.expr(r, String.class, "harbor event rig")
+                .single()
+                .register(
+                        c ->
+                                switch (c.event()) {
+                                    case RigAnimationEvent e -> List.of(e.rig().id().toString());
+                                    case RigHitboxClickEvent e -> List.of(e.rig().id().toString());
+                                    default -> List.<String>of();
+                                },
+                        "[the] harbor event rig [id]");
+        Ext.expr(r, String.class, "harbor event animation")
+                .in(RigAnimationEvent.class)
+                .register(
+                        c ->
+                                c.event() instanceof RigAnimationEvent e
+                                        ? List.of(e.animation())
+                                        : List.of(),
+                        "[the] harbor event animation");
+        Ext.conditionIn(
+                r,
+                "harbor rig click is attack",
+                RigHitboxClickEvent.class,
+                c -> c.event() instanceof RigHitboxClickEvent e && e.attack(),
+                "[the] harbor rig click is [an] attack",
+                "[the] harbor rig click (isn't|is not) [an] attack");
         // pattern 0 loop, 1 once
         Ext.effect(
                 r,

@@ -52,8 +52,19 @@ public enum BossRole implements Keyed {
         };
     }
 
+    /** Boss role for a Core party role (empty for LEADER and MEMBER). */
+    public static Optional<BossRole> fromPartyRole(PartyService.Role role) {
+        for (BossRole r : values()) {
+            if (r.partyRole() == role) {
+                return Optional.of(r);
+            }
+        }
+        return Optional.empty();
+    }
+
     @Override
     public String key() {
+
         return Keyed.keyOf(this);
     }
 }

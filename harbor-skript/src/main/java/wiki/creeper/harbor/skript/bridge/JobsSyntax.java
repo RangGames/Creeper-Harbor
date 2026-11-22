@@ -9,12 +9,17 @@ import java.util.function.Function;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import wiki.creeper.harbor.common.id.SkillId;
+import wiki.creeper.harbor.common.model.JobLine;
 import wiki.creeper.harbor.common.model.JobTier;
+import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.jobs.api.CapstoneState;
 import wiki.creeper.harbor.jobs.api.ExpGrant;
 import wiki.creeper.harbor.jobs.api.ExpSource;
+import wiki.creeper.harbor.jobs.api.InvestResult;
 import wiki.creeper.harbor.jobs.api.JobState;
 import wiki.creeper.harbor.jobs.api.JobsService;
+import wiki.creeper.harbor.jobs.api.SkillNodeInfo;
 import wiki.creeper.harbor.jobs.api.event.CapstoneUsedEvent;
 import wiki.creeper.harbor.jobs.api.event.JobAdvancedEvent;
 import wiki.creeper.harbor.jobs.api.event.JobExpGainEvent;
@@ -22,6 +27,7 @@ import wiki.creeper.harbor.jobs.api.event.JobLevelUpEvent;
 import wiki.creeper.harbor.jobs.api.event.JobLineChangedEvent;
 import wiki.creeper.harbor.jobs.api.event.SkillAllocatedEvent;
 import wiki.creeper.harbor.jobs.api.event.SkillResetEvent;
+import wiki.creeper.harbor.skript.Ids;
 import wiki.creeper.harbor.skript.lambda.Ctx;
 import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
@@ -41,13 +47,19 @@ public final class JobsSyntax {
     public static void register(Registrar r) {
         state(r);
         actions(r);
+        skills(r);
+        admin(r);
         events(r);
     }
 
     // ---------------------------------------------------------------- State
 
     private static <T> List<T> perPlayer(Ctx c, Function<Player, T> f) {
-        return c.players(0).stream()
+        return perPlayer(c, 0, f);
+    }
+
+    private static <T> List<T> perPlayer(Ctx c, int index, Function<Player, T> f) {
+        return c.players(index).stream()
                 .filter(p -> Shared.api().players().get(p.getUniqueId()).isPresent())
                 .map(f)
                 .toList();
@@ -201,6 +213,300 @@ public final class JobsSyntax {
                 },
                 "harbor consume [a] weekly capstone use of %offlineplayer% [and (store|save) [the]"
                         + " result in %-objects%]");
+    }
+
+    // ---------------------------------------------------------------- Skills
+
+    private static Optional<SkillId> skill(Ctx c, int index) {
+        return c.string(index).flatMap(s -> Ids.parse(s, SkillId.PREFIX)).map(SkillId::new);
+    }
+
+    private static Optional<SkillNodeInfo> node(Ctx c, int index) {
+        Optional<JobsService> s = jobs();
+        Optional<SkillId> id = skill(c, index);
+        if (s.isEmpty() || id.isEmpty()) {
+            return Optional.empty();
+        }
+        return s.get().skillNode(id.get());
+    }
+
+    private static String key(Enum<?> e) {
+        return e.name().toLowerCase(Locale.ROOT);
+    }
+
+    private static void skills(Registrar r) {
+        Ext.expr(r, Number.class, "harbor skill rank")
+                .perArg(1)
+                .register(
+                        c -> {
+                            Optional<JobsService> s = jobs();
+                            Optional<SkillId> id = skill(c, 0);
+                            if (s.isEmpty() || id.isEmpty()) {
+                                return List.of();
+                            }
+                            return perPlayer(
+                                    c,
+                                    1,
+                                    p -> s.get().skills(p.getUniqueId()).getOrDefault(id.get(), 0));
+                        },
+                        "[the] harbor skill rank of %string% (of|for) %players%");
+        Ext.expr(r, String.class, "harbor skills of")
+                .list()
+                .register(
+                        c ->
+                                jobs().flatMap(s -> c.player(0).map(p -> s.skills(p.getUniqueId())))
+                                        .map(
+                                                m ->
+                                                        m.entrySet().stream()
+                                                                .filter(e -> e.getValue() > 0)
+                                                                .map(e -> e.getKey().toString())
+                                                                .sorted()
+                                                                .toList())
+                                        .orElse(List.of()),
+                        "[all] [the] harbor skills of %player%",
+                        "[all] [the] %player%'[s] harbor skills");
+        Ext.expr(r, Number.class, "harbor skill points")
+                .register(
+                        c ->
+                                jobs().map(
+                                                s ->
+                                                        perPlayer(
+                                                                c,
+                                                                0,
+                                                                p ->
+                                                                        (Number)
+                                                                                s.skillPoints(
+                                                                                        p
+                                                                                                .getUniqueId())))
+                                        .orElse(List.of()),
+                        "[the] harbor skill points of %players%",
+                        "%players%'[s] harbor skill points");
+        Ext.expr(r, String.class, "harbor skill nodes")
+                .list()
+                .register(
+                        c ->
+                                jobs().map(
+                                                s ->
+                                                        s.skillNodes().stream()
+                                                                .filter(
+                                                                        n ->
+                                                                                c.string(0)
+                                                                                        .map(
+                                                                                                t ->
+                                                                                                        t
+                                                                                                                .equals(
+                                                                                                                        n
+                                                                                                                                .tree()))
+                                                                                        .orElse(
+                                                                                                true))
+                                                                .map(n -> n.id().toString())
+                                                                .toList())
+                                        .orElse(List.of()),
+                        "[all] [the] harbor skill nodes [in tree %-string%]");
+        // mark 0 name, 1 tree, 2 line
+        Ext.expr(r, String.class, "harbor skill text")
+                .single()
+                .register(
+                        c ->
+                                node(c, 0)
+                                        .map(
+                                                n ->
+                                                        switch (c.mark()) {
+                                                            case 1 -> List.of(n.tree());
+                                                            case 2 ->
+                                                                    n.line()
+                                                                            .map(
+                                                                                    l ->
+                                                                                            List.of(
+                                                                                                    l
+                                                                                                            .key()))
+                                                                            .orElse(
+                                                                                    List
+                                                                                            .<String>
+                                                                                                    of());
+                                                            default -> List.of(n.name());
+                                                        })
+                                        .orElse(List.of()),
+                        "[the] harbor skill (0:name|1:tree|2:line) of %string%");
+        // mark 0 tier, 1 max rank, 2 cost
+        Ext.expr(r, Number.class, "harbor skill number")
+                .single()
+                .register(
+                        c ->
+                                node(c, 0)
+                                        .map(
+                                                n ->
+                                                        List.<Number>of(
+                                                                switch (c.mark()) {
+                                                                    case 1 -> n.maxRank();
+                                                                    case 2 -> n.cost();
+                                                                    default -> n.tier();
+                                                                }))
+                                        .orElse(List.of()),
+                        "[the] harbor skill (0:tier|1:max rank|2:cost) of %string%");
+        Ext.expr(r, String.class, "harbor skill required nodes")
+                .list()
+                .register(
+                        c ->
+                                node(c, 0)
+                                        .map(
+                                                n ->
+                                                        n.requires().stream()
+                                                                .map(Object::toString)
+                                                                .toList())
+                                        .orElse(List.of()),
+                        "[the] harbor skill requirements of %string%",
+                        "[the] required harbor skills of %string%");
+
+        Ext.expr(r, String.class, "harbor skill invest check")
+                .single()
+                .register(
+                        c -> {
+                            Optional<JobsService> s = jobs();
+                            Optional<SkillId> id = skill(c, 0);
+                            Optional<Player> p = c.player(1);
+                            if (s.isEmpty() || id.isEmpty() || p.isEmpty()) {
+                                return List.of();
+                            }
+                            return List.of(
+                                    key(s.get().checkInvest(p.get().getUniqueId(), id.get())));
+                        },
+                        "[the] harbor skill invest check of %string% for %player%");
+        Ext.condition(
+                r,
+                "can invest in harbor skill",
+                c -> {
+                    Optional<JobsService> s = jobs();
+                    Optional<SkillId> id = skill(c, 1);
+                    Optional<Player> p = c.player(0);
+                    return s.isPresent()
+                            && id.isPresent()
+                            && p.isPresent()
+                            && s.get().checkInvest(p.get().getUniqueId(), id.get())
+                                    == InvestResult.OK;
+                },
+                "%player% can invest in harbor skill %string%",
+                "%player% (can't|cannot|can not) invest in harbor skill %string%");
+
+        Ext.await(
+                r,
+                "harbor invest in skill",
+                new int[] {2},
+                c -> {
+                    Optional<JobsService> s = jobs();
+                    Optional<Player> p = c.player(0);
+                    Optional<SkillId> id = skill(c, 1);
+                    if (s.isEmpty() || p.isEmpty() || id.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(s.get().invest(p.get(), id.get()).thenApply(JobsSyntax::key));
+                },
+                "make %player% invest in harbor skill %string% [and (store|save) [the] result in"
+                        + " %-objects%]");
+        Ext.await(
+                r,
+                "harbor reset common skills",
+                new int[] {1},
+                c -> {
+                    Optional<JobsService> s = jobs();
+                    Optional<Player> p = c.player(0);
+                    if (s.isEmpty() || p.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(s.get().resetCommonSkills(p.get().getUniqueId()));
+                },
+                "make %player% reset [the] harbor common skills [and (store|save) [the] result in"
+                        + " %-objects%]");
+        Ext.await(
+                r,
+                "harbor change job line",
+                new int[] {2},
+                c -> {
+                    Optional<JobsService> s = jobs();
+                    Optional<Player> p = c.player(0);
+                    Optional<JobLine> line = c.string(1).flatMap(JobsSyntax::line);
+                    if (s.isEmpty() || p.isEmpty() || line.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(s.get().changeLine(p.get().getUniqueId(), line.get()));
+                },
+                "make %player% change [the] harbor job line to %string% [and (store|save) [the]"
+                        + " result in %-objects%]");
+    }
+
+    private static Optional<JobLine> line(String raw) {
+        return Keyed.fromKey(JobLine.class, raw.strip().toLowerCase(Locale.ROOT));
+    }
+
+    // ---------------------------------------------------------------- Admin
+
+    private static void admin(Registrar r) {
+        // mark bits: 0 common, 1 line, 2 all; 4 with refund (marks are XORed)
+        Ext.await(
+                r,
+                "harbor admin reset skills",
+                new int[] {1},
+                c -> {
+                    Optional<JobsService> s = jobs();
+                    Optional<Player> p = c.player(0);
+                    if (s.isEmpty() || p.isEmpty()) {
+                        return null;
+                    }
+                    int mark = c.mark();
+                    String scope =
+                            switch (mark & 3) {
+                                case 1 -> "line";
+                                case 2 -> "all";
+                                default -> "common";
+                            };
+                    return Ext.value(
+                            s.get()
+                                    .adminResetSkills(
+                                            p.get().getUniqueId(), scope, (mark & 4) != 0));
+                },
+                "harbor admin reset (0:common|1:line|2:all) skills of %player% [4:with refund]"
+                        + " [and (store|save) [the] result in %-objects%]");
+        Ext.await(
+                r,
+                "harbor admin set job tier",
+                new int[] {3},
+                c -> {
+                    Optional<JobsService> s = jobs();
+                    Optional<Player> p = c.player(0);
+                    int tier = c.number(1).map(Number::intValue).orElse(0);
+                    Optional<JobLine> line = c.string(2).flatMap(JobsSyntax::line);
+                    if (s.isEmpty()
+                            || p.isEmpty()
+                            || tier < 1
+                            || tier > 3
+                            || (c.has(2) && line.isEmpty())) {
+                        return null;
+                    }
+                    return Ext.value(
+                            s.get()
+                                    .adminSetTier(
+                                            p.get().getUniqueId(),
+                                            JobTier.of(tier),
+                                            line.orElse(null)));
+                },
+                "harbor admin set [the] job tier of %player% to %number% [with line %-string%]"
+                        + " [and (store|save) [the] result in %-objects%]");
+        Ext.effect(
+                r,
+                "harbor admin set job level",
+                c -> {
+                    Optional<JobsService> s = jobs();
+                    int level = c.number(1).map(Number::intValue).orElse(0);
+                    long exp = c.number(2).map(Number::longValue).orElse(0L);
+                    if (s.isEmpty() || level < 1) {
+                        return;
+                    }
+                    for (Player p : c.players(0)) {
+                        s.get().adminSetLevel(p.getUniqueId(), level, exp);
+                    }
+                },
+                "harbor admin set [the] job level of %players% to %number% [with exp[erience]"
+                        + " %-number%]");
     }
 
     // ---------------------------------------------------------------- Events

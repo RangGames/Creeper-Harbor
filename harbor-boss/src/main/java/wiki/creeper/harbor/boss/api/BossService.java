@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.boss.content.BossDef;
 import wiki.creeper.harbor.common.id.BossId;
@@ -64,4 +65,21 @@ public interface BossService {
      * @param result CLEARED · FAILED · ABORTED
      */
     boolean forceEnd(UUID encounterId, EncounterState result);
+
+    /**
+     * This week's reward count for one boss (the weekly limit from balance.yml {@code
+     * boss.types.<type>.weekly}, counted on clears as {@code boss:<name>} in the Season weekly
+     * counter). Clears beyond the limit still count as clears but give reduced rewards.
+     *
+     * @param used clears rewarded this week
+     * @param remaining rewards left this week (0 or more)
+     * @param limit weekly limit
+     */
+    record WeeklyRewards(int used, int remaining, int limit) {}
+
+    /**
+     * Reads a player's weekly reward count for a boss (DB, asynchronous; completes on the main
+     * thread). Empty for an unknown boss or a story boss (no weekly count).
+     */
+    CompletableFuture<Optional<WeeklyRewards>> weeklyRewards(UUID player, BossId boss);
 }

@@ -1,4 +1,4 @@
-package wiki.creeper.harbor.jobs.service;
+package wiki.creeper.harbor.jobs.api;
 
 /** Skill investment result. Check order follows docs 20 2.4 SkillAllocator. */
 public enum InvestResult {

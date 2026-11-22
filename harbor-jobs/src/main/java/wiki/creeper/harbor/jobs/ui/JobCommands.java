@@ -44,7 +44,7 @@ import wiki.creeper.harbor.jobs.service.JobsManager;
  */
 public final class JobCommands {
 
-    private static final List<String> RESET_SCOPES = List.of("common", "line", "all");
+    private static final List<String> RESET_SCOPES = JobsManager.RESET_SCOPES;
 
     private final HarborApi api;
     private final JobsManager jobs;
@@ -218,13 +218,8 @@ public final class JobCommands {
 
     private int level(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         Player p = player(ctx);
-        HarborPlayer hp = api.players().get(p);
-        hp.setJob(
-                hp.jobLine().orElse(null),
-                hp.jobTier(),
-                IntegerArgumentType.getInteger(ctx, "level"),
-                0);
-        done(ctx, "level", p, String.valueOf(hp.level()));
+        jobs.adminSetLevel(p.getUniqueId(), IntegerArgumentType.getInteger(ctx, "level"), 0);
+        done(ctx, "level", p, String.valueOf(api.players().get(p).level()));
         return Command.SINGLE_SUCCESS;
     }
 

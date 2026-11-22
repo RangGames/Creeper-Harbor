@@ -39,6 +39,8 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.api.FishingService;
+import wiki.creeper.harbor.season.api.SeasonServices;
+import wiki.creeper.harbor.season.api.WeeklyLimitService;
 
 /**
  * Encounter lifecycle management (docs 20 10.4 EncounterManager). Summon checks → preparation →
@@ -262,6 +264,20 @@ public final class EncounterManager implements BossService {
         List<Player> party = starter.partyPlayers(leader);
         Location from = BossItems.loc(leader);
         return starter.startField(def.get(), leader, party, null, true, from);
+    }
+
+    @Override
+    public CompletableFuture<Optional<WeeklyRewards>> weeklyRewards(UUID player, BossId boss) {
+        Optional<BossDef> def = definition(boss);
+        if (def.isEmpty() || def.get().story()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        int limit = balance().weeklyLimit(def.get().type());
+        return SeasonServices.limits()
+                .remaining(player, WeeklyLimitService.bossKey(boss.id().name()), limit)
+                .thenApplyAsync(
+                        r -> Optional.of(new WeeklyRewards(r.used(), r.remaining(), r.limit())),
+                        tasks.main());
     }
 
     @Override

@@ -15,9 +15,9 @@ import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.boss.api.BossRole;
+import wiki.creeper.harbor.boss.party.PartyActions;
 import wiki.creeper.harbor.boss.party.PartyManager;
 import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.core.api.HarborApi;
@@ -31,10 +31,12 @@ public final class PartyCommands {
 
     private final HarborApi api;
     private final PartyManager parties;
+    private final PartyActions actions;
 
-    public PartyCommands(HarborApi api, PartyManager parties) {
+    public PartyCommands(HarborApi api, PartyManager parties, PartyActions actions) {
         this.api = api;
         this.parties = parties;
+        this.actions = actions;
     }
 
     public void register(Commands commands) {
@@ -97,8 +99,8 @@ public final class PartyCommands {
         return java.util.Objects.requireNonNull((Player) ctx.getSource().getExecutor());
     }
 
-    private int done(Player p, PartyManager.Result r, String okKey, String target) {
-        if (r == PartyManager.Result.OK) {
+    private int done(Player p, PartyService.Result r, String okKey, String target) {
+        if (r == PartyService.Result.OK) {
             api.messages().send(p, okKey, Placeholder.unparsed("player", target));
             return Command.SINGLE_SUCCESS;
         }
@@ -139,84 +141,43 @@ public final class PartyCommands {
     }
 
     private static String name(UUID u) {
-        OfflinePlayer op = Bukkit.getOfflinePlayer(u);
-        String n = op.getName();
-        return n == null ? u.toString().substring(0, 8) : n;
+        return PartyActions.name(u);
     }
 
     private int create(CommandContext<CommandSourceStack> ctx) {
         Player p = self(ctx);
-        return done(p, parties.create(p.getUniqueId()), "boss.party.created", p.getName());
+        return done(p, actions.create(p.getUniqueId()), "boss.party.created", p.getName());
     }
 
     private int invite(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         Player p = self(ctx);
         Player t = target(ctx);
-        long ttl =
-                new wiki.creeper.harbor.boss.content.BossBalance(
-                                        api.content()
-                                                .snapshot()
-                                                .single(
-                                                        wiki.creeper.harbor.common.content.type
-                                                                .Balance.TYPE))
-                                .inviteSeconds()
-                        * 1000L;
-        PartyManager.Result r =
-                parties.invite(p.getUniqueId(), t.getUniqueId(), System.currentTimeMillis(), ttl);
-        if (r == PartyManager.Result.OK) {
-            api.messages()
-                    .send(t, "boss.party.invited", Placeholder.unparsed("player", p.getName()));
-        }
+        PartyService.Result r = actions.invite(p.getUniqueId(), t.getUniqueId());
         return done(p, r, "boss.party.invite_sent", t.getName());
     }
 
     private int join(CommandContext<CommandSourceStack> ctx) {
         Player p = self(ctx);
-        Optional<UUID> from = parties.inviter(p.getUniqueId(), System.currentTimeMillis());
-        PartyManager.Result r = parties.join(p.getUniqueId(), System.currentTimeMillis());
-        if (r == PartyManager.Result.OK) {
-            for (UUID u : parties.membersOf(p.getUniqueId())) {
-                Player m = Bukkit.getPlayer(u);
-                if (m != null && !m.equals(p)) {
-                    api.messages()
-                            .send(
-                                    m,
-                                    "boss.party.joined_other",
-                                    Placeholder.unparsed("player", p.getName()));
-                }
-            }
-        }
+        Optional<UUID> from = actions.pendingInvite(p.getUniqueId());
+        PartyService.Result r = actions.accept(p.getUniqueId());
         return done(p, r, "boss.party.joined", from.map(PartyCommands::name).orElse("?"));
     }
 
     private int leave(CommandContext<CommandSourceStack> ctx) {
         Player p = self(ctx);
-        List<UUID> before = parties.membersOf(p.getUniqueId());
-        PartyManager.Result r = parties.leave(p.getUniqueId());
-        if (r == PartyManager.Result.OK) {
-            notify(before, p.getUniqueId(), "boss.party.left_other", p.getName());
-        }
-        return done(p, r, "boss.party.left", p.getName());
+        return done(p, actions.leave(p.getUniqueId()), "boss.party.left", p.getName());
     }
 
     private int kick(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         Player p = self(ctx);
         Player t = target(ctx);
-        PartyManager.Result r = parties.kick(p.getUniqueId(), t.getUniqueId());
-        if (r == PartyManager.Result.OK) {
-            api.messages().send(t, "boss.party.kicked_you");
-        }
+        PartyService.Result r = actions.kick(p.getUniqueId(), t.getUniqueId());
         return done(p, r, "boss.party.kicked", t.getName());
     }
 
     private int disband(CommandContext<CommandSourceStack> ctx) {
         Player p = self(ctx);
-        List<UUID> before = parties.membersOf(p.getUniqueId());
-        PartyManager.Result r = parties.disband(p.getUniqueId());
-        if (r == PartyManager.Result.OK) {
-            notify(before, p.getUniqueId(), "boss.party.disbanded", p.getName());
-        }
-        return done(p, r, "boss.party.disbanded", p.getName());
+        return done(p, actions.disband(p.getUniqueId()), "boss.party.disbanded", p.getName());
     }
 
     private int promote(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
@@ -224,7 +185,7 @@ public final class PartyCommands {
         Player t = target(ctx);
         return done(
                 p,
-                parties.promote(p.getUniqueId(), t.getUniqueId()),
+                actions.promote(p.getUniqueId(), t.getUniqueId()),
                 "boss.party.promoted",
                 t.getName());
     }
@@ -238,8 +199,9 @@ public final class PartyCommands {
             return 0;
         }
         Player t = other ? target(ctx) : p;
-        PartyManager.Result r = parties.role(p.getUniqueId(), t.getUniqueId(), role.get());
-        if (r == PartyManager.Result.OK) {
+        PartyService.Result r =
+                actions.setRole(p.getUniqueId(), t.getUniqueId(), role.get().partyRole());
+        if (r == PartyService.Result.OK) {
             api.messages()
                     .send(
                             p,
@@ -250,14 +212,5 @@ public final class PartyCommands {
             return Command.SINGLE_SUCCESS;
         }
         return done(p, r, "boss.party.role_set", t.getName());
-    }
-
-    private void notify(List<UUID> members, UUID except, String key, String name) {
-        for (UUID u : members) {
-            Player m = Bukkit.getPlayer(u);
-            if (m != null && !u.equals(except)) {
-                api.messages().send(m, key, Placeholder.unparsed("player", name));
-            }
-        }
     }
 }

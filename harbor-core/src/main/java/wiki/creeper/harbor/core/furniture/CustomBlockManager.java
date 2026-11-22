@@ -53,6 +53,8 @@ import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.ItemService;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
+import wiki.creeper.harbor.core.api.event.CustomBlockBreakEvent;
+import wiki.creeper.harbor.core.api.event.CustomBlockPlaceEvent;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
@@ -211,6 +213,22 @@ public final class CustomBlockManager implements Listener {
     // ------------------------------------------------------------------ Events
 
     /**
+     * Custom block place event (after protection plugins, before the state is set). Cancelling it
+     * cancels the vanilla placement.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlacing(BlockPlaceEvent event) {
+        Optional<HarborId> id = idOf(event.getItemInHand());
+        if (id.isEmpty() || def(id.get()).isEmpty()) {
+            return;
+        }
+        if (!new CustomBlockPlaceEvent(event.getPlayer(), event.getBlockPlaced(), id.get())
+                .callEvent()) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
      * After placement (once all protection checks are done), switches to the state matching the
      * direction. If cancelled later, the server restores the original block.
      */
@@ -266,6 +284,10 @@ public final class CustomBlockManager implements Listener {
         Player player = event.getPlayer();
         boolean creative = player.getGameMode() == GameMode.CREATIVE;
         if (def.get().breaking().unbreakable() && !creative) {
+            event.setCancelled(true);
+            return;
+        }
+        if (!new CustomBlockBreakEvent(player, event.getBlock(), def.get().id()).callEvent()) {
             event.setCancelled(true);
             return;
         }

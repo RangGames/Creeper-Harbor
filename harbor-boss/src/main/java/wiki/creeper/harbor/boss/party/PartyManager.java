@@ -17,22 +17,12 @@ import wiki.creeper.harbor.core.api.PartyService;
  * the Core api {@link PartyService} implementation, used by Jobs capstones, banquet food and Core
  * party chat. Up to 10 members. Parties live only in server memory (on server moves they carry over
  * via the member list in the instance assignment request). Main thread only.
+ *
+ * <p>This class holds the party state and rules only (results are {@link PartyService.Result}). The
+ * service registered with the ServicesManager is {@link PartyActions}, which wraps these changes
+ * with the chat notices.
  */
 public final class PartyManager implements PartyService {
-
-    /** Operation result. */
-    public enum Result {
-        OK,
-        ALREADY_IN_PARTY,
-        NOT_IN_PARTY,
-        NOT_LEADER,
-        FULL,
-        NO_INVITE,
-        SELF,
-        TARGET_IN_PARTY,
-        /** The party cannot be changed during a boss fight. */
-        BUSY
-    }
 
     /** One invite. */
     private record Invite(UUID party, UUID from, long expiresAt) {}
@@ -88,6 +78,7 @@ public final class PartyManager implements PartyService {
 
     // ------------------------------------------------------------------ Management
 
+    @Override
     public Result create(UUID leader) {
         if (byPlayer.containsKey(leader)) {
             return Result.ALREADY_IN_PARTY;
@@ -156,6 +147,7 @@ public final class PartyManager implements PartyService {
                 : Optional.of(invite.from());
     }
 
+    @Override
     public Result leave(UUID player) {
         Group g = byPlayer.get(player);
         if (g == null) {
@@ -168,6 +160,7 @@ public final class PartyManager implements PartyService {
         return Result.OK;
     }
 
+    @Override
     public Result kick(UUID leader, UUID target) {
         Group g = byPlayer.get(leader);
         if (g == null) {
@@ -189,6 +182,7 @@ public final class PartyManager implements PartyService {
         return Result.OK;
     }
 
+    @Override
     public Result disband(UUID leader) {
         Group g = byPlayer.get(leader);
         if (g == null) {
@@ -221,7 +215,9 @@ public final class PartyManager implements PartyService {
     }
 
     /** Transfers party leadership. */
+    @Override
     public Result promote(UUID leader, UUID target) {
+
         Group g = byPlayer.get(leader);
         if (g == null || !g.members.containsKey(target)) {
             return Result.NOT_IN_PARTY;

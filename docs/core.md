@@ -31,10 +31,10 @@
 | `Ui` · `Dialogs` | 상자 GUI, Dialog 화면(알림·선택지·입력) |
 | `ProxyBridge` · `HandoffBlocker` | 서버 이동 요청, 이동 막기 |
 | `WorldBorderService` | 화면 가장자리 경고 연출의 우선순위 중재 |
-| `RigService` · `RigInstance` | 디스플레이 리그 재생 |
-| `FurnitureService` | 가구·커스텀 블록 |
+| `RigService` · `RigInstance` | 디스플레이 리그 재생. `RigOptions.withHitboxEvents()`·`RigInstance.callBukkitEvents()`를 쓰면 히트박스 클릭·애니메이션 이벤트가 Bukkit 이벤트로도 나온다 (Skript용) |
+| `FurnitureService` | 가구·커스텀 블록. 아이템 외에 위치에 놓기(`place`·`placeAs`, 플레이어와 같은 공간·보호 검사), 찾기(`furnitureAt`·`placedOf`·`furnitureNear`·`furnitureIn` → `Placed`: ID·위치·놓은 사람·히트박스), 치우기(`remove`, 아이템 돌려받기·떨어뜨리기) |
 | `HarborSounds` | `sounds.yml` 표로 소리 재생 (팩이 없으면 바닐라 대체음) |
-| `MailService` · `PartyService` | 인터페이스만 Core에 있고 구현은 Economy(우편함)·Boss(파티) |
+| `MailService` · `PartyService` | 인터페이스만 Core에 있고 구현은 Economy(우편함)·Boss(파티). `PartyService`는 조회 외에 `create`·`invite`·`accept`·`leave`·`kick`·`disband`·`promote`·`setRole`(`/파티`와 같은 규칙·알림, 결과는 `Result`)도 있다 |
 | `ExternalEvents` | 외부 연동 이벤트 발행 (아래 참고) |
 | `database()` · `writeBehind()` · `bus()` · `locks()` · `redis()` | DB·지연 쓰기 큐·Redis 메시지 버스·분산 잠금 |
 
@@ -170,7 +170,8 @@
 
 ## 다른 모듈과의 연결
 
-- **이벤트 (`core.api.event`):** `ContentReloadedEvent`, `CurrencyChangedEvent`, `PlayerFlagChangedEvent`, `ServerFlagChangedEvent`, `FurnitureRemoveEvent`
+- **이벤트 (`core.api.event`):** `ContentReloadedEvent`, `CurrencyChangedEvent`, `PlayerFlagChangedEvent`, `ServerFlagChangedEvent`, 가구 `FurniturePlaceEvent`(취소 가능)·`FurnitureInteractEvent`(취소 가능)·`FurnitureSitEvent`(취소 가능)·`FurnitureStandEvent`·`FurnitureRemoveEvent`, 커스텀 블록 `CustomBlockPlaceEvent`·`CustomBlockBreakEvent`(취소 가능), 리그 `RigAnimationEvent`·`RigHitboxClickEvent`(요청한 리그만)
+
 - **ExternalEvents (추가 제안):** 외부 연동 이벤트를 Redis `harbor:events`로 발행한다. 게임 모듈 이벤트는 Harbor-Web이 자동으로 옮기므로, 직접 부르는 것은 주로 다른 플러그인(Skript 등)이다.
 
   ```java
