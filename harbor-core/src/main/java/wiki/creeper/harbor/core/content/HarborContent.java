@@ -137,24 +137,37 @@ public final class HarborContent implements ContentService {
     }
 
     @Override
-    public CompletableFuture<Result<ContentSnapshot, ValidationErrors>> reload(
+    public synchronized CompletableFuture<Result<ContentSnapshot, ValidationErrors>> reload(
             Set<String> types, boolean apply) {
         Set<String> only = types.isEmpty() ? allTypes() : Set.copyOf(types);
-        ContentSnapshot previous = snapshot;
-        return tasks.supplyAsync(() -> loader.reload(root, only, previous))
-                .thenApplyAsync(
-                        result -> {
-                            if (apply
-                                    && result
-                                            instanceof
-                                            Result.Ok<ContentSnapshot, ValidationErrors>(
-                                                    ContentSnapshot loaded)) {
-                                apply(loaded, only);
-                            }
-                            return result;
-                        },
-                        tasks.main());
+        // 리로드를 한 줄로 세운다: 겹치면 나중에 끝난 쪽이 앞 리로드 전 스냅샷을 바탕으로 만들어져 앞 리로드의 변경이 조용히 되돌아갔다
+        // (예: /harbor reload fish와 퀘스트 편집기 저장). 앞 리로드가 적용된 뒤의 스냅샷에서 시작한다
+        CompletableFuture<Result<ContentSnapshot, ValidationErrors>> next =
+                reloadChain
+                        .handle((r, e) -> null)
+                        .thenCompose(
+                                ignored -> {
+                                    ContentSnapshot previous = snapshot;
+                                    return tasks.supplyAsync(
+                                            () -> loader.reload(root, only, previous));
+                                })
+                        .thenApplyAsync(
+                                result -> {
+                                    if (apply
+                                            && result
+                                                    instanceof
+                                                    Result.Ok<ContentSnapshot, ValidationErrors>(
+                                                            ContentSnapshot loaded)) {
+                                        apply(loaded, only);
+                                    }
+                                    return result;
+                                },
+                                tasks.main());
+        reloadChain = next;
+        return next;
     }
+
+    private CompletableFuture<?> reloadChain = CompletableFuture.completedFuture(null);
 
     public Set<String> allTypes() {
         Set<String> names = new HashSet<>();

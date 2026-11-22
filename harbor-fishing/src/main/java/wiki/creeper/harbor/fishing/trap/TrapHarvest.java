@@ -297,8 +297,8 @@ final class TrapHarvest {
                                 api.database()
                                         .async(c -> TrapRepository.deleteEmpty(c, row.id(), uuid)))
                         .whenCompleteAsync(
-                                (ok, error) -> {
-                                    if (error != null || !Boolean.TRUE.equals(ok)) {
+                                (bait, error) -> {
+                                    if (error != null || bait == null || bait < 0) {
                                         api.messages().send(player, "fishing.trap.failed");
                                         return;
                                     }
@@ -313,7 +313,7 @@ final class TrapHarvest {
                                                             fishing.give(
                                                                     player,
                                                                     api.items().create(def, 1)));
-                                    refundBait(player, row.bait());
+                                    refundBait(player, bait);
                                     api.messages().send(player, "fishing.trap.removed");
                                 },
                                 tasks.main());

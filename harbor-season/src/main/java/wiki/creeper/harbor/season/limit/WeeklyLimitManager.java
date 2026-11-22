@@ -73,9 +73,18 @@ public final class WeeklyLimitManager implements WeeklyLimitService {
 
     @Override
     public CompletableFuture<Boolean> refund(UUID player, String key) {
+        return refund(player, key, currentWeek());
+    }
+
+    @Override
+    public int currentWeek() {
+        return Math.max(0, clock.week());
+    }
+
+    @Override
+    public CompletableFuture<Boolean> refund(UUID player, String key, int week) {
         WeeklyLimitService.requireKey(key);
         int season = clock.current().value();
-        int week = Math.max(0, clock.week());
         return db.async(
                         c -> {
                             try (PreparedStatement ps =

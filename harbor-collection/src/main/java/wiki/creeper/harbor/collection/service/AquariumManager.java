@@ -135,16 +135,10 @@ public final class AquariumManager implements AquariumService, Listener {
                     instanceof DonationBox box) {
                 List<ItemStack> items = takeAll(box.getInventory());
                 p.closeInventory();
-                p.getInventory().addItem(items.toArray(ItemStack[]::new));
+                giveOrMail(p.getUniqueId(), p, items);
             }
         }
-        pendingBox.forEach(
-                (uuid, items) -> {
-                    Player p = Bukkit.getPlayer(uuid);
-                    if (p != null) {
-                        p.getInventory().addItem(items.toArray(ItemStack[]::new));
-                    }
-                });
+        pendingBox.forEach((uuid, items) -> giveOrMail(uuid, Bukkit.getPlayer(uuid), items));
         pendingBox.clear();
         tanks.stop();
     }
@@ -465,7 +459,20 @@ public final class AquariumManager implements AquariumService, Listener {
         List<ItemStack> held = pendingBox.remove(uuid);
         if (held != null) {
             // 퇴장 이벤트 안이라 아직 인벤토리가 저장되기 전이다
-            event.getPlayer().getInventory().addItem(held.toArray(ItemStack[]::new));
+            giveOrMail(uuid, event.getPlayer(), held);
+        }
+    }
+
+    /** 인벤토리에 넣고 넘친 것은 우편으로 (예전에는 넘친 만큼 사라졌다). 접속해 있지 않으면 모두 우편. */
+    private void giveOrMail(UUID uuid, @Nullable Player player, List<ItemStack> items) {
+        List<ItemStack> left = new ArrayList<>();
+        if (player != null) {
+            left.addAll(player.getInventory().addItem(items.toArray(ItemStack[]::new)).values());
+        } else {
+            left.addAll(items);
+        }
+        if (!left.isEmpty()) {
+            returns.giveBack(uuid, left, RETURN_SOURCE); // 칸이 없으면 우편으로 간다
         }
     }
 
@@ -486,6 +493,14 @@ public final class AquariumManager implements AquariumService, Listener {
     public CompletableFuture<DonationResult> donateItems(
             Player player, List<ItemStack> items, String source) {
         UUID uuid = player.getUniqueId();
+        CompletableFuture<?> running = busy.get(uuid);
+        if (running != null && !running.isDone()) {
+            // 앞 기부가 커밋되기 전이면 종 상한(메모리 값 기준)을 넘길 수 있으므로 받지 않고 돌려준다
+            returns.giveBack(uuid, items, RETURN_SOURCE);
+            api.messages().send(player, "collection.aquarium.busy");
+            return CompletableFuture.completedFuture(
+                    new DonationResult(0, 0, countOf(items), false));
+        }
         List<ItemStack> giveBack = new ArrayList<>();
         List<Candidate> list = candidates(player, items, giveBack);
         if (list.isEmpty()) {
@@ -500,6 +515,9 @@ public final class AquariumManager implements AquariumService, Listener {
                 api.database()
                         .async(
                                 c -> {
+                                    // 시즌 행을 잠가 기부를 한 줄로 세운다: 두 사람이 같은 새 어종을 동시에 기부하면 둘 다 "첫 기부"
+                                    // 보너스를 받았다
+                                    lockSeason(c, season);
                                     int[] points = new int[list.size()];
                                     for (int i = 0; i < list.size(); i++) {
                                         Candidate cand = list.get(i);
@@ -640,6 +658,24 @@ public final class AquariumManager implements AquariumService, Listener {
             return;
         }
         throw new SQLException("고유 ID 장부 상태가 ACTIVE가 아닙니다: " + uid);
+    }
+
+    private static void lockSeason(Connection c, SeasonId season) throws SQLException {
+        try (var ps =
+                c.prepareStatement(
+                        "INSERT IGNORE INTO aquarium_state (season, points, species_count) VALUES (?, 0, 0)")) {
+            ps.setInt(1, season.value());
+            ps.executeUpdate();
+        }
+        try (var ps =
+                c.prepareStatement(
+                        "SELECT season FROM aquarium_state WHERE season = ? FOR UPDATE")) {
+            ps.setInt(1, season.value());
+            try (var rs = ps.executeQuery()) {
+                // 잠금만 잡는다
+                var _ = rs.next();
+            }
+        }
     }
 
     private static boolean speciesDonated(Connection c, SeasonId season, FishId fish)

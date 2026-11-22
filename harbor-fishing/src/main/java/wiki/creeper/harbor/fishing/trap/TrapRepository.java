@@ -262,14 +262,27 @@ public final class TrapRepository {
         }
     }
 
-    /** 철거 (주인 확인, 내용물이 비었을 때만). */
-    public static boolean deleteEmpty(Connection c, long id, UUID owner) throws SQLException {
+    /**
+     * 철거 (주인 확인, 내용물이 비었을 때만): 빈 통발을 지운다. 지웠으면 그때 들어 있던 미끼 수, 못 지웠으면 -1. 미끼 수는 같은 트랜잭션에서 잠그고 읽는다:
+     * 메뉴를 열 때 읽은 값으로 돌려주면 그 사이 넣은 미끼가 환불 없이 사라졌다.
+     */
+    public static int deleteEmpty(Connection c, long id, UUID owner) throws SQLException {
+        int bait;
         try (PreparedStatement ps =
                 c.prepareStatement(
-                        "DELETE FROM traps WHERE id = ? AND owner = ? AND contents = '[]'")) {
+                        "SELECT bait_count FROM traps WHERE id = ? AND owner = ? AND contents = '[]' FOR UPDATE")) {
             ps.setLong(1, id);
             ps.setString(2, owner.toString());
-            return ps.executeUpdate() == 1;
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return -1;
+                }
+                bait = rs.getInt(1);
+            }
+        }
+        try (PreparedStatement ps = c.prepareStatement("DELETE FROM traps WHERE id = ?")) {
+            ps.setLong(1, id);
+            return ps.executeUpdate() == 1 ? bait : -1;
         }
     }
 

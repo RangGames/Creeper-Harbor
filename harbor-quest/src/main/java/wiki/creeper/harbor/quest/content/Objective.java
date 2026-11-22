@@ -174,6 +174,10 @@ public record Objective(
                 valueIsCount
                         ? n.integer(java.util.Objects.requireNonNull(shorthand), 1, 1, 1_000_000)
                         : n.integer("count", 1, 1, 1_000_000);
+        if ("visit".equals(type) && count != 1) {
+            // 지역 안에서 칸을 옮길 때마다 1씩 올라가므로 2 이상이면 들어가서 몇 칸 걷기만 해도 찬다
+            n.error("visit 목표의 count는 1이어야 합니다 (방문 여부만 셉니다)");
+        }
         Quality quality = null;
         if (n.has("quality_min")) {
             int stars = n.integer("quality_min", 1, Quality.MIN, Quality.MAX);

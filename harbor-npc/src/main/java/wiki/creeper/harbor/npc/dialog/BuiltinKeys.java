@@ -2,6 +2,7 @@ package wiki.creeper.harbor.npc.dialog;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -98,17 +99,19 @@ public final class BuiltinKeys {
                             if (api.flags().hasPlayer(ctx.player().getUniqueId(), flag)) {
                                 return ActionResult.CONTINUE;
                             }
+                            UUID uuid = ctx.player().getUniqueId();
+                            int value = args.integer("value", 0);
+                            // 플래그가 저장된 뒤에만 준다 (저장이 실패하면 시즌 내내 반복해서 받을 수 있었다). 캐시는 바로 바뀌어 연타는 막힌다
                             var _ =
                                     api.flags()
-                                            .setPlayer(
-                                                    ctx.player().getUniqueId(),
-                                                    FlagService.Scope.SEASON,
-                                                    flag);
-                            affinity.add(
-                                    ctx.player().getUniqueId(),
-                                    npc,
-                                    args.integer("value", 0),
-                                    AffinitySource.DIALOG);
+                                            .setPlayer(uuid, FlagService.Scope.SEASON, flag)
+                                            .thenRun(
+                                                    () ->
+                                                            affinity.add(
+                                                                    uuid,
+                                                                    npc,
+                                                                    value,
+                                                                    AffinitySource.DIALOG));
                             return ActionResult.CONTINUE;
                         },
                         (args, check) -> {

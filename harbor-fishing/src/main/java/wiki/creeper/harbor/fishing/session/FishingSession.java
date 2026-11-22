@@ -1,7 +1,9 @@
 package wiki.creeper.harbor.fishing.session;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.kyori.adventure.bossbar.BossBar;
 import org.bukkit.Location;
 import org.bukkit.entity.FishHook;
@@ -29,7 +31,10 @@ final class FishingSession {
         }
     }
 
-    /** 결과가 나오기 전에 끝난 캐스팅의 판정 (60초 보관, 같은 지역·미끼로 다시 던지면 그대로 씀). */
+    /**
+     * 결과가 나오기 전에 끝난 캐스팅의 판정 (60초 보관, 같은 지역·미끼로 다시 던지면 그대로 씀). 지역·미끼 조합마다 따로 보관한다: 하나만 두면 미끼를 번갈아 바꿔
+     * 던질 때마다 앞 판정이 버려지고 새로 굴려져 재판정 방지가 무력해졌다.
+     */
     record PendingRoll(
             RegionId region,
             @Nullable ItemId bait,
@@ -45,7 +50,12 @@ final class FishingSession {
     List<FishDef> legends = List.of();
     boolean pityCounted;
     long biteAtNanos;
-    @Nullable PendingRoll pending;
+    final Map<String, PendingRoll> pendings = new HashMap<>();
+
+    static String pendingKey(RegionId region, @Nullable ItemId bait) {
+        return region + "|" + (bait == null ? "-" : bait.toString());
+    }
+
     @Nullable Minigame minigame;
     @Nullable BossBar bar;
     int missedBig;

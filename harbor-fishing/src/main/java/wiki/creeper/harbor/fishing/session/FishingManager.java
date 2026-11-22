@@ -39,6 +39,7 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.MailService;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
@@ -357,9 +358,30 @@ public final class FishingManager implements FishingService, Listener {
         return ctx.itemDef(stack);
     }
 
-    /** 인벤토리가 가득 차면 발밑에 떨어뜨리고 60초 동안 본인만 주울 수 있게 한다. */
+    /**
+     * 인벤토리가 가득 차면 발밑에 떨어뜨리고 60초 동안 본인만 주울 수 있게 한다. 통발 수확·회수·환불처럼 DB 커밋 뒤 주는 아이템. 그 사이 나갔거나 서버 이동
+     * 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 (DB에서는 이미 빠졌다) 우편으로 보낸다. 우편함이 없으면 기록만 남긴다.
+     */
     public void give(Player player, ItemStack stack) {
-        gear.give(player, stack);
+        UUID uuid = player.getUniqueId();
+        if (player.isOnline() && !api.players().frozen(uuid)) {
+            gear.give(player, stack);
+            return;
+        }
+        Optional<MailService> mail = api.mail();
+        if (mail.isEmpty()) {
+            log.error("우편함이 없어 통발 아이템을 줄 수 없습니다 (관리자 복구 필요): {} {}", uuid, stack);
+            return;
+        }
+        String ref = "trap_give:" + UUID.randomUUID();
+        var _ =
+                mail.get()
+                        .sendItem(uuid, stack, "trap_give", ref)
+                        .exceptionally(
+                                e -> {
+                                    log.error("통발 아이템 우편 실패 (관리자 복구 필요): {} {}", uuid, stack, e);
+                                    return null;
+                                });
     }
 
     // ------------------------------------------------------------------ 낚시 이벤트
@@ -414,10 +436,7 @@ public final class FishingManager implements FishingService, Listener {
                 }
             }
             if (ticks % 20 == 0) {
-                FishingSession.PendingRoll pending = s.pending;
-                if (pending != null && !Instant.now().isBefore(pending.expiresAt())) {
-                    mythic.discardPending(s);
-                }
+                mythic.discardExpired(s, Instant.now());
             }
         }
         for (TensionSessionImpl t : List.copyOf(tensions.values())) {
@@ -523,12 +542,13 @@ public final class FishingManager implements FishingService, Listener {
             if (hold != null) {
                 mythic.releaseMythicNow(hold);
             }
-            FishingSession.PendingRoll pending = s.pending;
-            FishingSession.MythicHold pendingHold = pending == null ? null : pending.mythic();
-            if (pendingHold != null) {
-                mythic.releaseMythicNow(pendingHold);
+            for (FishingSession.PendingRoll pending : s.pendings.values()) {
+                FishingSession.MythicHold pendingHold = pending.mythic();
+                if (pendingHold != null) {
+                    mythic.releaseMythicNow(pendingHold);
+                }
             }
-            s.pending = null;
+            s.pendings.clear();
         }
         for (TensionSessionImpl t : List.copyOf(tensions.values())) {
             t.close(MinigameResult.ABORTED);

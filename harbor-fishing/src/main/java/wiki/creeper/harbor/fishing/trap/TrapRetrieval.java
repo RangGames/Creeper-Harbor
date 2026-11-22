@@ -104,17 +104,44 @@ final class TrapRetrieval {
                 continue;
             }
             String ref = "trap:" + row.id() + ":" + entry.uid();
+            // 우편과 항목 삭제를 한 트랜잭션으로, 그 항목이 아직 통발에 있을 때만 (조회 뒤 주인이 직접 수확했으면 건너뛴다: 예전에는
+            // 조회 때의 목록으로 보내서 두 번 받았다)
+            SqlConsumer entryMail = mail.sendItemInTx(row.owner(), stack, "trap_retrieve", ref);
             chain =
-                    chain.thenCompose(v -> mail.sendItem(row.owner(), stack, "trap_retrieve", ref))
-                            .thenCompose(
-                                    v ->
-                                            api.database()
-                                                    .asyncVoid(
-                                                            c ->
-                                                                    TrapRepository.dropEntry(
-                                                                            c,
-                                                                            row.id(),
-                                                                            entry.uid())));
+                    chain.thenCompose(
+                            v ->
+                                    api.database()
+                                            .async(
+                                                    c -> {
+                                                        Optional<TrapRow> now =
+                                                                TrapRepository.byId(
+                                                                        c, row.id(), true);
+                                                        boolean present =
+                                                                now.isPresent()
+                                                                        && now
+                                                                                .get()
+                                                                                .contents()
+                                                                                .stream()
+                                                                                .anyMatch(
+                                                                                        e ->
+                                                                                                e.uid()
+                                                                                                        .equals(
+                                                                                                                entry
+                                                                                                                        .uid()));
+                                                        if (!present) {
+                                                            return false;
+                                                        }
+                                                        entryMail.accept(c);
+                                                        TrapRepository.dropEntry(
+                                                                c, row.id(), entry.uid());
+                                                        return true;
+                                                    })
+                                            .thenAccept(
+                                                    sent -> {
+                                                        if (sent) {
+                                                            mail.notifyArrived(row.owner());
+                                                        }
+                                                    }));
         }
         List<ItemStack> extras = new ArrayList<>();
         api.content()

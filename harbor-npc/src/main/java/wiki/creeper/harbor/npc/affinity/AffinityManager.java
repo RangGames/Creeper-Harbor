@@ -20,6 +20,7 @@ import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.item.FishLedger;
+import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.npc.api.ActionResult;
 import wiki.creeper.harbor.npc.api.AffinityChange;
 import wiki.creeper.harbor.npc.api.AffinityLevel;
@@ -43,12 +44,14 @@ import wiki.creeper.harbor.npc.logic.AffinityMath;
 public final class AffinityManager implements AffinityService {
 
     private final HarborApi api;
+    private final Tasks tasks;
     private final NpcManager npcs;
     private final Logger log;
     private final PlayerComponent<NpcData> component;
 
-    public AffinityManager(HarborApi api, NpcManager npcs, Logger log) {
+    public AffinityManager(HarborApi api, Tasks tasks, NpcManager npcs, Logger log) {
         this.api = api;
+        this.tasks = tasks;
         this.npcs = npcs;
         this.log = log;
         this.component =
@@ -294,7 +297,8 @@ public final class AffinityManager implements AffinityService {
             // 장부는 바로 GIFTED가 되므로 선물한 아이템이 빠진 인벤토리도 곧 저장한다. 서버가 죽으면 GIFTED 상태의 아이템이 돌아와
             // 복사본으로 판정된다 (판매·경매 불가)
             api.players().saveSoon(player.getUniqueId());
-            // 장부 상태 기록
+            // 장부 상태를 바꾼 뒤 성공했을 때만 호감도를 준다. 실패(이미 GIFTED·SOLD 등)면 복사된 아이템이다: 예전에는 기록만 하고
+            // 호감도를 그대로 줘서 복사한 5성 물고기로 매일 최대 호감도를 받을 수 있었다
             var _ =
                     api.database()
                             .async(
@@ -304,16 +308,34 @@ public final class AffinityManager implements AffinityService {
                                                     uid,
                                                     FishLedger.State.ACTIVE,
                                                     FishLedger.State.GIFTED))
-                            .whenComplete(
+                            .handleAsync(
                                     (ok, ex) -> {
                                         if (ex != null || !Boolean.TRUE.equals(ok)) {
                                             log.warn(
                                                     "선물한 고유 ID 아이템 {}의 장부 상태가 ACTIVE가 아닙니다 (복사 의심, {})",
                                                     uid,
                                                     player.getName());
+                                            if (player.isOnline()) {
+                                                api.messages().send(player, "npc.gift.invalid");
+                                            }
+                                        } else if (player.isOnline()) {
+                                            reward(player, def, id, stars, base);
                                         }
-                                    });
+                                        return null;
+                                    },
+                                    tasks.main());
+            return;
         }
+        reward(player, def, id, stars, base);
+    }
+
+    /** 선물 반응: 호감도 반영·이벤트·대사 (메인 스레드). 지금 데이터를 다시 읽는다 (고유 ID 선물은 장부 확인 뒤에 온다). */
+    private void reward(Player player, NpcDef def, @Nullable HarborId id, int stars, int base) {
+        HarborPlayer hp = api.players().get(player);
+        LocalDate today = api.time().gameDay();
+        NpcBalance balance = balance();
+        NpcData data = hp.get(component);
+        AffinityState state = data.affinity(def.id());
         int points = AffinityMath.giftPoints(base, stars, balance.giftQualityBonus());
         GiftReaction reaction =
                 AffinityMath.reaction(base, balance.reactionLove(), balance.reactionLike());

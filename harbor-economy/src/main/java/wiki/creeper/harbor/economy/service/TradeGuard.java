@@ -37,10 +37,12 @@ public final class TradeGuard implements HandoffBlocker {
             future.complete(null);
         }
 
-        /** future가 끝나면 (성공·실패 모두) 표시를 지운다. */
+        /**
+         * future가 끝나면 (성공·실패 모두) 표시를 지운다. 돌려주는 future는 표시를 지운 뒤에 끝난다: 원래 future를 돌려주면 호출한 쪽 후속 단계가
+         * 먼저 돌 수 있어서 (나중에 붙인 후속이 먼저 실행된다) 이어지는 거래가 "처리 중"으로 거부됐다 (모두 받기가 한 통만 받음).
+         */
         public <T> CompletableFuture<T> track(CompletableFuture<T> work) {
-            var _ = work.whenComplete((r, e) -> done());
-            return work;
+            return work.whenComplete((r, e) -> done());
         }
     }
 

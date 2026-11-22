@@ -559,7 +559,8 @@ public final class MailManager implements MailService {
                             .thenApplyAsync(
                                     ok -> {
                                         if (ok && item != null) {
-                                            if (player.isOnline()) {
+                                            // 서버 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 우편함으로 되돌린다
+                                            if (player.isOnline() && !api.players().frozen(uuid)) {
                                                 player.getInventory()
                                                         .addItem(item.clone())
                                                         .values()
@@ -573,7 +574,7 @@ public final class MailManager implements MailService {
                                                                                                                 .getLocation()),
                                                                                         left));
                                             } else {
-                                                // 커밋 사이에 나갔으면 우편함으로 되돌린다
+                                                // 커밋 사이에 나갔거나 서버를 옮기는 중이면 우편함으로 되돌린다
                                                 var _ =
                                                         sendItem(
                                                                 uuid,

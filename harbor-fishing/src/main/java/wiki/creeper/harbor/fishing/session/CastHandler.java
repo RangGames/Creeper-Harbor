@@ -169,22 +169,25 @@ final class CastHandler {
         List<FishDef> legends;
         RollContext.MythicWindow mythicWindow = null;
         FishingSession.MythicHold hold = null;
-        FishingSession.PendingRoll pending = s.pending;
+        String pendingKey = FishingSession.pendingKey(region, bait);
+        FishingSession.PendingRoll pending = s.pendings.remove(pendingKey);
         FishDef forced = s.forcedFish;
         if (forced != null) {
             fish = forced;
             legends = List.of();
             s.forcedFish = null;
-        } else if (pending != null
-                && Instant.now().isBefore(pending.expiresAt())
-                && pending.region().equals(region)
-                && Objects.equals(pending.bait(), bait)) {
+            if (pending != null) {
+                mythic.releasePending(pending);
+            }
+        } else if (pending != null && Instant.now().isBefore(pending.expiresAt())) {
             // 재판정 낚시 방지: 같은 지역·미끼면 보류 판정을 그대로 쓴다
             fish = pending.fish();
             legends = pending.legends();
             hold = pending.mythic();
         } else {
-            mythic.discardPending(s);
+            if (pending != null) {
+                mythic.releasePending(pending);
+            }
             Optional<RollEngine.Outcome> outcome =
                     engine.get()
                             .roll(
@@ -202,7 +205,6 @@ final class CastHandler {
             legends = outcome.get().legendCandidates();
             mythicWindow = outcome.get().mythic();
         }
-        s.pending = null;
         FishRollEvent roll = new FishRollEvent(player, fish, bait);
         Bukkit.getPluginManager().callEvent(roll);
         if (roll.isCancelled()) {
@@ -353,14 +355,19 @@ final class CastHandler {
         if (fish != null
                 && region != null
                 && reason != FishingSessionEndEvent.Reason.BAIT_CHANGED) {
-            s.pending =
-                    new FishingSession.PendingRoll(
-                            region,
-                            s.bait,
-                            fish,
-                            s.legends,
-                            s.mythic,
-                            Instant.now().plus(PENDING_TTL));
+            FishingSession.PendingRoll previous =
+                    s.pendings.put(
+                            FishingSession.pendingKey(region, s.bait),
+                            new FishingSession.PendingRoll(
+                                    region,
+                                    s.bait,
+                                    fish,
+                                    s.legends,
+                                    s.mythic,
+                                    Instant.now().plus(PENDING_TTL)));
+            if (previous != null) {
+                mythic.releasePending(previous);
+            }
             s.mythic = null;
         } else {
             FishingSession.MythicHold hold = s.mythic;

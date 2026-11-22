@@ -93,7 +93,7 @@ public final class HarborNpcPlugin extends HarborModule implements Listener {
                         new Presenters(this, api, ctx.tasks(), npcs),
                         getSLF4JLogger());
         this.dialogs = dialogs;
-        AffinityManager affinity = new AffinityManager(api, npcs, getSLF4JLogger());
+        AffinityManager affinity = new AffinityManager(api, ctx.tasks(), npcs, getSLF4JLogger());
         ctx.playerComponent(affinity.component());
         ReputationManager reputation =
                 new ReputationManager(api, ctx.tasks(), affinity.component(), getSLF4JLogger());

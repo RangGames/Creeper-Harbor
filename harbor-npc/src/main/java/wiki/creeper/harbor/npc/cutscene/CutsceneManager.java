@@ -41,6 +41,7 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.type.Balance;
+import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
@@ -118,6 +119,21 @@ public final class CutsceneManager implements CutsceneService, HandoffBlocker, L
     /** 접속 전에 읽어 둔 복구 정보 (AsyncPlayerPreLoginEvent → PlayerJoinEvent). */
     private final Map<UUID, RestoreInfo> pendingRestore = new ConcurrentHashMap<>();
 
+    /** 플레이어별 복구 행 쓰기 순서 (저장과 지우기가 엇갈리면 남은 행이 다음 접속 때 컷씬 시작 위치로 끌고 간다). */
+    private final Map<UUID, CompletableFuture<Void>> restoreWrites = new ConcurrentHashMap<>();
+
+    /** 이 플레이어의 앞선 복구 행 쓰기가 끝난 뒤 실행한다 (성공·실패와 상관없이 순서만 지킨다). */
+    private CompletableFuture<Void> restoreWrite(UUID uuid, SqlConsumer work) {
+        CompletableFuture<Void> next =
+                restoreWrites
+                        .getOrDefault(uuid, CompletableFuture.completedFuture(null))
+                        .handle((v, e) -> null)
+                        .thenCompose(ignored -> api.database().asyncVoid(work));
+        restoreWrites.put(uuid, next);
+        var _ = next.whenComplete((v, e) -> restoreWrites.remove(uuid, next));
+        return next;
+    }
+
     public CutsceneManager(
             Plugin plugin, HarborApi api, Tasks tasks, Worlds worlds, NpcManager npcs, Logger log) {
         this.plugin = plugin;
@@ -193,8 +209,7 @@ public final class CutsceneManager implements CutsceneService, HandoffBlocker, L
         List<CompletableFuture<Void>> writes = new ArrayList<>();
         for (Playback pb : started) {
             UUID uuid = pb.player.getUniqueId();
-            writes.add(
-                    api.database().asyncVoid(c -> NpcRepository.saveRestore(c, uuid, pb.restore)));
+            writes.add(restoreWrite(uuid, c -> NpcRepository.saveRestore(c, uuid, pb.restore)));
         }
         AtomicBoolean launched = new AtomicBoolean();
         Runnable launch =
@@ -550,8 +565,9 @@ public final class CutsceneManager implements CutsceneService, HandoffBlocker, L
                 return;
             }
         }
-        var _ = api.database().asyncVoid(c -> NpcRepository.deleteRestore(c, uuid));
-        if (!api.flags().hasPlayer(uuid, seenFlag(pb.def.id()))) {
+        var _ = restoreWrite(uuid, c -> NpcRepository.deleteRestore(c, uuid));
+        // 실제로 시작한 컷씬만 본 것으로 (기록 대기 중 퇴장·월드 없음 등으로 못 본 컷씬을 건너뛸 수 있게 되지 않도록)
+        if (pb.begun && !api.flags().hasPlayer(uuid, seenFlag(pb.def.id()))) {
             var _ = api.flags().setPlayer(uuid, FlagService.Scope.PERM, seenFlag(pb.def.id()));
         }
         complete(pb, result);
@@ -672,6 +688,18 @@ public final class CutsceneManager implements CutsceneService, HandoffBlocker, L
             return;
         }
         UUID uuid = event.getUniqueId();
+        // 직전 접속의 복구 행 쓰기·지우기가 끝난 뒤 읽는다 (안 그러면 지우기 전 행을 읽어 컷씬 시작 위치로 끌려간다)
+        CompletableFuture<Void> previous = restoreWrites.get(uuid);
+        if (previous != null) {
+            try {
+                previous.get(2, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (java.util.concurrent.ExecutionException
+                    | java.util.concurrent.TimeoutException e) {
+                log.warn("컷씬 복구 행 정리를 기다리지 못했습니다 ({})", uuid);
+            }
+        }
         try {
             api.database()
                     .tx(c -> NpcRepository.loadRestore(c, uuid))
@@ -695,9 +723,19 @@ public final class CutsceneManager implements CutsceneService, HandoffBlocker, L
 
     private void applyRestore(Player player, RestoreInfo info) {
         boolean samePlace = info.server().equals(api.infra().serverId());
-        restorePlayer(player, info, samePlace, null);
+        if (!samePlace) {
+            // 게임 모드는 서버마다 자기 플레이어 파일에 있다. 다른 서버에서 적용하고 지우면, 관전 모드가 저장된 원래 서버에서는 복구할
+            // 행이 없어 관전 모드로 남는다 (게다가 이 서버에 원래 서버의 게임 모드를 씌운다). 원래 서버에 들어갈 때까지 둔다
+            log.info(
+                    "{}의 중단된 컷씬 {} 복구는 원래 서버({})에서 합니다",
+                    player.getName(),
+                    info.cutscene(),
+                    info.server());
+            return;
+        }
+        restorePlayer(player, info, true, null);
         UUID uuid = player.getUniqueId();
-        var _ = api.database().asyncVoid(c -> NpcRepository.deleteRestore(c, uuid));
+        var _ = restoreWrite(uuid, c -> NpcRepository.deleteRestore(c, uuid));
         log.info(
                 "{}의 중단된 컷씬 {} 상태를 복구했습니다 (위치 복구: {})",
                 player.getName(),

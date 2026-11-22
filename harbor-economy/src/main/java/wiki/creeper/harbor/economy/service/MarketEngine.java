@@ -25,6 +25,7 @@ import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.model.Grade;
+import wiki.creeper.harbor.common.proxy.ProxyMessages;
 import wiki.creeper.harbor.common.redis.Channel;
 import wiki.creeper.harbor.common.redis.Channels;
 import wiki.creeper.harbor.common.redis.DistributedLock;
@@ -61,7 +62,6 @@ public final class MarketEngine implements PriceService {
     private final Tasks tasks;
     private final Logger log;
     private final AdminAlerts alerts;
-    private final Map<String, Integer> hourSales = new ConcurrentHashMap<>();
     private volatile Map<FishId, Stat> stats = Map.of();
     private volatile Instant lastComputedHour = Instant.EPOCH;
     private volatile Instant newestHour = Instant.now();
@@ -75,26 +75,16 @@ public final class MarketEngine implements PriceService {
     }
 
     public void start() {
-        Instant hour = currentHour();
-        var _ =
-                api.database()
-                        .async(
-                                c -> {
-                                    Map<String, Integer> counts = new HashMap<>();
-                                    try (PreparedStatement ps =
-                                            c.prepareStatement(
-                                                    "SELECT fish_id, count FROM market_sales WHERE hour = ?")) {
-                                        ps.setTimestamp(1, Timestamp.from(hour));
-                                        try (ResultSet rs = ps.executeQuery()) {
-                                            while (rs.next()) {
-                                                counts.put(
-                                                        key(rs.getString(1), hour), rs.getInt(2));
-                                            }
-                                        }
-                                    }
-                                    return counts;
-                                })
-                        .thenAccept(hourSales::putAll);
+        // 서버별 접속자 수 (S0를 네트워크 전체 기준으로)
+        api.bus()
+                .subscribe(
+                        ProxyMessages.HEARTBEATS,
+                        envelope -> {
+                            ProxyMessages.ServerHeartbeat beat = envelope.payload();
+                            beats.put(
+                                    beat.serverId(),
+                                    new Beat(beat.online(), System.currentTimeMillis()));
+                        });
         reload();
         api.bus().subscribe(CHANNEL, envelope -> reload());
         // 1분마다 정각이 지났는지 본다
@@ -117,10 +107,6 @@ public final class MarketEngine implements PriceService {
 
     static Instant currentHour() {
         return Instant.now().truncatedTo(ChronoUnit.HOURS);
-    }
-
-    private static String key(String fish, Instant hour) {
-        return fish + "|" + hour.toEpochMilli();
     }
 
     /** 메인 스레드: 마지막 갱신에서 stale_h가 지났으면 관리자에게 알린다 (1시간에 한 번). */
@@ -196,26 +182,62 @@ public final class MarketEngine implements PriceService {
 
     // ------------------------------------------------------------------ 판매량
 
-    /** 판매 커밋 후 메인 스레드: 시간 판매량을 올리고 절댓값을 지연 쓰기 큐에 넣는다 (같은 키는 마지막 값만). */
+    /**
+     * 판매 커밋 후 메인 스레드: 그 시간 판매량에 더한다. 증분으로 쓴다: 예전에는 서버마다 자기 합계를 절댓값으로 덮어써서, 여러 서버에서 팔면 마지막에 쓴 서버의 수만
+     * 남아 판매량이 적게 잡혔다 (값이 덜 떨어져 대량 판매가 가능).
+     */
     void recordSale(FishId fish, int count) {
+        if (count <= 0) {
+            return;
+        }
         Instant hour = currentHour();
-        String k = key(fish.toString(), hour);
-        int total = hourSales.merge(k, count, Integer::sum);
-        api.writeBehind()
-                .enqueue(
-                        "market:" + k,
-                        c -> {
-                            try (PreparedStatement ps =
-                                    c.prepareStatement(
-                                            "INSERT INTO market_sales (fish_id, hour, count) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE count = VALUES(count)")) {
-                                ps.setString(1, fish.toString());
-                                ps.setTimestamp(2, Timestamp.from(hour));
-                                ps.setInt(3, total);
-                                ps.executeUpdate();
-                            }
-                        });
-        // 지난 시간 키는 메모리에서 정리
-        hourSales.keySet().removeIf(existing -> !existing.endsWith("|" + hour.toEpochMilli()));
+        var _ =
+                api.database()
+                        .asyncVoid(
+                                c -> {
+                                    try (PreparedStatement ps =
+                                            c.prepareStatement(
+                                                    "INSERT INTO market_sales (fish_id, hour, count) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE count = count + VALUES(count)")) {
+                                        ps.setString(1, fish.toString());
+                                        ps.setTimestamp(2, Timestamp.from(hour));
+                                        ps.setInt(3, count);
+                                        ps.executeUpdate();
+                                    }
+                                })
+                        .exceptionally(
+                                e -> {
+                                    log.warn(
+                                            "판매량 기록 실패 {} {}: {}",
+                                            fish,
+                                            count,
+                                            String.valueOf(e.getMessage()));
+                                    return null;
+                                });
+    }
+
+    /** 서버별 최근 하트비트 접속자 수 (네트워크 전체 접속자 = 합). */
+    private record Beat(int online, long atMillis) {}
+
+    private final Map<String, Beat> beats = new ConcurrentHashMap<>();
+
+    /** 하트비트가 이보다 오래되면 꺼진 서버로 본다 (하트비트는 5초마다). */
+    private static final long BEAT_STALE_MILLIS = 15_000;
+
+    /**
+     * 네트워크 전체 접속자 수 (S0 기준). 예전에는 시세 잠금을 얻은 서버 하나의 접속자 수를 (그것도 메인 스레드 밖에서) 썼다: 로비가 잠금을 얻으면 0명이라 계수가
+     * 바닥으로 떨어졌다. 하트비트가 없으면 이 서버 접속자 수.
+     */
+    private int networkOnline() {
+        long now = System.currentTimeMillis();
+        int sum = 0;
+        boolean any = false;
+        for (Beat beat : beats.values()) {
+            if (now - beat.atMillis() <= BEAT_STALE_MILLIS) {
+                sum += beat.online();
+                any = true;
+            }
+        }
+        return any ? sum : api.players().online().size();
     }
 
     // ------------------------------------------------------------------ 계산
@@ -253,7 +275,7 @@ public final class MarketEngine implements PriceService {
             Duration window = Duration.ofHours(b.marketWindowHours());
             Instant windowStart = hour.minus(window);
             ContentSnapshot snapshot = api.content().snapshot();
-            int online = Bukkit.getOnlinePlayers().size();
+            int online = networkOnline();
             Optional<FishingService> fishing = api.service(FishingService.class);
             api.writeBehind().flush();
             String range =

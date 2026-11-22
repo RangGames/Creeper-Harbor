@@ -290,10 +290,15 @@ public final class ReputationManager implements ReputationService, Listener {
         if (delta == 0) {
             return;
         }
+        if (delta < 0 && !pending.containsKey(player)) {
+            // 퇴장으로 이미 비웠다: 진행 중이던 지급이 늦게 끝나 되돌리는 것이므로 음수 예약을 새로 만들지 않는다 (남으면 다음 접속 때
+            // 일일 한도를 그만큼 덜 잡아 넘길 수 있다)
+            return;
+        }
         Map<ReputationSource, Integer> map =
                 pending.computeIfAbsent(player, k -> new EnumMap<>(ReputationSource.class));
         int next = map.getOrDefault(source, 0) + delta;
-        if (next == 0) {
+        if (next <= 0) {
             map.remove(source);
         } else {
             map.put(source, next);

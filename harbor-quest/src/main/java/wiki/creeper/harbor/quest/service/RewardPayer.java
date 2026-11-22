@@ -166,7 +166,9 @@ public final class RewardPayer {
             return CompletableFuture.completedFuture(false);
         }
         int advance = def.rewards().jobAdvance();
-        if (advance > 0) {
+        // 이미 그 등급이면 전직을 다시 요청하지 않고 바로 완료한다: 전직 확인 창을 띄운 사이 납품 아이템을 치우면 전직만 되고 퀘스트는 READY로
+        // 남는데, 그 뒤 요청은 이미 가진 등급이라 매번 실패해 퀘스트를 영영 끝낼 수 없었다
+        if (advance > 0 && hp.jobTier().level() < advance) {
             // 전직 퀘스트: Jobs가 확인 Dialog·계열 선택·골드 차감·전직 컷씬을 처리하고, JobAdvancedEvent에서 완료한다
             return engine.deps
                     .jobs()

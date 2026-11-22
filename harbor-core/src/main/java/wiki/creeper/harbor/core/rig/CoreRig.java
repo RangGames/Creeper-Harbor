@@ -513,7 +513,16 @@ final class CoreRig implements RigInstance {
 
     private void fireEvent(String animation, String event) {
         for (BiConsumer<String, String> listener : List.copyOf(eventListeners)) {
-            listener.accept(animation, event);
+            try {
+                listener.accept(animation, event);
+            } catch (RuntimeException e) {
+                // 모듈 리스너 하나의 예외가 재생 틱 전체를 멈추지 않게 (다른 리그가 건너뛰어지고 반복 애니메이션이면 매번 되풀이됐다)
+                System.getLogger("Harbor/Rig")
+                        .log(
+                                System.Logger.Level.ERROR,
+                                "리그 이벤트 리스너 오류: " + animation + "/" + event,
+                                e);
+            }
         }
     }
 

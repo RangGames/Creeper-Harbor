@@ -73,4 +73,13 @@ public interface WeeklyLimitService {
      * @return 되돌렸으면 true
      */
     CompletableFuture<Boolean> refund(UUID player, String key);
+
+    /**
+     * 그 주차의 횟수를 한 번 되돌린다. 쓴 주차({@link #currentWeek}로 쓰기 직전에 받아 둔다)를 넘긴다: 그 사이 주가 바뀌면 {@link
+     * #refund(UUID, String)}는 새 주 횟수를 되돌려 한 번 더 쓰게 된다.
+     */
+    CompletableFuture<Boolean> refund(UUID player, String key, int week);
+
+    /** 지금 주차 (이번 시즌 안, 0부터). */
+    int currentWeek();
 }

@@ -2,6 +2,7 @@ package wiki.creeper.harbor.fishing.session;
 
 import static wiki.creeper.harbor.fishing.session.FishingManager.COMPONENT;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.random.RandomGenerator;
@@ -131,14 +132,30 @@ final class MythicHolds {
         }
     }
 
+    /** 보류 판정을 모두 버린다 (신화 예약 반납). */
     void discardPending(FishingSession s) {
-        FishingSession.PendingRoll pending = s.pending;
-        if (pending != null) {
-            FishingSession.MythicHold hold = pending.mythic();
-            if (hold != null) {
-                releaseMythic(hold);
+        for (FishingSession.PendingRoll pending : s.pendings.values()) {
+            releasePending(pending);
+        }
+        s.pendings.clear();
+    }
+
+    /** 만료된 보류 판정만 버린다. */
+    void discardExpired(FishingSession s, Instant now) {
+        var it = s.pendings.values().iterator();
+        while (it.hasNext()) {
+            FishingSession.PendingRoll pending = it.next();
+            if (!now.isBefore(pending.expiresAt())) {
+                releasePending(pending);
+                it.remove();
             }
         }
-        s.pending = null;
+    }
+
+    void releasePending(FishingSession.PendingRoll pending) {
+        FishingSession.MythicHold hold = pending.mythic();
+        if (hold != null) {
+            releaseMythic(hold);
+        }
     }
 }

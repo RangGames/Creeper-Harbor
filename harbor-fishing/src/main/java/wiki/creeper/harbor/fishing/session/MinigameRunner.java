@@ -278,7 +278,6 @@ final class MinigameRunner {
         CastHandler.closeShadow(s, result == MinigameResult.CAUGHT);
         s.state = SessionState.RESULT;
         s.clearCast();
-        s.pending = null;
         if (fish == null || game == null) {
             return;
         }

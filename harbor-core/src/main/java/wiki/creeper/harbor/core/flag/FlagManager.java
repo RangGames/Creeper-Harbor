@@ -96,6 +96,13 @@ public final class FlagManager implements FlagService {
     public CompletableFuture<Void> setPlayer(UUID player, Scope scope, String flag, String value) {
         FlagService.requireName(flag);
         int flagSeason = scope == Scope.PERM ? 0 : season.value();
+        // 메인 스레드면 캐시를 먼저 바꾼다: DB 쓰기를 기다리는 동안 hasPlayer가 거짓이라 "플래그 없을 때만" 막는 보상을 연타로 두 번
+        // 받을 수 있었다. 쓰기가 실패하면 되돌린다
+        boolean optimistic = Bukkit.isPrimaryThread();
+        Optional<String> before = optimistic ? playerValue(player, flag) : Optional.empty();
+        if (optimistic) {
+            updatePlayer(player, flag, value);
+        }
         return db.asyncVoid(
                         c -> {
                             try (PreparedStatement ps =
@@ -109,7 +116,22 @@ public final class FlagManager implements FlagService {
                                 ps.executeUpdate();
                             }
                         })
-                .thenRunAsync(() -> updatePlayer(player, flag, value), tasks.main());
+                .handleAsync(
+                        (v, error) -> {
+                            if (error != null) {
+                                if (optimistic) {
+                                    updatePlayer(player, flag, before.orElse(null));
+                                }
+                                throw error instanceof CompletionException ce
+                                        ? ce
+                                        : new CompletionException(error);
+                            }
+                            if (!optimistic) {
+                                updatePlayer(player, flag, value);
+                            }
+                            return (Void) null;
+                        },
+                        tasks.main());
     }
 
     @Override
