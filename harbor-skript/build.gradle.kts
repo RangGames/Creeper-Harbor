@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     compileOnly(libs.skript) { isTransitive = false }
-    listOf("jobs", "fishing", "collection", "npc", "quest", "economy", "world", "season", "wildlife")
+    listOf("jobs", "fishing", "collection", "npc", "quest", "economy", "world", "season", "boss", "shop", "wildlife")
         .forEach { compileOnly(project(":harbor-$it")) }
 }
 

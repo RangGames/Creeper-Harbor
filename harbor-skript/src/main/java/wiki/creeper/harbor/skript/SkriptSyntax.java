@@ -12,6 +12,7 @@ import org.skriptlang.skript.registration.DefaultSyntaxInfos;
 import org.skriptlang.skript.registration.SyntaxInfo;
 import org.skriptlang.skript.registration.SyntaxRegistry;
 import wiki.creeper.harbor.core.api.event.CurrencyChangedEvent;
+import wiki.creeper.harbor.skript.bridge.BossSyntax;
 import wiki.creeper.harbor.skript.bridge.CollectionSyntax;
 import wiki.creeper.harbor.skript.bridge.CoreSyntax;
 import wiki.creeper.harbor.skript.bridge.EconomySyntax;
@@ -20,6 +21,7 @@ import wiki.creeper.harbor.skript.bridge.JobsSyntax;
 import wiki.creeper.harbor.skript.bridge.NpcSyntax;
 import wiki.creeper.harbor.skript.bridge.QuestSyntax;
 import wiki.creeper.harbor.skript.bridge.SeasonSyntax;
+import wiki.creeper.harbor.skript.bridge.ShopSyntax;
 import wiki.creeper.harbor.skript.bridge.WildlifeSyntax;
 import wiki.creeper.harbor.skript.bridge.WorldSyntax;
 import wiki.creeper.harbor.skript.lambda.Registrar;
@@ -146,6 +148,8 @@ final class SkriptSyntax {
         module(plugin, "Harbor-Economy", () -> EconomySyntax.register(r));
         module(plugin, "Harbor-World", () -> WorldSyntax.register(r));
         module(plugin, "Harbor-Wildlife", () -> WildlifeSyntax.register(r));
+        module(plugin, "Harbor-Boss", () -> BossSyntax.register(r));
+        module(plugin, "Harbor-Shop", () -> ShopSyntax.register(r));
         return count + r.count();
     }
 
