@@ -4,22 +4,22 @@
 
 ## 할 수 있는 것
 
-| 분류 | 문법 예시 |
-|---|---|
-| 재화 | `harbor gold of player` 늘리기·줄이기 (원장 기록), `on harbor currency change` |
-| 아이템 | `harbor item "item/bait/earthworm"`, `harbor id of player's tool`, `is harbor item` |
-| 문구·화면 | `send harbor message`, harbor title·actionbar, harbor mail 보내기 (오프라인 포함) |
-| 서버 이동 | `harbor send %players% to lobby\|sea`, `harbor server [role]` |
-| 플레이어 정보 | 레벨·직업 단계·계열·평판·시즌 번호 |
-| 플래그 | 플레이어·서버 플래그 확인·값·설정·해제 (`harbor set flag …`) |
-| 퀘스트 | 상태·완료 여부·진행 수, 수락·포기·추적, `harbor quest signal/set`으로 목표 진행, `on harbor quest accept/complete` |
-| 낚시 | `on harbor fish catch` (어종·등급·지역·크기·품질·첫 포획) |
-| 도감·기록 | 도감 %·등록 여부·개인 최고 크기, 도감 열기, `on harbor collection register`, `on harbor record broken` |
-| NPC | 평판 등급·호감도, 컷씬 재생, NPC 대화 열기 |
-| 직업 | `on harbor level up`, `on harbor job advance` |
-| 시즌 | 주차·이름·칭호 보유·장착·해제 |
-| 경제 | 시세 계수·다음 시간 예측, `on harbor auction sold` |
-| 해역 | `on harbor sea event start/end` |
+모듈마다 공개 API의 조회·변경과 모든 공개 이벤트를 Skript로 다룬다. 결과가 늦게 오는 동작(DB 조회, 다이얼로그 답, 거래)은 `… and store it in {_v}` 대기 문법으로 받는다.
+
+| 분류 | 할 수 있는 것 | 문서 |
+|---|---|---|
+| Core | 재화(접속·오프라인·이체·순위·내역, 원장 `SCRIPT_*`), 아이템, 플래그, 수치 보정, 문구·제목·액션바·보스바, 다이얼로그(알림·확인·선택·입력), 소리, 서버·인스턴스 이동, 파티(조회·생성·초대·탈퇴), 월드 경계, 콘텐츠 리로드, 외부 이벤트, 리그(생성·애니메이션·이벤트·클릭), 가구·커스텀 블록(설치·철거·조회·이벤트) | [core-jobs-season](../harbor-skript/docs/core-jobs-season.md) |
+| 직업 | 레벨·경험치·단계·계열, 스킬 조회·투자·초기화, 관리자 설정, 모든 직업 이벤트 | 〃 |
+| 시즌 | 시계·주차·리셋 시각, 칭호(관리자 지급·회수·장착), 주간 한도, 랭킹·명예의 전당, 모든 시즌 이벤트 | 〃 |
+| 낚시 | 세션 정보, 물고기 아이템 생성·읽기, 다음 물고기 지정·천장(관리자), 음식 버프, 통발(설치·수확·미끼·철거), 장력 미니게임, 해역 이벤트, 모든 낚시 이벤트 | [fishing-collection-quest-wildlife](../harbor-skript/docs/fishing-collection-quest-wildlife.md) |
+| 도감(collection) | 완성률·항목·힌트·기록·주간 기록, 관리자 등록·삭제, 수족관·방류·전시함, 모든 도감 이벤트 | 〃 |
+| 퀘스트 | 상태·진행·목표 개수, 수락·포기·완료·추적, 관리자 완료·초기화·진행 설정, 의뢰 게시판, 연대기·서버 진행도, 모든 퀘스트 이벤트 | 〃 |
+| 야생 물고기 | 조회·생성·제거·떼·출현 증폭, 이벤트 | 〃 |
+| NPC | 조회·소환·이동·시선, 대화 열기·말하기·선택지, 스크립트로 대화 액션·조건 구현, 호감도·평판, 컷씬, 배회 NPC, 모든 NPC 이벤트 | [npc-economy-world-boss-shop](../harbor-skript/docs/npc-economy-world-boss-shop.md) |
+| 경제 | 시세·판매가·수리 견적, 대신 판매·구매·경매 등록/구매·제작·수리, 상점·제작대 열기, 모든 경제 이벤트 | 〃 |
+| 월드 | 지역·해도·보물·낚시 포인트, 선박(조회·소환·회수·내구도), 하우징(조회·방문·구성원·방문 정책), 비행선, 해역 이벤트, 모든 월드 이벤트 | 〃 |
+| 보스 | 진행 중 전투 정보, 관리자 시작·종료, 월드 보스, 기록, 주간 보상 한도, 모든 보스 이벤트 | 〃 |
+| 상점 | 치장품(보유·장착·관리자 지급), 후원 등급, 시즌 패스 경험치, 상점 이벤트 (진주는 열지 않음) | 〃 |
 
 ## 지킬 것
 
