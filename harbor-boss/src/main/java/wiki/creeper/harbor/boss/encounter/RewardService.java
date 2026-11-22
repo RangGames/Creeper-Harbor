@@ -320,7 +320,10 @@ public final class RewardService {
                                 ok -> {
                                     if (!ok) {
                                         if (limit.consumed()) {
-                                            var _ = SeasonServices.limits().refund(uuid, limitKey);
+                                            // 쓴 주차의 횟수를 되돌린다 (그 사이 주가 바뀌어도 새 주 횟수를 건드리지 않게)
+                                            var _ =
+                                                    SeasonServices.limits()
+                                                            .refund(uuid, limitKey, limit.week());
                                         }
                                         return;
                                     }
