@@ -6,10 +6,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -27,6 +29,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.content.type.ItemDef;
+import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.ledger.LedgerEntry;
 import wiki.creeper.harbor.common.ledger.LedgerError;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
@@ -38,6 +41,7 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.task.Tasks;
+import wiki.creeper.harbor.fishing.api.TrapAction;
 import wiki.creeper.harbor.fishing.api.TrapInfo;
 import wiki.creeper.harbor.fishing.api.TrapService;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
@@ -274,7 +278,7 @@ public final class TrapManager implements TrapService, Listener {
             return;
         }
         event.setCancelled(true);
-        placement.place(player, hand, def.get(), clicked.getRelative(event.getBlockFace()));
+        var _ = placement.place(player, hand, def.get(), clicked.getRelative(event.getBlockFace()));
     }
 
     Optional<ItemDef> fishingItem(@Nullable ItemStack stack) {
@@ -331,7 +335,7 @@ public final class TrapManager implements TrapService, Listener {
      * there are free inventory slots.
      */
     void harvest(Player player, TrapRow row, List<TrapCatch> entries) {
-        harvests.harvest(player, row, entries);
+        var _ = harvests.harvest(player, row, entries, true);
     }
 
     /**
@@ -347,15 +351,123 @@ public final class TrapManager implements TrapService, Listener {
 
     /** Puts bait from the inventory into the trap (excluding bait with uses and legendary bait). */
     void addBait(Player player, TrapRow row) {
-        harvests.addBait(player, row);
+        var _ = harvests.addBait(player, row, true);
     }
 
     /** Removal: only when empty. Returns the trap item and the remaining bait. */
     void remove(Player player, TrapRow row) {
-        harvests.remove(player, row);
+        var _ = harvests.remove(player, row, true);
+    }
+
+    // ------------------------------------------------------------------ TrapService actions
+
+    @Override
+    public CompletableFuture<Optional<TrapInfo>> trap(long trapId) {
+        return api.database()
+                .async(c -> TrapRepository.byId(c, trapId, false))
+                .thenApplyAsync(row -> row.map(this::info), tasks.main());
+    }
+
+    @Override
+    public OptionalLong trapIdAt(Location location) {
+        Long id = blocks.trapIdAt(location.getBlock());
+        return id == null ? OptionalLong.empty() : OptionalLong.of(id);
+    }
+
+    @Override
+    public CompletableFuture<TrapAction> place(
+            Player owner, Location location, ItemId trapItem, boolean takeItem) {
+        Optional<ItemDef> def =
+                api.content()
+                        .snapshot()
+                        .get(ItemDef.TYPE, trapItem.id())
+                        .filter(d -> d.type() == ItemDef.Type.TRAP);
+        if (def.isEmpty()) {
+            return CompletableFuture.completedFuture(TrapAction.of(TrapAction.Outcome.NO_ITEM));
+        }
+        @Nullable ItemStack hand = null;
+        if (takeItem) {
+            for (ItemStack stack : owner.getInventory().getStorageContents()) {
+                if (fishingItem(stack).filter(d -> d.id().equals(def.get().id())).isPresent()) {
+                    hand = stack;
+                    break;
+                }
+            }
+            if (hand == null) {
+                return CompletableFuture.completedFuture(TrapAction.of(TrapAction.Outcome.NO_ITEM));
+            }
+        }
+        return placement.place(owner, hand, def.get(), location.getBlock());
+    }
+
+    @Override
+    public CompletableFuture<TrapAction> harvest(Player owner, long trapId) {
+        return withCalc(
+                owner,
+                trapId,
+                row -> {
+                    if (row.contents().isEmpty()) {
+                        api.messages().send(owner, "fishing.trap.empty");
+                        return CompletableFuture.completedFuture(
+                                TrapAction.of(TrapAction.Outcome.EMPTY, trapId));
+                    }
+                    return harvests.harvest(owner, row, row.contents(), false);
+                });
+    }
+
+    @Override
+    public CompletableFuture<TrapAction> addBait(Player owner, long trapId) {
+        return withCalc(owner, trapId, row -> harvests.addBait(owner, row, false));
+    }
+
+    @Override
+    public CompletableFuture<TrapAction> remove(Player owner, long trapId) {
+        return withCalc(owner, trapId, row -> harvests.remove(owner, row, false));
+    }
+
+    /**
+     * Owner check, then the offline calculation the trap screen runs on open (so catches produced
+     * since the last calculation are counted), then the action on the fresh row.
+     */
+    private CompletableFuture<TrapAction> withCalc(
+            Player owner,
+            long trapId,
+            java.util.function.Function<TrapRow, CompletableFuture<TrapAction>> action) {
+        UUID uuid = owner.getUniqueId();
+        return api.database()
+                .async(c -> TrapRepository.byId(c, trapId, false))
+                .thenComposeAsync(
+                        row -> {
+                            if (row.isEmpty()) {
+                                return CompletableFuture.completedFuture(
+                                        TrapAction.of(TrapAction.Outcome.NOT_FOUND, trapId));
+                            }
+                            if (!row.get().owner().equals(uuid) || row.get().season() != season()) {
+                                return CompletableFuture.completedFuture(
+                                        TrapAction.of(
+                                                row.get().owner().equals(uuid)
+                                                        ? TrapAction.Outcome.NOT_FOUND
+                                                        : TrapAction.Outcome.NOT_OWNER,
+                                                trapId));
+                            }
+                            if (!owner.isOnline()) {
+                                return CompletableFuture.completedFuture(
+                                        TrapAction.of(TrapAction.Outcome.FAILED, trapId));
+                            }
+                            return calculate(owner, trapId)
+                                    .thenComposeAsync(
+                                            calc -> action.apply(calc.row()), tasks.main());
+                        },
+                        tasks.main())
+                .exceptionally(
+                        e -> {
+                            log.warn("통발 작업 실패 ({}): {}", trapId, String.valueOf(e));
+                            return TrapAction.of(TrapAction.Outcome.FAILED, trapId);
+                        });
     }
 
     /** Admin removal (contents are discarded). */
+    @Override
     public CompletableFuture<Boolean> adminRemove(long id) {
         return api.database()
                 .async(

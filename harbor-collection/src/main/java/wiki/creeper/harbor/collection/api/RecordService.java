@@ -18,4 +18,10 @@ public interface RecordService {
 
     /** This season's server top list (main server memory cache, up to 10). */
     List<RecordEntry> serverTop(FishId fish, String league, int limit);
+
+    /**
+     * Server records broken this week, newest first (only those this server received since it
+     * started; cleared on the weekly reset, up to 30).
+     */
+    List<WeeklyRecord> weeklyRecords();
 }

@@ -69,6 +69,8 @@
 ## 다른 모듈과의 연결
 
 - **제공 서비스:** `CollectionService`, `HintService`, `RecordService`, `AquariumService`, `ReleaseService`, `DisplayCaseService`
+  - `CollectionService.registerEntry`·`removeEntry`: `/harbor collection entry set|remove`와 같은 관리용 쓰기 (접속 중인 플레이어만)
+  - `RecordService.weeklyRecords`: 이번 주 서버 기록 (최신순, 이 서버가 받은 것만, 주간 초기화 때 비움)
 - **이벤트:** `CollectionRegisteredEvent`, `CollectionMilestoneEvent`, `RecordBrokenEvent`, `AquariumDonatedEvent`, `AquariumStageChangedEvent`, `FishReleasedEvent`
 - **쓰는 것:**
   - Fishing: 포획 이벤트를 받고, `CollectionProvider`로 첫 포획 여부를 알려 준다.

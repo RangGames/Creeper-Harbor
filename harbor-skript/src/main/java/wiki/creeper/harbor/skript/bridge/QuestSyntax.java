@@ -1,7 +1,9 @@
 package wiki.creeper.harbor.skript.bridge;
 
+import ch.njol.skript.classes.Changer.ChangeMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import org.bukkit.Bukkit;
@@ -10,12 +12,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.QuestId;
+import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.core.api.Harbor;
 import wiki.creeper.harbor.quest.api.ChronicleService;
 import wiki.creeper.harbor.quest.api.ObjectiveSignal;
 import wiki.creeper.harbor.quest.api.ObjectiveTypeRegistry;
 import wiki.creeper.harbor.quest.api.QuestRewardSummary;
 import wiki.creeper.harbor.quest.api.QuestService;
+import wiki.creeper.harbor.quest.api.QuestState;
 import wiki.creeper.harbor.quest.api.QuestView;
 import wiki.creeper.harbor.quest.api.ServerProgressService;
 import wiki.creeper.harbor.quest.api.event.ChapterCompletedEvent;
@@ -28,6 +32,8 @@ import wiki.creeper.harbor.quest.api.event.QuestReadyEvent;
 import wiki.creeper.harbor.quest.api.event.QuestStateChangedEvent;
 import wiki.creeper.harbor.skript.Ids;
 import wiki.creeper.harbor.skript.lambda.Args;
+import wiki.creeper.harbor.skript.lambda.Ctx;
+import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 import wiki.creeper.harbor.skript.lambda.ValueExpr;
@@ -42,6 +48,8 @@ import wiki.creeper.harbor.skript.lambda.ValueExpr;
  * runs before Skript, so an unknown type fails the check.
  *
  * <p>Server progress comes from an async API and is eventually consistent ({@link LatestValues}).
+ * Admin mutations ({@code harbor admin complete · reset · set ...}) go through the QuestService
+ * admin API (same rules as {@code /harbor quest}) and are awaiting effects.
  */
 public final class QuestSyntax {
 
@@ -103,8 +111,23 @@ public final class QuestSyntax {
     public static void register(Registrar r) {
         registerState(r);
         registerActions(r);
+        registerAdmin(r);
+        registerBoard(r);
         registerChronicle(r);
         registerEvents(r);
+    }
+
+    private static final List<String> BOARD_KINDS = List.of("daily", "weekly", "collect");
+
+    /** Board kind of the {@code (0:daily|1:weekly|2:collect)} parse mark. */
+    private static String boardKind(Ctx c) {
+        return BOARD_KINDS.get(Math.clamp(c.mark(), 0, BOARD_KINDS.size() - 1));
+    }
+
+    private static final String KIND = "(0:daily|1:weekly|2:collect)";
+
+    private static List<String> ids(List<QuestId> quests) {
+        return quests.stream().map(QuestId::toString).toList();
     }
 
     // ------------------------------------------------------------------ state · progress
@@ -334,6 +357,234 @@ public final class QuestSyntax {
                     }
                 },
                 "harbor quest set %string% [with target %-string%] to %number% for %players%");
+    }
+
+    // ------------------------------------------------------------------ tracking · goals · admin
+
+    private static void registerAdmin(Registrar r) {
+        ValueExpr.builder(
+                        String.class,
+                        Spec.of("harbor tracked quest"),
+                        (e, x) ->
+                                quests().map(
+                                                s ->
+                                                        Args.perPlayer(
+                                                                e,
+                                                                x,
+                                                                p ->
+                                                                        s.tracked(p.getUniqueId())
+                                                                                .map(
+                                                                                        QuestId
+                                                                                                ::toString)
+                                                                                .orElse(null)))
+                                        .orElse(List.of()))
+                .changer(
+                        String.class,
+                        (e, x, mode, v) -> {
+                            Optional<QuestService> s = quests();
+                            if (s.isEmpty()) {
+                                return;
+                            }
+                            Optional<QuestId> q =
+                                    v == null ? Optional.empty() : quest(String.valueOf(v));
+                            for (Player p : Args.players(e, x, 0)) {
+                                if (mode == ChangeMode.SET) {
+                                    q.ifPresent(id -> s.get().track(p, id));
+                                } else {
+                                    s.get().untrack(p);
+                                }
+                            }
+                        },
+                        ChangeMode.SET,
+                        ChangeMode.DELETE,
+                        ChangeMode.RESET)
+                .register(r, "[the] harbor tracked quest of %players%");
+        r.number(
+                Spec.of("harbor quest goal"),
+                (e, x) -> {
+                    Optional<QuestId> q = Args.string(e, x, 1).flatMap(QuestSyntax::quest);
+                    String objective = Args.string(e, x, 2).orElse("");
+                    Optional<QuestService> s = quests();
+                    if (q.isEmpty() || s.isEmpty()) {
+                        return List.of();
+                    }
+                    return Args.perPlayer(
+                            e,
+                            x,
+                            p ->
+                                    view(s.get(), p, q.get())
+                                            .map(v -> (Number) v.goals().get(objective))
+                                            .orElse(null));
+                },
+                "[the] harbor quest (goal|target count) of %players% for [quest] %string%"
+                        + " [objective] %string%");
+
+        // Admin: same as /harbor quest complete · reset · set · progress
+        Ext.await(
+                r,
+                "harbor admin complete quest",
+                new int[] {2},
+                c -> {
+                    Optional<QuestService> s = quests();
+                    Optional<QuestId> q = c.string(0).flatMap(QuestSyntax::quest);
+                    Optional<Player> p = c.player(1);
+                    if (s.isEmpty() || q.isEmpty() || p.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(s.get().adminComplete(p.get(), q.get(), c.mark() != 1));
+                },
+                "harbor admin complete [the] harbor quest %string% for %player% [1:without"
+                        + " reward[s]] [and (store|save) [the] result in %-objects%]");
+        Ext.await(
+                r,
+                "harbor admin reset quest",
+                new int[] {2},
+                c -> {
+                    Optional<QuestService> s = quests();
+                    Optional<QuestId> q = c.string(0).flatMap(QuestSyntax::quest);
+                    Optional<Player> p = c.player(1);
+                    if (s.isEmpty() || q.isEmpty() || p.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(s.get().adminReset(p.get(), q.get()));
+                },
+                "harbor admin reset [the] harbor quest %string% for %player% [and (store|save)"
+                        + " [the] result in %-objects%]");
+        Ext.await(
+                r,
+                "harbor admin set quest state",
+                new int[] {3},
+                c -> {
+                    Optional<QuestService> s = quests();
+                    Optional<Player> p = c.player(0);
+                    Optional<QuestId> q = c.string(1).flatMap(QuestSyntax::quest);
+                    Optional<QuestState> state =
+                            c.string(2)
+                                    .flatMap(
+                                            raw ->
+                                                    Keyed.fromKey(
+                                                            QuestState.class,
+                                                            raw.strip().toLowerCase(Locale.ROOT)));
+                    if (s.isEmpty() || p.isEmpty() || q.isEmpty() || state.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(s.get().adminSetState(p.get(), q.get(), state.get()));
+                },
+                "harbor admin set [the] harbor quest state of %player% for [quest] %string% to"
+                        + " %string% [and (store|save) [the] result in %-objects%]");
+        r.effect(
+                Spec.of("harbor admin set quest progress"),
+                (e, x) -> {
+                    Optional<QuestService> s = quests();
+                    Optional<QuestId> q = Args.string(e, x, 1).flatMap(QuestSyntax::quest);
+                    String objective = Args.string(e, x, 2).orElse("");
+                    Optional<Number> value = Args.number(e, x, 3);
+                    if (s.isEmpty() || q.isEmpty() || objective.isEmpty() || value.isEmpty()) {
+                        return;
+                    }
+                    for (Player p : Args.players(e, x, 0)) {
+                        s.get().adminSetProgress(p, q.get(), objective, value.get().intValue());
+                    }
+                },
+                "harbor admin set [the] harbor quest progress of %players% for [quest] %string%"
+                        + " [objective] %string% to %number%");
+    }
+
+    // ------------------------------------------------------------------ request board
+
+    private static void registerBoard(Registrar r) {
+        Ext.expr(r, String.class, "harbor board requests")
+                .list()
+                .register(
+                        c ->
+                                quests().flatMap(
+                                                s ->
+                                                        c.player(0)
+                                                                .flatMap(
+                                                                        p ->
+                                                                                s.board(
+                                                                                        p
+                                                                                                .getUniqueId(),
+                                                                                        boardKind(
+                                                                                                c))))
+                                        .map(b -> ids(b.offers()))
+                                        .orElse(List.of()),
+                        "[all] [the] harbor " + KIND + " board (requests|offers) of %player%");
+        Ext.expr(r, String.class, "harbor board chosen")
+                .list()
+                .register(
+                        c ->
+                                quests().flatMap(
+                                                s ->
+                                                        c.player(0)
+                                                                .flatMap(
+                                                                        p ->
+                                                                                s.board(
+                                                                                        p
+                                                                                                .getUniqueId(),
+                                                                                        boardKind(
+                                                                                                c))))
+                                        .map(b -> ids(b.chosen()))
+                                        .orElse(List.of()),
+                        "[all] [the] harbor "
+                                + KIND
+                                + " board (chosen|accepted) [requests] of"
+                                + " %player%");
+        Ext.expr(r, Number.class, "harbor board picks left")
+                .single()
+                .register(
+                        c ->
+                                quests().flatMap(
+                                                s ->
+                                                        c.player(0)
+                                                                .flatMap(
+                                                                        p ->
+                                                                                s.board(
+                                                                                        p
+                                                                                                .getUniqueId(),
+                                                                                        boardKind(
+                                                                                                c))))
+                                        .map(b -> List.<Number>of(b.remainingPicks()))
+                                        .orElse(List.of()),
+                        "[the] harbor " + KIND + " board picks (left|remaining) of %player%");
+        Ext.await(
+                r,
+                "harbor draw board",
+                new int[] {1},
+                c -> {
+                    Optional<QuestService> s = quests();
+                    Optional<Player> p = c.player(0);
+                    if (s.isEmpty() || p.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.one(
+                            s.get()
+                                    .drawBoard(p.get(), boardKind(c))
+                                    .thenApply(b -> b.map(v -> ids(v.offers())).orElse(List.of())));
+                },
+                "make %player% draw [the] harbor "
+                        + KIND
+                        + " board [and (store|save) [the]"
+                        + " (requests|offers) in %-objects%]");
+        Ext.await(
+                r,
+                "harbor admin reroll board",
+                new int[] {1},
+                c -> {
+                    Optional<QuestService> s = quests();
+                    Optional<Player> p = c.player(0);
+                    if (s.isEmpty() || p.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.one(
+                            s.get()
+                                    .adminRerollBoard(p.get(), boardKind(c))
+                                    .thenApply(b -> b.map(v -> ids(v.offers())).orElse(List.of())));
+                },
+                "harbor admin reroll [the] harbor "
+                        + KIND
+                        + " board of %player% [and (store|save)"
+                        + " [the] (requests|offers) in %-objects%]");
     }
 
     // ------------------------------------------------------------------ chronicle

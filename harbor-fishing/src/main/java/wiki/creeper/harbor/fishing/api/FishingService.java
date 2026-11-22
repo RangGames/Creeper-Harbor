@@ -6,7 +6,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.bukkit.entity.Player;
+import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.FishId;
+import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.Grade;
 
@@ -39,6 +41,45 @@ public interface FishingService {
 
     /** Number of big fish lost to the job quality cap (this session). */
     int missedBigCount(UUID player);
+
+    /** Snapshot of the current session (an idle snapshot if the player is not fishing). */
+    SessionInfo sessionInfo(UUID player);
+
+    /**
+     * Admin: forces the species (and optionally the quality ★1~5) of the player's next roll, like
+     * {@code /harbor fishing force}. Used once by the next cast. False if the species is unknown.
+     */
+    boolean forceNextFish(Player player, FishId fish, @Nullable Integer quality);
+
+    /** Admin: cancels a forced next roll. False if none was set. */
+    boolean clearForcedFish(UUID player);
+
+    /**
+     * Admin: sets the legendary pity counter like {@code /harbor fishing pity ... set} (player
+     * data, saved by the normal auto save). False if the player is not loaded on this server.
+     */
+    boolean setPity(UUID player, FishId fish, int casts);
+
+    /** Admin: resets the pity counter of one species to 0. */
+    default boolean resetPity(UUID player, FishId fish) {
+        return setPity(player, fish, 0);
+    }
+
+    /** Admin: resets the big fish lost to the job quality cap count (this session). */
+    void resetMissedBig(UUID player);
+
+    /** The active food buff (empty if none or expired). */
+    Optional<FoodBuff> foodBuff(UUID player);
+
+    /**
+     * Applies the food buff of a food item (fishing/food.yml) as if the player ate it: replaces the
+     * previous buff, duration bonus from food_buff_duration, written to the DB at once. Not shared
+     * with the party. False if the item has no food buff.
+     */
+    boolean applyFood(Player player, ItemId food);
+
+    /** Removes the active food buff (modifiers and the DB row). False if there was none. */
+    boolean clearFood(Player player);
 
     /** Registers the collection lookup SPI (Collection). */
     void registerCollection(CollectionProvider provider);

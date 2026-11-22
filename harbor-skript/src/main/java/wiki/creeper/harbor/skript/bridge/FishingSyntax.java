@@ -36,6 +36,7 @@ import wiki.creeper.harbor.fishing.api.CatchOptions;
 import wiki.creeper.harbor.fishing.api.CatchResult;
 import wiki.creeper.harbor.fishing.api.FishingService;
 import wiki.creeper.harbor.fishing.api.MinigameResult;
+import wiki.creeper.harbor.fishing.api.SessionInfo;
 import wiki.creeper.harbor.fishing.api.TensionSession;
 import wiki.creeper.harbor.fishing.api.TensionSpec;
 import wiki.creeper.harbor.fishing.api.TrapInfo;
@@ -61,9 +62,10 @@ import wiki.creeper.harbor.skript.lambda.ValueExpr;
  * event-specific expressions. event-player is Skript's default value (PlayerEvent).
  *
  * <p>Roll results can be changed inside the roll events ({@code set harbor rolled fish to ...},
- * {@code set harbor rolled size to ...}); that is the supported way to force a fish, since Fishing
- * has no "next fish" API. Trap lists come from an async API, so trap expressions return the last
- * fetched value (refreshed in the background, see {@link LatestValues}).
+ * {@code set harbor rolled size to ...}); {@code harbor admin force next fish} sets the next roll
+ * ahead of time like {@code /harbor fishing force}. Trap lists come from an async API, so trap
+ * expressions return the last fetched value (refreshed in the background, see {@link
+ * LatestValues}). Trap actions are in {@link TrapSyntax}, food buffs in {@link FoodSyntax}.
  */
 public final class FishingSyntax {
 
@@ -82,6 +84,29 @@ public final class FishingSyntax {
                                     .service(TrapService.class)
                                     .map(t -> t.traps(owner))
                                     .orElseThrow());
+
+    /** Traps looked up by ID (other players' traps, not in an owner list yet). */
+    private static final LatestValues<Long, Optional<TrapInfo>> TRAP_BY_ID =
+            new LatestValues<>(
+                    5_000,
+                    id ->
+                            Harbor.api()
+                                    .service(TrapService.class)
+                                    .map(t -> t.trap(id))
+                                    .orElseThrow());
+
+    /** Refreshes the cached trap values after a trap action (TrapSyntax). */
+    static void refreshTraps(UUID owner, long trapId) {
+        TRAPS.refresh(owner);
+        refreshTrap(trapId);
+    }
+
+    /** Refreshes one trap looked up by ID (no-op for 0). */
+    static void refreshTrap(long trapId) {
+        if (trapId > 0) {
+            TRAP_BY_ID.refresh(trapId);
+        }
+    }
 
     private static Optional<FishingService> fishing() {
         return Harbor.api().service(FishingService.class);
@@ -167,7 +192,8 @@ public final class FishingSyntax {
                 }
             }
         }
-        return Optional.empty();
+        // Not in a fetched owner list: look it up by ID (empty on the first read)
+        return TRAP_BY_ID.get(id).flatMap(t -> t);
     }
 
     private static <T> Spec.Getter<T> byTrap(Function<TrapInfo, @Nullable T> value) {
@@ -190,10 +216,26 @@ public final class FishingSyntax {
 
     public static void register(Registrar r) {
         registerSession(r);
+        registerAdmin(r);
         registerItems(r);
         registerTraps(r);
         registerTension(r);
         registerEvents(r);
+        TrapSyntax.register(r);
+        FoodSyntax.register(r);
+    }
+
+    /** One value per player from the session snapshot. */
+    private static <T> Spec.Getter<T> perSession(Function<SessionInfo, @Nullable T> value) {
+        return (e, x) ->
+                fishing()
+                        .map(
+                                f ->
+                                        Args.perPlayer(
+                                                e,
+                                                x,
+                                                p -> value.apply(f.sessionInfo(p.getUniqueId()))))
+                        .orElse(List.of());
     }
 
     // ------------------------------------------------------------------ session · pity · sea
@@ -275,6 +317,123 @@ public final class FishingSyntax {
                 },
                 "harbor sea event %string% is active",
                 "harbor sea event %string% (isn't|is not) active");
+    }
+
+    // ------------------------------------------------------------------ session details · admin
+
+    private static void registerAdmin(Registrar r) {
+        r.text(
+                Spec.of("harbor session fish"),
+                perSession(s -> s.fish() == null ? null : String.valueOf(s.fish())),
+                "[the] harbor (session|current|hooked) fish of %players%");
+        r.text(
+                Spec.of("harbor session region"),
+                perSession(s -> s.region() == null ? null : String.valueOf(s.region())),
+                "[the] harbor session region of %players%");
+        r.text(
+                Spec.of("harbor session bait"),
+                perSession(s -> s.bait() == null ? null : String.valueOf(s.bait())),
+                "[the] harbor session bait of %players%");
+        r.number(
+                Spec.of("harbor session tension"),
+                perSession(s -> s.minigame() || s.tensionSession() ? s.tension() : null),
+                "[the] harbor (session|minigame) tension of %players%");
+        r.number(
+                Spec.of("harbor session hp"),
+                perSession(s -> s.minigame() || s.tensionSession() ? s.hpRatio() : null),
+                "[the] harbor (session|minigame) (hp|health) of %players%");
+        r.condition(
+                Spec.of("harbor bite pending"),
+                (e, x) -> {
+                    Optional<FishingService> f = fishing();
+                    return f.isPresent()
+                            && Args.all(
+                                    e, x, p -> f.get().sessionInfo(p.getUniqueId()).bitePending());
+                },
+                "%players% (has|have) [a] harbor bite pending",
+                "%players% (doesn't|does not|don't|do not) have [a] harbor bite pending");
+        r.condition(
+                Spec.of("harbor in minigame"),
+                (e, x) -> {
+                    Optional<FishingService> f = fishing();
+                    return f.isPresent()
+                            && Args.all(e, x, p -> f.get().sessionInfo(p.getUniqueId()).minigame());
+                },
+                "%players% (is|are) in [a] harbor fishing minigame",
+                "%players% (isn't|is not|aren't|are not) in [a] harbor fishing minigame");
+        r.text(
+                Spec.of("harbor forced fish"),
+                perSession(s -> s.forcedFish() == null ? null : String.valueOf(s.forcedFish())),
+                "[the] harbor forced [next] fish of %players%");
+
+        // Admin: same as /harbor fishing force · pity set
+        r.effect(
+                Spec.of("harbor admin force next fish"),
+                (e, x) -> {
+                    Optional<FishId> fish = Args.string(e, x, 1).flatMap(FishingSyntax::fishId);
+                    Optional<FishingService> f = fishing();
+                    if (fish.isEmpty() || f.isEmpty()) {
+                        return;
+                    }
+                    Integer quality = Args.number(e, x, 2).map(Number::intValue).orElse(null);
+                    for (Player p : Args.players(e, x, 0)) {
+                        f.get().forceNextFish(p, fish.get(), quality);
+                    }
+                },
+                "harbor admin force [the] next [harbor] fish of %players% to %string% [with"
+                        + " quality %-number%]");
+        r.effect(
+                Spec.of("harbor admin clear forced fish"),
+                (e, x) ->
+                        fishing()
+                                .ifPresent(
+                                        f ->
+                                                Args.players(e, x, 0)
+                                                        .forEach(
+                                                                p ->
+                                                                        f.clearForcedFish(
+                                                                                p.getUniqueId()))),
+                "harbor admin clear [the] forced [next] [harbor] fish of %players%");
+        r.effect(
+                Spec.of("harbor admin set pity"),
+                (e, x) -> {
+                    Optional<FishId> fish = Args.string(e, x, 1).flatMap(FishingSyntax::fishId);
+                    Optional<Number> value = Args.number(e, x, 2);
+                    Optional<FishingService> f = fishing();
+                    if (fish.isEmpty() || value.isEmpty() || f.isEmpty()) {
+                        return;
+                    }
+                    for (Player p : Args.players(e, x, 0)) {
+                        f.get().setPity(p.getUniqueId(), fish.get(), value.get().intValue());
+                    }
+                },
+                "harbor admin set [the] [harbor] pity of %players% for [fish] %string% to"
+                        + " %number%");
+        r.effect(
+                Spec.of("harbor admin reset pity"),
+                (e, x) -> {
+                    Optional<FishId> fish = Args.string(e, x, 1).flatMap(FishingSyntax::fishId);
+                    Optional<FishingService> f = fishing();
+                    if (fish.isEmpty() || f.isEmpty()) {
+                        return;
+                    }
+                    for (Player p : Args.players(e, x, 0)) {
+                        f.get().resetPity(p.getUniqueId(), fish.get());
+                    }
+                },
+                "harbor admin reset [the] [harbor] pity of %players% for [fish] %string%");
+        r.effect(
+                Spec.of("harbor admin reset missed big"),
+                (e, x) ->
+                        fishing()
+                                .ifPresent(
+                                        f ->
+                                                Args.players(e, x, 0)
+                                                        .forEach(
+                                                                p ->
+                                                                        f.resetMissedBig(
+                                                                                p.getUniqueId()))),
+                "harbor admin reset [the] [harbor] missed big (count|fish) of %players%");
     }
 
     // ------------------------------------------------------------------ fish items

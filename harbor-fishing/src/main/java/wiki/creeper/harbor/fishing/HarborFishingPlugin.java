@@ -68,7 +68,7 @@ public final class HarborFishingPlugin extends HarborModule {
                         getServer().getServicesManager().load(JobsService.class),
                         "Harbor-Jobs가 켜져 있어야 합니다");
         fishing = new FishingManager(this, api, ctx.tasks(), jobs, getSLF4JLogger());
-        FoodManager food = new FoodManager(api, FishingManager.COMPONENT, getSLF4JLogger());
+        FoodManager food = fishing.food();
         ctx.listen(fishing);
         ctx.listen(fishing.trapManager());
         ctx.listen(food);

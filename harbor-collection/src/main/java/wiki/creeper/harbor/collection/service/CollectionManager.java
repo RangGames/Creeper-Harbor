@@ -27,6 +27,7 @@ import wiki.creeper.harbor.collection.api.CollectionService;
 import wiki.creeper.harbor.collection.api.HintService;
 import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.api.RecordService;
+import wiki.creeper.harbor.collection.api.WeeklyRecord;
 import wiki.creeper.harbor.collection.api.event.CollectionMilestoneEvent;
 import wiki.creeper.harbor.collection.api.event.CollectionRegisteredEvent;
 import wiki.creeper.harbor.collection.api.event.RecordBrokenEvent;
@@ -83,9 +84,6 @@ public final class CollectionManager
 
     private static final String BUFF_SOURCE = "collection_season";
     private static final StatKey HINT_STAT = StatKey.of("feature_condition_hint");
-
-    /** One server record of this week (billboard 'new records this week' page). */
-    public record WeeklyRecord(FishId fish, RecordEntry entry) {}
 
     private final HarborApi api;
     private final Tasks tasks;
@@ -410,10 +408,7 @@ public final class CollectionManager
         };
     }
 
-    /**
-     * This week's server records (newest first, only those this server received; empty after a
-     * restart).
-     */
+    @Override
     public List<WeeklyRecord> weeklyRecords() {
         return records.weeklyRecords();
     }
@@ -497,6 +492,30 @@ public final class CollectionManager
     }
 
     // ------------------------------------------------------------------ admin
+
+    @Override
+    public boolean registerEntry(
+            UUID player, FishId fish, @Nullable Double size, @Nullable Integer quality) {
+        Optional<FishDef> def = api.content().snapshot().get(FishDef.TYPE, fish.id());
+        if (def.isEmpty() || api.players().get(player).isEmpty()) {
+            return false;
+        }
+        // Same values as /harbor collection entry set (size clamped to the species range)
+        FishDef d = def.get();
+        double s = size == null ? d.sizeMin() : size;
+        int q = quality == null ? 1 : Math.clamp(quality, 1, 5);
+        adminSet(player, d, Math.clamp(s, d.sizeMin(), d.sizeMax()), q);
+        return true;
+    }
+
+    @Override
+    public boolean removeEntry(UUID player, FishId fish) {
+        if (api.players().get(player).isEmpty()) {
+            return false;
+        }
+        adminRemove(player, fish);
+        return true;
+    }
 
     public void adminSet(UUID player, FishDef fish, double size, int quality) {
         api.players()

@@ -37,8 +37,10 @@ import wiki.creeper.harbor.common.content.type.RegionDef;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RegionId;
+import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.MailService;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
@@ -49,9 +51,11 @@ import wiki.creeper.harbor.fishing.api.CatchPresentationOverride;
 import wiki.creeper.harbor.fishing.api.CatchResult;
 import wiki.creeper.harbor.fishing.api.CollectionProvider;
 import wiki.creeper.harbor.fishing.api.FishingService;
+import wiki.creeper.harbor.fishing.api.FoodBuff;
 import wiki.creeper.harbor.fishing.api.MinigameResult;
 import wiki.creeper.harbor.fishing.api.RegionKeyResolver;
 import wiki.creeper.harbor.fishing.api.SeaEventMessage;
+import wiki.creeper.harbor.fishing.api.SessionInfo;
 import wiki.creeper.harbor.fishing.api.SessionState;
 import wiki.creeper.harbor.fishing.api.ShadowDriver;
 import wiki.creeper.harbor.fishing.api.TensionSession;
@@ -62,6 +66,7 @@ import wiki.creeper.harbor.fishing.api.event.FishingSessionEndEvent;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.data.FishingData;
 import wiki.creeper.harbor.fishing.data.FishingRepository;
+import wiki.creeper.harbor.fishing.food.FoodManager;
 import wiki.creeper.harbor.fishing.present.CatchPresenter;
 import wiki.creeper.harbor.fishing.present.DisplayShadowPresenter;
 import wiki.creeper.harbor.fishing.present.RigShadowPresenter;
@@ -114,6 +119,7 @@ public final class FishingManager implements FishingService, Listener {
     private final CastHandler casts;
     private final CatchRewards rewards;
     private final MinigameRunner minigames;
+    private final FoodManager food;
     private RollEngine engine;
     private long ticks;
 
@@ -154,6 +160,12 @@ public final class FishingManager implements FishingService, Listener {
                 new MinigameRunner(
                         api, ctx, gear, mythic, display, casts, rewards, presenter, stats, random,
                         sessions, tensions);
+        this.food = new FoodManager(api, COMPONENT, log);
+    }
+
+    /** Food buffs (listener registered by the plugin). */
+    public FoodManager food() {
+        return food;
     }
 
     /** Paper marks location lookups as nullable, but an online entity always has a location. */
@@ -247,6 +259,113 @@ public final class FishingManager implements FishingService, Listener {
     public int missedBigCount(UUID player) {
         FishingSession s = sessions.get(player);
         return s == null ? 0 : s.missedBig;
+    }
+
+    @Override
+    public SessionInfo sessionInfo(UUID player) {
+        FishingSession s = sessions.get(player);
+        TensionSessionImpl t = tensions.get(player);
+        boolean tensionOn = t != null && t.isActive();
+        Minigame game = s == null || s.state != SessionState.MINIGAME ? null : s.minigame;
+        double tension = 0;
+        double hp = 1;
+        if (game != null) {
+            tension = game.tension();
+            hp = game.hpRatio();
+        } else if (t != null && tensionOn) {
+            tension = t.tension();
+            hp = t.hpRatio();
+        }
+        if (s == null) {
+            return new SessionInfo(
+                    SessionState.IDLE,
+                    null,
+                    false,
+                    false,
+                    tensionOn,
+                    tension,
+                    hp,
+                    null,
+                    null,
+                    null);
+        }
+        FishDef fish = s.fish;
+        FishDef forced = s.forcedFish;
+        return new SessionInfo(
+                s.state,
+                fish == null ? null : fish.id(),
+                s.state == SessionState.BITE,
+                game != null,
+                tensionOn,
+                tension,
+                hp,
+                s.region,
+                s.bait,
+                forced == null ? null : forced.id());
+    }
+
+    @Override
+    public boolean forceNextFish(Player player, FishId fish, @Nullable Integer quality) {
+        Optional<FishDef> def = snapshot().get(FishDef.TYPE, fish.id());
+        if (def.isEmpty()) {
+            return false;
+        }
+        // Same fields as /harbor fishing force (consumed by the next cast and result)
+        FishingSession s = sessionOf(player);
+        s.forcedFish = def.get();
+        s.forcedQuality =
+                quality == null ? null : Quality.of(Math.clamp(quality, Quality.MIN, Quality.MAX));
+        return true;
+    }
+
+    @Override
+    public boolean clearForcedFish(UUID player) {
+        FishingSession s = sessions.get(player);
+        if (s == null || s.forcedFish == null) {
+            return false;
+        }
+        s.forcedFish = null;
+        s.forcedQuality = null;
+        return true;
+    }
+
+    @Override
+    public boolean setPity(UUID player, FishId fish, int casts) {
+        Optional<HarborPlayer> hp = api.players().get(player);
+        if (hp.isEmpty()) {
+            return false;
+        }
+        // Same as /harbor fishing pity ... set: the component is marked dirty and saved by the
+        // write-behind auto save (pity_counter)
+        hp.get().set(COMPONENT, hp.get().get(COMPONENT).withPity(fish, Math.max(0, casts)));
+        return true;
+    }
+
+    @Override
+    public void resetMissedBig(UUID player) {
+        FishingSession s = sessions.get(player);
+        if (s != null) {
+            s.missedBig = 0;
+        }
+    }
+
+    @Override
+    public Optional<FoodBuff> foodBuff(UUID player) {
+        return api.players()
+                .get(player)
+                .flatMap(hp -> Optional.ofNullable(hp.get(COMPONENT).food()))
+                .filter(f -> f.isActive(Instant.now()))
+                .map(f -> new FoodBuff(f.item(), f.expiresAt()));
+    }
+
+    @Override
+    public boolean applyFood(Player player, ItemId item) {
+        return food.apply(player, item);
+    }
+
+    @Override
+    public boolean clearFood(Player player) {
+        return food.clear(player);
     }
 
     @Override

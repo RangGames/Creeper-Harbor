@@ -194,6 +194,41 @@ public final class FoodManager implements Listener {
                                                 event.getPlayer().getUniqueId(), food.source()));
     }
 
+    /**
+     * Applies the buff of a food item as if the player ate it (API, not shared with the party).
+     * False if the item has no buff in fishing/food.yml.
+     */
+    public boolean apply(Player player, ItemId item) {
+        Optional<FoodBuffs.Buff> buff = buffs().of(item);
+        if (buff.isEmpty()) {
+            return false;
+        }
+        apply(player, buff.get(), stat(player.getUniqueId(), "food_buff_duration"), false);
+        return true;
+    }
+
+    /** Removes the active buff: modifiers, player data and the fishing_food row (API). */
+    public boolean clear(Player player) {
+        UUID uuid = player.getUniqueId();
+        HarborPlayer hp = api.players().get(player);
+        FishingData data = hp.get(component);
+        ActiveFood food = data.food();
+        if (food == null) {
+            return false;
+        }
+        api.modifiers().removeSource(uuid, food.source());
+        hp.set(component, data.withFood(null));
+        var _ =
+                api.database()
+                        .asyncVoid(c -> FishingRepository.saveFood(c, uuid, null))
+                        .exceptionally(
+                                e -> {
+                                    log.warn("요리 버프 삭제 실패 ({}): {}", uuid, String.valueOf(e));
+                                    return null;
+                                });
+        return food.isActive(Instant.now());
+    }
+
     /** The currently active food buff (admin command). */
     public @Nullable ActiveFood active(Player player) {
         ActiveFood food = api.players().get(player).get(component).food();

@@ -218,7 +218,8 @@ public final class Billboard implements Listener {
             }
             case BillboardRules.WeeklyPage() -> {
                 lines.add(msg.get("collection.billboard.weekly_title"));
-                for (CollectionManager.WeeklyRecord w : collection.weeklyRecords()) {
+                for (wiki.creeper.harbor.collection.api.WeeklyRecord w :
+                        collection.weeklyRecords()) {
                     if (lines.size() > rules.lines()) {
                         break;
                     }
