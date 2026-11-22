@@ -23,30 +23,36 @@ import wiki.creeper.harbor.economy.content.EconomyBalance;
 import wiki.creeper.harbor.economy.content.StationDef;
 
 /**
- * 경매장 (docs 20 7.4 경매장 규칙·등록·구매·만료). 아이템은 한 순간에 한 곳(인벤토리 → 경매 행 → 우편함)에만 있다.
+ * Auction house (docs 20 7.4 auction rules, listing, buying, expiry). An item is in exactly one
+ * place at any moment (inventory → auction row → mailbox).
  *
  * <ul>
- *   <li>등록: 조건 검사(슬롯·거래 가능·등록가 범위·신규 계정) → 손의 아이템을 꺼내 보관 → 한 트랜잭션으로 auction_listing 삽입 + 등록비
- *       AUCTION_LIST_FEE + fish_ledger ACTIVE → IN_AUCTION. active_uid 유니크가 같은 고유 아이템의 두 번째 등록을
- *       막는다. 실패하면 아이템을 돌려준다.
- *   <li>구매: CurrencyService.atomic 한 트랜잭션: 구매자 −가격(AUCTION_BUY) + 판매자 +가격(AUCTION_SALE)
- *       −수수료(AUCTION_FEE) + 경매 행 FOR UPDATE 확인·SOLD + auction_sale + fish_ledger IN_AUCTION →
- *       ACTIVE + 낙찰품 우편 삽입. 의심 점수가 높으면 판매자 몫은 원장 대신 HELD 우편 골드로 들어간다. 커밋 뒤 구매자가 접속 중이고 칸이 있으면 바로
- *       수령한다.
- *   <li>만료·취소: 경매 행 EXPIRED/CANCELLED + 판매자 우편 반환 + 장부 ACTIVE를 한 트랜잭션으로. 등록비는 돌려주지 않는다.
+ *   <li>Listing: checks (slots, tradable, listing price range, new account) → take the item from
+ *       the hand and hold it → in one transaction, insert auction_listing + listing fee
+ *       AUCTION_LIST_FEE + fish_ledger ACTIVE → IN_AUCTION. The active_uid unique key blocks a
+ *       second listing of the same unique item. On failure the item is returned.
+ *   <li>Buying: one CurrencyService.atomic transaction: buyer −price (AUCTION_BUY) + seller +price
+ *       (AUCTION_SALE) −fee (AUCTION_FEE) + auction row FOR UPDATE check and SOLD + auction_sale +
+ *       fish_ledger IN_AUCTION → ACTIVE + insert the won item into mail. If the suspicion score is
+ *       high, the seller's share goes into HELD mail gold instead of the ledger. After commit, if
+ *       the buyer is online and has space, it is claimed immediately.
+ *   <li>Expiry and cancellation: auction row EXPIRED/CANCELLED + return to the seller's mail +
+ *       ledger ACTIVE in one transaction. The listing fee is not refunded.
  * </ul>
  *
- * 판매 수수료율은 등록할 때 판매자의 보정(경제 계열 2차 4%, 3차 3%)으로 정해 행에 저장한다 (판매자가 오프라인이어도 같은 비율).
+ * The sale fee rate is set at listing time from the seller's modifiers (economy line tier 2 4%,
+ * tier 3 3%) and stored in the row (same rate even if the seller is offline).
  *
- * <p>공개 진입점만 여기 두고, 등록은 {@link AuctionLister}, 조회·캐시는 {@link AuctionListings}, 구매·낙찰은 {@link
- * AuctionSettlement}, 취소·만료는 {@link AuctionReturns}, 목록 화면은 {@link AuctionMenu}가 맡는다.
+ * <p>Only the public entry points live here; listing is handled by {@link AuctionLister}, queries
+ * and caching by {@link AuctionListings}, buying and settlement by {@link AuctionSettlement},
+ * cancellation and expiry by {@link AuctionReturns}, and the list screen by {@link AuctionMenu}.
  */
 public final class AuctionHouse implements AuctionService {
 
-    /** 판매 알림 (harbor:auction, 추가 제안). 판매자가 있는 서버가 보여준다. */
+    /** Sale notice (harbor:auction, proposed). Shown by the server the seller is on. */
     public record SoldNotice(UUID seller, String itemName, long price, long net, boolean held) {}
 
-    /** 경매 행. itemData는 직렬화 바이트의 Base64. */
+    /** Auction row. itemData is the serialized bytes in Base64. */
     record Row(
             long id,
             UUID seller,
@@ -74,7 +80,7 @@ public final class AuctionHouse implements AuctionService {
         }
     }
 
-    /** 분류 (메뉴 아래 줄 버튼 순서). */
+    /** Category (button order on the bottom row of the menu). */
     static final List<String> CATEGORIES =
             List.of("all", "fish", "gear", "bait", "material", "food");
 
@@ -144,7 +150,7 @@ public final class AuctionHouse implements AuctionService {
                                                                                         n.net())));
                                                     }
                                                 }));
-        // 1분마다 만료 처리 (잠금을 얻은 서버 하나만)
+        // Process expiry every minute (only the one server that acquires the lock)
         var _ =
                 tasks.timer(
                         20 * 30,
@@ -162,14 +168,16 @@ public final class AuctionHouse implements AuctionService {
         return TIME.format(instant.atZone(api.time().zone()));
     }
 
-    /** 경매의 원장·우편 참조 ID. */
+    /** Ledger and mail reference ID for an auction. */
     static String ref(long listingId) {
         return "auction:" + listingId;
     }
 
-    // ------------------------------------------------------------------ 등록
+    // ------------------------------------------------------------------ Listing
 
-    /** 경매 게시판 반경 안인지. 콘텐츠에 게시판이 하나도 없으면 어디서나 (개발 서버). */
+    /**
+     * Whether within an auction board's radius. Anywhere if the content has no boards (dev server).
+     */
     boolean nearBoard(Player player) {
         if (!stations.anyOf(StationDef.Kind.AUCTION)) {
             return true;
@@ -178,18 +186,19 @@ public final class AuctionHouse implements AuctionService {
                 .isPresent();
     }
 
-    /** /경매 등록 <가격>: 손에 든 아이템을 묶음째 등록한다 (확인 화면). */
+    /** /경매 등록 <price>: lists the held item as a whole stack (confirmation screen). */
     public void startListing(Player player, long price) {
         lister.startListing(player, price);
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ Queries
 
     /**
-     * 진행 중인 등록 한 페이지 (가상 스레드에서 읽고 메인 스레드에서 완료). 분류별 첫 페이지는 30초 캐시.
+     * One page of active listings (read on a virtual thread, completed on the main thread). The
+     * first page per category is cached for 30 seconds.
      *
-     * @param search 이름 검색어 (null이면 없음)
-     * @param seller 판매자 한정 (null이면 전체)
+     * @param search name search term (null for none)
+     * @param seller restrict to a seller (null for all)
      */
     CompletableFuture<List<Row>> page(
             String category, @Nullable String search, @Nullable UUID seller, int page) {
@@ -213,38 +222,41 @@ public final class AuctionHouse implements AuctionService {
         return listings.activeCount(seller);
     }
 
-    // ------------------------------------------------------------------ 화면
+    // ------------------------------------------------------------------ Screens
 
-    /** /경매 [분류] · /경매 검색 · /경매 내목록. 메인 스레드. */
+    /** /경매 [category] · /경매 검색 · /경매 내목록. Main thread. */
     public void open(
             Player player, String category, @Nullable String search, boolean mine, int page) {
         menu.open(player, category, search, mine, page);
     }
 
-    // ------------------------------------------------------------------ 구매
+    // ------------------------------------------------------------------ Buying
 
     void buy(Player player, Row shown) {
         settlement.buy(player, shown);
     }
 
-    // ------------------------------------------------------------------ 취소·만료
+    // ------------------------------------------------------------------ Cancellation and expiry
 
-    /** 판매자 본인 취소 (게시판 반경 안, 등록비 환불 없음). */
+    /** Cancellation by the seller (within the board radius, listing fee not refunded). */
     void cancel(Player player, long id) {
         returns.cancel(player, id);
     }
 
-    /** 관리자 강제 취소: 아이템은 판매자 우편함. */
+    /** Admin forced cancellation: the item goes to the seller's mailbox. */
     public CompletableFuture<Boolean> adminCancel(long id) {
         return returns.adminCancel(id);
     }
 
-    /** 가상 스레드: 기한이 지난 경매를 EXPIRED로 바꾸고 판매자에게 돌려보낸다 (잠금을 얻은 서버 하나만). */
+    /**
+     * Virtual thread: marks overdue auctions EXPIRED and returns them to the sellers (only the one
+     * server that acquires the lock).
+     */
     void expireDue() {
         returns.expireDue();
     }
 
-    /** 관리자: 그 플레이어(이름)의 진행 중 경매. */
+    /** Admin: active auctions of that player (by name). */
     CompletableFuture<List<Row>> listingsOf(UUID seller) {
         return page("all", null, seller, 0);
     }

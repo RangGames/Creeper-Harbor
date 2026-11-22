@@ -14,7 +14,10 @@ import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.ItemModels;
 
-/** 도감·기록·수족관 화면 아이콘 도우미. 어종 아이콘은 등록하면 어종 모델, 아니면 실루엣 (balance.yml items.*). */
+/**
+ * Icon helpers for the codex, records, and aquarium screens. Species icons use the species model if
+ * registered, otherwise a silhouette (balance.yml items.*).
+ */
 final class MenuItems {
 
     private MenuItems() {}
@@ -52,7 +55,7 @@ final class MenuItems {
         return stack;
     }
 
-    /** 어종 아이콘: known이면 어종 모델, 아니면 실루엣 모델. */
+    /** Species icon: species model if known, otherwise the silhouette model. */
     static ItemStack fish(
             HarborApi api,
             FishDef fish,
@@ -75,7 +78,7 @@ final class MenuItems {
         return stack;
     }
 
-    /** ■■■□□ 막대 (문자는 messages collection.menu.bar_full / bar_empty). */
+    /** ■■■□□ bar (characters from messages collection.menu.bar_full / bar_empty). */
     static Component bar(HarborApi api, int filled, int width) {
         Component full = api.messages().get("collection.menu.bar_full");
         Component empty = api.messages().get("collection.menu.bar_empty");
@@ -86,7 +89,7 @@ final class MenuItems {
         return out;
     }
 
-    /** balance.yml collection.menu.bar_width (제안값 10). */
+    /** balance.yml collection.menu.bar_width (proposed value 10). */
     static int barWidth(HarborApi api) {
         return Math.clamp(
                 api.content()

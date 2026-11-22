@@ -8,18 +8,20 @@ import wiki.creeper.harbor.common.ledger.LedgerError;
 import wiki.creeper.harbor.common.util.Result;
 
 /**
- * 수리비 (docs 20 7.4): 장비 가격 × 3% (내구도 0이면 10%) × repair_cost 보정 (수리공 −30%). World 선박 수리도 선박 가격을 넘겨
- * 같은 식으로 계산한다. 메인 스레드에서 부르고 future는 메인 스레드에서 완료된다.
+ * Repair cost (docs 20 7.4): gear price × 3% (10% at 0 durability) × repair_cost modifier (repairer
+ * −30%). World ship repair passes the ship price and is computed the same way. Call on the main
+ * thread; the future completes on the main thread.
  */
 public interface RepairService {
 
-    /** 수리비 견적 (보정 포함, 최소 1G). */
+    /** Repair cost quote (modifiers included, minimum 1G). */
     long quote(UUID player, long equipmentPrice, boolean broken);
 
     /**
-     * 수리비를 받는다 (사유 REPAIR). extra는 같은 트랜잭션에서 실행할 SQL (선박 내구도 복구 등).
+     * Charges the repair cost (reason REPAIR). extra is SQL to run in the same transaction
+     * (restoring ship durability, etc.).
      *
-     * @return 처리 후 잔액
+     * @return balance after processing
      */
     CompletableFuture<Result<Long, LedgerError>> pay(
             UUID player, long cost, String refId, @Nullable SqlConsumer extra);

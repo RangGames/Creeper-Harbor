@@ -1,7 +1,5 @@
 package wiki.creeper.harbor.economy.service;
 
-import io.papermc.paper.datacomponent.DataComponentTypes;
-import io.papermc.paper.datacomponent.item.ItemLore;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -16,11 +14,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
@@ -37,23 +32,28 @@ import wiki.creeper.harbor.core.api.MailService;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 우편함 (추가 제안, docs 20 7.4). 수령은 트랜잭션에서 state를 CLAIMED로 바꾼 뒤 메인 스레드에서 지급한다. 칸이 모자라면 수령하지 않고 남겨 둔다.
- * 다른 서버에 있는 수신자에게는 harbor:mail로 알린다.
+ * Mailbox (proposed, docs 20 7.4). Claiming sets state to CLAIMED in a transaction, then pays out
+ * on the main thread. If there is not enough room the mail is left unclaimed. Recipients on other
+ * servers are notified via harbor:mail.
  *
  * <ul>
- *   <li>중복 방지: (uuid, source, ref_id) 유니크. 같은 참조 ID로 다시 보내면 아무것도 하지 않고 성공으로 끝난다 (재시도 안전). ref_id가
- *       null이면 검사하지 않는다.
- *   <li>보류(HELD): 부정 거래 의심 판매 대금. hold_until이 지나면 자동으로 UNCLAIMED가 되고 (auto_release), hold_until이
- *       없으면 관리자가 풀 때까지 남는다.
- *   <li>경매 낙찰품·반환품은 경매 행 변경과 같은 트랜잭션에서 {@link #insert}로 넣어, 아이템이 한 순간에 한 곳에만 있게 한다.
+ *   <li>Deduplication: (uuid, source, ref_id) is unique. Sending again with the same reference ID
+ *       does nothing and succeeds (safe to retry). Not checked when ref_id is null.
+ *   <li>Held (HELD): sale proceeds suspected of fraud. Becomes UNCLAIMED automatically once
+ *       hold_until passes (auto_release); without hold_until it stays until an admin releases it.
+ *   <li>Won and returned auction items are inserted with {@link #insert} in the same transaction as
+ *       the auction row change, so an item is only ever in one place at a time.
  * </ul>
  */
 public final class MailManager implements MailService {
 
-    /** 우편 도착 알림 (harbor:mail, 추가 제안). */
+    /** Mail arrival notice (harbor:mail, proposed). */
     public record MailNotice(UUID player) {}
 
-    /** 우편 한 통. itemData는 ItemStack 직렬화 바이트의 Base64 (메인 스레드에서 되살린다). */
+    /**
+     * One mail. itemData is the Base64 of the serialized ItemStack bytes (deserialized on the main
+     * thread).
+     */
     record Mail(
             long id,
             String kind,
@@ -73,7 +73,7 @@ public final class MailManager implements MailService {
 
     static final Channel<MailNotice> CHANNEL = new Channel<>("harbor:mail", MailNotice.class);
 
-    /** 경매·보류 출처 코드 (source 열). */
+    /** Auction and hold source codes (source column). */
     public static final String SOURCE_AUCTION_WON = "auction_won";
 
     public static final String SOURCE_AUCTION_RETURN = "auction_return";
@@ -118,7 +118,8 @@ public final class MailManager implements MailService {
                                                                         "economy.mail.arrived");
                                                     }
                                                 }));
-        // 1분마다 보류 기한이 지난 우편을 푼다 (여러 서버가 같이 돌아도 조건부 UPDATE라 안전)
+        // Every minute, release mails whose hold expired (safe with several servers: conditional
+        // UPDATE)
         var _ =
                 tasks.timer(
                         20 * 60,
@@ -128,13 +129,14 @@ public final class MailManager implements MailService {
                         });
     }
 
-    // ------------------------------------------------------------------ 쓰기
+    // ------------------------------------------------------------------ writing
 
     /**
-     * 같은 트랜잭션 안에서 우편을 넣는다 (블로킹, 메인 스레드 금지). 같은 (수신자, 출처, 참조 ID)가 이미 있으면 넣지 않는다.
+     * Inserts a mail within the caller's transaction (blocking, not on the main thread). Does
+     * nothing if the same (recipient, source, reference ID) already exists.
      *
-     * @param holdUntil HELD로 넣을 때 자동 해제 시각 (null이면 관리자 해제)
-     * @return 새로 넣었으면 true, 이미 있었으면 false
+     * @param holdUntil auto-release time when inserted as HELD (null means admin release)
+     * @return true if newly inserted, false if it already existed
      */
     public static boolean insert(
             Connection c,
@@ -165,7 +167,7 @@ public final class MailManager implements MailService {
             ps.setString(7, refId);
             ps.setString(8, held ? "HELD" : "UNCLAIMED");
             ps.setTimestamp(9, holdUntil == null ? null : Timestamp.from(holdUntil));
-            // ON DUPLICATE KEY UPDATE로 아무것도 바뀌지 않으면 영향 행 수가 0
+            // The affected row count is 0 when ON DUPLICATE KEY UPDATE changes nothing
             return ps.executeUpdate() == 1;
         }
     }
@@ -177,7 +179,7 @@ public final class MailManager implements MailService {
         return c -> insert(c, player, season, "item", data, 0, source, refId, false, null);
     }
 
-    /** 커밋 뒤 수신자에게 알린다 (다른 서버 포함). */
+    /** Notifies the recipient after commit (including on other servers). */
     @Override
     public void notifyArrived(UUID player) {
         api.bus().publish(CHANNEL, new MailNotice(player));
@@ -220,16 +222,18 @@ public final class MailManager implements MailService {
     }
 
     /**
-     * 커밋 뒤 아이템을 돌려준다. 접속 중이면 인벤토리(넘치면 우편함), 아니면 우편함. 메인 스레드.
+     * Gives items back after commit: into the inventory when online (overflow to the mailbox),
+     * otherwise to the mailbox. Main thread.
      *
-     * @param refId 우편으로 갈 때의 참조 ID (중복 방지)
+     * @param refId reference ID used when mailed (deduplication)
      */
     public void giveOrMail(UUID player, List<ItemStack> items, String source, String refId) {
         Player online = Bukkit.getPlayer(player);
         int index = 0;
         for (ItemStack item : items) {
             String ref = refId + ":" + index++;
-            // 서버 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 우편으로
+            // After the server-move snapshot was taken, inventory additions are not saved, so mail
+            // it
             if (online != null && online.isOnline() && !api.players().frozen(player)) {
                 for (ItemStack left : online.getInventory().addItem(item.clone()).values()) {
                     var _ = sendItem(player, left, source, ref);
@@ -257,9 +261,9 @@ public final class MailManager implements MailService {
                         });
     }
 
-    // ------------------------------------------------------------------ 보류
+    // ------------------------------------------------------------------ holds
 
-    /** 가상 스레드: 보류 기한이 지난 우편을 UNCLAIMED로 바꾸고 수신자에게 알린다. */
+    /** Virtual thread: sets mails whose hold expired to UNCLAIMED and notifies the recipients. */
     void releaseExpiredHolds() {
         try {
             List<UUID> released =
@@ -297,7 +301,10 @@ public final class MailManager implements MailService {
         }
     }
 
-    /** 관리자: 보류 우편을 지금 푼다 (참조 ID = auction:<경매 ID>). 풀린 우편 수. */
+    /**
+     * Admin: releases held mails now (reference ID = auction:&lt;auction ID&gt;). Returns the
+     * number of released mails.
+     */
     public CompletableFuture<Integer> releaseHold(String refId) {
         return api.database()
                 .async(
@@ -331,7 +338,7 @@ public final class MailManager implements MailService {
                         });
     }
 
-    // ------------------------------------------------------------------ 화면
+    // ------------------------------------------------------------------ screen
 
     private static Mail read(ResultSet rs) throws SQLException {
         byte[] data = rs.getBytes(3);
@@ -347,12 +354,15 @@ public final class MailManager implements MailService {
                 hold == null ? null : hold.toInstant());
     }
 
-    /** /우편함: 안 받은 우편(보류 중 포함) 목록. 누르면 수령, "모두 받기"는 {@link #claimAll}. */
+    /**
+     * /우편함: list of unclaimed mails (including held ones). Clicking claims one; "claim all" is
+     * {@link #claimAll}.
+     */
     public void open(Player player) {
         var _ = load(player.getUniqueId()).thenAccept(mails -> menu.show(player, mails));
     }
 
-    /** 안 받은 우편(보류 포함, 오래된 순, 270개까지). 메인 스레드에서 완료. */
+    /** Unclaimed mails (including held, oldest first, up to 270). Completes on the main thread. */
     private CompletableFuture<List<Mail>> load(UUID uuid) {
         return api.database()
                 .async(
@@ -375,8 +385,9 @@ public final class MailManager implements MailService {
     }
 
     /**
-     * 모두 받기 (추가 제안): 보류가 아닌 우편을 오래된 순으로 하나씩 받는다 (같은 CLAIMED 트랜잭션). 아이템은 빈 칸이 있을 때만 받고, 칸이 모자라면 남겨
-     * 둔다. 끝나면 받은 수·남은 수를 알리고 우편함을 다시 연다. 메인 스레드.
+     * Claim all (proposed): claims non-held mails one by one, oldest first (same CLAIMED
+     * transaction). Items are claimed only while there is an empty slot and left otherwise. When
+     * finished, reports the claimed and remaining counts and reopens the mailbox. Main thread.
      */
     public void claimAll(Player player) {
         var _ =
@@ -411,59 +422,12 @@ public final class MailManager implements MailService {
         open(player);
     }
 
-    /** 화면 아이콘 (MailMenu). */
-    ItemStack icon(Mail mail) {
-        ItemStack item = mail.item();
-        ItemStack icon;
-        if (item != null) {
-            icon = item.clone();
-        } else {
-            icon = ItemStack.of(Material.GOLD_NUGGET);
-            icon.setData(
-                    DataComponentTypes.ITEM_NAME,
-                    api.messages()
-                            .get(
-                                    "economy.mail.gold",
-                                    Placeholder.unparsed("gold", String.valueOf(mail.gold()))));
-        }
-        List<Component> lore =
-                new ArrayList<>(
-                        Optional.ofNullable(icon.getData(DataComponentTypes.LORE))
-                                .map(ItemLore::lines)
-                                .orElse(List.of()));
-        String sourceKey = "economy.mail.source." + mail.source();
-        lore.add(
-                api.messages()
-                        .get(
-                                api.messages().has(sourceKey) ? sourceKey : "economy.mail.from",
-                                Placeholder.unparsed("source", mail.source())));
-        if (mail.held()) {
-            Instant until = mail.holdUntil();
-            lore.add(
-                    until == null
-                            ? api.messages().get("economy.mail.held_manual")
-                            : api.messages()
-                                    .get(
-                                            "economy.mail.held_until",
-                                            Placeholder.unparsed(
-                                                    "time", AuctionHouse.formatTime(api, until))));
-        }
-        icon.setData(
-                DataComponentTypes.LORE,
-                ItemLore.lore(
-                        lore.stream()
-                                .map(
-                                        c ->
-                                                c.decorationIfAbsent(
-                                                        TextDecoration.ITALIC,
-                                                        TextDecoration.State.FALSE))
-                                .toList()));
-        return icon;
-    }
+    // ------------------------------------------------------------------ claiming
 
-    // ------------------------------------------------------------------ 수령
-
-    /** 경매 낙찰 직후 자동 수령: 구매자가 접속 중이고 칸이 있으면 바로 받는다. 칸이 없으면 우편함에 남는다. 메인 스레드. */
+    /**
+     * Auto-claim right after winning an auction: claimed at once if the buyer is online and has
+     * room; otherwise it stays in the mailbox. Main thread.
+     */
     public void autoClaim(Player player, String source, String refId) {
         UUID uuid = player.getUniqueId();
         var _ =
@@ -500,10 +464,10 @@ public final class MailManager implements MailService {
     }
 
     /**
-     * 우편 하나 수령. 결과(받았는지)는 메인 스레드에서 완료된다.
+     * Claims one mail. The result (whether it was claimed) completes on the main thread.
      *
-     * @param reopen 끝나면 우편함을 다시 연다
-     * @param notify 결과 문구를 보낸다 (모두 받기는 끝에 한 번만 알린다)
+     * @param reopen reopen the mailbox when finished
+     * @param notify send the result message (claim all notifies only once at the end)
      */
     CompletableFuture<Boolean> claim(Player player, Mail mail, boolean reopen, boolean notify) {
         UUID uuid = player.getUniqueId();
@@ -559,7 +523,8 @@ public final class MailManager implements MailService {
                             .thenApplyAsync(
                                     ok -> {
                                         if (ok && item != null) {
-                                            // 서버 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 우편함으로 되돌린다
+                                            // After the server-move snapshot was taken, inventory
+                                            // additions are not saved, so return it to the mailbox
                                             if (player.isOnline() && !api.players().frozen(uuid)) {
                                                 player.getInventory()
                                                         .addItem(item.clone())
@@ -574,7 +539,8 @@ public final class MailManager implements MailService {
                                                                                                                 .getLocation()),
                                                                                         left));
                                             } else {
-                                                // 커밋 사이에 나갔거나 서버를 옮기는 중이면 우편함으로 되돌린다
+                                                // If the player left during the commit or is
+                                                // moving servers, return it to the mailbox
                                                 var _ =
                                                         sendItem(
                                                                 uuid,

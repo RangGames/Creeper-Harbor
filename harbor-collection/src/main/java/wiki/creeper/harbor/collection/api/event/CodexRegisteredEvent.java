@@ -7,7 +7,10 @@ import wiki.creeper.harbor.collection.api.CodexScope;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.model.Grade;
 
-/** 시즌·누적 도감 첫 등록 (Quest 조건 재평가, Shop 패스 경험치). */
+/**
+ * First registration in the season or cumulative codex (Quest condition re-evaluation, Shop pass
+ * XP).
+ */
 public final class CodexRegisteredEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

@@ -49,13 +49,17 @@ import wiki.creeper.harbor.economy.content.StationDef;
 import wiki.creeper.harbor.season.api.WeeklyLimitService;
 
 /**
- * 제작 (docs 20 7.4 제작, '13. 제작 · 상점 가격' 3장). 스테이션을 누르면 그 장소의 레시피만 보여준다. 흐름: 재료를 인벤토리에서 꺼내 보관 → 한
- * 트랜잭션으로 Season WeeklyLimitService.tryConsume(키 craft:<레시피>, 주간 제한이 있을 때) + take(CRAFT_COST) + 재료로
- * 쓴 고유 어종의 장부 DESTROYED → 커밋 후 결과 지급(넘치면 우편함), 실패하면 재료 반환.
+ * Crafting (docs 20 7.4 crafting, "13. Crafting · Shop prices" ch. 3). Clicking a station shows
+ * only that place's recipes. Flow: take materials from the inventory and hold them → in one
+ * transaction, Season WeeklyLimitService.tryConsume (key craft:<recipe>, when there is a weekly
+ * limit) + take(CRAFT_COST) + ledger DESTROYED for unique fish used as materials → after commit,
+ * give the result (mailbox on overflow); on failure, return the materials.
  *
- * <p>해금: job_tier·level(Core 플레이어), feature(스킬이 올리는 보정자), 플래그(visited/<지역>은 World, quest/<경로>는
- * Quest가 세움 — 추가 제안). 재료 절약: 생산 계열 '장인의 손'(craft_material_save)은 gear 재료를 올림(개수 × (1 − 절약)), '미끼
- * 장인'(bait_craft_bonus)은 bait 결과 +1/랭크. 골드 비용은 줄지 않는다.
+ * <p>Unlocks: job_tier and level (Core player), feature (modifier raised by a skill), flags
+ * (visited/<region> set by World, quest/<path> set by Quest — proposed). Material saving: the
+ * production line "Artisan's Hand" (craft_material_save) rounds up gear materials (count × (1 −
+ * saving)); "Bait Artisan" (bait_craft_bonus) gives +1 bait result per rank. The gold cost is not
+ * reduced.
  */
 public final class CraftManager implements CraftService {
 
@@ -91,7 +95,7 @@ public final class CraftManager implements CraftService {
                         .single(wiki.creeper.harbor.common.content.type.Balance.TYPE));
     }
 
-    // ------------------------------------------------------------------ 화면
+    // ------------------------------------------------------------------ Screens
 
     @Override
     public boolean openStation(Player player, HarborId stationId) {
@@ -120,7 +124,7 @@ public final class CraftManager implements CraftService {
         return true;
     }
 
-    /** /제작: 근처 스테이션의 화면. 없으면 false. */
+    /** /제작: the screen of a nearby station. False if none. */
     public boolean openNearby(Player player) {
         Optional<StationDef> near =
                 stations.nearest(player, null, balance().craftStationRadius())
@@ -218,7 +222,10 @@ public final class CraftManager implements CraftService {
         return stack;
     }
 
-    /** 재료 이름. 바닐라 재료는 번역 키라 클라이언트 언어(한국어)로 보인다. */
+    /**
+     * Material name. Vanilla materials are translation keys, so they show in the client language
+     * (Korean).
+     */
     private Component ingredientName(RecipeDef.Ingredient ingredient) {
         ContentSnapshot snapshot = api.content().snapshot();
         return switch (ingredient) {
@@ -280,7 +287,7 @@ public final class CraftManager implements CraftService {
                 Placeholder.unparsed("quest", quest == null ? "" : quest.id().name()));
     }
 
-    // ------------------------------------------------------------------ 규칙
+    // ------------------------------------------------------------------ Rules
 
     private Optional<FishDef> fish(FishId id) {
         return api.content().snapshot().get(FishDef.TYPE, id.id());
@@ -296,7 +303,7 @@ public final class CraftManager implements CraftService {
                 recipe.amount(), recipe.category(), api.modifiers().value(uuid, BAIT_BONUS));
     }
 
-    /** 잠겨 있으면 안내 문구 키, 아니면 null. */
+    /** Notice message key if locked, otherwise null. */
     @Nullable String lockReason(Player player, RecipeDef recipe) {
         RecipeDef.Unlock u = recipe.unlock();
         HarborPlayer hp = api.players().get(player);
@@ -349,7 +356,7 @@ public final class CraftManager implements CraftService {
         return slots;
     }
 
-    // ------------------------------------------------------------------ 제작
+    // ------------------------------------------------------------------ Crafting
 
     private void start(Player player, RecipeDef recipe) {
         String locked = lockReason(player, recipe);
@@ -412,7 +419,7 @@ public final class CraftManager implements CraftService {
             api.messages().send(player, "economy.busy");
             return;
         }
-        // 보관: 배정된 칸에서 꺼낸다
+        // Hold: take from the assigned slots
         PlayerInventory inv = player.getInventory();
         List<ItemStack> custody = new ArrayList<>();
         List<UUID> uids = new ArrayList<>();
@@ -536,7 +543,10 @@ public final class CraftManager implements CraftService {
                                 });
     }
 
-    /** 수리비 기준: 이 아이템을 만드는 레시피의 골드 비용 (buy_price가 없는 장비, docs 20 7.4 수리). */
+    /**
+     * Repair cost basis: gold cost of the recipe that makes this item (gear without buy_price, docs
+     * 20 7.4 repair).
+     */
     OptionalLong recipeGold(ItemId item) {
         return api.content().snapshot().all(RecipeDef.TYPE).values().stream()
                 .filter(r -> r.result().equals(item) && r.gold() > 0)

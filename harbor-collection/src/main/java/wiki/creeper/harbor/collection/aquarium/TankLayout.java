@@ -9,18 +9,20 @@ import wiki.creeper.harbor.collection.content.AquariumRules.Tank;
 import wiki.creeper.harbor.common.id.FishId;
 
 /**
- * 수조 배치 (docs 20 4.4 '수조 연출'). 기부된 어종마다 리그 1개. 심해 어종은 심해관 수조, 나머지는 일반 수조에 먼저 기부된 순서로 채운다. 동시에 보이는
- * 리그는 visibleMax로 제한하고, 넘치면 rotation(교대 횟수)마다 창을 visibleMax만큼 밀어 나머지를 교대로 보여준다. 서버 API를 쓰지 않는다.
+ * Tank layout (docs 20 4.4 "tank display"). One rig per donated species. Deep-sea species go to
+ * deep-sea hall tanks, the rest fill regular tanks in donation order. Visible rigs are capped at
+ * visibleMax; beyond that, the window slides by visibleMax every rotation (rotation count) to show
+ * the rest in turn. Uses no server API.
  */
 public final class TankLayout {
 
     private TankLayout() {}
 
     /**
-     * @param species 기부된 어종 (먼저 기부된 순)
-     * @param tanks 열린 수조
-     * @param deep 심해관 수조에 넣을 어종
-     * @return 어종 → 수조 id (보여줄 어종만, 순서 유지)
+     * @param species donated species (in donation order)
+     * @param tanks open tanks
+     * @param deep species to place in deep-sea hall tanks
+     * @return species → tank id (shown species only, order preserved)
      */
     public static Map<FishId, String> assign(
             List<FishId> species,
@@ -52,7 +54,10 @@ public final class TankLayout {
         return result;
     }
 
-    /** 교대 창: 전체가 visibleMax 이하면 전부, 넘치면 rotation × visibleMax 위치부터 visibleMax개 (끝에서 처음으로 이어짐). */
+    /**
+     * Rotation window: everything if total ≤ visibleMax; otherwise visibleMax entries starting at
+     * rotation × visibleMax (wrapping from the end to the start).
+     */
     public static List<FishId> window(List<FishId> species, int visibleMax, long rotation) {
         int n = species.size();
         if (n <= visibleMax) {

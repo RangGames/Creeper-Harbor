@@ -43,12 +43,14 @@ import wiki.creeper.harbor.fishing.api.FishingService;
 import wiki.creeper.harbor.npc.api.ReputationService;
 
 /**
- * 경매 등록 (docs 20 7.4 등록). 조건 검사(슬롯·거래 가능·등록가 범위·신규 계정) → 확인 화면 → 손의 아이템을 꺼내 보관 → 한 트랜잭션으로
- * auction_listing 삽입 + 등록비 AUCTION_LIST_FEE + fish_ledger ACTIVE → IN_AUCTION. 실패하면 아이템을 돌려준다.
+ * Auction listing (docs 20 7.4 listing). Checks (slots, tradable, listing price range, new account)
+ * → confirmation screen → take the item from the hand and hold it → in one transaction, insert
+ * auction_listing + listing fee AUCTION_LIST_FEE + fish_ledger ACTIVE → IN_AUCTION. On failure the
+ * item is returned.
  */
 final class AuctionLister {
 
-    /** 등록 후보: 손에 든 아이템의 기준가·분류. */
+    /** Listing candidate: reference price and category of the held item. */
     private record Candidate(
             String itemId,
             String name,
@@ -167,7 +169,7 @@ final class AuctionLister {
                 balance().auctionSlots(tier), api.modifiers().apply(player, SLOTS, 0));
     }
 
-    /** /경매 등록 <가격>: 손에 든 아이템을 묶음째 등록한다 (확인 화면). */
+    /** /경매 등록 <price>: lists the held item as a whole stack (confirmation screen). */
     void startListing(Player player, long price) {
         UUID uuid = player.getUniqueId();
         ItemStack held = player.getInventory().getItemInMainHand();
@@ -222,7 +224,8 @@ final class AuctionLister {
         AuctionMath.Settlement settle = AuctionMath.settle(price, saleRate);
         ItemStack snapshot = held.clone();
         int slot = player.getInventory().getHeldItemSlot();
-        // 등록 전 참고 가격 (개당 최저가·최근 낙찰 평균)을 읽은 뒤 확인 화면을 띄운다
+        // Read reference prices before listing (lowest unit price, recent sale average), then show
+        // the confirmation screen
         var _ =
                 listings.priceInfo(
                                 cand.itemId(),
@@ -343,7 +346,7 @@ final class AuctionLister {
             api.messages().send(player, "economy.busy");
             return;
         }
-        // 보관: 인벤토리에서 꺼낸다
+        // Hold: take it out of the inventory
         ItemStack custody = now.clone();
         inv.setItem(slot, null);
         byte[] data = custody.serializeAsBytes();

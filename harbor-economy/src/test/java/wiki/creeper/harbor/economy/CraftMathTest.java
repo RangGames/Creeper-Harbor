@@ -87,10 +87,10 @@ class CraftMathTest {
 
     @Test
     void materialSaveOnlyForGear() {
-        // 장인의 손 2랭크(0.2): 올림(8 × 0.8) = 7 (6.4 → 7)
+        // Artisan's Hand rank 2 (0.2): ceil(8 × 0.8) = 7 (6.4 → 7)
         assertEquals(7, CraftMath.materialCount(8, RecipeDef.Category.GEAR, 0.2, 0.5));
         assertEquals(8, CraftMath.materialCount(8, RecipeDef.Category.BAIT, 0.2, 0.5));
-        // 상한 0.5, 최소 1개
+        // Cap 0.5, minimum 1
         assertEquals(4, CraftMath.materialCount(8, RecipeDef.Category.GEAR, 0.9, 0.5));
         assertEquals(1, CraftMath.materialCount(1, RecipeDef.Category.GEAR, 0.3, 0.5));
     }
@@ -103,7 +103,8 @@ class CraftMathTest {
 
     @Test
     void narrowIngredientsAreAllocatedFirst() {
-        // 모둠회: 희귀 이상 1 + 일반 이상 2. 칸 순서가 [희귀, 일반] 이어도 넓은 조건이 희귀를 먼저 가져가지 않는다
+        // Sashimi platter: 1 rare or higher + 2 common or higher. Even with slot order [rare,
+        // common], the broad condition does not take the rare first
         RecipeDef sashimi =
                 recipe(
                         RecipeDef.Category.FOOD,
@@ -118,7 +119,7 @@ class CraftMathTest {
                 CraftMath.allocate(CraftMath.needs(sashimi, 0, 0.5), slots, CraftMathTest::lookup)
                         .orElseThrow();
         assertEquals(Map.of(0, 1, 1, 2), plan);
-        // 일반이 하나 모자라면 실패
+        // Fails if one common is missing
         List<CraftMath.Slot> short_ =
                 List.of(
                         new CraftMath.Slot(0, fish("eel"), null, 1),

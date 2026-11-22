@@ -5,7 +5,7 @@ import java.util.List;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.core.api.StatKey;
 
-/** 보정자 하나 (ADD). 도감·수족관 버프에 쓴다. */
+/** A single modifier (ADD). Used for codex and aquarium buffs. */
 public record StatBonus(StatKey stat, double value) {
 
     static List<StatBonus> parseList(List<YamlNode> nodes) {

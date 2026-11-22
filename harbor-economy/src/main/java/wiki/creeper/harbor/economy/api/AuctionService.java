@@ -5,16 +5,19 @@ import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-/** 경매장 조회 (docs 20 7.2, 조회 전용). 등록·구매는 플레이어가 /경매 화면에서만 한다. 결과 future는 메인 스레드에서 완료된다. */
+/**
+ * Auction house queries (docs 20 7.2, read-only). Listing and buying happen only in the player's
+ * /경매 screen. Result futures complete on the main thread.
+ */
 public interface AuctionService {
 
-    /** 진행 중인 등록 (최신순). category가 null이면 전체. */
+    /** Active listings (newest first). A null category means all. */
     CompletableFuture<List<AuctionListingInfo>> active(
             @org.jspecify.annotations.Nullable String category, int limit);
 
-    /** 이 아이템(어종) ID의 진행 중 최저가. */
+    /** Lowest active price for this item (species) ID. */
     CompletableFuture<OptionalLong> lowestPrice(String itemId);
 
-    /** 판매자의 진행 중 등록 수. */
+    /** Number of active listings by the seller. */
     CompletableFuture<Integer> activeCount(UUID seller);
 }

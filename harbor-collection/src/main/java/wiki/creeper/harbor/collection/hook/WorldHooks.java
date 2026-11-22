@@ -10,12 +10,15 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.world.api.HousingService;
 
-/** World 연동 (개인 어항, 선택 의존). Harbor-World가 켜져 있을 때만 이 클래스를 불러온다. */
+/**
+ * World integration (personal aquarium, optional dependency). This class is loaded only when
+ * Harbor-World is enabled.
+ */
 public final class WorldHooks {
 
     private WorldHooks() {}
 
-    /** 개인 어항 전시를 켠다. World가 HousingService를 등록하지 않았으면 null. */
+    /** Enables personal aquarium displays. null if World has not registered HousingService. */
     public static @Nullable DisplayCaseManager install(
             Plugin plugin,
             HarborApi api,

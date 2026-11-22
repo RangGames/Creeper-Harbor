@@ -22,13 +22,16 @@ import wiki.creeper.harbor.economy.api.event.TradeFlaggedEvent;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
 
 /**
- * 부정 거래 감시 (docs 20 7.4, Phase 3). 경매 낙찰 직전에 연결 계정(Common AccountLinkReader: Proxy alt_link, 공유 IP
- * 제외)·같은 두 사람 사이 거래 횟수·기준가 대비 가격·통발 출처를 보고 {@link FraudMath}로 점수를 매긴다. 점수가 기준을 넘으면 낙찰 트랜잭션 안에서
- * trade_flag를 남기고, 더 높으면 판매 대금을 우편함 HELD로 보류한다. 관리자에게는 모든 서버로 알린다.
+ * Fraudulent-trade monitoring (docs 20 7.4, Phase 3). Just before an auction sale, scores the trade
+ * with {@link FraudMath} from linked accounts (Common AccountLinkReader: Proxy alt_link, shared IPs
+ * excluded), the trade count between the same two people, price relative to the reference price,
+ * and trap origin. If the score exceeds the threshold, a trade_flag is written inside the sale
+ * transaction; if higher still, the sale proceeds are withheld as HELD in the mailbox. Admins are
+ * alerted on all servers.
  */
 public final class FraudMonitor {
 
-    /** trade_flag 한 줄 (관리 명령). */
+    /** One trade_flag line (admin command). */
     public record Flag(
             long id,
             String kind,
@@ -40,10 +43,10 @@ public final class FraudMonitor {
             boolean held,
             Instant createdAt) {}
 
-    /** 사유 하나의 24시간 합계. */
+    /** 24-hour total for one reason. */
     public record ReasonSum(long plus, long minus, long count) {}
 
-    /** /harbor econ report 결과. */
+    /** Result of /harbor econ report. */
     public record Report(
             Map<String, ReasonSum> reasons,
             long earned,
@@ -53,7 +56,10 @@ public final class FraudMonitor {
             int indexSamples,
             long heldFees) {
 
-        /** 소멸률 = 소모 ÷ 획득 (목표 80~90%, '7. 밸런스 기획' 6.4). 획득이 없으면 NaN. */
+        /**
+         * Sink rate = spent ÷ earned (target 80–90%, "7. Balance design" 6.4). NaN if nothing was
+         * earned.
+         */
         public double destructionRate() {
             return earned <= 0 ? Double.NaN : (double) spent / earned;
         }
@@ -71,7 +77,7 @@ public final class FraudMonitor {
         this.alerts = alerts;
     }
 
-    /** 블로킹 (가상 스레드): 이 거래의 관측값을 모은다. */
+    /** Blocking (virtual thread): gathers the observations for this trade. */
     static FraudMath.Signals signals(
             Connection c,
             UUID buyer,
@@ -85,7 +91,7 @@ public final class FraudMonitor {
         try {
             linked = AccountLinkReader.areLinked(c, buyer, seller);
         } catch (SQLException e) {
-            // Proxy 테이블이 아직 없는 개발 환경: 연결 없음으로 본다
+            // Dev environment without the Proxy table yet: treat as no link
             linked = false;
         }
         int pair = 0;
@@ -108,7 +114,7 @@ public final class FraudMonitor {
         return new FraudMath.Signals(linked, pair, ratio, trapSource);
     }
 
-    /** 같은 트랜잭션에서 의심 기록을 남긴다. */
+    /** Writes the suspicion record in the same transaction. */
     static void record(
             Connection c,
             FraudMath.Verdict verdict,
@@ -133,7 +139,7 @@ public final class FraudMonitor {
         }
     }
 
-    /** 커밋 뒤 메인 스레드: 이벤트·관리자 알림·로그. */
+    /** Main thread after commit: event, admin alert, log. */
     void announce(UUID buyer, UUID seller, String refId, FraudMath.Verdict verdict, boolean held) {
         log.warn(
                 "부정 거래 의심 {} 구매자 {} 판매자 {} 점수 {} {}{}",
@@ -152,7 +158,7 @@ public final class FraudMonitor {
                 refId + " " + String.join(",", verdict.reasons()) + " " + (int) verdict.score());
     }
 
-    // ------------------------------------------------------------------ 관리
+    // ------------------------------------------------------------------ Admin
 
     public CompletableFuture<List<Flag>> open(int limit) {
         return api.database()
@@ -185,7 +191,10 @@ public final class FraudMonitor {
                 .thenApplyAsync(f -> f, tasks.main());
     }
 
-    /** 처리 완료로 표시한다. 그 플래그의 참조 ID. 없거나 이미 처리됐으면 빈 문자열. */
+    /**
+     * Marks it resolved. Returns that flag's reference ID, or an empty string if missing or already
+     * resolved.
+     */
     public CompletableFuture<String> resolve(long id, String admin) {
         return api.database()
                 .async(
@@ -217,7 +226,7 @@ public final class FraudMonitor {
                 .thenApplyAsync(r -> r, tasks.main());
     }
 
-    /** 플래그의 참조 ID (보류 해제용). */
+    /** The flag's reference ID (for releasing a hold). */
     public CompletableFuture<String> refOf(long id) {
         return api.database()
                 .async(
@@ -235,8 +244,9 @@ public final class FraudMonitor {
     }
 
     /**
-     * 24시간 지표 (docs 20 7.5 /harbor econ report): 사유별 골드 합계, 획득·소모, 소멸률, 열린 플래그 수, 경매 희귀 시세 지수(희귀 이상
-     * 낙찰가/기준가 중앙값). future는 메인 스레드에서 완료된다.
+     * 24-hour metrics (docs 20 7.5 /harbor econ report): gold totals per reason, earned and spent,
+     * sink rate, open flag count, auction rare market index (median sale price / reference price
+     * for rare and above). The future completes on the main thread.
      */
     public CompletableFuture<Report> report() {
         return api.database()
@@ -261,7 +271,8 @@ public final class FraudMonitor {
                                                 rs.getString(1),
                                                 new ReasonSum(plus, minus, rs.getLong(4)));
                                         String reason = rs.getString(1);
-                                        // 옮기기만 하는 사유(경매 대금·우편 수령)는 획득·소모에서 뺀다
+                                        // Transfer-only reasons (auction proceeds, mail claims) are
+                                        // excluded from earned/spent
                                         if (!reason.equals("AUCTION_BUY")
                                                 && !reason.equals("AUCTION_SALE")
                                                 && !reason.equals("MAIL_GOLD")) {
@@ -302,7 +313,8 @@ public final class FraudMonitor {
                                     }
                                 }
                             }
-                            // 보류된 낙찰의 수수료는 원장에 AUCTION_FEE로 남지 않으므로 소모에 더한다
+                            // Fees of held sales are not in the ledger as AUCTION_FEE, so add them
+                            // to spent
                             return new Report(
                                     reasons,
                                     earned,

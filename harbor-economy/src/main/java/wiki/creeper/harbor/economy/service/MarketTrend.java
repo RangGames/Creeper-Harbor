@@ -6,10 +6,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** 시세판 추세 계산 (추가 제안, 서버 API 없음). 24시간 전 계수와 지금 계수를 비교한다. */
+/**
+ * Market board trend calculation (proposed, no server API). Compares the factor 24 hours ago with
+ * the current one.
+ */
 public final class MarketTrend {
 
-    /** 방향. */
+    /** Direction. */
     public enum Direction {
         UP,
         DOWN,
@@ -18,13 +21,13 @@ public final class MarketTrend {
 
     private MarketTrend() {}
 
-    /** 지금 - 24시간 전. 이전 값이 없으면 0. */
+    /** Now − 24 hours ago. 0 if there is no previous value. */
     public static double change(double now, double before) {
         return Double.isNaN(before) ? 0 : now - before;
     }
 
     /**
-     * @param flat 이 변화량 이하(절댓값)는 보합
+     * @param flat changes at or below this (absolute value) count as flat
      */
     public static Direction direction(double change, double flat) {
         if (change > flat) {
@@ -36,7 +39,7 @@ public final class MarketTrend {
         return Direction.FLAT;
     }
 
-    /** 변화가 큰 순서로 n개 (보합 제외). */
+    /** Top n by size of change (flat excluded). */
     public static Set<String> topMovers(Map<String, Double> changes, int n, double flat) {
         return changes.entrySet().stream()
                 .filter(e -> Math.abs(e.getValue()) > flat)
@@ -49,7 +52,7 @@ public final class MarketTrend {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    /** 24시간 기록(오래된 순)의 첫 값. 없으면 NaN. */
+    /** First value of the 24-hour record (oldest first). NaN if none. */
     public static double oldest(List<Double> history) {
         return history.isEmpty() ? Double.NaN : history.getFirst();
     }

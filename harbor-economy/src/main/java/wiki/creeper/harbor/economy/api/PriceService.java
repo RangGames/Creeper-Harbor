@@ -7,20 +7,26 @@ import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.core.api.HarborItem;
 
 /**
- * 어종 판매가 (docs 20 7.4): 기본가 × 품질 배율 × 시세 계수 M × (1 + sell_price 보정 합) × 지역 계수. 전설은 마리당 상한, 신화·
- * release_only는 판매 불가. 소수점 아래는 버린다.
+ * Fish sell price (docs 20 7.4): base price × quality multiplier × market factor M × (1 + sum of
+ * sell_price modifiers) × region factor. Legendary is capped per fish; mythic and release_only
+ * cannot be sold. Fractions are truncated.
  */
 public interface PriceService {
 
-    /** 판매 불가면 빈 값. player가 있으면 그 사람의 sell_price 보정을 넣는다. */
+    /**
+     * Empty if not sellable. If player is given, that player's sell_price modifiers are applied.
+     */
     OptionalLong quote(UUID player, HarborItem.Fish fish);
 
-    /** 개인 보너스 없는 기준가 (경매 기준가). */
+    /** Reference price without personal bonuses (auction reference price). */
     OptionalLong basePrice(HarborItem.Fish fish);
 
-    /** 현재 시세 계수 (기본 1.0). */
+    /** Current market factor (default 1.0). */
     double coefficient(FishId fish);
 
-    /** 다음 시간 예측 계수 (경제 계열 '시세 예측'). 아직 계산된 적이 없으면 빈 값. */
+    /**
+     * Forecast factor for the next hour (economy line "market forecast"). Empty if never computed
+     * yet.
+     */
     OptionalDouble nextCoefficient(FishId fish);
 }

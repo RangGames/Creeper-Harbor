@@ -3,12 +3,21 @@ package wiki.creeper.harbor.economy.api;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.common.id.HarborId;
 
-/** 제작 (docs 20 7.2). 스테이션 클릭·대화 액션 craft:open·관리 명령이 이 화면을 연다. 메인 스레드. */
+/**
+ * Crafting (docs 20 7.2). Station clicks, the craft:open dialog action and admin commands open this
+ * screen. Main thread.
+ */
 public interface CraftService {
 
-    /** 스테이션(stations.yml) 화면을 연다. 없는 스테이션이거나 제작 장소가 아니면 false. */
+    /**
+     * Opens a station (stations.yml) screen. False if the station does not exist or is not a
+     * crafting place.
+     */
     boolean openStation(Player player, HarborId station);
 
-    /** 장소 종류(workshop · cooking · shipyard)의 레시피 화면을 연다. 모르는 종류면 false. */
+    /**
+     * Opens the recipe screen for a place kind (workshop · cooking · shipyard). False for an
+     * unknown kind.
+     */
     boolean openKind(Player player, String kind);
 }

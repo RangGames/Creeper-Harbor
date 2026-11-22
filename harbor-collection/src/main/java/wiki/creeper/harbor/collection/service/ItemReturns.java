@@ -12,8 +12,10 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.MailService;
 
 /**
- * 아이템 돌려주기 (docs 20 0.1 '지급 실패 반환'). 접속 중이면 인벤토리 → 넘치면 우편함, 접속이 끊겼으면 우편함. 우편함(Economy MailService)이
- * 없으면 발밑에 떨어뜨리고, 그것도 안 되면 아이템 정보를 오류 로그에 남겨 관리자가 복구할 수 있게 한다. 메인 스레드 전용.
+ * Item return (docs 20 0.1 "return on grant failure"). If online, inventory → mailbox on overflow;
+ * if disconnected, mailbox. If there is no mailbox (Economy MailService), drops at the player's
+ * feet, and if that also fails, logs the item info as an error so an admin can restore it. Main
+ * thread only.
  */
 public final class ItemReturns {
 
@@ -26,7 +28,7 @@ public final class ItemReturns {
     }
 
     /**
-     * @param source 우편 출처 (예: aquarium_return)
+     * @param source mail source (e.g. aquarium_return)
      */
     public void giveBack(UUID uuid, List<ItemStack> items, String source) {
         List<ItemStack> left = new ArrayList<>();
@@ -35,7 +37,8 @@ public final class ItemReturns {
             if (item.isEmpty()) {
                 continue;
             }
-            // 서버 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 우편으로
+            // After the server-move snapshot is taken, putting it in the inventory would not be
+            // saved, so send it by mail
             if (player != null && player.isOnline() && !api.players().frozen(uuid)) {
                 left.addAll(player.getInventory().addItem(item.clone()).values());
             } else {

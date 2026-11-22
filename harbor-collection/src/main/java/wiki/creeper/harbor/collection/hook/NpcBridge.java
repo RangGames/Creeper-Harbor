@@ -5,26 +5,27 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- * NPC 선택 의존을 감춘 창구. Harbor-Npc가 없으면 {@link #NONE} (최고 평판 1등급, 평판 지급 없음). NPC api 타입이 시그니처에 없어서 NPC가
- * 없어도 이 인터페이스는 불러올 수 있다.
+ * Facade hiding the optional NPC dependency. Without Harbor-Npc it is {@link #NONE} (highest
+ * reputation tier 1, no reputation grants). NPC api types are not in the signatures, so this
+ * interface can be loaded even without NPC.
  */
 public interface NpcBridge {
 
-    /** 접속 중인 플레이어의 시즌 간 최고 도달 평판 등급 (D11). */
+    /** Highest cross-season reputation tier reached by an online player (D11). */
     int bestTier(UUID player);
 
-    /** 오프라인 플레이어 포함 (DB). 결과는 메인 스레드에서 완료된다. */
+    /** Including offline players (DB). The result completes on the main thread. */
     CompletableFuture<Integer> loadBestTier(UUID player);
 
     /**
-     * 방류 평판 (출처 RELEASE, CONTRIBUTION · 하루 상한은 NPC가 적용).
+     * Release reputation (source RELEASE, CONTRIBUTION · daily cap applied by NPC).
      *
-     * @param amount 0이면 NPC 기본값 (balance.yml reputation.sources.release)
-     * @return 실제로 더한 값 (오프라인·상한이면 0)
+     * @param amount 0 means the NPC default (balance.yml reputation.sources.release)
+     * @return amount actually added (0 if offline or capped)
      */
     CompletableFuture<Integer> addReleaseReputation(UUID player, int amount, String refId);
 
-    /** 평판 등급이 바뀔 때 부를 함수 (개인 어항 칸 다시 계산). */
+    /** Callback for reputation tier changes (recomputes personal aquarium slots). */
     default void onTierChanged(Consumer<UUID> listener) {}
 
     NpcBridge NONE =

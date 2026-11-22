@@ -14,24 +14,30 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.economy.content.RecipeDef;
 
-/** 제작 계산 (docs 20 7.4 제작). 재료 절약·미끼 장인 보너스·재료 배정. 서버 API 없음 (HarborItem은 레코드), 단위 테스트 대상. */
+/**
+ * Crafting math (docs 20 7.4 crafting). Material saving, Bait Artisan bonus, material assignment.
+ * No server API (HarborItem is a record); unit tested.
+ */
 public final class CraftMath {
 
     private CraftMath() {}
 
     /**
-     * 인벤토리 칸 하나.
+     * One inventory slot.
      *
-     * @param item Harbor 아이템이면 그 정보, 아니면 null
-     * @param vanillaKey Harbor 아이템이 아니면 바닐라 키 (minecraft:iron_ingot), 아니면 null
+     * @param item its info if a Harbor item, otherwise null
+     * @param vanillaKey vanilla key if not a Harbor item (minecraft:iron_ingot), otherwise null
      */
     public record Slot(
             int index, @Nullable HarborItem item, @Nullable String vanillaKey, int amount) {}
 
-    /** 실제로 필요한 재료 한 줄 (절약 반영 개수). */
+    /** One actually required material line (count after saving). */
     public record Need(RecipeDef.Ingredient ingredient, int count) {}
 
-    /** '장인의 손': 장비(gear) 재료 = 올림(개수 × (1 − 절약)). 절약은 [0, maxSave]로 자르고 최소 1개. */
+    /**
+     * "Artisan's Hand": gear materials = ceil(count × (1 − saving)). Saving is clamped to [0,
+     * maxSave], minimum 1.
+     */
     public static int materialCount(
             int count, RecipeDef.Category category, double save, double maxSave) {
         if (category != RecipeDef.Category.GEAR || save <= 0) {
@@ -41,7 +47,7 @@ public final class CraftMath {
         return Math.max(1, (int) Math.ceil(count * (1 - s) - 1e-9));
     }
 
-    /** '미끼 장인': 미끼(bait) 레시피 결과 +1/랭크. */
+    /** "Bait Artisan": +1 bait recipe result per rank. */
     public static int resultAmount(int amount, RecipeDef.Category category, double baitBonus) {
         if (category != RecipeDef.Category.BAIT || baitBonus <= 0) {
             return amount;
@@ -60,7 +66,7 @@ public final class CraftMath {
         return needs;
     }
 
-    /** 칸의 아이템이 재료 조건에 맞는지. */
+    /** Whether the slot's item matches the material condition. */
     public static boolean matches(
             RecipeDef.Ingredient ingredient,
             Slot slot,
@@ -92,10 +98,11 @@ public final class CraftMath {
     }
 
     /**
-     * 재료를 칸에 배정한다. 구체적인 재료(아이템·바닐라 → 어종 지정 → 높은 등급 조건)부터 채워서, 넓은 조건이 좁은 조건의 재료를 먼저 가져가지 않게 한다. 칸은
-     * 앞에서부터 쓴다.
+     * Assigns materials to slots. Fills the most specific materials first (item/vanilla → named
+     * species → higher grade conditions) so broad conditions do not take materials needed by narrow
+     * ones. Slots are used from the front.
      *
-     * @return 칸 번호 → 꺼낼 개수. 모자라면 빈 값
+     * @return slot index → count to take. Empty if insufficient
      */
     public static Optional<Map<Integer, Integer>> allocate(
             List<Need> needs, List<Slot> slots, Function<FishId, Optional<FishDef>> fishLookup) {
@@ -128,7 +135,7 @@ public final class CraftMath {
         return Optional.of(taken);
     }
 
-    /** 작을수록 먼저 배정. */
+    /** Lower is assigned first. */
     static int specificity(Need need) {
         return switch (need.ingredient()) {
             case RecipeDef.Item _ -> 0;
@@ -138,7 +145,7 @@ public final class CraftMath {
                     yield 1;
                 }
                 Grade min = match.gradeMin();
-                // 등급 조건이 높을수록 좁다: mythic 2 … common 7
+                // Higher grade conditions are narrower: mythic 2 … common 7
                 int grade =
                         min == null
                                 ? 7

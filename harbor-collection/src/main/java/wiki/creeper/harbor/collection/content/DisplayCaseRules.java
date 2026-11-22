@@ -17,18 +17,20 @@ import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 개인 어항 전시 규칙 (display_case.yml, 추가 제안, docs 20 4.4 '개인 어항 전시'·0.6 D11·D14). 수치는 모두 제안값.
+ * Personal aquarium display rules (display_case.yml, proposed, docs 20 4.4 "personal aquarium
+ * display" · 0.6 D11·D14). All numbers are proposed values.
  *
- * @param baseSlots 기본 전시 칸 ('12. 월드 · 하우징 · 통발' 4장: 기본 6칸)
- * @param repBonus 시즌 간 최고 평판 등급 → 추가 칸 (도달한 가장 높은 단계 하나만, 누적 아님. 5.4 평판 표: 3등급 +2, 5등급 +4)
- * @param baseThemeSlots 기본 테마 칸 (기본 테마가 아닌 테마를 걸 수 있는 칸 수)
- * @param partBudget 플롯당 리그 부품 상한 (넘으면 간이 리그로 바꾼다)
- * @param viewRadius 플롯 밖 이 거리 안 플레이어에게도 보인다
- * @param infoSeconds 방문객 클릭 정보 표시 시간
- * @param swimRadius 수조 안 헤엄 반경 (블록)
- * @param simpleRig 부품 1개짜리 간이 리그 (없으면 상한을 넘는 칸은 표시하지 않음)
- * @param defaultTheme 기본 테마 (모든 칸)
- * @param themes 코스메틱 테마 (Shop 어항 테마 코스메틱 → 외형)
+ * @param baseSlots base display slots ("12. World · Housing · Traps" ch. 4: 6 base slots)
+ * @param repBonus highest cross-season reputation tier → extra slots (only the single highest stage
+ *     reached, not cumulative. 5.4 reputation table: tier 3 +2, tier 5 +4)
+ * @param baseThemeSlots base theme slots (number of slots that can hold a non-default theme)
+ * @param partBudget rig part budget per plot (beyond it, simple rigs are used)
+ * @param viewRadius also visible to players outside the plot within this distance
+ * @param infoSeconds how long visitor click info is shown
+ * @param swimRadius swim radius inside the tank (blocks)
+ * @param simpleRig single-part simple rig (if absent, slots beyond the budget are not shown)
+ * @param defaultTheme default theme (all slots)
+ * @param themes cosmetic themes (Shop aquarium theme cosmetic → appearance)
  */
 public record DisplayCaseRules(
         int baseSlots,
@@ -43,11 +45,11 @@ public record DisplayCaseRules(
         List<Theme> themes) {
 
     /**
-     * 어항 테마 (외형만, 성능 없음).
+     * Aquarium theme (appearance only, no stats).
      *
-     * @param cosmetic Shop 코스메틱 ID (기본 테마는 null)
-     * @param floor 수조 바닥에 까는 Block Display 블록 (minecraft:sand …)
-     * @param particle 주변 파티클 (bubble …, 없으면 없음)
+     * @param cosmetic Shop cosmetic ID (null for the default theme)
+     * @param floor Block Display block laid on the tank floor (minecraft:sand …)
+     * @param particle ambient particle (bubble …; none if absent)
      */
     public record Theme(@Nullable HarborId cosmetic, String floor, @Nullable String particle) {}
 
@@ -55,7 +57,10 @@ public record DisplayCaseRules(
             new ContentType.Single<>(
                     "display_case", "display_case.yml", false, DisplayCaseRules::parse);
 
-    /** 전시 칸 수 = 기본 + 최고 평판 등급이 닿은 가장 높은 단계의 보너스 (D11: 최고 도달 등급이라 시즌이 바뀌어도 줄지 않는다). */
+    /**
+     * Display slot count = base + bonus of the highest stage the highest reputation tier reached
+     * (D11: highest tier ever reached, so it does not shrink when the season changes).
+     */
     public int slotCount(int bestTier) {
         int bonus = 0;
         for (Map.Entry<Integer, Integer> e : repBonus.entrySet()) {
@@ -66,15 +71,17 @@ public record DisplayCaseRules(
         return baseSlots + bonus;
     }
 
-    /** 테마 칸 수 = 기본 + 후원 등급 추가 칸 (D14, DonorTier.extraThemeSlots). */
+    /** Theme slot count = base + donor tier extra slots (D14, DonorTier.extraThemeSlots). */
     public int themeSlotCount(int donorExtraSlots) {
         return baseThemeSlots + Math.max(0, donorExtraSlots);
     }
 
     /**
-     * 테마 칸이 줄었을 때 기본 테마로 되돌릴 칸 (D14). 테마가 걸린 칸을 번호 순으로 세어 테마 칸 수를 넘는 칸만 돌려준다. 전시 자체는 건드리지 않는다.
+     * Slots to revert to the default theme when theme slots shrink (D14). Counts themed slots in
+     * slot order and returns only those beyond the theme slot count. Does not touch the displays
+     * themselves.
      *
-     * @param themedSlots 기본이 아닌 테마가 걸린 전시 칸 번호
+     * @param themedSlots display slot numbers holding a non-default theme
      */
     public static List<Integer> themesToRevert(Collection<Integer> themedSlots, int themeSlots) {
         List<Integer> sorted = new ArrayList<>(themedSlots);
@@ -83,16 +90,18 @@ public record DisplayCaseRules(
         return sorted.size() <= keep ? List.of() : List.copyOf(sorted.subList(keep, sorted.size()));
     }
 
-    /** 전시 칸 번호가 칸 수 안인지 (slot은 0부터). */
+    /** Whether a display slot number is within the slot count (slot starts at 0). */
     public static boolean slotOpen(int slot, int slotCount) {
         return slot >= 0 && slot < slotCount;
     }
 
     /**
-     * 부품 상한 판정: 칸 순서대로 부품 수를 더하다가 상한을 넘는 칸부터 간이 리그(부품 1개)로 바꾼다. 간이 리그로도 넘으면 표시하지 않는다.
+     * Part budget check: adds part counts in slot order and, from the slot that exceeds the budget
+     * on, switches to the simple rig (1 part). If even the simple rig exceeds it, the slot is not
+     * shown.
      *
-     * @param parts 칸 순서대로 각 리그의 부품 수
-     * @return 칸마다 0 = 원래 리그, 1 = 간이 리그, 2 = 표시 안 함
+     * @param parts part count of each rig, in slot order
+     * @return per slot: 0 = original rig, 1 = simple rig, 2 = not shown
      */
     public static int[] budget(List<Integer> parts, int budget, boolean hasSimple) {
         int[] result = new int[parts.size()];

@@ -5,14 +5,17 @@ import java.util.Optional;
 import java.util.UUID;
 import wiki.creeper.harbor.common.id.FishId;
 
-/** 최대어 기록 (Season 랭킹·명예의 전당, 도감 상세). 리그: tier1 · tier2 · all. */
+/**
+ * Biggest-catch records (Season rankings and hall of fame, codex details). Leagues: tier1 · tier2 ·
+ * all.
+ */
 public interface RecordService {
 
     List<String> LEAGUES = List.of("tier1", "tier2", "all");
 
-    /** 누적 도감의 개인 최대 크기. */
+    /** Personal max size from the cumulative codex. */
     Optional<Double> personalBest(UUID player, FishId fish);
 
-    /** 이번 시즌 서버 상위 (본 서버 메모리 캐시, 최대 10). */
+    /** This season's server top list (main server memory cache, up to 10). */
     List<RecordEntry> serverTop(FishId fish, String league, int limit);
 }

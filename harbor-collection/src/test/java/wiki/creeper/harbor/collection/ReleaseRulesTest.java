@@ -9,13 +9,16 @@ import wiki.creeper.harbor.collection.content.ReleaseRules;
 import wiki.creeper.harbor.collection.content.ReleaseRules.Verdict;
 import wiki.creeper.harbor.common.model.Grade;
 
-/** 방류 규칙 (docs 20 4.4): climax_done 전에는 잠김, 어종 아이템만, release_only 제외, 희귀 이상만 보상. */
+/**
+ * Release rules (docs 20 4.4): locked before climax_done, fish items only, release_only excluded,
+ * rewards only for rare and above.
+ */
 class ReleaseRulesTest {
 
     @Test
     void lockedBeforeClimax() {
         assertEquals(Verdict.LOCKED, ReleaseRules.check(false, true, false));
-        // 잠김이 먼저 (아이템이 무엇이든)
+        // Locked comes first (whatever the item is)
         assertEquals(Verdict.LOCKED, ReleaseRules.check(false, false, false));
     }
 

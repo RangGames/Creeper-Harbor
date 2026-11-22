@@ -35,8 +35,8 @@ import wiki.creeper.harbor.core.api.FishArgs;
 import wiki.creeper.harbor.core.api.HarborApi;
 
 /**
- * /도감 [보상 · 최근], /기록 [어종 [채팅]], /수족관 [상태 · 기부 · 기부함], /harbor collection … (docs 20 4.5, GUI는 추가
- * 제안).
+ * /도감 [보상 · 최근], /기록 [species [채팅]], /수족관 [상태 · 기부 · 기부함], /harbor collection … (docs 20 4.5, GUI
+ * is proposed).
  */
 public final class CollectionCommands {
 
@@ -207,7 +207,7 @@ public final class CollectionCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** /기록 <어종>: 플레이어는 GUI, 콘솔은 채팅 출력. */
+    /** /기록 <species>: GUI for players, chat output for the console. */
     private int recordsMenu(CommandContext<CommandSourceStack> ctx) {
         if (!(ctx.getSource().getExecutor() instanceof Player player)) {
             return records(ctx);
@@ -222,7 +222,7 @@ public final class CollectionCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** /수족관: 플레이어는 진행 화면, 콘솔은 상태 한 줄. */
+    /** /수족관: progress screen for players, one status line for the console. */
     private int aquariumMenu(CommandContext<CommandSourceStack> ctx) {
         if (ctx.getSource().getExecutor() instanceof Player player) {
             new AquariumMenu(api, aquarium, codex).open(player, AquariumView.Filter.MISSING, 0);
@@ -261,7 +261,7 @@ public final class CollectionCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** /harbor collection … (권한 harbor.admin.collection은 Core가 건다). */
+    /** /harbor collection … (permission harbor.admin.collection is applied by Core). */
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {
         return Commands.literal("collection")
                 .then(
@@ -474,9 +474,9 @@ public final class CollectionCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ helpers
 
-    /** 어종 이름 인자 (한국어, 마지막 인자). */
+    /** Species name argument (Korean, last argument). */
     private RequiredArgumentBuilder<CommandSourceStack, String> fishArgument() {
         return FishArgs.argument("fish", api.content()::snapshot);
     }

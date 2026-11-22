@@ -9,14 +9,15 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.core.api.StatKey;
 
 /**
- * 방류 규칙 (release.yml, 추가 제안, docs 20 4.4 '방류'). 수치는 제안값.
+ * Release rules (release.yml, proposed, docs 20 4.4 "release"). Numbers are proposed values.
  *
- * @param flag 이 서버 플래그가 서야 방류가 열린다 ('5. 서버 스토리' 6장 클라이맥스 이후)
- * @param rewardMinGrade 이 등급 이상만 평판·행운 버프
- * @param reputation 평판 (0이면 NPC balance.yml reputation.sources.release 기본값)
- * @param buffStat 행운 버프 스탯 (size_luck)
- * @param buffValue 버프 값 (ADD)
- * @param buffMinutes 버프 시간 (다시 방류하면 시간만 새로 시작, 겹치지 않음)
+ * @param flag release opens only when this server flag is set ("5. Server story" ch. 6, after the
+ *     climax)
+ * @param rewardMinGrade only this grade or above gives reputation and the luck buff
+ * @param reputation reputation (0 means the NPC balance.yml reputation.sources.release default)
+ * @param buffStat luck buff stat (size_luck)
+ * @param buffValue buff value (ADD)
+ * @param buffMinutes buff duration (releasing again only restarts the duration; does not stack)
  */
 public record ReleaseRules(
         String flag,
@@ -26,7 +27,7 @@ public record ReleaseRules(
         double buffValue,
         int buffMinutes) {
 
-    /** 판정 결과. */
+    /** Check result. */
     public enum Verdict {
         ALLOWED,
         LOCKED,
@@ -41,9 +42,10 @@ public record ReleaseRules(
             new ContentType.Single<>("release", "release.yml", false, ReleaseRules::parse);
 
     /**
-     * 방류할 수 있는지. 순서: 개방 여부 → 어종 아이템 → release_only(아이템이 없어야 하는 어종이므로 들고 있으면 비정상).
+     * Whether the item can be released. Order: open → fish item → release_only (a species that
+     * should have no item, so holding one is abnormal).
      *
-     * @param open 플래그가 섰는지
+     * @param open whether the flag is set
      */
     public static Verdict check(boolean open, boolean isFish, boolean releaseOnly) {
         if (!open) {
@@ -55,7 +57,7 @@ public record ReleaseRules(
         return releaseOnly ? Verdict.RELEASE_ONLY : Verdict.ALLOWED;
     }
 
-    /** 평판·버프를 주는 등급인지 (판매 대신이라 골드는 없다). */
+    /** Whether the grade gives reputation and buff (it replaces selling, so no gold). */
     public boolean rewards(Grade grade) {
         return grade.isAtLeast(rewardMinGrade);
     }

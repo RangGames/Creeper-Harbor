@@ -22,14 +22,16 @@ import wiki.creeper.harbor.core.gui.Menu;
 import wiki.creeper.harbor.economy.service.AuctionHouse.Row;
 
 /**
- * 경매장 화면 (/경매 [분류] · /경매 검색 · /경매 내목록). 칸을 누르면 구매 또는 취소 확인 화면을 띄운다. 메인 스레드 전용.
+ * Auction house screen (/경매 [category] · /경매 검색 · /경매 내목록). Clicking a slot opens a buy or cancel
+ * confirmation screen. Main thread only.
  *
- * <p>배치 (추가 제안): 윗줄 분류 6개 · 정렬 · 검색, 가운데 4줄 등록품 36개, 아랫줄 이전 · 내 경매 · 쪽 정보(검색어 지우기) · 거래 기록 · 다음. 거래
- * 기록은 내가 판 것 / 산 것 탭.
+ * <p>Layout (proposed): top row 6 categories · sort · search, middle 4 rows 36 listings, bottom row
+ * previous · my auctions · page info (clear search) · trade history · next. Trade history has tabs
+ * for what I sold / bought.
  */
 final class AuctionMenu {
 
-    /** 목록 상태. */
+    /** List state. */
     record View(
             String category, @Nullable String search, boolean mine, int page, AuctionSort sort) {
 
@@ -63,7 +65,7 @@ final class AuctionMenu {
         this.returns = returns;
     }
 
-    /** /경매 [분류] · /경매 검색 · /경매 내목록. 메인 스레드. */
+    /** /경매 [category] · /경매 검색 · /경매 내목록. Main thread. */
     void open(Player player, String category, @Nullable String search, boolean mine, int page) {
         open(player, new View(category, search, mine, page, AuctionSort.LATEST));
     }
@@ -109,7 +111,7 @@ final class AuctionMenu {
         for (int slot = NAV; slot < NAV + 9; slot++) {
             menu.button(slot, filler(), null);
         }
-        // 윗줄: 분류 · 정렬 · 검색
+        // Top row: categories · sort · search
         for (int i = 0; i < AuctionHouse.CATEGORIES.size() && i < 6; i++) {
             String cat = AuctionHouse.CATEGORIES.get(i);
             boolean selected = cat.equals(view.category()) && !view.mine();
@@ -163,7 +165,7 @@ final class AuctionMenu {
                                                                 ? ""
                                                                 : view.search())))),
                 e -> askSearch(player, view));
-        // 가운데: 등록품
+        // Middle: listings
         for (int i = 0; i < rows.size() && i < PAGE; i++) {
             Row row = rows.get(i);
             menu.button(FIRST + i, icon(row, view.mine()), e -> clicked(player, row, view.mine()));
@@ -174,7 +176,7 @@ final class AuctionMenu {
                     named(Material.PAPER, api.messages().get("economy.auction.empty"), List.of()),
                     null);
         }
-        // 아랫줄
+        // Bottom row
         if (view.page() > 0) {
             menu.button(
                     NAV,
@@ -252,7 +254,7 @@ final class AuctionMenu {
                                                 view.sort())));
     }
 
-    // ------------------------------------------------------------------ 거래 기록
+    // ------------------------------------------------------------------ Trade history
 
     private void history(Player player, boolean sold, View back) {
         var _ =
@@ -338,7 +340,7 @@ final class AuctionMenu {
         menu.open(player);
     }
 
-    // ------------------------------------------------------------------ 아이콘
+    // ------------------------------------------------------------------ Icons
 
     private ItemStack icon(Row row, boolean mine) {
         ItemStack icon = row.item();

@@ -9,18 +9,19 @@ import wiki.creeper.harbor.common.ledger.LedgerError;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.util.Result;
 
-/** NPC 상점 (NPC 클릭, World의 선박·장식 구매도 이것을 쓴다). 메인 스레드. */
+/** NPC shops (NPC clicks; World ship and decoration purchases use this too). Main thread. */
 public interface ShopService {
 
-    /** 상점 화면을 연다. 없는 상점이면 false. */
+    /** Opens the shop screen. False if the shop does not exist. */
     boolean open(Player player, HarborId shop);
 
     /**
-     * 다른 모듈의 골드 결제 (World 하우징 장식 HOUSING_DECOR, Fishing 통발 슬롯 확장 TRAP_SLOT_EXPAND …). 처리 중 거래 표시를
-     * 걸어 서버 이동을 미루고, 한 번에 하나만 받는다 (진행 중이면 REJECTED). extra는 같은 트랜잭션에서 실행할 SQL (구매한 장식 개수 등).
-     * future는 메인 스레드에서 완료된다.
+     * Gold payment for other modules (World housing decor HOUSING_DECOR, Fishing trap slot
+     * expansion TRAP_SLOT_EXPAND …). Sets the in-trade marker to defer server moves and accepts
+     * only one at a time (REJECTED if one is in progress). extra is SQL to run in the same
+     * transaction (number of decorations bought, etc.). The future completes on the main thread.
      *
-     * @return 처리 후 잔액
+     * @return balance after processing
      */
     CompletableFuture<Result<Long, LedgerError>> charge(
             Player player,

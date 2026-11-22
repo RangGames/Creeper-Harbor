@@ -3,10 +3,13 @@ package wiki.creeper.harbor.economy.content;
 import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.model.Quality;
 
-/** balance.yml economy 절 (docs 20 7.3). 값이 없으면 '7. 밸런스 기획' 6장 값 또는 제안값. */
+/**
+ * The balance.yml economy section (docs 20 7.3). Missing values fall back to "7. Balance design"
+ * ch. 6 or proposed values.
+ */
 public record EconomyBalance(Balance balance) {
 
-    /** 품질 배율 (D2 확정값 1.0 / 1.2 / 1.5 / 2.5 / 5.0, docs 20 0.6). */
+    /** Quality multipliers (D2 final values 1.0 / 1.2 / 1.5 / 2.5 / 5.0, docs 20 0.6). */
     public double qualityMult(Quality quality) {
         double fallback =
                 switch (quality.stars()) {
@@ -19,7 +22,7 @@ public record EconomyBalance(Balance balance) {
         return balance.number("economy.quality_mult." + quality.stars(), fallback);
     }
 
-    /** 지역 계수 (공허의 바다 0.65). 키는 지역 ID의 마지막 마디. */
+    /** Region factors (Void Sea 0.65). Keyed by the last segment of the region ID. */
     public double regionFactor(String region) {
         return balance.number("economy.region_factor." + region, 1.0);
     }
@@ -64,29 +67,33 @@ public record EconomyBalance(Balance balance) {
         return balance.number("economy.repair.broken_rate", 0.10);
     }
 
-    // ------------------------------------------------------------------ 시세 (추가)
+    // ------------------------------------------------------------------ Market (added)
 
-    /** 일괄 판매 미끄러짐 기준 (같은 어종을 한 번에 이보다 많이 팔면 적용, 제안값 32). */
+    /**
+     * Bulk-sale slippage threshold (applies when selling more than this of one species at once,
+     * proposed value 32).
+     */
     public int bulkThreshold() {
         return balance.integer("economy.bulk.threshold", 32);
     }
 
-    /** 시세 갱신이 이 시간 넘게 없으면 관리자에게 알린다 (docs 20 7.4, 3시간). */
+    /** Alert admins if the market has not updated for longer than this (docs 20 7.4, 3 hours). */
     public int marketStaleHours() {
         return balance.integer("economy.market.stale_h", 3);
     }
 
-    /** 큰손 거래 최대 마릿수 (docs 20 7.4, 64). */
+    /** Maximum fish count for a bulk-buyer trade (docs 20 7.4, 64). */
     public int bigDealMax() {
         return balance.integer("economy.big_deal.max", 64);
     }
 
-    /** 큰손 거래 고정 시세 계수 (1.0). */
+    /** Fixed market factor for bulk-buyer trades (1.0). */
     public double bigDealCoef() {
         return balance.number("economy.big_deal.coef", 1.0);
     }
 
-    // ------------------------------------------------------------------ 경매 ('7. 밸런스 기획' 6.3·6.5)
+    // ------------------------------------------------------------------ Auction ("7. Balance
+    // design" 6.3, 6.5)
 
     public double auctionListFee() {
         return balance.number("economy.auction.list_fee", 0.01);
@@ -108,7 +115,7 @@ public record EconomyBalance(Balance balance) {
         return balance.integer("economy.auction.duration_h", 48);
     }
 
-    /** 평판 등급별 등록 슬롯 (5 / 10 / 15, 등급 대응은 제안값). */
+    /** Listing slots per reputation tier (5 / 10 / 15; tier mapping is a proposed value). */
     public int auctionSlots(int reputationTier) {
         int fallback = reputationTier >= 5 ? 15 : reputationTier >= 3 ? 10 : 5;
         return balance.integer("economy.auction.slots." + reputationTier, fallback);
@@ -118,35 +125,39 @@ public record EconomyBalance(Balance balance) {
         return balance.integer("economy.auction.new_account_h", 5);
     }
 
-    /** 신화 어종 경매 기준가 (D12, 6,000G). */
+    /** Auction reference price for mythic species (D12, 6,000G). */
     public long auctionMythicRef() {
         return (long) balance.number("economy.auction.mythic_ref", 6000);
     }
 
-    /** 등록·취소 가능 반경 (경매 게시판 기준, 8블록). */
+    /** Radius where listing and cancelling are allowed (from the auction board, 8 blocks). */
     public double auctionBoardRadius() {
         return balance.number("economy.auction.board_radius", 8);
     }
 
-    /** 분류별 첫 페이지 캐시 (30초). */
+    /** First-page cache per category (30 seconds). */
     public int auctionCacheSeconds() {
         return balance.integer("economy.auction.cache_s", 30);
     }
 
-    // ------------------------------------------------------------------ 제작
+    // ------------------------------------------------------------------ Crafting
 
-    /** /제작이 여는 스테이션 반경 (제안값 6). */
+    /** Station radius that /제작 opens (proposed value 6). */
     public double craftStationRadius() {
         return balance.number("economy.craft.station_radius", 6);
     }
 
-    /** 재료 절약 상한 (제안값 0.5, 절약 보정이 아무리 커도 재료의 절반은 든다). */
+    /**
+     * Material saving cap (proposed value 0.5; no matter how large the saving modifier, half the
+     * materials are still used).
+     */
     public double craftMaxSave() {
         return balance.number("economy.craft.max_save", 0.5);
     }
 
-    // ------------------------------------------------------------------ 부정 거래 감시 (docs 20 7.4, 모두
-    // 제안값)
+    // ------------------------------------------------------------------ Fraudulent-trade
+    // monitoring (docs 20
+    // 7.4, all proposed values)
 
     public FraudRules fraud() {
         return new FraudRules(
@@ -168,17 +179,22 @@ public record EconomyBalance(Balance balance) {
     }
 
     /**
-     * 부정 거래 점수 규칙.
+     * Fraudulent-trade scoring rules.
      *
-     * @param linkedScore 같은 IP(공유 IP 제외)로 연결된 두 계정 사이 거래
-     * @param pairCount 같은 두 사람 사이 거래가 창 안에 이 횟수 이상이면 (이번 거래 포함)
-     * @param outlierRatio 기준가의 이 배수 이상 낙찰
-     * @param washRatio 연결 계정끼리 기준가의 이 배수 이하 거래 (헐값 넘기기)
-     * @param trapAltScore 연결 계정끼리 통발 어종 거래 ('12. 월드 · 하우징 · 통발' 5장)
-     * @param flagScore 이 점수 이상이면 trade_flag 기록·관리자 알림
-     * @param holdScore 이 점수 이상이면 판매 대금 보류
-     * @param autoRelease 보류 시간이 지나면 자동 해제 (거짓이면 관리자 해제 전까지 보류, docs 20 7.8 열린 질문)
-     * @param indexMin 경매 희귀 시세 지수 경고 하한 ('7. 밸런스 기획' 11장)
+     * @param linkedScore trade between two accounts linked by the same IP (shared IPs excluded)
+     * @param pairCount if trades between the same two people within the window reach this count
+     *     (including this one)
+     * @param outlierRatio sale at this multiple of the reference price or more
+     * @param washRatio trade between linked accounts at this multiple of the reference price or
+     *     less (dumping)
+     * @param trapAltScore trade of trap species between linked accounts ("12. World · Housing ·
+     *     Traps" ch. 5)
+     * @param flagScore at or above this score, record trade_flag and alert admins
+     * @param holdScore at or above this score, withhold the sale proceeds
+     * @param autoRelease auto-release once the hold time passes (if false, held until an admin
+     *     releases it; docs 20 7.8 open question)
+     * @param indexMin lower bound for the auction rare market index warning ("7. Balance design"
+     *     ch. 11)
      */
     public record FraudRules(
             double linkedScore,

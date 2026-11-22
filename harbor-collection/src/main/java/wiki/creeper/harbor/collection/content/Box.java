@@ -3,7 +3,10 @@ package wiki.creeper.harbor.collection.content;
 import java.util.List;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
-/** 블록 좌표 상자 (양 끝 포함). YAML {@code [x1, y1, z1, x2, y2, z2]}. 서버 API를 쓰지 않는다. */
+/**
+ * Block coordinate box (both ends inclusive). YAML {@code [x1, y1, z1, x2, y2, z2]}. Uses no server
+ * API.
+ */
 public record Box(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
 
     public static final Box EMPTY = new Box(0, 0, 0, -1, -1, -1);
@@ -22,7 +25,7 @@ public record Box(double minX, double minY, double minZ, double maxX, double max
         return maxX < minX;
     }
 
-    /** 블록 좌표 상자라 끝 블록 전체(+1)까지 포함한다. */
+    /** Since this is a block coordinate box, it includes the whole end block (+1). */
     public boolean contains(double x, double y, double z) {
         return !isEmpty()
                 && x >= minX
@@ -45,7 +48,7 @@ public record Box(double minX, double minY, double minZ, double maxX, double max
         return (minZ + maxZ + 1) / 2;
     }
 
-    /** 상자 안 점 (0~1 비율, margin 블록만큼 안쪽). */
+    /** Point inside the box (0~1 ratios, inset by margin blocks). */
     public Point lerp(double fx, double fy, double fz, double margin) {
         double sx = Math.max(0, maxX + 1 - minX - 2 * margin);
         double sy = Math.max(0, maxY + 1 - minY - 2 * margin);

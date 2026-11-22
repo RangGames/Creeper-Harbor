@@ -34,22 +34,28 @@ import wiki.creeper.harbor.jobs.api.CapstoneState;
 import wiki.creeper.harbor.jobs.api.JobsService;
 
 /**
- * 어종 판매 (docs 20 7.4 판매 흐름). 인벤토리의 어종(또는 손에 든 것)을 견적과 함께 보여주고, 확인하면 아이템을 꺼내 보관한 뒤 한 트랜잭션으로 골드
- * 지급(FISH_SELL, 참조 ID = 판매 묶음 UUID)과 고유 ID 장부 SOLD 전환을 한다. 실패하면 아이템을 돌려준다.
+ * Fish selling (docs 20 7.4 sell flow). Shows fish in the inventory (or the held one) with a quote;
+ * on confirmation, takes the items and holds them, then in one transaction pays gold (FISH_SELL,
+ * reference ID = sale batch UUID) and switches the unique ID ledger to SOLD. On failure the items
+ * are returned.
  *
  * <ul>
- *   <li>일괄 판매 미끄러짐 (제안): 같은 어종을 한 번에 32마리 넘게 팔면 그 묶음은 "이 판매가 반영됐을 때의 M"과 현재 M의 평균으로 계산한다 (경제 계열 '대량
- *       거래' bulk_sell_slip이 하락폭을 줄인다).
- *   <li>큰손 거래 (경제 계열 캡스톤): 주 1회, 손에 든 어종과 같은 종 최대 64마리를 M = 1.0으로 판다. 사유 BIG_DEAL_SELL, 참조 ID =
- *       uuid + 시즌 + 주차라서 같은 주 두 번 지급이 원장에서 막힌다. 판매량은 market_sales에 그대로 더한다.
+ *   <li>Bulk-sale slippage (proposed): selling more than 32 of one species at once prices that
+ *       batch at the average of the current M and "the M after this sale is reflected" (economy
+ *       line "Bulk Trade" bulk_sell_slip reduces the drop).
+ *   <li>Bulk-buyer trade (economy line capstone): once a week, sells up to 64 fish of the same
+ *       species as the held one at M = 1.0. Reason BIG_DEAL_SELL, reference ID = uuid + season +
+ *       week, so a second payout in the same week is blocked by the ledger. Sales volume is added
+ *       to market_sales as-is.
  * </ul>
  */
 public final class SellService {
 
     /**
-     * 판매 후보 한 줄 (칸 번호와 그때의 아이템). 칸은 인벤토리 칸 또는 판매 상자 칸.
+     * One sale candidate line (slot index and the item at that time). The slot is an inventory slot
+     * or a sell chest slot.
      *
-     * @param protection 귀한 물고기 보호 이유 ({@link SellProtection})
+     * @param protection valuable fish protection reason ({@link SellProtection})
      */
     record Line(
             int slot,
@@ -77,9 +83,10 @@ public final class SellService {
     }
 
     /**
-     * /판매 손 · /판매 전부: 견적 확인 Dialog. 전부는 귀한 물고기(잠금·고유 번호·★5)를 빼고, 손에 든 것은 그대로 팔되 확인 문구에 알린다.
+     * /판매 손 · /판매 전부: quote confirmation Dialog. All skips valuable fish (locked, unique number,
+     * ★5); the held item is sold as-is but noted in the confirmation message.
      *
-     * @param heldOnly 손에 든 것만
+     * @param heldOnly only the held item
      */
     public void open(Player player, boolean heldOnly) {
         List<Line> lines = collect(player, heldOnly);
@@ -116,7 +123,10 @@ public final class SellService {
         return lines.stream().mapToInt(l -> l.stack().getAmount()).sum();
     }
 
-    /** 인벤토리 칸의 어종들. price는 줄마다 (단가 × 개수), 단가 계산은 pricer. */
+    /**
+     * Fish in inventory slots. price is per line (unit price × count); unit price comes from
+     * pricer.
+     */
     private List<Line> scan(
             Player player, int from, int to, ToLongFunction<HarborItem.Fish> pricer) {
         PlayerInventory inv = player.getInventory();
@@ -148,7 +158,7 @@ public final class SellService {
         return Optional.empty();
     }
 
-    /** 귀한 물고기 보호 이유 (잠금 → 고유 번호 → ★5). */
+    /** Valuable fish protection reason (locked → unique number → ★5). */
     static SellProtection.Reason protection(HarborItem.Fish fish, ItemStack stack) {
         return SellProtection.of(
                 fish.quality().stars(),
@@ -158,10 +168,11 @@ public final class SellService {
     }
 
     /**
-     * 판매 상자 칸들의 견적 (일괄 판매 미끄러짐 포함). 칸 번호는 상자 칸. 어종이 아니거나 값이 0인 칸은 빠진다.
+     * Quote for sell chest slots (bulk-sale slippage included). Slot indexes are chest slots.
+     * Non-fish or zero-value slots are skipped.
      *
-     * @param contents 상자 칸 (null·빈 칸 허용)
-     * @param slots 볼 칸 수 (앞에서부터)
+     * @param contents chest slots (null and empty slots allowed)
+     * @param slots number of slots to look at (from the front)
      */
     List<Line> boxLines(Player player, @Nullable ItemStack[] contents, int slots) {
         UUID uuid = player.getUniqueId();
@@ -176,13 +187,13 @@ public final class SellService {
         return slip(uuid, lines);
     }
 
-    /** 이 아이템이 판매 상자에 넣을 수 있는 어종인지 (값과 상관없이). */
+    /** Whether this item is a species that can go into the sell chest (regardless of value). */
     boolean isFish(ItemStack stack) {
         return !stack.isEmpty()
                 && api.items().read(stack).filter(i -> i instanceof HarborItem.Fish).isPresent();
     }
 
-    /** 이 아이템의 보호 이유 (어종이 아니면 NONE). */
+    /** Protection reason of this item (NONE if not a fish). */
     SellProtection.Reason protectionOf(ItemStack stack) {
         Optional<HarborItem> item = stack.isEmpty() ? Optional.empty() : api.items().read(stack);
         return item.isPresent() && item.get() instanceof HarborItem.Fish fish
@@ -191,9 +202,11 @@ public final class SellService {
     }
 
     /**
-     * 판매 상자에서 꺼낸 줄을 판다 (상자 칸은 호출한 쪽이 이미 비웠다). 트랜잭션·실패 반환은 /판매와 같다.
+     * Sells lines taken from the sell chest (the caller has already cleared the chest slots).
+     * Transaction and failure return are the same as /판매.
      *
-     * @return 거래를 시작했으면 true (처리 중이면 false, 그때는 호출한 쪽이 아이템을 돌려준다)
+     * @return true if the trade started (false if one is in progress, in which case the caller
+     *     returns the items)
      */
     boolean sellTaken(Player player, List<Line> lines) {
         long total = lines.stream().mapToLong(Line::price).sum();
@@ -217,15 +230,20 @@ public final class SellService {
         UUID uuid = player.getUniqueId();
         List<Line> lines = scan(player, from, to, f -> market.quote(uuid, f).orElse(0));
         if (!heldOnly) {
-            // 전부 판매는 귀한 물고기를 건너뛴다 (판매 화면에서 직접 넣고 확인해야 판다)
+            // Sell-all skips valuable fish (they are sold only when placed in the sell screen and
+            // confirmed)
             lines = lines.stream().filter(l -> !l.protection().protects()).toList();
         }
         return slip(uuid, lines);
     }
 
-    /** 일괄 판매 미끄러짐: 어종별 마릿수가 기준을 넘으면 그 어종 줄을 조정한 계수로 다시 계산. */
+    /**
+     * Bulk-sale slippage: if a species' count exceeds the threshold, recompute its lines with the
+     * adjusted factor.
+     */
     private List<Line> slip(UUID uuid, List<Line> lines) {
-        // 일괄 판매 미끄러짐: 어종별 마릿수가 기준을 넘으면 그 어종 줄을 조정한 계수로 다시 계산
+        // Bulk-sale slippage: if a species' count exceeds the threshold, recompute its lines with
+        // the adjusted factor
         Map<FishId, Integer> counts = new HashMap<>();
         for (Line line : lines) {
             counts.merge(line.fish().species(), line.stack().getAmount(), Integer::sum);
@@ -274,7 +292,7 @@ public final class SellService {
             return;
         }
         if (total != quoted) {
-            // 정각 시세 갱신·리로드로 견적이 바뀌었으면 다시 보여준다
+            // If the quote changed due to the hourly market update or a reload, show it again
             api.messages().send(player, "economy.sell.requote");
             open(player, heldOnly);
             return;
@@ -291,10 +309,12 @@ public final class SellService {
     }
 
     /**
-     * 보관 → 한 트랜잭션 (골드 + 장부 SOLD) → 커밋 후 판매량·이벤트, 실패하면 돌려준다.
+     * Hold → one transaction (gold + ledger SOLD) → after commit, sales volume and event; on
+     * failure, return.
      *
-     * @param fromInventory true면 인벤토리 칸에서 꺼낸다. false면 호출한 쪽(판매 상자)이 이미 꺼냈다
-     * @return 거래를 시작했으면 true
+     * @param fromInventory if true, take from inventory slots. If false, the caller (sell chest)
+     *     already took them
+     * @return true if the trade started
      */
     private boolean commit(
             Player player,
@@ -310,7 +330,7 @@ public final class SellService {
             api.messages().send(player, "economy.busy");
             return false;
         }
-        // 보관: 인벤토리에서 꺼낸다
+        // Hold: take it out of the inventory
         PlayerInventory inv = player.getInventory();
         List<ItemStack> custody = new ArrayList<>();
         for (Line line : lines) {
@@ -406,9 +426,12 @@ public final class SellService {
         return true;
     }
 
-    // ------------------------------------------------------------------ 큰손 거래
+    // ------------------------------------------------------------------ Bulk-buyer trade
 
-    /** /큰손: 손에 든 어종과 같은 종을 최대 64마리 M = 1.0으로 판다 (확인 화면). */
+    /**
+     * /큰손: sells up to 64 fish of the same species as the held one at M = 1.0 (confirmation
+     * screen).
+     */
     public void bigDeal(Player player) {
         UUID uuid = player.getUniqueId();
         Optional<JobsService> jobs = api.service(JobsService.class);
@@ -475,7 +498,10 @@ public final class SellService {
                         });
     }
 
-    /** 같은 종 줄을 앞에서부터 최대 마릿수까지 (넘치는 칸은 그 칸을 통째로 빼서 쪼개지 않는다). */
+    /**
+     * Same-species lines from the front up to the max count (an overflowing slot is dropped whole
+     * rather than split).
+     */
     private List<Line> bigDealLines(Player player, FishId species) {
         UUID uuid = player.getUniqueId();
         EconomyBalance b = market.balance();

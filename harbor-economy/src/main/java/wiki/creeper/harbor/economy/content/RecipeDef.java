@@ -17,8 +17,8 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 제작 레시피 (recipes.yml, '11. 데이터 설계' 2.3 + 2.9, docs 20 7.3·7.4). 서버 API를 쓰지 않아 harbor-tools도 같은 코드로
- * 검사한다.
+ * Crafting recipe (recipes.yml, "11. Data design" 2.3 + 2.9, docs 20 7.3, 7.4). Uses no server API,
+ * so harbor-tools checks with the same code.
  *
  * <pre>{@code
  * - id: recipe/coral_carbon_rod
@@ -29,16 +29,17 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *   gold: 6000
  *   ingredients:
  *     - {item: item/rod/harbor_standard, count: 1}
- *     - {vanilla: minecraft:iron_ingot, count: 4}          # (추가 제안) 바닐라 재료
- *     - {match: {grade_min: rare}, count: 1}                # 희귀 이상 어종 1
- *     - {match: {fish_any: [fish/a, fish/b]}, count: 1}     # 둘 중 하나
+ *     - {vanilla: minecraft:iron_ingot, count: 4}          # (proposed) vanilla material
+ *     - {match: {grade_min: rare}, count: 1}                # 1 fish of rare or higher
+ *     - {match: {fish_any: [fish/a, fish/b]}, count: 1}     # either one
  *   unlock: {job_tier: 2, level: 20, visited: region/coral_isles, quest: quest/main/ch4,
  *            feature: feature_legend_bait_recipe, flags: [boss_clear/swamp_catfish]}
  *   weekly_limit: 1
  * }</pre>
  *
- * @param gold 제작 비용 (CRAFT_COST, 재료 절약과 관계없이 그대로)
- * @param weeklyLimit 주간 제작 제한 (0이면 없음). Season weekly_counter 키 {@code craft:<레시피 이름>}
+ * @param gold crafting cost (CRAFT_COST, unaffected by material saving)
+ * @param weeklyLimit weekly crafting limit (0 for none). Season weekly_counter key {@code
+ *     craft:<recipe name>}
  */
 public record RecipeDef(
         HarborId id,
@@ -51,7 +52,7 @@ public record RecipeDef(
         Unlock unlock,
         int weeklyLimit) {
 
-    /** 제작 장소 (어부 길드 작업대, 요리 화로, 조선소). */
+    /** Crafting place (fishers' guild workbench, cooking furnace, shipyard). */
     public enum Station implements Keyed {
         WORKSHOP,
         COOKING,
@@ -63,7 +64,10 @@ public record RecipeDef(
         }
     }
 
-    /** 분류 ('11. 데이터 설계' 2.9). gear는 '장인의 손' 재료 절약, bait는 '미끼 장인' 결과 추가 대상. */
+    /**
+     * Category ("11. Data design" 2.9). gear gets "Artisan's Hand" material saving; bait gets "Bait
+     * Artisan" extra results.
+     */
     public enum Category implements Keyed {
         GEAR,
         BAIT,
@@ -77,35 +81,38 @@ public record RecipeDef(
         }
     }
 
-    /** 재료 한 줄. */
+    /** One ingredient line. */
     public sealed interface Ingredient permits Item, Vanilla, FishMatch {
         int count();
     }
 
-    /** Harbor 아이템. */
+    /** Harbor item. */
     public record Item(ItemId item, int count) implements Ingredient {}
 
-    /** (추가 제안) Harbor 표시가 없는 바닐라 아이템 (철 주괴, 화약 …). */
+    /** (proposed) Vanilla item without a Harbor marker (iron ingot, gunpowder …). */
     public record Vanilla(String key, int count) implements Ingredient {}
 
     /**
-     * 조건 어종 ('11. 데이터 설계' 2.9 match). 모든 조건을 만족해야 한다.
+     * Fish matching conditions ("11. Data design" 2.9 match). All conditions must be met.
      *
-     * @param gradeMin 이 등급 이상 (null이면 무관)
-     * @param fishAny 이 중 하나 (비면 무관)
-     * @param region 이 지역 어종 (null이면 무관)
+     * @param gradeMin this grade or higher (null means any)
+     * @param fishAny one of these (empty means any)
+     * @param region species of this region (null means any)
      */
     public record FishMatch(
             @Nullable Grade gradeMin, List<FishId> fishAny, @Nullable RegionId region, int count)
             implements Ingredient {}
 
     /**
-     * 해금 조건. 모두 만족해야 한다.
+     * Unlock conditions. All must be met.
      *
-     * @param visited 지역 첫 방문. 플레이어 플래그 {@code visited/<지역 이름>} (World가 세우는 플래그, 추가 제안)
-     * @param quest 퀘스트 완료. 플레이어 플래그 {@code quest/<퀘스트 경로>} (Quest가 세우는 플래그, 추가 제안)
-     * @param feature 스킬 노드가 올리는 보정자 키 (1 이상이면 보유. Jobs API에 스킬 보유 조회가 없어 이렇게 본다, 추가 제안)
-     * @param flags 그 밖의 플레이어 플래그 (보스 처치 등)
+     * @param visited first visit to a region. Player flag {@code visited/<region name>} (a flag set
+     *     by World, proposed)
+     * @param quest quest completed. Player flag {@code quest/<quest path>} (a flag set by Quest,
+     *     proposed)
+     * @param feature modifier key raised by a skill node (1 or more means owned. The Jobs API has
+     *     no skill ownership query, so it is checked this way, proposed)
+     * @param flags other player flags (boss kills, etc.)
      */
     public record Unlock(
             int jobTier,
@@ -117,7 +124,7 @@ public record RecipeDef(
 
         public static final Unlock NONE = new Unlock(0, 0, null, null, null, List.of());
 
-        /** 확인할 플레이어 플래그 이름 목록 (visited·quest 포함). */
+        /** Player flag names to check (including visited and quest). */
         public List<String> requiredFlags() {
             List<String> all = new ArrayList<>(flags);
             if (visited != null) {
@@ -140,7 +147,9 @@ public record RecipeDef(
 
     public static final String PREFIX = "recipe/";
 
-    /** 바닐라 아이템 키 형식. 실제 존재 여부는 서버에서 검사한다 (ItemDef와 같은 규칙). */
+    /**
+     * Vanilla item key format. Actual existence is checked on the server (same rule as ItemDef).
+     */
     public static final Pattern RESOURCE_KEY = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
 
     private static final Pattern FLAG = Pattern.compile("[a-z0-9_]+(/[a-z0-9_]+)*");
@@ -149,7 +158,7 @@ public record RecipeDef(
             new ContentType.Entries<>(
                     "recipe", List.of("recipes.yml"), PREFIX, RecipeDef::parse, RecipeDef::id);
 
-    /** 주간 제한 키에 쓰는 이름 (recipe/ 뒤). */
+    /** Name used in the weekly limit key (after recipe/). */
     public String limitName() {
         return id.path().substring(PREFIX.length()).replace('/', '_');
     }

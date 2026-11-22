@@ -46,9 +46,11 @@ import wiki.creeper.harbor.npc.api.NpcInfo;
 import wiki.creeper.harbor.npc.api.NpcService;
 
 /**
- * NPC 상점 구매 (docs 20 7.4). 가격 = buy_price(또는 항목 price) × shop_buy_price 스탯 × (1 − NPC 호감도 할인). 수량
- * 선택 → take(SHOP_BUY)와 일일 한도 갱신을 한 트랜잭션으로 → 커밋 후 지급, 칸이 모자라면 남는 것은 우편함. 바닐라 재료(어시장 철 주괴·화약 …)는 고정가와
- * 하루 한도. 되팔기(바이백)는 넣지 않는다.
+ * NPC shop purchases (docs 20 7.4). Price = buy_price (or entry price) × shop_buy_price stat × (1 −
+ * NPC affinity discount). Quantity selection → take(SHOP_BUY) and daily limit update in one
+ * transaction → give after commit; if slots run short, the rest goes to the mailbox. Vanilla
+ * materials (fish market iron ingot, gunpowder …) have fixed prices and daily limits. Selling back
+ * (buyback) is not included.
  */
 public final class ShopManager implements ShopService {
 
@@ -73,7 +75,7 @@ public final class ShopManager implements ShopService {
         return open(player, shopId, null);
     }
 
-    /** NPC 대화(shop:open)로 열면 그 NPC 호감도 할인을 쓴다. */
+    /** When opened via NPC dialog (shop:open), that NPC's affinity discount applies. */
     public boolean open(Player player, HarborId shopId, @Nullable NpcId npc) {
         Optional<ShopDef> shop = api.content().snapshot().get(ShopDef.TYPE, shopId);
         if (shop.isEmpty()) {
@@ -101,7 +103,10 @@ public final class ShopManager implements ShopService {
         return true;
     }
 
-    /** 대화 액션 shop:open: 인자 → NPC의 shop 필드 → shops.yml npc가 이 NPC인 상점 순으로 찾는다. */
+    /**
+     * Dialog action shop:open: looks up by argument → the NPC's shop field → the shop whose
+     * shops.yml npc is this NPC.
+     */
     public Optional<HarborId> shopOf(NpcId npc, @Nullable String explicit) {
         if (explicit != null) {
             return HarborId.tryParse(explicit);
@@ -124,7 +129,7 @@ public final class ShopManager implements ShopService {
                 : api.content().snapshot().get(ItemDef.TYPE, item.id());
     }
 
-    /** 바닐라 항목의 아이템 (키가 틀리면 빈 값). */
+    /** Item for a vanilla entry (empty if the key is invalid). */
     private static Optional<Material> vanilla(ShopDef.Entry entry) {
         String key = entry.vanilla();
         return key == null ? Optional.empty() : Optional.ofNullable(Material.matchMaterial(key));
@@ -138,7 +143,10 @@ public final class ShopManager implements ShopService {
         return vanilla(entry).map(m -> ItemStack.of(m, amount));
     }
 
-    /** 항목 이름. 바닐라 재료는 번역 키라 클라이언트 언어(한국어)로 보인다. */
+    /**
+     * Entry name. Vanilla materials are translation keys, so they show in the client language
+     * (Korean).
+     */
     private Component name(ShopDef.Entry entry) {
         return def(entry)
                 .<Component>map(d -> Component.text(d.name()))
@@ -243,7 +251,10 @@ public final class ShopManager implements ShopService {
         return stack;
     }
 
-    /** 클릭 수량 (추가 제안): 좌클릭 1개 · Shift+좌클릭 한 묶음 · 우클릭 직접 입력(1~한 묶음). 칸이 모자라면 남는 것은 우편함. */
+    /**
+     * Click quantity (proposed): left-click 1 · Shift+left-click one stack · right-click manual
+     * input (1 to one stack). If slots run short, the rest goes to the mailbox.
+     */
     private void chooseAmount(
             Player player,
             ShopDef shop,
@@ -392,7 +403,8 @@ public final class ShopManager implements ShopService {
                                                                         "economy.shop.limit";
                                                                 default -> "economy.shop.failed";
                                                             });
-                                            // 불가 알림음 ('15. 사운드' 4.5 ui.error). future는 메인 스레드에서 끝난다
+                                            // Denied sound ("15. Sound" 4.5 ui.error). The future
+                                            // finishes on the main thread
                                             HarborSounds.play(player, "harbor:ui.error");
                                         }
                                         return;
@@ -402,7 +414,8 @@ public final class ShopManager implements ShopService {
                                         log.error("상점 아이템을 만들지 못했습니다: {} ({})", entry.key(), ref);
                                         return;
                                     }
-                                    // 접속 중이면 인벤토리, 커밋 사이에 칸이 찼거나 나갔으면 우편함
+                                    // Inventory if online; mailbox if slots filled up or they left
+                                    // between commits
                                     mail.giveOrMail(
                                             uuid, List.of(items.get()), "shop_overflow", ref);
                                     log.info(

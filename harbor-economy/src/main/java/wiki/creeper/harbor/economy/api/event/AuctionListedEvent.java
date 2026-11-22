@@ -4,7 +4,7 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 경매 등록이 커밋된 뒤 (메인 스레드). */
+/** After an auction listing is committed (main thread). */
 public final class AuctionListedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

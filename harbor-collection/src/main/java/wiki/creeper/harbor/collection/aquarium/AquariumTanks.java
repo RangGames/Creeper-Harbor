@@ -46,14 +46,20 @@ import wiki.creeper.harbor.core.api.RigOptions;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 항구 수족관 수조 연출 (docs 20 4.4 '수조 연출'·'수조 구조물'). 본 서버(aquarium.yml display.world가 있는 서버)에서만 돈다.
+ * Harbor aquarium tank display (docs 20 4.4 "tank display" · "tank structures"). Runs only on the
+ * main server (the server that has aquarium.yml display.world).
  *
  * <ul>
- *   <li>기부된 어종마다 Core 리그 1개가 수조 안을 헤엄친다. 리그는 기본 숨김이고 수족관 view 상자 안 플레이어에게만 보인다.
- *   <li>동시에 띄우는 리그는 visible_max개, 넘치면 rotate_minutes마다 교대한다 ({@link TankLayout}).
- *   <li>lod_radius 안에 시청자가 없는 수조는 헤엄 이동을 생략한다 (애니메이션 LOD는 Core rig.lod_distance).
- *   <li>단계마다 구조물 템플릿을 붙인다. 시작할 때와 단계가 오를 때 지금 단계와 맞는지 보고 다르면 붙인다 (멱등). 붙이기 직전 영역 안 플레이어는 입구로 옮긴다.
- *       구조물 파일 읽기는 가상 스레드, 붙이기는 메인 스레드.
+ *   <li>Each donated species gets one Core rig swimming in a tank. Rigs are hidden by default and
+ *       visible only to players inside the aquarium view box.
+ *   <li>visible_max rigs are shown at once; any more rotate every rotate_minutes ({@link
+ *       TankLayout}).
+ *   <li>Tanks with no viewer within lod_radius skip swim movement (animation LOD is Core
+ *       rig.lod_distance).
+ *   <li>A structure template is placed per stage. On startup and on stage-up, checks whether it
+ *       matches the current stage and places it if not (idempotent). Players inside the area are
+ *       moved to the entrance just before placing. Structure files are read on a virtual thread;
+ *       placement happens on the main thread.
  * </ul>
  */
 public final class AquariumTanks {
@@ -74,7 +80,7 @@ public final class AquariumTanks {
     private @Nullable String appliedStructure;
     private @Nullable BukkitTask task;
 
-    /** 헤엄치는 리그 하나. */
+    /** One swimming rig. */
     private static final class Swimmer {
         final RigInstance rig;
         final AquariumRules.Tank tank;
@@ -113,7 +119,7 @@ public final class AquariumTanks {
         clear();
     }
 
-    /** 기부 어종·단계가 바뀌었을 때 (AquariumManager.refresh 뒤, 메인 스레드). */
+    /** When donated species or the stage change (after AquariumManager.refresh, main thread). */
     public void update(List<SpeciesRow> newSpecies, int newStage) {
         species = List.copyOf(newSpecies);
         boolean stageChanged = newStage != stage;
@@ -128,14 +134,14 @@ public final class AquariumTanks {
         relayout();
     }
 
-    /** 콘텐츠 리로드: 처음부터 다시 그린다. */
+    /** Content reload: redraws from scratch. */
     public void reload() {
         clear();
         appliedStructure = null;
         update(species, stage);
     }
 
-    // ------------------------------------------------------------------ 배치
+    // ------------------------------------------------------------------ layout
 
     private void relayout() {
         World world = world();
@@ -155,7 +161,7 @@ public final class AquariumTanks {
                     .ifPresent(f -> deep.add(f.id()));
         }
         Map<FishId, String> layout = TankLayout.assign(ids, open, deep, d.visibleMax(), rotation);
-        // 빠진 어종·수조가 바뀐 어종은 지운다
+        // Remove species that are gone or whose tank changed
         swimmers.entrySet()
                 .removeIf(
                         e -> {
@@ -205,8 +211,9 @@ public final class AquariumTanks {
     }
 
     /**
-     * 어종 리그를 어종 크기(size_cm 가운데 값)로 그리되, 수조 가로 폭의 절반을 넘지 않게 줄인다 (리소스팩 어종 모델은 실제 크기보다 크다). 리그에 몸길이가
-     * 없으면 1.
+     * Draws the species rig at the species size (middle of size_cm), shrunk so it does not exceed
+     * half the tank width (resource pack species models are larger than life size). 1 if the rig
+     * has no body length.
      */
     private double tankScale(FishId fish, RigId rig, AquariumRules.Tank tank) {
         Optional<RigDef> def = api.rigs().definition(rig);
@@ -224,7 +231,10 @@ public final class AquariumTanks {
         return FishRigs.fitScale(def.get(), room > 0 ? Math.min(length, room) : length);
     }
 
-    /** 어종 리그 rig/fish/&lt;모델 이름&gt;(FishRigs, 없으면 어종 ID 이름) → 없으면 fallback_rig. */
+    /**
+     * Species rig rig/fish/&lt;model name&gt; (FishRigs; species ID name if absent) → otherwise
+     * fallback_rig.
+     */
     private Optional<RigId> rigFor(FishId fish, AquariumRules.Display d) {
         Optional<FishDef> def = api.content().snapshot().get(FishDef.TYPE, fish.id());
         if (def.isPresent()) {
@@ -243,7 +253,10 @@ public final class AquariumTanks {
                 : Optional.empty();
     }
 
-    /** 수조 이름표: 수조에 있는 어종과 처음 기부한 사람 (처음 기부되는 어종은 이름표에 기부자 이름을 새긴다). */
+    /**
+     * Tank name tag: species in the tank and their first donor (a species donated for the first
+     * time has the donor's name engraved on the tag).
+     */
     private void drawLabels(
             World world, List<AquariumRules.Tank> open, Map<FishId, String> layout) {
         labels.values().forEach(TextDisplay::remove);
@@ -308,7 +321,7 @@ public final class AquariumTanks {
         viewers.clear();
     }
 
-    // ------------------------------------------------------------------ 주기 작업
+    // ------------------------------------------------------------------ periodic task
 
     private void tick() {
         World world = world();
@@ -320,14 +333,14 @@ public final class AquariumTanks {
         }
         ticks += TICK;
         AquariumRules.Display d = display();
-        // 교대 (visible_max를 넘을 때만 의미가 있다)
+        // Rotation (only meaningful beyond visible_max)
         if (ticks % (d.rotateMinutes() * 60L * 20L) < TICK && species.size() > d.visibleMax()) {
             rotation++;
             relayout();
         }
         if (ticks % 20 < TICK) {
             updateViewers(world);
-            // 청크가 늦게 로드되어 빠진 리그·이름표를 채운다 (10초에 한 번)
+            // Fill in rigs and name tags missed because chunks loaded late (once every 10 seconds)
             boolean missing =
                     (!viewers.isEmpty()
                                     && swimmers.size() < Math.min(species.size(), d.visibleMax()))
@@ -363,7 +376,7 @@ public final class AquariumTanks {
         s.nextMove = ticks + moveTicks + ThreadLocalRandom.current().nextInt(0, 20);
     }
 
-    /** 시청자: view 상자 안 플레이어. 들어오면 보이게, 나가면 숨긴다. */
+    /** Viewers: players inside the view box. Shown on entry, hidden on exit. */
     private void updateViewers(World world) {
         List<Player> now = watching(world);
         Set<UUID> ids = new HashSet<>();
@@ -409,9 +422,12 @@ public final class AquariumTanks {
         return ThreadLocalRandom.current().nextFloat();
     }
 
-    // ------------------------------------------------------------------ 구조물
+    // ------------------------------------------------------------------ structures
 
-    /** 지금 단계 구조물을 붙인다 (이미 붙였으면 그대로). 파일은 가상 스레드에서 읽는다. */
+    /**
+     * Places the current stage structure (unchanged if already placed). The file is read on a
+     * virtual thread.
+     */
     private void applyStructure() {
         AquariumRules rules = api.content().snapshot().single(AquariumRules.TYPE);
         Optional<String> key = rules.structureFor(stage);

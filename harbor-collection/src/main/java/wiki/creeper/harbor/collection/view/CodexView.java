@@ -11,11 +11,12 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.Grade;
 
 /**
- * 도감 화면 목록 계산 (추가 제안, 서버 API 없음). 지역 탭·등록 여부·등급으로 거르고 번호·등급·최근 등록 순으로 정렬한다. 화면은 service.CodexMenu.
+ * Codex screen list computation (proposed, no server API). Filters by region tab, registration, and
+ * grade, and sorts by number, grade, or recent registration. The screen is service.CodexMenu.
  */
 public final class CodexView {
 
-    /** 등록 여부 필터. */
+    /** Registration filter. */
     public enum Filter {
         ALL,
         UNREGISTERED,
@@ -34,7 +35,7 @@ public final class CodexView {
         }
     }
 
-    /** 정렬. */
+    /** Sort order. */
     public enum Sort {
         NUMBER,
         GRADE,
@@ -54,9 +55,9 @@ public final class CodexView {
     }
 
     /**
-     * 어종 한 칸.
+     * One species cell.
      *
-     * @param firstCaught 첫 포획 시각 (미등록이면 null)
+     * @param firstCaught first catch time (null if unregistered)
      */
     public record Item(
             FishId id, int no, Grade grade, RegionId region, @Nullable Instant firstCaught) {
@@ -67,17 +68,17 @@ public final class CodexView {
     }
 
     /**
-     * 화면 상태.
+     * Screen state.
      *
-     * @param region 지역 탭 (null이면 전체)
-     * @param grade 등급 필터 (null이면 전체)
+     * @param region region tab (null means all)
+     * @param grade grade filter (null means all)
      */
     public record State(
             @Nullable RegionId region, Filter filter, @Nullable Grade grade, Sort sort, int page) {
 
         public static final State DEFAULT = new State(null, Filter.ALL, null, Sort.NUMBER, 0);
 
-        /** 최근 등록 보기 (등록 어종, 최근 순). */
+        /** Recent registrations view (registered species, most recent first). */
         public static final State RECENT = new State(null, Filter.REGISTERED, null, Sort.RECENT, 0);
 
         public State withRegion(@Nullable RegionId r) {
@@ -103,7 +104,7 @@ public final class CodexView {
 
     private CodexView() {}
 
-    /** 거르고 정렬한다. */
+    /** Filters and sorts. */
     public static List<Item> apply(List<Item> all, State state) {
         List<Item> out = new ArrayList<>();
         for (Item item : all) {
@@ -135,7 +136,7 @@ public final class CodexView {
                     Comparator.comparing(Item::grade, Comparator.reverseOrder())
                             .thenComparing(byNo);
             case RECENT ->
-                    // 등록 어종은 최근 순, 미등록은 뒤에 번호 순
+                    // Registered species most recent first; unregistered after, by number
                     Comparator.comparing(
                                     (Item i) ->
                                             i.firstCaught() == null ? Instant.MIN : i.firstCaught(),
@@ -144,7 +145,7 @@ public final class CodexView {
         };
     }
 
-    /** 다음 등급 필터: 전체 → 일반 → … → 신화 → 전체. */
+    /** Next grade filter: all → common → … → mythic → all. */
     public static @Nullable Grade nextGrade(@Nullable Grade grade) {
         Grade[] all = Grade.values();
         if (grade == null) {
@@ -158,17 +159,17 @@ public final class CodexView {
         return null;
     }
 
-    /** 페이지 수 (항목이 없어도 1). */
+    /** Page count (1 even with no entries). */
     public static int pages(int count, int perPage) {
         return Math.max(1, (count + perPage - 1) / perPage);
     }
 
-    /** 등록 수 / 전체 수 → 0~100 (전체가 0이면 0). */
+    /** Registered / total → 0~100 (0 if total is 0). */
     public static double percent(long registered, long total) {
         return total <= 0 ? 0 : 100.0 * registered / total;
     }
 
-    /** 진행 막대 칸 수 (0~width). */
+    /** Progress bar cell count (0~width). */
     public static int filled(double ratio, int width) {
         if (!(ratio > 0)) {
             return 0;

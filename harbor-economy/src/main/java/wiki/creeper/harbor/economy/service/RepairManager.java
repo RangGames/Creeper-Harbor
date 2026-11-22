@@ -26,9 +26,11 @@ import wiki.creeper.harbor.economy.api.RepairService;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
 
 /**
- * 수리 (docs 20 7.4): 수리비 = 장비 가격 × 3% (내구도 0이면 10%) × repair_cost 보정 (수리공 −30%). 장비 가격은 buy_price,
- * 없으면 그 장비를 만드는 레시피의 골드 비용. 손에 든 장비를 꺼내 보관한 뒤 골드 차감(REPAIR)이 커밋되면 수리해서 돌려준다. World 선박 수리는 {@link
- * RepairService}로 선박 가격을 넘겨 같은 식으로 계산한다.
+ * Repair (docs 20 7.4): repair cost = gear price × 3% (10% at 0 durability) × repair_cost modifier
+ * (repairer −30%). Gear price is buy_price, or the gold cost of the recipe that makes the gear if
+ * absent. Takes the held gear and holds it; once the gold deduction (REPAIR) commits, repairs it
+ * and gives it back. World ship repair passes the ship price through {@link RepairService} and is
+ * computed the same way.
  */
 public final class RepairManager implements RepairService {
 
@@ -158,7 +160,7 @@ public final class RepairManager implements RepairService {
                                         custody.setData(DataComponentTypes.DAMAGE, 0);
                                     }
                                     if (!player.isOnline()) {
-                                        // 커밋 사이에 나갔으면 우편함으로
+                                        // If they left between commits, send to the mailbox
                                         api.mail()
                                                 .ifPresent(
                                                         m -> {

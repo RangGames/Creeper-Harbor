@@ -5,10 +5,13 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.FishId;
 
-/** 개인·서버 신기록 (Season 명예의 전당 잠정 기록). previous는 이전 기록 크기 (없으면 0). */
+/**
+ * Personal or server new record (Season hall of fame provisional record). previous is the previous
+ * record size (0 if none).
+ */
 public final class RecordBrokenEvent extends Event {
 
-    /** 기록 범위. */
+    /** Record scope. */
     public enum Scope {
         PERSONAL,
         SERVER

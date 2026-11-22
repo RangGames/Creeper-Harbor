@@ -28,9 +28,12 @@ import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.Menu;
 
 /**
- * 항구 수족관 진행 화면 (/수족관, 추가 제안). 윗줄은 지금 단계·기부율 막대·다음 단계까지 남은 어종 수와 단계별 문턱·버프, 기부함 바로 가기, 어종 필터(남은 어종 ·
- * 기부한 어종 · 전체). 가운데 4줄은 기부 가능 어종이고, 인벤토리에 있는 어종은 앞에 반짝이며 누르면 기부 확인 화면이 뜬다 (손에 든 기부와 같은 {@link
- * AquariumManager#donateSlot} → donateItems 트랜잭션). 기부되지 않았고 내 도감에도 없는 어종은 실루엣으로 가린다.
+ * Harbor aquarium progress screen (/수족관, proposed). The top row has the current stage, donation
+ * rate bar, species remaining until the next stage, per-stage thresholds and buffs, a donation box
+ * shortcut, and species filters (remaining · donated · all). The middle 4 rows are donatable
+ * species; species in the inventory come first and glint, and clicking opens the donation
+ * confirmation screen (the same {@link AquariumManager#donateSlot} → donateItems transaction as
+ * donating from hand). Species not yet donated and not in your codex are hidden as silhouettes.
  */
 final class AquariumMenu {
 
@@ -302,7 +305,7 @@ final class AquariumMenu {
         return MenuItems.fish(api, fish, known, name, lore, row.inInventory());
     }
 
-    /** 인벤토리(0~35칸)에서 어종 → 그 어종이 든 첫 칸. */
+    /** Inventory (slots 0~35): species → first slot holding it. */
     private Map<FishId, Integer> inventory(Player player) {
         Map<FishId, Integer> out = new HashMap<>();
         ItemStack[] contents = player.getInventory().getStorageContents();

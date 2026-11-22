@@ -3,7 +3,10 @@ package wiki.creeper.harbor.economy.service;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.ItemLore;
 import io.papermc.paper.datacomponent.item.TooltipDisplay;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -13,7 +16,10 @@ import org.bukkit.inventory.ItemStack;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.gui.Menu;
 
-/** 우편함 화면 (/우편함). 위 5줄에 우편 45개씩, 아랫줄 이전 · 모두 받기 · 다음. 우편을 누르면 그것만 받는다. 메인 스레드 전용. */
+/**
+ * Mailbox screen (/우편함). 45 mails per page in the top 5 rows; bottom row previous · claim all ·
+ * next. Clicking a mail claims just that one. Main thread only.
+ */
 final class MailMenu {
 
     private static final int PER_PAGE = 45;
@@ -46,7 +52,7 @@ final class MailMenu {
             MailManager.Mail m = mails.get(start + i);
             menu.button(
                     i,
-                    mail.icon(m),
+                    icon(m),
                     e -> {
                         var _ = mail.claim(player, m, true, true);
                     });
@@ -81,6 +87,57 @@ final class MailMenu {
                     e -> show(player, mails, shown + 1));
         }
         menu.open(player);
+    }
+
+    /** Screen icon of one mail. */
+    private ItemStack icon(MailManager.Mail mail) {
+        HarborApi api = this.mail.api();
+        ItemStack item = mail.item();
+        ItemStack icon;
+        if (item != null) {
+            icon = item.clone();
+        } else {
+            icon = ItemStack.of(Material.GOLD_NUGGET);
+            icon.setData(
+                    DataComponentTypes.ITEM_NAME,
+                    api.messages()
+                            .get(
+                                    "economy.mail.gold",
+                                    Placeholder.unparsed("gold", String.valueOf(mail.gold()))));
+        }
+        List<Component> lore =
+                new ArrayList<>(
+                        Optional.ofNullable(icon.getData(DataComponentTypes.LORE))
+                                .map(ItemLore::lines)
+                                .orElse(List.of()));
+        String sourceKey = "economy.mail.source." + mail.source();
+        lore.add(
+                api.messages()
+                        .get(
+                                api.messages().has(sourceKey) ? sourceKey : "economy.mail.from",
+                                Placeholder.unparsed("source", mail.source())));
+        if (mail.held()) {
+            Instant until = mail.holdUntil();
+            lore.add(
+                    until == null
+                            ? api.messages().get("economy.mail.held_manual")
+                            : api.messages()
+                                    .get(
+                                            "economy.mail.held_until",
+                                            Placeholder.unparsed(
+                                                    "time", AuctionHouse.formatTime(api, until))));
+        }
+        icon.setData(
+                DataComponentTypes.LORE,
+                ItemLore.lore(
+                        lore.stream()
+                                .map(
+                                        c ->
+                                                c.decorationIfAbsent(
+                                                        TextDecoration.ITALIC,
+                                                        TextDecoration.State.FALSE))
+                                .toList()));
+        return icon;
     }
 
     private static ItemStack named(Material material, Component name, List<Component> lore) {

@@ -4,11 +4,11 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 경매 등록 한 건 (조회용).
+ * A single auction listing (for queries).
  *
- * @param itemId 어종 ID 또는 아이템 ID ({@code harbor:fish/…}, {@code harbor:item/…})
+ * @param itemId fish species ID or item ID ({@code harbor:fish/…}, {@code harbor:item/…})
  * @param category fish · gear · bait · material · food · other
- * @param price 묶음 전체 가격
+ * @param price price for the whole stack
  */
 public record AuctionListingInfo(
         long id,

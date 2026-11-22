@@ -6,7 +6,7 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.ItemId;
 
-/** 제작이 커밋되고 결과를 지급한 뒤 (메인 스레드). */
+/** After a craft is committed and the result is given (main thread). */
 public final class ItemCraftedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

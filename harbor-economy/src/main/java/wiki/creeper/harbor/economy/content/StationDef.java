@@ -9,11 +9,13 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 제작 스테이션·경매 게시판 위치 (stations.yml, 추가 제안: docs 20 7.3 shops.yml의 stations 칸을 따로 둔 파일). 좌표에
- * Interaction 엔티티를 두고, 클릭하면 그 장소의 레시피(또는 경매장)를 연다. world는 regions.yml과 같은 월드 ID (개발 서버는 balance.yml
- * world_alias로 대응).
+ * Crafting station and auction board locations (stations.yml, proposed: the stations field of docs
+ * 20 7.3 shops.yml split into its own file). An Interaction entity is placed at the coordinates;
+ * clicking it opens that place's recipes (or the auction house). world is the same world ID as in
+ * regions.yml (dev servers map it via balance.yml world_alias).
  *
- * @param kind 장소 종류. auction은 경매 등록·취소 가능 반경의 기준점 (docs 20 7.5)
+ * @param kind place kind. auction is the reference point for the listing/cancel radius (docs 20
+ *     7.5)
  */
 public record StationDef(
         HarborId id,
@@ -26,7 +28,7 @@ public record StationDef(
         float width,
         float height) {
 
-    /** 장소 종류. 앞의 세 개는 {@link RecipeDef.Station}과 같은 이름이다. */
+    /** Place kind. The first three share names with {@link RecipeDef.Station}. */
     public enum Kind implements Keyed {
         WORKSHOP,
         COOKING,
@@ -38,7 +40,7 @@ public record StationDef(
             return Keyed.keyOf(this);
         }
 
-        /** 레시피를 보여주는 장소면 그 제작 장소. */
+        /** The crafting place, if this place shows recipes. */
         public java.util.Optional<RecipeDef.Station> craftStation() {
             return switch (this) {
                 case WORKSHOP -> java.util.Optional.of(RecipeDef.Station.WORKSHOP);

@@ -21,8 +21,9 @@ import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.Menu;
 
 /**
- * 도감 보상 트랙 (추가 제안, /도감 → 별). 1줄 누적 도감 칭호(total_milestones), 2줄 시즌 도감 버프(season_buffs), 3줄 지역 완성(시즌
- * 도감, 칭호 + 물비늘). 받은 단계는 반짝인다. 지급은 지금처럼 자동이고 이 화면은 보여주기만 한다.
+ * Codex reward track (proposed, /도감 → star). Row 1 cumulative codex titles (total_milestones), row
+ * 2 season codex buffs (season_buffs), row 3 region completion (season codex, title + water
+ * scales). Received stages glint. Granting is still automatic; this screen only displays.
  */
 final class MilestoneMenu {
 
@@ -45,7 +46,7 @@ final class MilestoneMenu {
         List<MilestoneTrack.Step> steps = MilestoneTrack.steps(rules, total, season);
         int width = MenuItems.barWidth(api);
         Menu menu = new Menu(msg().get("collection.track.title"), 4);
-        // 1줄: 누적 칭호
+        // Row 1: cumulative titles
         menu.button(
                 0,
                 MenuItems.icon(
@@ -58,7 +59,7 @@ final class MilestoneMenu {
                                 next(steps, MilestoneTrack.Kind.TOTAL_TITLE)),
                         false),
                 null);
-        // 2줄: 시즌 버프
+        // Row 2: season buffs
         menu.button(
                 9,
                 MenuItems.icon(
@@ -86,7 +87,7 @@ final class MilestoneMenu {
         for (int i = seasonSlot; i < 18; i++) {
             menu.button(i, MenuItems.filler(), null);
         }
-        // 3줄: 지역 완성
+        // Row 3: region completion
         menu.button(
                 18,
                 MenuItems.icon(
@@ -195,7 +196,9 @@ final class MilestoneMenu {
                 step.reached());
     }
 
-    /** 스탯 이름은 collection.stat.<키> (없으면 키 그대로), 값은 비율이면 %로. */
+    /**
+     * Stat name is collection.stat.<key> (the key itself if missing); ratio values are shown as %.
+     */
     Component stat(StatBonus bonus) {
         String key = bonus.stat().key();
         Component name =

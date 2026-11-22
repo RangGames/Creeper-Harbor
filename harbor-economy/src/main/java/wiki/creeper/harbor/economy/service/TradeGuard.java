@@ -11,13 +11,17 @@ import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 
 /**
- * 처리 중 거래 표시 (docs 20 7.3 EconomyState '처리 중 거래 표시', 7.4 경계 상황). 플레이어마다 한 번에 하나의 거래(판매·구매·경매
- * 등록·낙찰·제작·우편 수령)만 허용하고, 진행 중이면 서버 이동을 그 거래가 끝날 때까지 미룬다 (Core HandoffBlocker Delay). 제한 시간 안에 끝나지
- * 않으면 Core가 이동을 취소한다. 거래가 끝나면 인벤토리를 곧 저장한다 (PlayerService.saveSoon).
+ * In-trade marker (docs 20 7.3 EconomyState "in-trade marker", 7.4 edge cases). Allows only one
+ * trade per player at a time (sell, buy, auction listing, auction purchase, craft, mail claim) and,
+ * while one is in progress, defers server moves until it finishes (Core HandoffBlocker Delay). If
+ * it does not finish within the time limit, Core cancels the move. When the trade ends, the
+ * inventory is saved soon (PlayerService.saveSoon).
  */
 public final class TradeGuard implements HandoffBlocker {
 
-    /** 진행 중인 거래 하나. {@link #done()}을 반드시 부른다 (여러 번 불러도 된다). */
+    /**
+     * One in-progress trade. {@link #done()} must be called (calling it more than once is fine).
+     */
     public static final class Ticket {
 
         private final TradeGuard guard;
@@ -31,15 +35,18 @@ public final class TradeGuard implements HandoffBlocker {
 
         public void done() {
             if (guard.inFlight.remove(player, this)) {
-                // 거래 결과(재화·경매·우편 행)는 이미 커밋됐다: 인벤토리도 곧 저장해 서버가 죽어도 어긋나지 않게 한다
+                // The trade result (currency, auction, mail rows) is already committed: save the
+                // inventory soon too so it stays consistent even if the server dies
                 guard.afterTrade.accept(player);
             }
             future.complete(null);
         }
 
         /**
-         * future가 끝나면 (성공·실패 모두) 표시를 지운다. 돌려주는 future는 표시를 지운 뒤에 끝난다: 원래 future를 돌려주면 호출한 쪽 후속 단계가
-         * 먼저 돌 수 있어서 (나중에 붙인 후속이 먼저 실행된다) 이어지는 거래가 "처리 중"으로 거부됐다 (모두 받기가 한 통만 받음).
+         * Clears the marker when the future finishes (success or failure). The returned future
+         * completes after the marker is cleared: returning the original future could let the
+         * caller's follow-up stages run first (later-attached stages run first), so the next trade
+         * was rejected as "in progress" (claim all only claimed one mail).
          */
         public <T> CompletableFuture<T> track(CompletableFuture<T> work) {
             return work.whenComplete((r, e) -> done());
@@ -51,17 +58,20 @@ public final class TradeGuard implements HandoffBlocker {
     private final Predicate<UUID> frozen;
 
     /**
-     * @param afterTrade 거래가 끝날 때 (성공·실패 모두, 아무 스레드). 보통 {@code PlayerService::saveSoon}
-     * @param frozen 서버 이동 저장본을 뜬 플레이어인지 (메인 스레드). 보통 {@code PlayerService::frozen}
+     * @param afterTrade called when a trade ends (success or failure, any thread). Usually {@code
+     *     PlayerService::saveSoon}
+     * @param frozen whether the player's server-move snapshot was taken (main thread). Usually
+     *     {@code PlayerService::frozen}
      */
     public TradeGuard(Consumer<UUID> afterTrade, Predicate<UUID> frozen) {
         this.afterTrade = afterTrade;
         this.frozen = frozen;
     }
 
-    /** 거래를 시작한다. 이미 진행 중인 거래가 있으면 빈 값. */
+    /** Starts a trade. Empty if a trade is already in progress. */
     public Optional<Ticket> begin(UUID player) {
-        // 서버 이동 저장본을 뜬 뒤 시작한 거래는 저장본 밖에서 아이템을 옮겨 복제된다
+        // A trade started after the server-move snapshot moves items outside the snapshot and
+        // duplicates them
         if (frozen.test(player)) {
             return Optional.empty();
         }
