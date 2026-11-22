@@ -24,12 +24,14 @@ import wiki.creeper.harbor.quest.logic.QuestMachine;
 import wiki.creeper.harbor.quest.logic.TrackerLine;
 
 /**
- * 추적 보스바 (추가 제안): 추적 중인 퀘스트의 이름·현재 목표·진행률을 화면 위에 늘 띄운다. 보고할 수 있으면 보고 NPC를 보여 준다. 끄고 켜기는 플레이어 플래그
- * {@value #OFF_FLAG} (/퀘스트 표시), 서버 전체는 balance.yml quest.tracker.bossbar. 컷씬 중에는 숨긴다. 메인 스레드 전용.
+ * Tracker boss bar (proposed): always shows the tracked quest's name, current objective and
+ * progress at the top of the screen. When it can be turned in, shows the turn-in NPC. Toggled by
+ * the player flag {@value #OFF_FLAG} (/퀘스트 표시), server-wide by balance.yml quest.tracker.bossbar.
+ * Hidden during cutscenes. Main thread only.
  */
 public final class TrackerBar {
 
-    /** 이 플래그가 있으면 그 플레이어에게 보스바를 띄우지 않는다. */
+    /** If this flag is set, the boss bar is not shown to that player. */
     public static final String OFF_FLAG = "settings/quest_bossbar_off";
 
     private record Shown(BossBar bar, Component name, float progress, BossBar.Color color) {}
@@ -41,7 +43,10 @@ public final class TrackerBar {
         this.engine = engine;
     }
 
-    /** 20틱마다 (진행·추적 변경도 다음 갱신에 반영된다). 바뀐 경우에만 보스바를 고친다. */
+    /**
+     * Every 20 ticks (progress and tracking changes are reflected in the next update). The boss bar
+     * is changed only when something changed.
+     */
     void refresh() {
         boolean enabled = engine.balance().bool("quest.tracker.bossbar", true);
         for (HarborPlayer hp : engine.api.players().online()) {
@@ -64,7 +69,10 @@ public final class TrackerBar {
                 || engine.deps.cutscenes().isPlaying(player);
     }
 
-    /** /퀘스트 표시: 켜져 있으면 끄고, 꺼져 있으면 켠다. 결과(켜짐 여부)는 메인 스레드. */
+    /**
+     * /퀘스트 표시: turns it off if on, on if off. The result (whether it is on) completes on the main
+     * thread.
+     */
     public CompletableFuture<Boolean> toggle(Player player) {
         UUID uuid = player.getUniqueId();
         boolean off = engine.api.flags().hasPlayer(uuid, OFF_FLAG);
@@ -176,7 +184,7 @@ public final class TrackerBar {
         }
     }
 
-    /** 플러그인 종료: 모두 숨긴다. */
+    /** Plugin shutdown: hides all. */
     void clear() {
         for (UUID uuid : List.copyOf(shown.keySet())) {
             forget(uuid);

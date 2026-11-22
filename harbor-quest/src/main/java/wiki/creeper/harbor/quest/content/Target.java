@@ -10,11 +10,12 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.util.SourcePos;
 
 /**
- * 목표 대상 표기 (docs 20 6.4 역색인): 어종·아이템·NPC·보스·컷씬 ID, {@code grade:rare+}(등급 이상), {@code grade:rare}(그
- * 등급만), {@code region:<지역 ID>}, {@code point:<x>,<y>,<z>,<r>} (추가 제안, 앞에 월드를 붙일 수 있음), {@code any}.
- * flag 목표는 플래그 이름을 그대로 쓴다.
+ * Objective target notation (docs 20 6.4 inverted index): fish, item, NPC, boss or cutscene ID,
+ * {@code grade:rare+} (that grade or higher), {@code grade:rare} (that grade only), {@code
+ * region:<region ID>}, {@code point:<x>,<y>,<z>,<r>} (proposed, may be prefixed with a world),
+ * {@code any}. Flag objectives use the flag name as is.
  *
- * @param raw YAML에 쓴 그대로 (역색인 키, 관리 명령 표시)
+ * @param raw as written in the YAML (inverted index key, shown in admin commands)
  */
 public record Target(
         Kind kind,
@@ -26,19 +27,19 @@ public record Target(
 
     public enum Kind {
         ANY,
-        /** 콘텐츠 ID (fish/·item/·npc/·boss/·cutscene/·region/ …). */
+        /** Content ID (fish/, item/, npc/, boss/, cutscene/, region/ …). */
         ID,
         GRADE,
         REGION,
         POINT,
-        /** ID가 아닌 이름 (플래그 등). */
+        /** A name that is not an ID (flags etc.). */
         NAME
     }
 
     /**
-     * 지점 목표.
+     * Point objective.
      *
-     * @param world 콘텐츠 월드 ID (비우면 어느 월드든)
+     * @param world content world ID (empty means any world)
      */
     public record Point(@Nullable String world, double x, double y, double z, double radius) {
 
@@ -67,16 +68,17 @@ public record Target(
         return new Target(Kind.NAME, name, null, null, false, null);
     }
 
-    /** 이 ID의 범주(경로 첫 마디)인지. */
+    /** Whether this is the category of this ID (first path segment). */
     public boolean isId(String category) {
         HarborId value = id;
         return kind == Kind.ID && value != null && value.category().equals(category);
     }
 
     /**
-     * 대상 표기를 읽는다. 형식 오류는 errors로 알리고 ANY를 돌려준다.
+     * Reads a target notation. Format errors are reported through errors and ANY is returned.
      *
-     * @param ctx 참조 검사 등록 (ID 범주 → 형식 이름: fish·item·npc·boss·cutscene·region)
+     * @param ctx reference check registration (ID category → type name: fish, item, npc, boss,
+     *     cutscene, region)
      */
     public static Target parse(
             String raw,
@@ -162,7 +164,7 @@ public record Target(
                                 Double.parseDouble(parts[4].strip())));
             }
         } catch (NumberFormatException e) {
-            // 아래에서 오류로 알린다
+            // reported as an error below
         }
         error.accept(
                 "지점 형식이 틀렸습니다 (point:<x>,<y>,<z>,<r> 또는 point:<월드>,<x>,<y>,<z>,<r>): " + value);

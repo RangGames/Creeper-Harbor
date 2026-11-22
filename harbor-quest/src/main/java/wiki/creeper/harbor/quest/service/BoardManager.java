@@ -39,9 +39,10 @@ import wiki.creeper.harbor.quest.logic.Cycles;
 import wiki.creeper.harbor.quest.logic.Requirements;
 
 /**
- * 어부 길드 게시판 (docs 20 6.4): 일일·주간 의뢰와 수족관 관장 수집 의뢰. 초기화 뒤 처음 열 때 후보를 뽑아 quest_board에 저장하고(시드
- * hash(uuid, cycle)), 다음 초기화까지 못 끝낸 의뢰는 만료한다 (행 삭제, 벌칙 없음). 게시판은 NPC가 아니라 Quest가 소유한 Interaction +
- * Text Display다.
+ * Fishermen's guild board (docs 20 6.4): daily and weekly requests plus the aquarium curator's
+ * collection requests. On the first open after a reset, candidates are drawn and saved to
+ * quest_board (seed hash(uuid, cycle)); requests not finished by the next reset expire (row
+ * deleted, no penalty). The board is not an NPC but an Interaction + Text Display owned by Quest.
  */
 public final class BoardManager implements Listener {
 
@@ -57,7 +58,7 @@ public final class BoardManager implements Listener {
         this.tag = new NamespacedKey(engine.plugin, "quest_board");
     }
 
-    /** 지금 cycle (일일 = 게임 날짜, 주간·수집 = 시즌 주차). */
+    /** Current cycle (daily = game date, weekly and collect = season week). */
     public String cycle(QuestType kind) {
         return kind == QuestType.DAILY
                 ? Cycles.daily(engine.api.time().gameDay())
@@ -68,12 +69,15 @@ public final class BoardManager implements Listener {
         return hp.get(QuestEngine.COMPONENT).board(kind).filter(b -> b.cycle().equals(cycle(kind)));
     }
 
-    /** 이번 cycle 게시판에 올라온 의뢰인지. */
+    /** Whether this request is on this cycle's board. */
     boolean offered(HarborPlayer hp, QuestDef def) {
         return current(hp, def.type()).map(b -> b.offers().contains(def.id())).orElse(false);
     }
 
-    /** 더 수락할 수 있는지 (일일은 3개 중 1개만, 이미 고른 의뢰는 포기 후 다시 받을 수 있다). */
+    /**
+     * Whether more can be accepted (daily allows only 1 of 3; an already chosen request can be
+     * taken again after abandoning).
+     */
     boolean canChoose(HarborPlayer hp, QuestDef def) {
         Optional<BoardState> board = current(hp, def.type());
         if (board.isEmpty() || !board.get().offers().contains(def.id())) {
@@ -85,7 +89,7 @@ public final class BoardManager implements Listener {
         return board.get().chosen().size() < engine.boardRules().slot(def.type()).pick();
     }
 
-    /** 수락 트랜잭션에 같이 쓸 게시판 갱신. */
+    /** Board update written together in the accept transaction. */
     @Nullable SqlConsumer chooseWrite(HarborPlayer hp, QuestDef def) {
         Optional<BoardState> board = current(hp, def.type());
         if (board.isEmpty()) {
@@ -103,7 +107,7 @@ public final class BoardManager implements Listener {
                 .orElse(data);
     }
 
-    /** 이번 cycle 게시판 (없으면 뽑아서 저장). 결과는 메인 스레드. */
+    /** This cycle's board (drawn and saved if absent). Result on the main thread. */
     public CompletableFuture<BoardState> ensure(Player player, QuestType kind, boolean reroll) {
         HarborPlayer hp = engine.api.players().get(player);
         Optional<BoardState> existing = current(hp, kind);
@@ -141,7 +145,10 @@ public final class BoardManager implements Listener {
                         });
     }
 
-    /** 후보: 해금한 가장 높은 지역까지, 목표 품질은 지금 상한 이하, 시작 조건 충족. */
+    /**
+     * Candidates: up to the highest unlocked region, objective quality at or below the current cap,
+     * start requirements met.
+     */
     List<BoardRoller.Candidate> candidates(HarborPlayer hp, QuestType kind) {
         BoardRules rules = engine.boardRules();
         int highest = engine.highestRegion(hp.uuid()).map(rules::rank).orElse(0);
@@ -172,7 +179,10 @@ public final class BoardManager implements Listener {
         return result;
     }
 
-    /** 초기화(DailyResetEvent·WeeklyResetEvent) 뒤: 지난 cycle의 진행 중인 의뢰를 만료한다 (행 삭제, 벌칙 없음). */
+    /**
+     * After a reset (DailyResetEvent, WeeklyResetEvent): expires in-progress requests of past
+     * cycles (row deleted, no penalty).
+     */
     void expire(Player player, Set<QuestType> kinds) {
         HarborPlayer hp = engine.api.players().get(player);
         UUID uuid = hp.uuid();
@@ -219,10 +229,11 @@ public final class BoardManager implements Listener {
         return KINDS;
     }
 
-    // ------------------------------------------------------------------ 게시판 엔티티
+    // ------------------------------------------------------------------ Board entities
 
     /**
-     * board.yml location에 Interaction + Text Display를 세운다 (저장하지 않는 엔티티, 청크 언로드 뒤 주기 확인으로 다시 세움).
+     * Places an Interaction + Text Display at board.yml location (non-persistent entities, placed
+     * again by a periodic check after chunk unload).
      */
     void ensureEntity() {
         BoardRules.Location loc = engine.boardRules().location();
@@ -263,7 +274,7 @@ public final class BoardManager implements Listener {
         spawned.add(label);
     }
 
-    /** 비정상 종료로 남은 게시판 엔티티 정리 (PDC 태그). */
+    /** Cleans up board entities left by an abnormal shutdown (PDC tag). */
     void cleanup() {
         spawned.forEach(Entity::remove);
         spawned.clear();
@@ -295,7 +306,7 @@ public final class BoardManager implements Listener {
 
     private java.util.function.@Nullable Consumer<Player> openBoard;
 
-    /** 게시판을 눌렀을 때 열 화면 (QuestDialogs가 등록). */
+    /** Screen opened when the board is clicked (registered by QuestDialogs). */
     void setOpener(java.util.function.Consumer<Player> open) {
         this.openBoard = open;
     }
@@ -315,7 +326,7 @@ public final class BoardManager implements Listener {
         }
     }
 
-    /** 수락할 수 있는 게시판 의뢰 수 (표시용). */
+    /** Number of board requests that can be accepted (for display). */
     int remainingPicks(HarborPlayer hp, QuestType kind) {
         return current(hp, kind)
                 .map(b -> Math.max(0, engine.boardRules().slot(kind).pick() - b.chosen().size()))

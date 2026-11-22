@@ -17,12 +17,14 @@ import wiki.creeper.harbor.quest.editor.QuestDraft;
 import wiki.creeper.harbor.quest.service.QuestServices;
 
 /**
- * 편집기의 목표 화면. 유형마다 대상 고르는 방법이 다르다: 낚기·기부(어종·등급·아무거나·지역), 납품(어종·아이템·등급), 대화·호감도(NPC), 방문(지금 위치 + 반경
- * / 지역), 컷씬·아이템 사용(목록), 나머지는 글 입력. 목표 key는 저장된 진행을 이어 붙이는 기준이라 기존 목표에서는 바꾸지 않는다.
+ * The editor's objective screen. Each type picks its target differently: catch and donate (fish,
+ * grade, any, region), deliver (fish, item, grade), talk and affinity (NPC), visit (current
+ * location + radius / region), cutscene and use item (list), everything else by text input. The
+ * objective key is what saved progress attaches to, so it is never changed on existing objectives.
  */
 final class ObjectiveEditor {
 
-    /** 편집기에서 고를 수 있는 유형 (다른 모듈 유형은 YAML로). */
+    /** Types selectable in the editor (other modules' types via YAML). */
     static final List<String> TYPES =
             List.of(
                     "catch",
@@ -41,7 +43,7 @@ final class ObjectiveEditor {
                     "flag",
                     "chart_percent");
 
-    /** 대상 없이 count만 쓰는 유형. */
+    /** Types that use only count, without a target. */
     private static final List<String> NO_TARGET = List.of("job_level", "job_tier", "reputation");
 
     private final HarborApi api;
@@ -66,7 +68,7 @@ final class ObjectiveEditor {
         return v == null ? fallback : String.valueOf(v);
     }
 
-    /** 편집 화면의 목표 아이콘. */
+    /** Objective icon on the edit screen. */
     ItemStack icon(Player admin, QuestDraft d, Map<String, Object> o, int index) {
         String type = str(o, "type", "?");
         return MenuIcons.icon(
@@ -92,10 +94,10 @@ final class ObjectiveEditor {
         return api.messages().get("quest.editor.type." + type);
     }
 
-    // ------------------------------------------------------------------ 유형 고르기
+    // ------------------------------------------------------------------ Type selection
 
     /**
-     * @param index -1이면 새 목표
+     * @param index -1 for a new objective
      */
     void chooseType(Player admin, QuestDraft d, int index) {
         Menu menu = new Menu(text("title.objective_type"), 2);
@@ -137,7 +139,7 @@ final class ObjectiveEditor {
         menu.open(admin);
     }
 
-    // ------------------------------------------------------------------ 목표 하나
+    // ------------------------------------------------------------------ Single objective
 
     void open(Player admin, QuestDraft d, int index) {
         if (index < 0 || index >= d.objectives().size()) {
@@ -313,9 +315,9 @@ final class ObjectiveEditor {
         menu.open(admin);
     }
 
-    // ------------------------------------------------------------------ 대상
+    // ------------------------------------------------------------------ Target
 
-    /** 유형별 대상 고르는 방법 (메시지 키 이름). */
+    /** How each type picks its target (message key name). */
     static String targetMode(String type) {
         return switch (type) {
             case "catch", "donate" -> "fish";
@@ -330,7 +332,7 @@ final class ObjectiveEditor {
     }
 
     /**
-     * @param alt 우클릭 (어종 목록 대신 등급, 방문은 지역 목록)
+     * @param alt right click (grades instead of the fish list; the region list for visit)
      */
     private void target(Player admin, QuestDraft d, int index, boolean alt) {
         Map<String, Object> o = d.objectives().get(index);
@@ -426,7 +428,8 @@ final class ObjectiveEditor {
     }
 
     /**
-     * 지금 위치: point:<월드>,x,y,z,반경 (point=true) 또는 "월드,x,y,z" (waypoint). 콘텐츠 월드 ID(world_alias)를 쓴다.
+     * Current location: point:<world>,x,y,z,radius (point=true) or "world,x,y,z" (waypoint). Uses
+     * the content world ID (world_alias).
      */
     private String here(Player admin, boolean point, int radius) {
         Location at = java.util.Objects.requireNonNull(admin.getLocation());

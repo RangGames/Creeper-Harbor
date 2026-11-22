@@ -4,7 +4,10 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 메인 스토리 장 클리어 (final 퀘스트 완료) 또는 연대기 회상(recap). 공지·연대기. 메인 스레드에서 발생한다. */
+/**
+ * A main story chapter was cleared (final quest completed) or a chronicle recap. Announcements and
+ * chronicle. Fired on the main thread.
+ */
 public final class ChapterCompletedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

@@ -11,7 +11,10 @@ import org.skriptlang.skript.registration.DefaultSyntaxInfos;
 import org.skriptlang.skript.registration.SyntaxInfo;
 import org.skriptlang.skript.registration.SyntaxRegistry;
 
-/** 람다 문법 등록 도우미 (Skript 2.17 등록 API). 등록한 문법 수를 센다. */
+/**
+ * Lambda syntax registration helper (Skript 2.17 registration API). Counts the registered syntax
+ * elements.
+ */
 public final class Registrar {
 
     private final SyntaxRegistry registry;
@@ -66,7 +69,7 @@ public final class Registrar {
     }
 
     /**
-     * @param patterns 긍정·부정 패턴을 번갈아 (짝수 번째 = 긍정)
+     * @param patterns positive and negative patterns alternating (even index = positive)
      */
     public void condition(Spec spec, Spec.Check check, String... patterns) {
         registry.register(
@@ -101,7 +104,7 @@ public final class Registrar {
         count++;
     }
 
-    /** event-값 (그 이벤트에서 이 형식으로 꺼내는 값). */
+    /** event-value (the value of this type extracted from that event). */
     public <E extends Event, V> void value(
             Class<E> event, Class<V> type, Function<E, @Nullable V> getter) {
         values.register(EventValue.simple(event, type, getter::apply));

@@ -6,13 +6,14 @@ import wiki.creeper.harbor.common.content.ParseContext;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 서버 진행도 · 클라이맥스 개방 조건 (progress.yml, 추가 제안, docs 20 6.4). 모두 제안값.
+ * Server progress and climax unlock conditions (progress.yml, proposed, docs 20 6.4). All proposed
+ * values.
  *
- * @param donationRate 수족관 기부율 기준 (0~1)
- * @param chapter 클리어 인원을 세는 장 (7장)
- * @param minClears 최소 클리어 인원
- * @param clearRatio 시즌 활동 유저 대비 클리어 비율
- * @param checkMinutes 판정 주기 (분)
+ * @param donationRate aquarium donation rate threshold (0~1)
+ * @param chapter chapter whose clear count is counted (ch. 7)
+ * @param minClears minimum clear count
+ * @param clearRatio clear ratio relative to season active players
+ * @param checkMinutes check interval (minutes)
  */
 public record ProgressRules(
         double donationRate,

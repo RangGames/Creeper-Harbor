@@ -5,9 +5,9 @@ import wiki.creeper.harbor.quest.api.QuestState;
 import wiki.creeper.harbor.quest.logic.Progress;
 
 /**
- * quest_progress 한 행의 메모리 값 (변경 불가).
+ * In-memory value of one quest_progress row (immutable).
  *
- * @param season 행의 시즌 (메인 퀘스트는 이월되어 지난 시즌 값일 수 있다)
+ * @param season the row's season (main quests are carried over, so it may be a past season)
  */
 public record QuestEntry(QuestId quest, int season, QuestState state, Progress progress) {
 

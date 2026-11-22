@@ -13,7 +13,10 @@ import wiki.creeper.harbor.skript.lambda.Args;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
-/** Harbor-Economy가 켜져 있을 때: 시세 계수(지금·다음 시간 예측), 경매 낙찰 이벤트. */
+/**
+ * When Harbor-Economy is enabled: market price factor (now and the next hour's forecast), auction
+ * sold event.
+ */
 public final class EconomySyntax {
 
     private EconomySyntax() {}

@@ -5,8 +5,9 @@ import java.util.Optional;
 import wiki.creeper.harbor.common.id.HarborId;
 
 /**
- * 스크립트가 적은 ID 글 → Harbor ID (서버 API 없음). {@code quest/main/x} · {@code harbor:quest/main/x} 둘 다 받고,
- * 앞의 종류를 빼먹으면 붙인다 ({@code main/x} + 접두사 quest/ → quest/main/x). 형식이 틀리면 빈 값.
+ * ID text written by a script → Harbor ID (no server API). Accepts both {@code quest/main/x} and
+ * {@code harbor:quest/main/x}, and adds the leading kind if omitted ({@code main/x} + prefix quest/
+ * → quest/main/x). Empty if the format is wrong.
  */
 public final class Ids {
 
@@ -24,7 +25,7 @@ public final class Ids {
         return HarborId.tryParse(path).filter(i -> i.hasPrefix(prefix));
     }
 
-    /** 플래그 이름 (소문자·숫자·밑줄, / 구분). */
+    /** Flag name (lowercase letters, digits, underscores, separated by /). */
     public static boolean flag(String raw) {
         return wiki.creeper.harbor.core.api.FlagService.NAME.matcher(raw).matches();
     }

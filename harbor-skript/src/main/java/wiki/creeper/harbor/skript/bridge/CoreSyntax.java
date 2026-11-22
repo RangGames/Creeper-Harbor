@@ -24,9 +24,11 @@ import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
 /**
- * Core 문법 (늘 등록): 레벨·직업·평판 값, 시즌 번호, 플레이어·서버 플래그, 타이틀·액션바, 아이템 우편.
+ * Core syntax (always registered): level, job and reputation values, season number, player and
+ * server flags, titles and action bars, item mail.
  *
- * <p>플래그 쓰기·우편은 Core가 비동기로 DB에 쓴다 (스크립트는 기다리지 않는다). 플래그 이름은 소문자·숫자·밑줄을 / 로 잇는다.
+ * <p>Flag writes and mail are written to the DB asynchronously by Core (scripts do not wait). Flag
+ * names join lowercase letters, digits and underscores with /.
  */
 public final class CoreSyntax {
 
@@ -41,7 +43,7 @@ public final class CoreSyntax {
     }
 
     public static void register(Registrar r) {
-        // ---------------------------------------------------------- 플레이어 값
+        // ---------------------------------------------------------- Player values
         r.number(
                 Spec.of("harbor level"),
                 (e, x) ->
@@ -81,7 +83,7 @@ public final class CoreSyntax {
                 (e, x) -> List.of(api().infra().season().value()),
                 "[the] harbor season [number]");
 
-        // ---------------------------------------------------------- 플래그
+        // ---------------------------------------------------------- Flags
         r.text(
                 Spec.of("harbor flag value"),
                 (e, x) -> {
@@ -161,7 +163,7 @@ public final class CoreSyntax {
                 },
                 "harbor (unset|clear) server flag %string%");
 
-        // ---------------------------------------------------------- 화면
+        // ---------------------------------------------------------- Screen
         r.effect(
                 Spec.of("show harbor title"),
                 (e, x) -> {
@@ -193,7 +195,7 @@ public final class CoreSyntax {
                 },
                 "show harbor action[ ]bar %string% to %players%");
 
-        // ---------------------------------------------------------- 우편
+        // ---------------------------------------------------------- Mail
         r.effect(
                 Spec.of("send harbor mail"),
                 (e, x) -> {

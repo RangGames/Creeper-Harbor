@@ -6,7 +6,7 @@ import wiki.creeper.harbor.jobs.api.event.JobAdvancedEvent;
 import wiki.creeper.harbor.jobs.api.event.JobLevelUpEvent;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 
-/** Harbor-Jobs가 켜져 있을 때: 레벨업·전직 이벤트. */
+/** When Harbor-Jobs is enabled: level up and job advancement events. */
 public final class JobsSyntax {
 
     private JobsSyntax() {}

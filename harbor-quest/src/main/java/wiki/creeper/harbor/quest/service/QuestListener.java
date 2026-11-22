@@ -47,7 +47,10 @@ import wiki.creeper.harbor.season.api.event.DailyResetEvent;
 import wiki.creeper.harbor.season.api.event.SeasonWeekChangedEvent;
 import wiki.creeper.harbor.season.api.event.WeeklyResetEvent;
 
-/** 다른 모듈 이벤트 → 목표 진행·조건 재평가 (docs 20 6.2 구독 표). 모두 메인 스레드. */
+/**
+ * Other modules' events → objective progress and requirement re-evaluation (docs 20 6.2
+ * subscription table). All on the main thread.
+ */
 public final class QuestListener implements Listener {
 
     private final QuestServices services;
@@ -59,7 +62,7 @@ public final class QuestListener implements Listener {
         this.engine = services.engine();
     }
 
-    // ------------------------------------------------------------------ 접속
+    // ------------------------------------------------------------------ Join
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
@@ -86,7 +89,8 @@ public final class QuestListener implements Listener {
                                                     .withTracked(e.getKey().id())));
         }
         engine.refreshGauges(player, null);
-        // 컷씬 중 퇴장으로 못 본 컷씬 목표는 다시 재생 (docs 20 6.4 예외 상황)
+        // cutscene objectives missed by quitting during the cutscene are played again (docs 20 6.4
+        // edge cases)
         engine.open(hp).forEach(e -> engine.startCutsceneObjective(player, e.getKey()));
         engine.open(hp).forEach(e -> engine.checkReady(player, e.getKey()));
     }
@@ -97,7 +101,7 @@ public final class QuestListener implements Listener {
         lastUse.remove(event.getPlayer().getUniqueId());
     }
 
-    // ------------------------------------------------------------------ 목표
+    // ------------------------------------------------------------------ Objectives
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onCatch(FishCaughtEvent event) {
@@ -165,7 +169,10 @@ public final class QuestListener implements Listener {
         }
     }
 
-    /** talk 목표(노드 없음)와 완료 보고 우선 처리 (docs 20 5.2 NpcInteractEvent). */
+    /**
+     * Handles talk objectives (no node) and completion turn-ins first (docs 20 5.2
+     * NpcInteractEvent).
+     */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onNpc(NpcInteractEvent event) {
         Player player = event.player();
@@ -245,7 +252,7 @@ public final class QuestListener implements Listener {
                         });
     }
 
-    // ------------------------------------------------------------------ 조건 재평가
+    // ------------------------------------------------------------------ Requirement re-evaluation
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onLevel(JobLevelUpEvent event) {
@@ -294,7 +301,7 @@ public final class QuestListener implements Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 시즌 시계
+    // ------------------------------------------------------------------ Season clock
 
     @EventHandler
     public void onDaily(DailyResetEvent event) {
@@ -310,7 +317,10 @@ public final class QuestListener implements Listener {
                         p -> services.expireBoards(p, Set.of(QuestType.WEEKLY, QuestType.COLLECT)));
     }
 
-    /** 주차 변경: 진행 중 퀘스트는 그대로, LOCKED 캐시만 다시 계산하고 새로 열린 퀘스트를 알린다. */
+    /**
+     * Week change: quests in progress stay as they are; only the LOCKED cache is recomputed and
+     * newly opened quests are announced.
+     */
     @EventHandler
     public void onWeek(SeasonWeekChangedEvent event) {
         engine.invalidateAll();

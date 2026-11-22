@@ -12,12 +12,12 @@ import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 시작 조건 ('11. 데이터 설계' 2.6 + 추가 제안 affinity·reputation).
+ * Start requirements ('11. Data Design' 2.6 + proposed affinity and reputation).
  *
- * @param quests 모두 완료해야 하는 선행 퀘스트
- * @param jobTier 필요한 직업 단계 (1~3)
- * @param week 시즌 주차 잠금 (Season SeasonClock, 0이면 없음)
- * @param reputation 필요한 평판 등급 (0이면 없음)
+ * @param quests prerequisite quests that must all be completed
+ * @param jobTier required job tier (1~3)
+ * @param week season week lock (Season SeasonClock, 0 means none)
+ * @param reputation required reputation rank (0 means none)
  */
 public record Requires(
         List<QuestId> quests,
@@ -30,7 +30,10 @@ public record Requires(
 
     public static final Requires NONE = new Requires(List.of(), 0, 1, List.of(), 0, null, 0);
 
-    /** 플래그 조건. YAML: {@code flag}, {@code !flag}(꺼져 있어야 함), {@code server:flag}(서버 플래그). */
+    /**
+     * Flag condition. YAML: {@code flag}, {@code !flag} (must be off), {@code server:flag} (server
+     * flag).
+     */
     public record FlagCond(String flag, boolean server, boolean negate) {}
 
     public record AffinityReq(NpcId npc, int level) {}

@@ -8,17 +8,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.core.api.HarborApi;
-import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.Menu;
 import wiki.creeper.harbor.npc.api.NpcInfo;
@@ -29,21 +26,23 @@ import wiki.creeper.harbor.quest.editor.QuestDraft;
 import wiki.creeper.harbor.quest.service.QuestServices;
 
 /**
- * 게임 안 퀘스트 편집기 (/harbor quest editor, 추가 제안). YAML을 몰라도 상자 GUI로 퀘스트를 만들고 고친다. 저장하면
- * plugins/Harbor/content/quests/&lt;파일&gt;.yml의 그 항목만 바꿔 쓰고 quest 형식을 리로드한다. 콘텐츠 검사에 걸리면 파일을 되돌리고
- * 오류를 보여준다 (기존 퀘스트는 그대로 돌아간다).
+ * In-game quest editor (/harbor quest editor, proposed). Creates and edits quests through a chest
+ * GUI without knowing YAML. Saving rewrites only that entry in
+ * plugins/Harbor/content/quests/&lt;file&gt;.yml and reloads the quest type. If the content check
+ * fails, the file is restored and the errors are shown (existing quests keep running).
  *
  * <ul>
- *   <li>목록: 모든 퀘스트 + 새 퀘스트(유형 → ID → 이름) + 이어서 편집
- *   <li>편집: 이름·설명(입력 화면), 시작·보고 NPC(목록 / 가장 가까운 NPC), 요구 조건, 수락 제안 방식, 목표(추가·편집·순서), 보상(클릭으로 증감, 손에
- *       든 Harbor 아이템 추가), 미리보기·저장·되돌리기·삭제
+ *   <li>List: all quests + new quest (type → ID → name) + resume editing
+ *   <li>Edit: name and description (input screen), start and turn-in NPC (list / nearest NPC),
+ *       requirements, accept offer style, objectives (add, edit, order), rewards (adjust by
+ *       clicking, add the Harbor item held in hand), preview, save, revert, delete
  * </ul>
  *
- * 편집 중인 초안은 관리자별로 메모리에 남아 창을 닫아도 이어서 고칠 수 있다 (서버를 끄면 사라진다). 모든 저장·삭제는 admin_log에 남는다.
+ * The draft being edited stays in memory per admin, so editing can resume after closing the window
+ * (lost when the server stops). Every save and delete is recorded in admin_log.
  */
 final class QuestEditor {
 
-    private static final Pattern NAME = Pattern.compile("[a-z0-9_]{1,40}");
     private static final List<String> OFFER_STYLES =
             List.of("", "dialog", "hologram", "title", "chat", "actionbar");
 
@@ -52,6 +51,9 @@ final class QuestEditor {
     private final EditorStore store;
     private final EditorPickers pickers;
     private final ObjectiveEditor objectives;
+    private final RequirementsEditor requirements;
+    private final EditorRewards rewards;
+    private final NewQuestFlow newQuest;
     private final AdminLog adminLog;
     private final Map<UUID, QuestDraft> drafts = new HashMap<>();
 
@@ -62,6 +64,9 @@ final class QuestEditor {
         this.pickers = new EditorPickers(api);
         this.adminLog = adminLog;
         this.objectives = new ObjectiveEditor(api, q, pickers, this);
+        this.requirements = new RequirementsEditor(api, pickers, this);
+        this.rewards = new EditorRewards(api, this);
+        this.newQuest = new NewQuestFlow(api, store, this);
     }
 
     MessageService msg() {
@@ -72,18 +77,18 @@ final class QuestEditor {
         return msg().get("quest.editor." + key, resolvers);
     }
 
-    // ------------------------------------------------------------------ 목록
+    // ------------------------------------------------------------------ List
 
     void open(Player admin) {
         list(admin, 0);
     }
 
-    /** /harbor quest editor <퀘스트>: 바로 편집. */
+    /** /harbor quest editor <quest>: edit directly. */
     void open(Player admin, String questId) {
         load(admin, questId);
     }
 
-    private void list(Player admin, int page) {
+    void list(Player admin, int page) {
         List<QuestDef> all =
                 q.engine().defs().stream()
                         .sorted(Comparator.comparing(d -> d.id().id().toString()))
@@ -115,7 +120,7 @@ final class QuestEditor {
                 45,
                 MenuIcons.icon(
                         Material.LIME_DYE, text("list.new"), List.of(text("list.new_hint")), true),
-                e -> chooseType(admin));
+                e -> newQuest.chooseType(admin));
         QuestDraft draft = drafts.get(admin.getUniqueId());
         if (draft != null) {
             menu.button(
@@ -173,85 +178,13 @@ final class QuestEditor {
                                 });
     }
 
-    // ------------------------------------------------------------------ 새 퀘스트
-
-    private void chooseType(Player admin) {
-        Menu menu = new Menu(text("title.new_type"), 2);
-        int slot = 0;
-        for (QuestType type : QuestType.values()) {
-            menu.button(
-                    slot++,
-                    MenuIcons.icon(
-                            typeIcon(type),
-                            msg().get("quest.type." + type.key()),
-                            List.of(
-                                    text(
-                                            "new.type_hint",
-                                            Placeholder.unparsed("file", QuestDraft.fileFor(type)),
-                                            Placeholder.unparsed("type", type.key()))),
-                            false),
-                    e -> askId(admin, type));
-        }
-        menu.button(
-                17,
-                MenuIcons.icon(Material.ARROW, msg().get("quest.dialog.back")),
-                e -> list(admin, 0));
-        menu.open(admin);
+    /** Starts editing a draft: remembers it for the admin and opens the edit screen. */
+    void edit(Player admin, QuestDraft draft) {
+        drafts.put(admin.getUniqueId(), draft);
+        main(admin, draft);
     }
 
-    private void askId(Player admin, QuestType type) {
-        input(
-                admin,
-                text("new.id_title"),
-                List.of(text("new.id_body", Placeholder.unparsed("type", type.key()))),
-                "",
-                40,
-                false,
-                raw -> {
-                    String name = raw.toLowerCase(java.util.Locale.ROOT);
-                    if (!NAME.matcher(name).matches()) {
-                        msg().send(admin, "quest.editor.new.bad_id");
-                        askId(admin, type);
-                        return;
-                    }
-                    String id = "quest/" + type.key() + "/" + name;
-                    var _ =
-                            store.exists(id)
-                                    .thenAccept(
-                                            exists -> {
-                                                if (exists) {
-                                                    msg().send(
-                                                                    admin,
-                                                                    "quest.editor.new.exists",
-                                                                    Placeholder.unparsed("id", id));
-                                                    askId(admin, type);
-                                                    return;
-                                                }
-                                                askName(admin, type, id);
-                                            });
-                });
-    }
-
-    private void askName(Player admin, QuestType type, String id) {
-        input(
-                admin,
-                text("new.name_title"),
-                List.of(text("new.name_body")),
-                "",
-                40,
-                false,
-                name -> {
-                    if (name.isBlank()) {
-                        askName(admin, type, id);
-                        return;
-                    }
-                    QuestDraft draft = QuestDraft.create(id, name, type);
-                    drafts.put(admin.getUniqueId(), draft);
-                    main(admin, draft);
-                });
-    }
-
-    // ------------------------------------------------------------------ 편집 화면
+    // ------------------------------------------------------------------ Edit screen
 
     void main(Player admin, QuestDraft d) {
         Menu menu =
@@ -260,7 +193,7 @@ final class QuestEditor {
                                 d.dirty() ? "title.edit_dirty" : "title.edit",
                                 Placeholder.unparsed("name", d.string("name", "?"))),
                         6);
-        // 0줄: 기본 정보
+        // row 0: basic info
         menu.button(
                 0,
                 MenuIcons.icon(
@@ -302,8 +235,12 @@ final class QuestEditor {
         npcField(menu, 3, admin, d, "end_npc", Material.EMERALD);
         menu.button(
                 4,
-                MenuIcons.icon(Material.IRON_BARS, text("field.requires"), requiresLore(d), false),
-                e -> requires(admin, d));
+                MenuIcons.icon(
+                        Material.IRON_BARS,
+                        text("field.requires"),
+                        requirements.requiresLore(d),
+                        false),
+                e -> requirements.requires(admin, d));
         String style = d.string("offer_style", "");
         menu.button(
                 5,
@@ -345,7 +282,7 @@ final class QuestEditor {
                                 text(d.created() ? "field.info_new" : "field.info_existing")),
                         false),
                 null);
-        // 1~3줄: 목표
+        // rows 1~3: objectives
         List<Map<String, Object>> list = d.objectives();
         int slot = 9;
         for (int i = 0; i < list.size() && slot < 35; i++, slot++) {
@@ -365,14 +302,14 @@ final class QuestEditor {
                             true),
                     e -> objectives.chooseType(admin, d, -1));
         }
-        // 4줄: 보상
-        number(menu, 36, admin, d, Material.GOLD_INGOT, "gold", 100, 1000);
-        number(menu, 37, admin, d, Material.EXPERIENCE_BOTTLE, "exp", 10, 100);
-        number(menu, 38, admin, d, Material.PRISMARINE_CRYSTALS, "mulbineul", 1, 5);
-        number(menu, 39, admin, d, Material.BELL, "reputation", 10, 50);
+        // row 4: rewards
+        rewards.number(menu, 36, admin, d, Material.GOLD_INGOT, "gold", 100, 1000);
+        rewards.number(menu, 37, admin, d, Material.EXPERIENCE_BOTTLE, "exp", 10, 100);
+        rewards.number(menu, 38, admin, d, Material.PRISMARINE_CRYSTALS, "mulbineul", 1, 5);
+        rewards.number(menu, 39, admin, d, Material.BELL, "reputation", 10, 50);
         menu.button(
                 40,
-                MenuIcons.icon(Material.CHEST, text("reward.items"), itemsLore(d), false),
+                MenuIcons.icon(Material.CHEST, text("reward.items"), rewards.itemsLore(d), false),
                 e -> {
                     if (e.getClick().isRightClick()) {
                         List<Object> items = d.list("rewards", "items");
@@ -381,14 +318,14 @@ final class QuestEditor {
                             d.touch();
                         }
                     } else {
-                        addHeldItem(admin, d);
+                        rewards.addHeldItem(admin, d);
                     }
                     main(admin, d);
                 });
         for (int i = 41; i < 45; i++) {
             menu.button(i, MenuIcons.filler(), null);
         }
-        // 5줄: 저장 등
+        // row 5: save etc.
         for (int i = 45; i < 54; i++) {
             menu.button(i, MenuIcons.filler(), null);
         }
@@ -479,34 +416,7 @@ final class QuestEditor {
                 });
     }
 
-    private void number(
-            Menu menu,
-            int slot,
-            Player admin,
-            QuestDraft d,
-            Material icon,
-            String key,
-            int small,
-            int big) {
-        int value = QuestDraft.integer(d.section("rewards"), key, 0);
-        menu.button(
-                slot,
-                MenuIcons.icon(
-                        icon,
-                        text("reward." + key, Placeholder.unparsed("value", String.valueOf(value))),
-                        List.of(
-                                text(
-                                        "hint.number",
-                                        Placeholder.unparsed("small", String.valueOf(small)),
-                                        Placeholder.unparsed("big", String.valueOf(big)))),
-                        false),
-                e -> {
-                    d.add("rewards", key, step(e.getClick(), small, big));
-                    main(admin, d);
-                });
-    }
-
-    /** 좌 +small · 우 -small · Shift+좌 +big · Shift+우 -big. */
+    /** Left +small · right -small · Shift+left +big · Shift+right -big. */
     static int step(@Nullable ClickType click, int small, int big) {
         if (click == null) {
             return 0;
@@ -515,162 +425,7 @@ final class QuestEditor {
         return click.isRightClick() ? -amount : amount;
     }
 
-    private List<Component> itemsLore(QuestDraft d) {
-        List<Component> lore = new ArrayList<>();
-        for (Object o : d.list("rewards", "items")) {
-            if (o instanceof Map<?, ?> m) {
-                lore.add(
-                        text(
-                                "reward.item_line",
-                                Placeholder.unparsed("item", String.valueOf(m.get("item"))),
-                                Placeholder.unparsed("amount", String.valueOf(m.get("amount")))));
-            }
-        }
-        lore.add(text("hint.items"));
-        return lore;
-    }
-
-    private void addHeldItem(Player admin, QuestDraft d) {
-        ItemStack hand = admin.getInventory().getItemInMainHand();
-        Optional<HarborItem> item = hand.isEmpty() ? Optional.empty() : api.items().read(hand);
-        if (item.isEmpty() || !(item.get() instanceof HarborItem.Plain plain)) {
-            msg().send(admin, "quest.editor.hold_item");
-            return;
-        }
-        Map<String, Object> entry = new java.util.LinkedHashMap<>();
-        entry.put("item", plain.id().id().toString());
-        entry.put("amount", String.valueOf(hand.getAmount()));
-        d.list("rewards", "items").add(entry);
-        d.touch();
-    }
-
-    // ------------------------------------------------------------------ 요구 조건
-
-    private List<Component> requiresLore(QuestDraft d) {
-        Map<String, Object> r = d.section("requires");
-        List<Component> lore = new ArrayList<>();
-        lore.add(
-                text(
-                        "requires.level",
-                        Placeholder.unparsed(
-                                "value", String.valueOf(QuestDraft.integer(r, "level", 0)))));
-        lore.add(
-                text(
-                        "requires.job_tier",
-                        Placeholder.unparsed(
-                                "value", String.valueOf(QuestDraft.integer(r, "job_tier", 0)))));
-        lore.add(
-                text(
-                        "requires.week",
-                        Placeholder.unparsed(
-                                "value", String.valueOf(QuestDraft.integer(r, "week", 0)))));
-        for (Object quest : d.list("requires", "quests")) {
-            lore.add(
-                    text("requires.quest_line", Placeholder.unparsed("id", String.valueOf(quest))));
-        }
-        lore.add(text("hint.open"));
-        return lore;
-    }
-
-    private void requires(Player admin, QuestDraft d) {
-        Map<String, Object> r = d.section("requires");
-        Menu menu = new Menu(text("title.requires"), 3);
-        requireNumber(
-                menu,
-                0,
-                admin,
-                d,
-                Material.EXPERIENCE_BOTTLE,
-                "level",
-                1,
-                5,
-                QuestDraft.integer(r, "level", 0));
-        requireNumber(
-                menu,
-                1,
-                admin,
-                d,
-                Material.FISHING_ROD,
-                "job_tier",
-                1,
-                1,
-                QuestDraft.integer(r, "job_tier", 0));
-        requireNumber(
-                menu, 2, admin, d, Material.CLOCK, "week", 1, 1, QuestDraft.integer(r, "week", 0));
-        menu.button(
-                4,
-                MenuIcons.icon(Material.LIME_DYE, text("requires.add_quest"), List.of(), false),
-                e ->
-                        pickers.pick(
-                                admin,
-                                text("title.pick_quest"),
-                                pickers.quests(d.id()),
-                                v -> {
-                                    List<Object> quests = d.list("requires", "quests");
-                                    if (!quests.contains(v)) {
-                                        quests.add(v);
-                                        d.touch();
-                                    }
-                                    requires(admin, d);
-                                },
-                                () -> requires(admin, d)));
-        int slot = 9;
-        for (Object quest : List.copyOf(d.list("requires", "quests"))) {
-            if (slot >= 18) {
-                break;
-            }
-            menu.button(
-                    slot++,
-                    MenuIcons.icon(
-                            Material.BOOK,
-                            text(
-                                    "requires.quest_line",
-                                    Placeholder.unparsed("id", String.valueOf(quest))),
-                            List.of(text("hint.remove")),
-                            false),
-                    e -> {
-                        d.list("requires", "quests").remove(quest);
-                        d.touch();
-                        requires(admin, d);
-                    });
-        }
-        menu.button(
-                18,
-                MenuIcons.icon(Material.ARROW, msg().get("quest.dialog.back")),
-                e -> main(admin, d));
-        menu.open(admin);
-    }
-
-    private void requireNumber(
-            Menu menu,
-            int slot,
-            Player admin,
-            QuestDraft d,
-            Material icon,
-            String key,
-            int small,
-            int big,
-            int value) {
-        menu.button(
-                slot,
-                MenuIcons.icon(
-                        icon,
-                        text(
-                                "requires." + key,
-                                Placeholder.unparsed("value", String.valueOf(value))),
-                        List.of(
-                                text(
-                                        "hint.number",
-                                        Placeholder.unparsed("small", String.valueOf(small)),
-                                        Placeholder.unparsed("big", String.valueOf(big)))),
-                        false),
-                e -> {
-                    d.add("requires", key, step(e.getClick(), small, big));
-                    requires(admin, d);
-                });
-    }
-
-    // ------------------------------------------------------------------ 저장
+    // ------------------------------------------------------------------ Saving
 
     private void preview(Player admin, QuestDraft d) {
         admin.closeInventory();
@@ -704,7 +459,8 @@ final class QuestEditor {
                                                         Placeholder.unparsed("id", d.id()),
                                                         Placeholder.unparsed(
                                                                 "file", "quests/" + d.file()));
-                                        // 새 퀘스트도 저장 뒤에는 기존 항목으로 다시 읽는다
+                                        // a new quest is also reloaded as an existing entry after
+                                        // saving
                                         load(admin, d.id());
                                     } else {
                                         showErrors(admin, outcome.errors());
@@ -763,7 +519,7 @@ final class QuestEditor {
                         });
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ Helpers
 
     void input(
             Player admin,

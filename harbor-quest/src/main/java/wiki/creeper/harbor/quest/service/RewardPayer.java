@@ -33,18 +33,23 @@ import wiki.creeper.harbor.quest.logic.DeliverPlan;
 import wiki.creeper.harbor.quest.logic.Progress;
 
 /**
- * 보고·보상 (docs 20 6.4 수락 · 완료). 순서:
+ * Turn-in and rewards (docs 20 6.4 accept · complete). Order:
  *
  * <ol>
- *   <li>메인: READY 확인, deliver 아이템 재검사·제거, COMPLETING
- *   <li>가상 스레드 (한 트랜잭션): 고유 ID 장부 상태 전환 + quest_progress COMPLETED (paid = [grant])
- *   <li>재화: CurrencyService.give(QUEST_REWARD, 참조 ID) — 원장 유니크로 중복 차단
- *   <li>메인: 경험치·호감도·힌트·아이템 (grant), 평판·플래그·칭호·연대기 (멱등), 다 끝나면 paid에 done
- *   <li>QuestCompletedEvent, 효과음, cutscene_at: complete 컷씬
+ *   <li>Main: check READY, recheck and remove deliver items, COMPLETING
+ *   <li>Virtual thread (one transaction): unique-ID registry state change + quest_progress
+ *       COMPLETED (paid = [grant])
+ *   <li>Currency: CurrencyService.give(QUEST_REWARD, reference ID) — the ledger unique key blocks
+ *       duplicates
+ *   <li>Main: experience, affinity, hints and items (grant), reputation, flags, titles and
+ *       chronicle (idempotent), then done in paid when all are finished
+ *   <li>QuestCompletedEvent, sound, cutscene_at: complete cutscene
  * </ol>
  *
- * 2단계가 실패하면 아이템을 돌려주고 READY로 되돌린다. 3~4단계 사이에 서버가 꺼지면 다음 접속 때 done이 없는 완료 행의 멱등 보상만 다시 준다. grant 묶음은
- * '줬는데 기록 못 함'(복제)보다 '기록했는데 못 줌'(관리자 복구)이 안전하므로 완료 트랜잭션에 함께 기록한다.
+ * If step 2 fails, the items are returned and the quest goes back to READY. If the server stops
+ * between steps 3 and 4, only the idempotent rewards of completed rows without done are given again
+ * on the next join. The grant bundle is recorded in the completion transaction because "recorded
+ * but not given" (admin recovery) is safer than "given but not recorded" (duplication).
  */
 public final class RewardPayer {
 
@@ -80,7 +85,10 @@ public final class RewardPayer {
         return completing.containsKey(key(uuid, quest));
     }
 
-    /** 보고 중 서버 이동: 진행 중인 완료 트랜잭션을 기다린다 (Core HandoffBlocker 지연). */
+    /**
+     * Server move during a turn-in: waits for the completion transaction in progress (Core
+     * HandoffBlocker delay).
+     */
     HandoffBlocker.Verdict handoff(Player player) {
         String prefix = player.getUniqueId() + "|";
         List<CompletableFuture<Boolean>> pending = new ArrayList<>();
@@ -97,9 +105,12 @@ public final class RewardPayer {
                 CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new)));
     }
 
-    // ------------------------------------------------------------------ 보상 스냅샷
+    // ------------------------------------------------------------------ Reward snapshot
 
-    /** 수락할 때 재화·평판을 정해 둔다 (의뢰 골드는 해금한 가장 높은 지역 기준, 수락 시점 값으로 고정). */
+    /**
+     * Fixes currency and reputation at accept time (request gold depends on the highest unlocked
+     * region and is fixed to the value at accept time).
+     */
     Progress.Snapshot snapshot(HarborPlayer hp, QuestDef def) {
         Rewards r = def.rewards();
         if (!def.type().board()) {
@@ -142,7 +153,7 @@ public final class RewardPayer {
         };
     }
 
-    // ------------------------------------------------------------------ 보고
+    // ------------------------------------------------------------------ Turn-in
 
     CompletableFuture<Boolean> turnIn(Player player, QuestId quest) {
         HarborPlayer hp = engine.api.players().get(player);
@@ -166,10 +177,14 @@ public final class RewardPayer {
             return CompletableFuture.completedFuture(false);
         }
         int advance = def.rewards().jobAdvance();
-        // 이미 그 등급이면 전직을 다시 요청하지 않고 바로 완료한다: 전직 확인 창을 띄운 사이 납품 아이템을 치우면 전직만 되고 퀘스트는 READY로
-        // 남는데, 그 뒤 요청은 이미 가진 등급이라 매번 실패해 퀘스트를 영영 끝낼 수 없었다
+        // If the player already has that tier, complete right away instead of requesting the
+        // advancement again: if the delivered items were removed while the advancement confirmation
+        // was open, only the advancement happened and the quest stayed READY, and every later
+        // request
+        // failed because the tier was already owned, so the quest could never be finished
         if (advance > 0 && hp.jobTier().level() < advance) {
-            // 전직 퀘스트: Jobs가 확인 Dialog·계열 선택·골드 차감·전직 컷씬을 처리하고, JobAdvancedEvent에서 완료한다
+            // job advancement quests: Jobs handles the confirmation Dialog, branch choice, gold
+            // deduction and advancement cutscene, and the quest completes on JobAdvancedEvent
             return engine.deps
                     .jobs()
                     .requestAdvance(player, JobTier.of(advance))
@@ -222,7 +237,10 @@ public final class RewardPayer {
         return complete(player, def, true);
     }
 
-    /** 전직이 커밋된 뒤 (JobAdvancedEvent): READY인 그 단계 전직 퀘스트를 완료한다 ('7. 밸런스 기획' 7장 물비늘 5는 YAML 보상). */
+    /**
+     * After the advancement is committed (JobAdvancedEvent): completes the READY advancement quest
+     * of that tier ('7. Balance Design' ch. 7 mulbineul 5 is a YAML reward).
+     */
     void onJobAdvanced(Player player, int tier) {
         HarborPlayer hp = engine.api.players().get(player);
         for (QuestEntry e : hp.get(QuestEngine.COMPONENT).entries().values()) {
@@ -239,9 +257,9 @@ public final class RewardPayer {
     }
 
     /**
-     * 완료 처리 (1~5단계).
+     * Completion (steps 1~5).
      *
-     * @param reward false면 보상 없이 완료 (관리 명령 --no-reward)
+     * @param reward if false, completes without rewards (admin command --no-reward)
      */
     CompletableFuture<Boolean> complete(Player player, QuestDef def, boolean reward) {
         HarborPlayer hp = engine.api.players().get(player);
@@ -251,7 +269,7 @@ public final class RewardPayer {
         if (entry == null || !entry.state().open() || completing(uuid, quest)) {
             return CompletableFuture.completedFuture(false);
         }
-        // 1단계: deliver 재검사·제거
+        // step 1: recheck and remove deliver items
         DeliverPlan.Result plan = deliverCheck.plan(player, def);
         if (!plan.ok() && reward) {
             deliverCheck.explainMissing(player, def, plan);
@@ -300,7 +318,8 @@ public final class RewardPayer {
         int rowSeason = entry.season();
         FishLedger.State next =
                 def.donateDelivered() ? FishLedger.State.DONATED : FishLedger.State.DESTROYED;
-        // 2단계: 한 트랜잭션 (고유 ID 아이템은 장부 상태가 ACTIVE일 때만 받는다: 복사 아이템 차단)
+        // step 2: one transaction (unique-ID items are accepted only while their registry state is
+        // ACTIVE: blocks copied items)
         var _ =
                 engine.serial(
                                 uuid,
@@ -367,16 +386,20 @@ public final class RewardPayer {
                                                 completed,
                                                 effects.summary(def, finished.snap(), List.of()));
                                     }
-                                    // 완료 행·장부는 커밋됐다: 납품으로 빠진 아이템과 보상을 받은 인벤토리도 곧 저장한다. 서버가 죽으면
-                                    // 납품 아이템이 돌아오고 완료는 남아 복제된다 (재화 보상만 있으면 이미 저장되지만 아이템·경험치 보상은
-                                    // 아니다)
+                                    // the completed row and registry are committed: also save soon
+                                    // the inventory that lost the delivered items and received
+                                    // rewards. If the server dies,
+                                    // the delivered items come back while the completion remains,
+                                    // causing duplication (a currency-only reward is already saved,
+                                    // but item and experience rewards
+                                    // are not)
                                     engine.api.players().saveSoon(uuid);
                                     done.complete(true);
                                 });
         return done;
     }
 
-    /** 다음 접속 때: done이 없는 완료 행의 보상을 마저 준다. */
+    /** On the next join: gives the remaining rewards of completed rows without done. */
     void recover(Player player) {
         HarborPlayer hp = engine.api.players().get(player);
         for (QuestEntry e : hp.get(QuestEngine.COMPONENT).entries().values()) {

@@ -13,14 +13,16 @@ import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 퀘스트 편집기의 YAML 읽기·쓰기 (서버 API 없음, 단위 테스트 대상). 파일 전체를 다시 쓰지 않고 그 퀘스트 항목 블록만 바꿔서 다른 항목의 주석·서식을 지킨다.
- * 항목 안의 주석은 편집기로 저장하면 사라진다.
+ * YAML read/write for the quest editor (no server API, unit tested). Instead of rewriting the whole
+ * file it replaces only that quest's entry block, preserving other entries' comments and
+ * formatting. Comments inside the entry are lost when saved by the editor.
  *
- * <p>쓰는 모양은 손으로 쓴 콘텐츠와 같다: 위쪽 키는 블록, 목표·아이템 목록은 한 줄 {...}, 설명은 블록 목록.
+ * <p>The output looks like hand-written content: top-level keys as blocks, objective and item lists
+ * as one-line {...}, the description as a block list.
  */
 public final class QuestYaml {
 
-    /** 쓰는 키 순서 (나머지 키는 원래 순서로 뒤에). */
+    /** Key order to write (the remaining keys follow in their original order). */
     static final List<String> ORDER =
             List.of(
                     "id",
@@ -50,9 +52,12 @@ public final class QuestYaml {
 
     private QuestYaml() {}
 
-    // ------------------------------------------------------------------ 읽기
+    // ------------------------------------------------------------------ Reading
 
-    /** 파일 글에서 그 ID 항목을 일반 Java 값(Map·List·String)으로. 없거나 YAML이 깨졌으면 비어 있음. */
+    /**
+     * The entry with that ID from the file text, as plain Java values (Map, List, String). Empty if
+     * absent or the YAML is broken.
+     */
     public static Optional<Map<String, Object>> read(String fileText, String id) {
         ValidationErrors errors = new ValidationErrors();
         Optional<YamlNode> root = YamlNode.parse("editor", new StringReader(fileText), errors);
@@ -72,7 +77,7 @@ public final class QuestYaml {
         return Optional.empty();
     }
 
-    /** "harbor:quest/x"와 "quest/x"를 같은 ID로 본다. */
+    /** Treats "harbor:quest/x" and "quest/x" as the same ID. */
     static boolean sameId(String a, String b) {
         return strip(a).equals(strip(b));
     }
@@ -82,12 +87,14 @@ public final class QuestYaml {
         return s.startsWith("harbor:") ? s.substring("harbor:".length()) : s;
     }
 
-    // ------------------------------------------------------------------ 블록 교체
+    // ------------------------------------------------------------------ Block replacement
 
     /**
-     * 파일 글에서 그 항목 블록을 새 글로 바꾼다. 없으면 끝에 붙인다.
+     * Replaces that entry block in the file text with the new text. Appends it at the end if
+     * absent.
      *
-     * @param entryText {@link #emit}으로 만든 항목 글 ("- id: …"로 시작, 줄바꿈으로 끝남)
+     * @param entryText entry text built by {@link #emit} (starts with "- id: …", ends with a
+     *     newline)
      */
     public static String replace(String fileText, String id, String entryText) {
         String nl = fileText.contains("\r\n") ? "\r\n" : "\n";
@@ -112,7 +119,7 @@ public final class QuestYaml {
         return String.join(nl, lines) + nl;
     }
 
-    /** 항목 블록을 지운다. 없으면 그대로. */
+    /** Removes the entry block. Unchanged if absent. */
     public static String remove(String fileText, String id) {
         String nl = fileText.contains("\r\n") ? "\r\n" : "\n";
         List<String> lines =
@@ -122,7 +129,7 @@ public final class QuestYaml {
             return fileText;
         }
         int end = range[1];
-        // 뒤따르는 빈 줄 하나도 지운다
+        // also remove one following blank line
         if (end < lines.size() && lines.get(end).isBlank() && end + 1 < lines.size()) {
             end++;
         }
@@ -132,14 +139,15 @@ public final class QuestYaml {
         return String.join(nl, lines);
     }
 
-    /** 파일에 그 ID 항목이 있는지 (블록 시작 줄 기준). */
+    /** Whether the file has the entry with that ID (by block start line). */
     public static boolean contains(String fileText, String id) {
         return block(List.of(fileText.replace("\r\n", "\n").split("\n", -1)), id) != null;
     }
 
     /**
-     * [시작 줄, 끝 줄(제외)]. 시작은 {@code - id: <ID>} 또는 {@code - {id: <ID>, …}}, 끝은 다음 맨 앞 "- " 줄이나 파일
-     * 끝이고, 끝 앞의 빈 줄·주석 줄(다음 항목 머리 주석)은 블록에서 뺀다.
+     * [start line, end line (exclusive)]. The start is {@code - id: <ID>} or {@code - {id: <ID>,
+     * …}}, the end is the next "- " line at column 0 or the end of the file; blank and comment
+     * lines before the end (the next entry's header comment) are excluded from the block.
      */
     static int @Nullable [] block(List<String> lines, String id) {
         int start = -1;
@@ -193,9 +201,9 @@ public final class QuestYaml {
         return sameId(value, id);
     }
 
-    // ------------------------------------------------------------------ 쓰기
+    // ------------------------------------------------------------------ Writing
 
-    /** 항목 하나를 글로 ("- id: …" 블록). */
+    /** One entry as text (a "- id: …" block). */
     public static String emit(Map<String, Object> entry) {
         StringBuilder out = new StringBuilder();
         boolean first = true;
@@ -232,7 +240,10 @@ public final class QuestYaml {
                 || (value instanceof String s && s.isEmpty());
     }
 
-    /** {@code key: value}. 지도는 아래 블록, 지도 목록은 줄마다 한 줄 {...}, 짧은 값 목록은 [..], 긴 글 목록은 블록. */
+    /**
+     * {@code key: value}. Maps as a block below, lists of maps as one {...} per line, short value
+     * lists as [..], long text lists as a block.
+     */
     private static void writeKey(StringBuilder out, String key, Object value, int indent) {
         out.append(key).append(':');
         switch (value) {
@@ -277,7 +288,7 @@ public final class QuestYaml {
         return map.values().stream().noneMatch(v -> v instanceof Map<?, ?> m && !m.isEmpty());
     }
 
-    /** 한 줄 모양 ({a: 1, b: [x, y]}). */
+    /** One-line form ({a: 1, b: [x, y]}). */
     static String flow(Object value) {
         return switch (value) {
             case Map<?, ?> map -> {
@@ -309,14 +320,18 @@ public final class QuestYaml {
         };
     }
 
-    /** 값 하나. 숫자·ID·한 단어는 그대로, 나머지(공백·콜론 뒤 공백·특수 문자·예약어)는 큰따옴표. */
+    /**
+     * A single value. Numbers, IDs and single words as is; anything else (spaces, a space after a
+     * colon, special characters, reserved words) in double quotes.
+     */
     static String scalar(Object value, boolean inFlow) {
         String s = String.valueOf(value);
         if (value instanceof Number || value instanceof Boolean) {
             return s;
         }
         if (NUMBER.matcher(s).matches()) {
-            return s; // 숫자처럼 보이는 글은 로더가 어느 쪽으로도 읽는다 (asString / asInt)
+            return s; // text that looks like a number is read either way by the loader (asString /
+            // asInt)
         }
         boolean plain =
                 PLAIN.matcher(s).matches()

@@ -24,30 +24,31 @@ import wiki.creeper.harbor.skript.bridge.WorldSyntax;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 
 /**
- * Harbor 문법 등록 (Skript 2.17 등록 API).
+ * Harbor syntax registration (Skript 2.17 registration API).
  *
  * <pre>
- * harbor gold of %players%            골드 (이 서버 접속자). add · remove · set 가능 (원장 SCRIPT_GRANT · SCRIPT_TAKE)
- * harbor mulbineul of %players%       물비늘 (같음)
- * harbor item %string%                Harbor 아이템 (item/x, furniture/x, block/x)
- * harbor id of %itemstacks%           아이템의 Harbor ID (어종이면 fish/x)
- * %itemstacks% is [a] harbor item     Harbor 아이템인지
- * send harbor message %string% to %players%   messages_ko.yml 문구
- * harbor send %players% to lobby     로비로 (자리 유예, 자동 출항 안 함)
- * harbor send %players% to sea       출항 = 로비에서 본 서버 대기열로
- * harbor server · harbor server role 이 서버 ID · 역할
- * on harbor currency change           골드·물비늘이 바뀐 뒤 (event-offlineplayer, event-number = 변화량, event-string = gold·mulbineul)
+ * harbor gold of %players%            gold (players on this server). add · remove · set allowed (ledger SCRIPT_GRANT · SCRIPT_TAKE)
+ * harbor mulbineul of %players%       mulbineul (same)
+ * harbor item %string%                Harbor item (item/x, furniture/x, block/x)
+ * harbor id of %itemstacks%           Harbor ID of an item (fish/x for fish)
+ * %itemstacks% is [a] harbor item     whether it is a Harbor item
+ * send harbor message %string% to %players%   messages_ko.yml text
+ * harbor send %players% to lobby     to the lobby (slot grace period, no automatic sailing)
+ * harbor send %players% to sea       set sail = from the lobby to the main server queue
+ * harbor server · harbor server role this server's ID · role
+ * on harbor currency change           after gold or mulbineul changes (event-offlineplayer, event-number = change, event-string = gold·mulbineul)
  * </pre>
  *
- * <p>그 밖의 문법(레벨·플래그·화면·우편, 모듈별 퀘스트·낚시·도감·NPC·시즌·시세·해역 이벤트)은 {@code bridge/*Syntax}가 람다 문법으로 등록한다.
- * 전체 목록은 harbor-skript/README.md.
+ * <p>Other syntax (levels, flags, screens, mail, and per-module quest, fishing, codex, NPC, season,
+ * market price and sea event syntax) is registered as lambda syntax by {@code bridge/*Syntax}. The
+ * full list is in harbor-skript/README.md.
  */
 final class SkriptSyntax {
 
     private SkriptSyntax() {}
 
     /**
-     * @return 등록한 문법 수
+     * @return number of registered syntax elements
      */
     static int register(JavaPlugin plugin) {
         Skript skript = ch.njol.skript.Skript.instance();
@@ -131,7 +132,8 @@ final class SkriptSyntax {
                 EventValue.simple(
                         CurrencyChangedEvent.class, String.class, e -> e.currency().key()));
 
-        // 람다 문법: Core는 늘, 게임 모듈은 그 모듈이 켜져 있을 때만 (bridge 클래스를 그때 불러온다)
+        // lambda syntax: Core always, game modules only when that module is enabled (the bridge
+        // class is loaded then)
         Registrar r = new Registrar(registry, values);
         CoreSyntax.register(r);
         module(plugin, "Harbor-Npc", () -> NpcSyntax.register(r));
@@ -145,7 +147,10 @@ final class SkriptSyntax {
         return count + r.count();
     }
 
-    /** 그 모듈이 켜져 있으면 문법을 등록한다. 한 모듈의 실패(버전 차이 등)가 나머지를 막지 않는다. */
+    /**
+     * Registers the syntax if that module is enabled. A failure in one module (version mismatch
+     * etc.) does not block the rest.
+     */
     private static void module(JavaPlugin plugin, String name, Runnable register) {
         if (!Bukkit.getPluginManager().isPluginEnabled(name)) {
             return;

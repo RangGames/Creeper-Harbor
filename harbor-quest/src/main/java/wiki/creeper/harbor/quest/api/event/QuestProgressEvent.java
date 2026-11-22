@@ -5,7 +5,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.QuestId;
 
-/** 목표 진행 (메모리 갱신 뒤). value는 갱신 후 값, count는 목표 수. 메인 스레드에서 발생한다. */
+/**
+ * Objective progress (after the in-memory update). value is the updated value, count the objective
+ * count. Fired on the main thread.
+ */
 public final class QuestProgressEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

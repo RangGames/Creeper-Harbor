@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.skript.lambda;
 
-/** 람다 식 (숫자). */
+/** Lambda expression (number). */
 public final class NumberExpr extends BaseExpr<Number> {
 
     public NumberExpr(Spec spec, Spec.Getter<Number> getter) {

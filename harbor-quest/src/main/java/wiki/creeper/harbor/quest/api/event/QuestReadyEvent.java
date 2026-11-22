@@ -5,7 +5,9 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.QuestId;
 
-/** 추적 목표를 모두 채워 보고할 수 있게 됨 (?). 메인 스레드에서 발생한다. */
+/**
+ * All tracked objectives are filled and the quest can be turned in (?). Fired on the main thread.
+ */
 public final class QuestReadyEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

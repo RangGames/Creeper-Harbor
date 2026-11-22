@@ -17,7 +17,10 @@ import wiki.creeper.harbor.skript.lambda.Args;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
-/** Harbor-Collection이 켜져 있을 때: 도감 달성률·등록 여부, 개인 최대어, 도감 열기, 도감 등록·신기록 이벤트. */
+/**
+ * When Harbor-Collection is enabled: codex completion rate and registration, personal biggest fish,
+ * opening the codex, codex registration and new record events.
+ */
 public final class CollectionSyntax {
 
     private CollectionSyntax() {}

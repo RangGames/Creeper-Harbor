@@ -17,12 +17,10 @@ import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.Balance;
-import wiki.creeper.harbor.common.content.type.RegionDef;
 import wiki.creeper.harbor.common.db.SqlFunction;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.NpcId;
@@ -52,19 +50,24 @@ import wiki.creeper.harbor.quest.logic.Progress;
 import wiki.creeper.harbor.quest.logic.Requirements;
 
 /**
- * 퀘스트 엔진 (docs 20 6.4). 다른 모듈·UI가 보는 창구이고, 일은 협력 객체가 한다: 상태 계산 {@link QuestAvailability}, 수락·포기
- * {@link QuestLifecycle}, 목표 진행 {@link ObjectiveProgressor}, 알림 {@link QuestNotifier}, 문구 {@link
- * QuestTexts}, 이전·관리 {@link QuestMaintenance}, 외부 목표 유형 {@link CustomObjectives}. 보고·보상은 {@link
- * RewardPayer}, 게시판은 {@link BoardManager}. 플레이어 데이터는 메인 스레드에서만 읽고 쓴다.
+ * Quest engine (docs 20 6.4). The entry point other modules and the UI see; the work is done by
+ * collaborators: state computation {@link QuestAvailability}, accept/abandon {@link
+ * QuestLifecycle}, objective progress {@link ObjectiveProgressor}, notifications {@link
+ * QuestNotifier}, texts {@link QuestTexts}, migration and admin {@link QuestMaintenance}, external
+ * objective types {@link CustomObjectives}. Turn-in and rewards are {@link RewardPayer}, the board
+ * is {@link BoardManager}. Player data is read and written on the main thread only.
  */
 public final class QuestEngine
         implements QuestService, ObjectiveSignal, ObjectiveTypeRegistry, RegionProgressProvider {
 
-    /** 퀘스트 캐시. 쓰기는 상태 전이마다 즉시·진행은 지연 쓰기 큐로 따로 넣으므로 컴포넌트 저장 함수는 비어 있다. */
+    /**
+     * Quest cache. Writes happen immediately on each state transition and progress goes through the
+     * write-behind queue separately, so the component's save function is empty.
+     */
     public static final PlayerComponent<QuestData> COMPONENT =
             new PlayerComponent<>("quest", QuestRepository::load, (c, uuid, season, data) -> {});
 
-    /** 계산한 상태 (플레이어별 캐시). lockedWeek는 주차만 남았을 때 그 주차. */
+    /** Computed state (per-player cache). lockedWeek is the week when only the week remains. */
     public record Avail(QuestState state, int lockedWeek) {}
 
     final Plugin plugin;
@@ -82,6 +85,7 @@ public final class QuestEngine
     private final QuestNotifier notifier = new QuestNotifier(this);
     private final QuestTexts texts = new QuestTexts(this);
     private final QuestMaintenance maintenance = new QuestMaintenance(this);
+    private final RegionLadder regions = new RegionLadder(this);
     private final CustomObjectives customs;
 
     private @Nullable RewardPayer payer;
@@ -122,12 +126,12 @@ public final class QuestEngine
         return java.util.Objects.requireNonNull(chronicle, "ChronicleManager");
     }
 
-    /** 메인 스레드 실행기 (UI·명령의 비동기 결과 반영). */
+    /** Main thread executor (applies async results for the UI and commands). */
     public java.util.concurrent.Executor mainExecutor() {
         return tasks.main();
     }
 
-    // ------------------------------------------------------------------ 콘텐츠
+    // ------------------------------------------------------------------ Content
 
     public ContentSnapshot snapshot() {
         return api.content().snapshot();
@@ -159,7 +163,7 @@ public final class QuestEngine
         return snapshot().single(Balance.TYPE);
     }
 
-    // ------------------------------------------------------------------ 플레이어 데이터
+    // ------------------------------------------------------------------ Player data
 
     public int season() {
         return api.infra().season().value();
@@ -174,7 +178,7 @@ public final class QuestEngine
         invalidate(hp.uuid());
     }
 
-    /** 상태 캐시·역색인을 버린다 (다음 조회 때 다시 계산). */
+    /** Discards the state cache and inverted index (recomputed on the next lookup). */
     public void invalidate(UUID uuid) {
         availability.invalidate(uuid);
     }
@@ -189,7 +193,7 @@ public final class QuestEngine
         busy.remove(uuid);
     }
 
-    /** NPC 머리 위 표시를 다시 계산하게 한다. */
+    /** Makes the NPC overhead markers recompute. */
     void refreshMarkers(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
         if (player != null) {
@@ -197,12 +201,15 @@ public final class QuestEngine
         }
     }
 
-    /** 반복 주기 키 (지금 시각 기준). */
+    /** Repeat cycle key (based on the current time). */
     public String cycleOf(QuestDef def) {
         return Cycles.of(def.repeat(), api.time().gameDay(), season(), deps.clock().week());
     }
 
-    /** 플레이어별 즉시 쓰기 순서 보장 (수락 → 완료 → 지급 기록이 뒤바뀌지 않게). 결과는 메인 스레드. */
+    /**
+     * Guarantees per-player ordering of immediate writes (accept → complete → payout record never
+     * swap). Result on the main thread.
+     */
     <T> CompletableFuture<T> serial(UUID uuid, SqlFunction<T> work) {
         CompletableFuture<?> previous =
                 chains.getOrDefault(uuid, CompletableFuture.completedFuture(null));
@@ -218,7 +225,10 @@ public final class QuestEngine
         return "player:" + uuid + ":quest:" + quest;
     }
 
-    /** 진행을 지연 쓰기 큐에 넣는다 (키별 마지막 값만 씀, 퇴장·서버 이동 때 flushNow로 즉시). */
+    /**
+     * Puts progress in the write-behind queue (only the last value per key is written; flushNow
+     * writes it immediately on quit or server move).
+     */
     void saveLater(UUID uuid, QuestEntry entry) {
         int season = entry.season();
         QuestId quest = entry.quest();
@@ -230,7 +240,10 @@ public final class QuestEngine
                         c -> QuestRepository.saveProgress(c, uuid, season, quest, state, progress));
     }
 
-    /** 즉시 쓰기 전에 같은 퀘스트의 예약된 진행 저장을 지운다 (오래된 진행이 상태 전이를 덮어쓰지 않게). */
+    /**
+     * Before an immediate write, removes the scheduled progress save of the same quest (so stale
+     * progress never overwrites a state transition).
+     */
     void cancelPending(UUID uuid, QuestId quest) {
         api.writeBehind().enqueue(queueKey(uuid, quest), c -> {});
     }
@@ -247,7 +260,7 @@ public final class QuestEngine
         busy.remove(uuid);
     }
 
-    // ------------------------------------------------------------------ 협력 객체
+    // ------------------------------------------------------------------ Collaborators
 
     QuestAvailability availability() {
         return availability;
@@ -269,9 +282,10 @@ public final class QuestEngine
         return payer != null;
     }
 
-    // ------------------------------------------------------------------ 상태 계산 (QuestAvailability)
+    // ------------------------------------------------------------------ State computation
+    // (QuestAvailability)
 
-    /** 계산 상태 (캐시). */
+    /** Computed state (cached). */
     public Avail avail(HarborPlayer hp, QuestDef def) {
         return availability.avail(hp, def);
     }
@@ -284,17 +298,26 @@ public final class QuestEngine
         return availability.facts(hp);
     }
 
-    /** 목표 역색인: 목표 유형 → 지금 진행되는 목표가 있는 퀘스트 (docs 20 6.4, sequence는 현재 목표만). */
+    /**
+     * Objective inverted index: objective type → quests with a currently progressing objective of
+     * that type (docs 20 6.4, only the current objective for sequence).
+     */
     Map<String, List<QuestId>> index(HarborPlayer hp) {
         return availability.index(hp);
     }
 
-    /** 진행 중인 퀘스트 정의·행 (정의가 사라진 ORPHANED는 빠진다). */
+    /**
+     * Definitions and rows of quests in progress (ORPHANED ones whose definition disappeared are
+     * excluded).
+     */
     public List<Map.Entry<QuestDef, QuestEntry>> open(HarborPlayer hp) {
         return availability.open(hp);
     }
 
-    /** 포기 후 같은 cycle 재수락 대기 (제안값 10분, 메모리). */
+    /**
+     * Cooldown before re-accepting the same cycle after abandoning (proposed value 10 minutes, in
+     * memory).
+     */
     Optional<Instant> abandonCooldown(UUID uuid, QuestDef def) {
         return availability.abandonCooldown(uuid, def);
     }
@@ -347,12 +370,12 @@ public final class QuestEngine
         return lifecycle.accept(player, quest);
     }
 
-    /** 잠긴 이유 안내 (주차 잠금이면 "N주차에 열립니다 (D-n)"). */
+    /** Explains why it is locked (for a week lock, "opens in week N (D-n)"). */
     public void explainLocked(Player player, QuestDef def, Avail avail) {
         lifecycle.explainLocked(player, def, avail);
     }
 
-    /** 그 주차가 시작할 때까지 남은 날 (D-n). */
+    /** Days left until that week starts (D-n). */
     public long daysUntilWeek(int week) {
         return lifecycle.daysUntilWeek(week);
     }
@@ -372,20 +395,23 @@ public final class QuestEngine
         return lifecycle.track(player, quest);
     }
 
-    // ------------------------------------------------------------------ 목표 진행
+    // ------------------------------------------------------------------ Objective progress
     // (ObjectiveProgressor)
 
     /**
-     * 목표 진행의 공통 처리 (docs 20 6.4 진행 반영).
+     * Common handling of objective progress (docs 20 6.4 applying progress).
      *
-     * @param gauge true면 도달 값(value)으로 둔다
+     * @param gauge if true, set to the reached value (value)
      */
     public void progress(
             Player player, String type, Predicate<Objective> match, int amount, boolean gauge) {
         progressor.progressWith(player, type, (d, o) -> match.test(o), amount, gauge);
     }
 
-    /** 퀘스트 정의도 보는 판정 (talk 대상 NPC = 목표 → npc 필드 → 보고 NPC). */
+    /**
+     * Check that also looks at the quest definition (talk target NPC = objective → npc field →
+     * turn-in NPC).
+     */
     public void progressWith(
             Player player,
             String type,
@@ -395,7 +421,10 @@ public final class QuestEngine
         progressor.progressWith(player, type, match, amount, gauge);
     }
 
-    /** 추적 목표가 없거나 이미 채워진 퀘스트(납품만 있는 의뢰 등)는 바로 READY. */
+    /**
+     * Quests with no tracked objectives or already filled ones (delivery-only requests etc.) go
+     * straight to READY.
+     */
     void checkReady(Player player, QuestDef def) {
         progressor.checkReady(player, def);
     }
@@ -404,12 +433,15 @@ public final class QuestEngine
         return def.objectives().stream().anyMatch(o -> !o.tracked());
     }
 
-    /** 게이지·플래그 목표를 지금 값으로 맞춘다 (수락·접속·레벨업·도감 등록·플래그 변경 때). */
+    /**
+     * Sets gauge and flag objectives to the current value (on accept, join, level up, codex entry,
+     * flag change).
+     */
     public void refreshGauges(Player player, @Nullable QuestId only) {
         progressor.refreshGauges(player, only);
     }
 
-    /** talk·deliver·affinity 대상 NPC: target → npc 필드 → 보고 NPC. */
+    /** Target NPC for talk, deliver and affinity: target → npc field → turn-in NPC. */
     public static Optional<NpcId> npcOf(QuestDef def, Objective o) {
         HarborId target = o.target().id();
         if (target != null && o.target().isId("npc")) {
@@ -419,7 +451,10 @@ public final class QuestEngine
         return npc != null ? Optional.of(npc) : def.turnInNpc();
     }
 
-    /** 지금 목표가 cutscene이면 재생한다 (진행을 막는 컷씬, 끝까지 보면 CutsceneEndEvent로 진행). */
+    /**
+     * If the current objective is a cutscene, plays it (a cutscene that blocks progress; watching
+     * to the end advances via CutsceneEndEvent).
+     */
     void startCutsceneObjective(Player player, QuestDef def) {
         progressor.startCutsceneObjective(player, def);
     }
@@ -451,67 +486,37 @@ public final class QuestEngine
         return customs.types();
     }
 
-    /** 꺼진 플러그인의 유형을 지운다. */
+    /** Removes the types of a disabled plugin. */
     void unregisterOwner(Plugin owner) {
         customs.unregisterOwner(owner);
     }
 
-    /** 콘텐츠 검사: 다른 모듈 유형의 인자 확인. */
+    /** Content check: validates arguments of other modules' types. */
     public void validateCustom(QuestDef quest, Consumer<String> error) {
         customs.validate(quest, error);
     }
 
     // ------------------------------------------------------------------ RegionProgressProvider
-
-    /** World 구현이 등록되어 있으면 그것을, 없으면 Quest 기본 구현 (regions.yml unlock 레벨 + 해금 퀘스트). */
+    /**
+     * The World implementation if registered, otherwise the Quest default implementation
+     * (regions.yml unlock level + unlock quest).
+     */
     public Optional<RegionId> highestRegion(UUID player) {
-        RegisteredServiceProvider<RegionProgressProvider> reg =
-                Bukkit.getServicesManager().getRegistration(RegionProgressProvider.class);
-        if (reg != null && !reg.getPlugin().equals(plugin)) {
-            try {
-                return reg.getProvider().highestUnlockedRegion(player);
-            } catch (RuntimeException e) {
-                log.warn("RegionProgressProvider 오류: {}", String.valueOf(e));
-            }
-        }
-        return highestUnlockedRegion(player);
+        return regions.highestRegion(player);
     }
 
     @Override
     public Optional<RegionId> highestUnlockedRegion(UUID player) {
-        Optional<HarborPlayer> hp = api.players().get(player);
-        if (hp.isEmpty()) {
-            return Optional.empty();
-        }
-        Map<HarborId, RegionDef> regions = snapshot().all(RegionDef.TYPE);
-        QuestData data = hp.get().get(COMPONENT);
-        RegionId best = null;
-        for (BoardRules.RegionGold g : boardRules().ladder()) {
-            RegionDef region = regions.get(g.region().id());
-            if (region == null) {
-                continue;
-            }
-            RegionDef.Unlock unlock = region.unlock();
-            QuestId quest = unlock.quest();
-            boolean questDone =
-                    quest == null
-                            || Optional.ofNullable(data.entries().get(quest))
-                                    .map(e -> e.state() == QuestState.COMPLETED)
-                                    .orElse(false);
-            if (hp.get().level() >= unlock.level() && questDone) {
-                best = region.id();
-            }
-        }
-        return Optional.ofNullable(best);
+        return regions.highestUnlockedRegion(player);
     }
 
-    // ------------------------------------------------------------------ 문구 (QuestTexts)
+    // ------------------------------------------------------------------ Texts (QuestTexts)
 
     static String plain(net.kyori.adventure.text.Component c) {
         return QuestTexts.plain(c);
     }
 
-    /** 사람이 읽는 목표 문구 (액션바·목록). */
+    /** Human-readable objective text (action bar, lists). */
     public String objectiveText(Player viewer, QuestDef def, Objective o) {
         return texts.objectiveText(viewer, def, o);
     }
@@ -520,38 +525,46 @@ public final class QuestEngine
         return texts.targetName(viewer, def, o);
     }
 
-    // ------------------------------------------------------------------ 이전 · 기간 · 관리
+    // ------------------------------------------------------------------ Migration · period · admin
     // (QuestMaintenance)
 
-    /** 정의가 사라진 퀘스트 수, 해시가 바뀐 퀘스트 수 (리로드 보고). */
+    /**
+     * Number of quests whose definition disappeared and number whose hash changed (reload report).
+     */
     record MigrationReport(int changed, int orphaned) {}
 
-    /** 리로드·접속 때 진행 이전 (목표 key 기준). */
+    /** Progress migration on reload and join (by objective key). */
     MigrationReport migrate(HarborPlayer hp) {
         return maintenance.migrate(hp);
     }
 
-    /** 1분마다: 기간이 끝난 이벤트 퀘스트를 FAILED로 (docs 20 6.4 상태 기계). */
+    /** Every minute: event quests whose period ended become FAILED (docs 20 6.4 state machine). */
     void failExpiredEvents() {
         maintenance.failExpiredEvents();
     }
 
-    /** 관리 명령: 상태 강제 (active · ready · completed · failed). 행이 없으면 지금 시즌 행을 만든다. */
+    /**
+     * Admin command: forces a state (active · ready · completed · failed). Creates a current-season
+     * row if there is none.
+     */
     public CompletableFuture<Boolean> adminSet(Player player, QuestDef def, QuestState state) {
         return maintenance.adminSet(player, def, state);
     }
 
-    /** 완료 플래그 {@code quest/<유형>/<이름>} (메인은 영구, 나머지는 시즌 범위). */
+    /**
+     * Completion flag {@code quest/<type>/<name>} (permanent for main quests, season-scoped
+     * otherwise).
+     */
     public CompletableFuture<Void> setCompletionFlag(UUID uuid, QuestDef def) {
         return maintenance.setCompletionFlag(uuid, def);
     }
 
-    /** 관리 명령: 목표 진행 값 수정. */
+    /** Admin command: edits an objective progress value. */
     public boolean adminProgress(Player player, QuestDef def, String key, int value) {
         return maintenance.adminProgress(player, def, key, value);
     }
 
-    /** 관리 명령: 행 삭제 (메인도 가능). */
+    /** Admin command: deletes the row (main quests too). */
     public CompletableFuture<Boolean> adminReset(Player player, QuestId quest) {
         return maintenance.adminReset(player, quest);
     }

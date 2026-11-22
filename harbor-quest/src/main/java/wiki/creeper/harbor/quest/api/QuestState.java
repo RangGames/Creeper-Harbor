@@ -3,27 +3,27 @@ package wiki.creeper.harbor.quest.api;
 import wiki.creeper.harbor.common.model.Keyed;
 
 /**
- * 퀘스트 상태 (docs 20 6.4 상태 기계). LOCKED·AVAILABLE은 계산 값, COMPLETING은 메모리 상태, 나머지는
- * quest_progress.state에 저장한다 (ABANDONED는 행 삭제).
+ * Quest state (docs 20 6.4 state machine). LOCKED and AVAILABLE are computed, COMPLETING is in
+ * memory only, the rest are stored in quest_progress.state (ABANDONED deletes the row).
  */
 public enum QuestState implements Keyed {
-    /** 시작 조건 미충족. */
+    /** Start requirements not met. */
     LOCKED,
-    /** 수락 가능 (NPC 머리 위 !). */
+    /** Can be accepted (! above the NPC's head). */
     AVAILABLE,
-    /** 목표 진행 중. */
+    /** Objectives in progress. */
     ACTIVE,
-    /** 추적 목표를 모두 채움, 보고 가능 (?). deliver는 보고할 때 확인. */
+    /** All tracked objectives filled, can be turned in (?). deliver is checked on turn-in. */
     READY,
-    /** 보상 처리 중 (다른 조작 거부). */
+    /** Rewards being processed (other actions are refused). */
     COMPLETING,
-    /** 완료. 반복 퀘스트는 cycle을 기록. */
+    /** Completed. Repeatable quests record the cycle. */
     COMPLETED,
-    /** 이벤트 기간 종료. */
+    /** Event period ended. */
     FAILED,
-    /** 포기 (행 삭제). */
+    /** Abandoned (row deleted). */
     ABANDONED,
-    /** 리로드로 정의가 사라진 퀘스트 (행은 남기고 메모리에서 숨김). */
+    /** Quest whose definition disappeared on reload (the row is kept but hidden in memory). */
     ORPHANED;
 
     @Override
@@ -31,12 +31,12 @@ public enum QuestState implements Keyed {
         return Keyed.keyOf(this);
     }
 
-    /** DB에 저장하는 상태인지. */
+    /** Whether this state is stored in the DB. */
     public boolean stored() {
         return this == ACTIVE || this == READY || this == COMPLETED || this == FAILED;
     }
 
-    /** 진행 중 (목표·보고 대기). */
+    /** In progress (objectives or awaiting turn-in). */
     public boolean open() {
         return this == ACTIVE || this == READY || this == COMPLETING;
     }

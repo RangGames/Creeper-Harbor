@@ -8,14 +8,15 @@ import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.common.ledger.LedgerEntry;
 
 /**
- * 보상 참조 ID (docs 20 6.4 3단계). 원장 유니크가 (uuid, currency, reason, ref_id)라 uuid·재화는 넣지 않는다. 원장 참조 ID는
- * 64자 이하라, 넘으면 같은 입력에서 늘 같은 해시로 줄인다.
+ * Reward reference IDs (docs 20 6.4 step 3). The ledger unique key is (uuid, currency, reason,
+ * ref_id), so uuid and currency are not included. Ledger reference IDs are at most 64 characters;
+ * longer ones are shortened to a hash that is always the same for the same input.
  */
 public final class RefIds {
 
     private RefIds() {}
 
-    /** 퀘스트 보상: {@code q:<퀘스트 경로>:<시즌>:<cycle>}. */
+    /** Quest reward: {@code q:<quest path>:<season>:<cycle>}. */
     public static String reward(QuestId quest, int season, String cycle) {
         String path = quest.id().path();
         if (path.startsWith("quest/")) {
@@ -24,18 +25,18 @@ public final class RefIds {
         return fit("q:" + path + ":" + season + ":" + cycle);
     }
 
-    /** 칭호 (Season TitleService, 멱등): {@code q:<퀘스트 경로>}. */
+    /** Title (Season TitleService, idempotent): {@code q:<quest path>}. */
     public static String title(QuestId quest) {
         String path = quest.id().path();
         return fit("q:" + (path.startsWith("quest/") ? path.substring(6) : path));
     }
 
-    /** 연대기 회상 (D9): {@code recap:<시즌>:<uuid>:<장>}. */
+    /** Chronicle recap (D9): {@code recap:<season>:<uuid>:<chapter>}. */
     public static String recap(int season, java.util.UUID player, int chapter) {
         return fit("recap:" + season + ":" + player + ":" + chapter);
     }
 
-    /** 64자를 넘으면 접두사 + SHA-256 앞 40자. */
+    /** Over 64 characters: prefix + first 40 characters of SHA-256. */
     public static String fit(String raw) {
         if (raw.length() <= LedgerEntry.MAX_REF_LENGTH) {
             return raw;

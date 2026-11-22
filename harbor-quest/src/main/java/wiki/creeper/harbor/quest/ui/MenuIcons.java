@@ -10,7 +10,10 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import wiki.creeper.harbor.common.content.type.Balance;
 
-/** 퀘스트 GUI 아이콘 도우미. 아이콘 재료는 balance.yml {@code quest.book.icons.<이름>}으로 바꿀 수 있다 (없으면 기본 재료). */
+/**
+ * Quest GUI icon helper. Icon materials can be changed with balance.yml {@code
+ * quest.book.icons.<name>} (default materials otherwise).
+ */
 final class MenuIcons {
 
     private MenuIcons() {}
@@ -40,7 +43,7 @@ final class MenuIcons {
         return icon(material, name, List.of(), false);
     }
 
-    /** 칸을 채우는 빈 유리판 (이름 없음). */
+    /** Empty glass pane that fills a slot (no name). */
     static ItemStack filler() {
         ItemStack stack = ItemStack.of(Material.GRAY_STAINED_GLASS_PANE);
         stack.setData(
@@ -51,7 +54,7 @@ final class MenuIcons {
         return stack;
     }
 
-    /** balance.yml quest.book.icons.<key> → 재료. 없거나 잘못되면 fallback. */
+    /** balance.yml quest.book.icons.<key> → material. fallback if absent or invalid. */
     static Material material(Balance balance, String key, Material fallback) {
         return balance.string("quest.book.icons." + key)
                 .flatMap(id -> Optional.ofNullable(Material.matchMaterial(id)))

@@ -19,7 +19,11 @@ import wiki.creeper.harbor.quest.data.QuestRepository;
 import wiki.creeper.harbor.quest.logic.Progress;
 import wiki.creeper.harbor.quest.logic.QuestMachine;
 
-/** 진행 이전(리로드·접속), 기간 만료 실패, 관리 명령의 상태·진행 수정. 관리 명령의 admin_log 기록은 호출하는 명령·GUI가 한다. 메인 스레드 전용. */
+/**
+ * Progress migration (reload, join), expiry failures, and state/progress edits from admin commands.
+ * The admin_log entry for admin commands is written by the calling command or GUI. Main thread
+ * only.
+ */
 final class QuestMaintenance {
 
     private final QuestEngine engine;
@@ -28,7 +32,7 @@ final class QuestMaintenance {
         this.engine = engine;
     }
 
-    /** 리로드·접속 때 진행 이전 (목표 key 기준). */
+    /** Progress migration on reload and join (by objective key). */
     QuestEngine.MigrationReport migrate(HarborPlayer hp) {
         QuestData data = hp.get(QuestEngine.COMPONENT);
         int changed = 0;
@@ -60,7 +64,7 @@ final class QuestMaintenance {
         return new QuestEngine.MigrationReport(changed, orphaned);
     }
 
-    /** 1분마다: 기간이 끝난 이벤트 퀘스트를 FAILED로 (docs 20 6.4 상태 기계). */
+    /** Every minute: event quests whose period ended become FAILED (docs 20 6.4 state machine). */
     void failExpiredEvents() {
         for (HarborPlayer hp : engine.api.players().online()) {
             for (Map.Entry<QuestDef, QuestEntry> e : engine.open(hp)) {
@@ -81,7 +85,7 @@ final class QuestMaintenance {
         }
     }
 
-    /** 상태를 즉시 바꾼다 (실패·관리 명령). */
+    /** Changes the state immediately (failure, admin commands). */
     CompletableFuture<Boolean> setStateNow(HarborPlayer hp, QuestEntry entry, QuestState state) {
         UUID uuid = hp.uuid();
         QuestId quest = entry.quest();
@@ -99,7 +103,10 @@ final class QuestMaintenance {
                 });
     }
 
-    /** 관리 명령: 상태 강제 (active · ready · completed · failed). 행이 없으면 지금 시즌 행을 만든다. */
+    /**
+     * Admin command: forces a state (active · ready · completed · failed). Creates a current-season
+     * row if there is none.
+     */
     CompletableFuture<Boolean> adminSet(Player player, QuestDef def, QuestState state) {
         HarborPlayer hp = engine.api.players().get(player);
         QuestEntry entry =
@@ -125,8 +132,9 @@ final class QuestMaintenance {
     }
 
     /**
-     * 완료 플래그 {@code quest/<유형>/<이름>} (퀘스트 ID 경로 그대로). Economy 상점·레시피 해금과 World 진입 조건이 퀘스트 완료를 이
-     * 플래그로 읽는다 (Quest에 의존하지 않게). 메인은 영구, 나머지는 시즌 범위.
+     * Completion flag {@code quest/<type>/<name>} (the quest ID path as is). Economy shop/recipe
+     * unlocks and World entry requirements read quest completion through this flag (so they do not
+     * depend on Quest). Permanent for main quests, season-scoped otherwise.
      */
     CompletableFuture<Void> setCompletionFlag(UUID uuid, QuestDef def) {
         return engine.api
@@ -137,7 +145,7 @@ final class QuestMaintenance {
                         def.id().id().path());
     }
 
-    /** 관리 명령: 목표 진행 값 수정. */
+    /** Admin command: edits an objective progress value. */
     boolean adminProgress(Player player, QuestDef def, String key, int value) {
         HarborPlayer hp = engine.api.players().get(player);
         QuestEntry entry = hp.get(QuestEngine.COMPONENT).entries().get(def.id());
@@ -157,7 +165,7 @@ final class QuestMaintenance {
         return true;
     }
 
-    /** 관리 명령: 행 삭제 (메인도 가능). */
+    /** Admin command: deletes the row (main quests too). */
     CompletableFuture<Boolean> adminReset(Player player, QuestId quest) {
         HarborPlayer hp = engine.api.players().get(player);
         QuestEntry entry = hp.get(QuestEngine.COMPONENT).entries().get(quest);

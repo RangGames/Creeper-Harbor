@@ -17,18 +17,23 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.quest.logic.Matchers;
 
 /**
- * 선택 의존 모듈(World·Boss) 연결 (docs 20 6.2). 두 모듈은 지금 같이 작성 중이라 클래스를 직접 쓰지 않고, 문서 계약의 이벤트 이름과 접근자 이름으로
- * 연결한다. 플러그인이 없거나 이벤트 클래스가 없으면 그 연결만 꺼진다 (로그 1줄). World·Boss가 api를 확정하면 여기만 바꾼다.
+ * Links to optional dependency modules (World, Boss) (docs 20 6.2). Both modules are still being
+ * written, so their classes are not used directly; the link goes through the event and accessor
+ * names in the documented contract. If the plugin or the event class is missing, only that link is
+ * turned off (one log line). Once World and Boss finalize their api, only this class changes.
  *
  * <ul>
- *   <li>Boss {@code BossEncounterEndEvent}: result()가 CLEARED인 참가자의 boss 목표 (boss()·bossId() → 보스
- *       ID, participants()·members()·players() → UUID 또는 Player 목록)
- *   <li>World 지역 진입 {@code RegionEnterEvent}: getPlayer()·player() + region() → visit 목표
- *   <li>World {@code ChartProgressEvent}: getPlayer()·player()·uuid() + region() + percent() →
- *       chart_percent 목표
+ *   <li>Boss {@code BossEncounterEndEvent}: boss objectives of participants when result() is
+ *       CLEARED (boss() or bossId() → boss ID, participants(), members() or players() → list of
+ *       UUIDs or Players)
+ *   <li>World region entry {@code RegionEnterEvent}: getPlayer() or player() + region() → visit
+ *       objectives
+ *   <li>World {@code ChartProgressEvent}: getPlayer(), player() or uuid() + region() + percent() →
+ *       chart_percent objectives
  * </ul>
  *
- * 연결이 안 되어도 다른 모듈은 {@link wiki.creeper.harbor.quest.api.ObjectiveSignal}로 같은 목표를 진행시킬 수 있다.
+ * Even without these links, other modules can advance the same objectives through {@link
+ * wiki.creeper.harbor.quest.api.ObjectiveSignal}.
  */
 final class OptionalBridges implements Listener {
 
@@ -130,7 +135,7 @@ final class OptionalBridges implements Listener {
                 true);
     }
 
-    // ------------------------------------------------------------------ 반사 도우미
+    // ------------------------------------------------------------------ Reflection helpers
 
     private static @Nullable Player player(Event event) {
         Object p = call(event, "getPlayer", "player", "uuid");
@@ -160,7 +165,7 @@ final class OptionalBridges implements Listener {
         return result;
     }
 
-    /** HarborId 또는 TypedId(BossId·RegionId)의 toString을 ID로 읽는다. */
+    /** Reads the toString of a HarborId or TypedId (BossId, RegionId) as the ID. */
     private static Optional<HarborId> id(@Nullable Object value) {
         if (value instanceof HarborId id) {
             return Optional.of(id);
@@ -174,7 +179,7 @@ final class OptionalBridges implements Listener {
                 Method m = target.getClass().getMethod(name);
                 return m.invoke(target);
             } catch (ReflectiveOperationException | RuntimeException e) {
-                // 다음 이름
+                // next name
             }
         }
         return null;

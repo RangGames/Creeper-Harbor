@@ -27,8 +27,10 @@ import wiki.creeper.harbor.quest.logic.Progress;
 import wiki.creeper.harbor.quest.logic.QuestMachine;
 
 /**
- * 목표 진행 (docs 20 6.4 진행 반영): 역색인에서 그 유형의 퀘스트만 보고 메모리 갱신 → QuestProgressEvent → 액션바 → 지연 쓰기 큐. 게이지
- * 목표(레벨·평판·친밀도·도감·플래그)는 지금 값으로 맞추고, 목표가 모두 차면 READY로 옮긴다. 메인 스레드 전용.
+ * Objective progress (docs 20 6.4 applying progress): looks only at quests of that type in the
+ * inverted index, updates memory → QuestProgressEvent → action bar → write-behind queue. Gauge
+ * objectives (level, reputation, affinity, codex, flags) are set to the current value, and the
+ * quest moves to READY when all objectives are filled. Main thread only.
  */
 final class ObjectiveProgressor {
 
@@ -39,7 +41,7 @@ final class ObjectiveProgressor {
     }
 
     /**
-     * @param gauge true면 도달 값(value)으로 둔다
+     * @param gauge if true, set to the reached value (value)
      */
     void progressWith(
             Player player,
@@ -61,7 +63,7 @@ final class ObjectiveProgressor {
         }
     }
 
-    /** 퀘스트 하나 진행. 진행됐으면 true. */
+    /** Advances one quest. true if it progressed. */
     boolean progressQuest(
             Player player,
             HarborPlayer hp,
@@ -117,14 +119,18 @@ final class ObjectiveProgressor {
         if (next == QuestState.READY) {
             onReady(player, def);
         } else {
-            // 다음 목표가 이미 채워져 있을 수 있다 (게이지·플래그), 컷씬 목표면 바로 재생
+            // the next objective may already be filled (gauge, flag); a cutscene objective plays
+            // right away
             refreshGauges(player, id);
             startCutsceneObjective(player, def);
         }
         return true;
     }
 
-    /** 추적 목표가 없거나 이미 채워진 퀘스트(납품만 있는 의뢰 등)는 바로 READY. */
+    /**
+     * Quests with no tracked objectives or already filled ones (delivery-only requests etc.) go
+     * straight to READY.
+     */
     void checkReady(Player player, QuestDef def) {
         HarborPlayer hp = engine.api.players().get(player);
         QuestEntry e = hp.get(QuestEngine.COMPONENT).entries().get(def.id());
@@ -155,12 +161,15 @@ final class ObjectiveProgressor {
         if (def.turnInNpc().isEmpty()
                 && def.rewards().jobAdvance() == 0
                 && !QuestEngine.hasDeliver(def)) {
-            // 보고 NPC가 없는 퀘스트(게시판 의뢰 등)는 바로 완료
+            // quests without a turn-in NPC (board requests etc.) complete immediately
             var _ = engine.payer().turnIn(player, def.id());
         }
     }
 
-    /** 게이지·플래그 목표를 지금 값으로 맞춘다 (수락·접속·레벨업·도감 등록·플래그 변경 때). */
+    /**
+     * Sets gauge and flag objectives to the current value (on accept, join, level up, codex entry,
+     * flag change).
+     */
     void refreshGauges(Player player, @Nullable QuestId only) {
         Optional<HarborPlayer> found = engine.api.players().get(player.getUniqueId());
         if (found.isEmpty()) {
@@ -200,7 +209,7 @@ final class ObjectiveProgressor {
         }
     }
 
-    /** 지금 값 (-1이면 게이지 목표가 아님). */
+    /** Current value (-1 if not a gauge objective). */
     private int gaugeValue(HarborPlayer hp, UUID uuid, QuestDef def, Objective o) {
         return switch (o.type()) {
             case "job_level" -> hp.level();
@@ -235,7 +244,10 @@ final class ObjectiveProgressor {
         };
     }
 
-    /** 지금 목표가 cutscene이면 재생한다 (진행을 막는 컷씬, 끝까지 보면 CutsceneEndEvent로 진행). */
+    /**
+     * If the current objective is a cutscene, plays it (a cutscene that blocks progress; watching
+     * to the end advances via CutsceneEndEvent).
+     */
     void startCutsceneObjective(Player player, QuestDef def) {
         QuestEntry e = engine.data(player.getUniqueId()).entries().get(def.id());
         if (e == null || e.state() != QuestState.ACTIVE) {

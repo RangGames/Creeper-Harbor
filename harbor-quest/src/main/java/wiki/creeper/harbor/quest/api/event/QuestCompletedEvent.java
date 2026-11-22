@@ -7,8 +7,9 @@ import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.quest.api.QuestRewardSummary;
 
 /**
- * 퀘스트 완료 (완료 행을 쓰고 보상을 준 뒤). Shop 패스 경험치, 통계. cycle은 반복 주기 키 (once · d2027-05-03 · w1-3). 메인 스레드에서
- * 발생한다.
+ * A quest was completed (after the completion row is written and rewards are given). Shop pass
+ * experience, statistics. cycle is the repeat cycle key (once · d2027-05-03 · w1-3). Fired on the
+ * main thread.
  */
 public final class QuestCompletedEvent extends Event {
 

@@ -9,7 +9,8 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.id.QuestId;
 
 /**
- * 게시판 후보 뽑기 (docs 20 6.4 1단계): 시드 hash(uuid, cycle)로 가중치 비복원 추첨. 같은 입력이면 서버·재시작과 관계없이 같은 목록이 나온다.
+ * Board candidate draw (docs 20 6.4 step 1): weighted draw without replacement seeded by hash(uuid,
+ * cycle). The same input gives the same list regardless of server or restart.
  */
 public final class BoardRoller {
 
@@ -19,7 +20,7 @@ public final class BoardRoller {
 
     public static List<QuestId> pick(UUID player, String cycle, List<Candidate> pool, int count) {
         List<Candidate> left = new ArrayList<>(pool);
-        // 입력 순서와 무관하게 같은 결과가 나오도록 ID 순으로 정렬
+        // sort by ID so the result does not depend on input order
         left.sort(Comparator.comparing(c -> c.quest().id()));
         SplittableRandom random = new SplittableRandom(seed(player, cycle));
         List<QuestId> result = new ArrayList<>();
@@ -42,7 +43,7 @@ public final class BoardRoller {
         return List.copyOf(result);
     }
 
-    /** FNV-1a 64비트 (JVM과 무관하게 고정). */
+    /** FNV-1a 64-bit (fixed regardless of JVM). */
     static long seed(UUID player, String cycle) {
         long h = 0xcbf29ce484222325L;
         for (byte b : (player + "|" + cycle).getBytes(StandardCharsets.UTF_8)) {

@@ -10,7 +10,8 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.core.api.Harbor;
 
 /**
- * {@code send harbor message %string% to %players%}: messages_ko.yml 키의 문구 (MiniMessage, 글리프 포함).
+ * {@code send harbor message %string% to %players%}: the text of a messages_ko.yml key
+ * (MiniMessage, including glyphs).
  */
 public final class EffMessage extends Effect {
 

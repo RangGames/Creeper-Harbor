@@ -2,7 +2,10 @@ package wiki.creeper.harbor.quest.logic;
 
 import wiki.creeper.harbor.quest.content.ProgressRules;
 
-/** 클라이맥스 개방 판정 (docs 20 6.4): 기부율 ≥ 기준 + 7장 클리어 ≥ max(최소 인원, 활동 유저 × 비율). */
+/**
+ * Climax unlock check (docs 20 6.4): donation rate ≥ threshold + ch. 7 clears ≥ max(minimum count,
+ * active players × ratio).
+ */
 public final class ClimaxMath {
 
     private ClimaxMath() {}

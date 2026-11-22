@@ -4,7 +4,10 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 진실의 조각 획득. owned·total은 획득 후 모은 수와 전체 수. 메인 스레드에서 발생한다. */
+/**
+ * A piece of the truth was obtained. owned and total are the collected count after obtaining and
+ * the total count. Fired on the main thread.
+ */
 public final class ChroniclePieceEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

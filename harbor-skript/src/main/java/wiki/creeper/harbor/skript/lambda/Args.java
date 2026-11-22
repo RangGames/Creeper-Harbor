@@ -9,7 +9,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.jspecify.annotations.Nullable;
 
-/** 람다 문법의 인자 꺼내기. 인자가 없거나 형식이 다르면 빈 값. */
+/**
+ * Argument extraction for lambda syntax. Empty if the argument is missing or of a different type.
+ */
 public final class Args {
 
     private Args() {}
@@ -43,7 +45,7 @@ public final class Args {
         return exprs[index].getSingle(event);
     }
 
-    /** 플레이어마다 값 하나 (값이 없는 플레이어는 뺀다). */
+    /** One value per player (players without a value are skipped). */
     public static <T> List<T> perPlayer(
             Event event, Expression<?>[] exprs, Function<Player, @Nullable T> value) {
         List<T> out = new ArrayList<>();
@@ -56,14 +58,14 @@ public final class Args {
         return out;
     }
 
-    /** 모든 플레이어가 조건을 만족하는지 (플레이어가 없으면 false). */
+    /** Whether every player satisfies the condition (false if there are no players). */
     public static boolean all(
             Event event, Expression<?>[] exprs, java.util.function.Predicate<Player> test) {
         List<Player> players = players(event, exprs, 0);
         return !players.isEmpty() && players.stream().allMatch(test);
     }
 
-    /** 값 하나짜리 목록 (null이면 빈 목록). */
+    /** A single-value list (empty list if null). */
     public static <T> List<T> one(@Nullable T value) {
         return value == null ? List.of() : List.of(value);
     }

@@ -120,7 +120,7 @@ class QuestLogicTest {
                 list.size() * 31);
     }
 
-    // ------------------------------------------------------------------ 목표 판정
+    // ------------------------------------------------------------------ Objective matching
 
     @Test
     void catchMatchesFishGradeRegionAndFilters() {
@@ -175,7 +175,7 @@ class QuestLogicTest {
                         "harbor:region/harbor"));
     }
 
-    // ------------------------------------------------------------------ 상태 기계
+    // ------------------------------------------------------------------ State machine
 
     @Test
     void sequenceOnlyAdvancesCurrentObjective() {
@@ -271,7 +271,8 @@ class QuestLogicTest {
         assertTrue(QuestMachine.canTurnIn(QuestState.READY));
     }
 
-    // ------------------------------------------------------------------ 진행 JSON · 주기 · 게시판
+    // ------------------------------------------------------------------ Progress JSON · cycles ·
+    // board
 
     @Test
     void progressJsonRoundTrip() {
@@ -326,7 +327,8 @@ class QuestLogicTest {
         assertTrue(RefIds.recap(3, UUID.randomUUID(), 7).length() <= 64);
     }
 
-    // ------------------------------------------------------------------ 시작 조건 · 납품 · 클라이맥스
+    // ------------------------------------------------------------------ Requirements · delivery ·
+    // climax
 
     @Test
     void requirementsWeekLock() {

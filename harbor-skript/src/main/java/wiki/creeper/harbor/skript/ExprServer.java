@@ -9,8 +9,8 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.core.api.Harbor;
 
 /**
- * {@code harbor server} (이 서버 ID, 예: lobby · play) · {@code harbor server role} (main · lobby ·
- * instance).
+ * {@code harbor server} (this server's ID, e.g. lobby · play) · {@code harbor server role} (main ·
+ * lobby · instance).
  */
 public final class ExprServer extends SimpleExpression<String> {
 

@@ -16,7 +16,10 @@ import wiki.creeper.harbor.season.api.SeasonClock;
 import wiki.creeper.harbor.season.api.SeasonServices;
 import wiki.creeper.harbor.season.api.TitleService;
 
-/** 필수 의존 모듈의 서비스 (docs 20 6.2). 모두 Quest보다 먼저 켜지므로 enable에서 한 번 찾는다. */
+/**
+ * Services of required dependency modules (docs 20 6.2). All are enabled before Quest, so they are
+ * looked up once in enable.
+ */
 public record Deps(
         NpcService npcs,
         DialogService dialogs,

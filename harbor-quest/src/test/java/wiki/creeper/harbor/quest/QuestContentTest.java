@@ -198,7 +198,10 @@ class QuestContentTest {
         assertTrue(errors(load()).contains("dance"));
     }
 
-    /** 저장소의 실제 콘텐츠 (quests/*.yml, board·chronicle·progress)가 서버와 같은 로더로 통과한다. */
+    /**
+     * The repository's actual content (quests/*.yml, board, chronicle, progress) passes the same
+     * loader as the server.
+     */
     @Test
     void repositoryContentLoads() {
         Path content = Path.of("..", "content");

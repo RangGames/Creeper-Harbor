@@ -15,8 +15,8 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborItem;
 
 /**
- * {@code harbor id of %itemstacks%}: Harbor 아이템 ID (어종 아이템은 fish/x, 가구·커스텀 블록 포함). Harbor 아이템이 아니면
- * 값이 없다.
+ * {@code harbor id of %itemstacks%}: Harbor item ID (fish/x for fish items, including furniture and
+ * custom blocks). No value if it is not a Harbor item.
  */
 public final class ExprId extends SimpleExpression<String> {
 

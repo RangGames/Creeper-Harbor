@@ -15,7 +15,10 @@ import wiki.creeper.harbor.skript.lambda.Args;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
-/** Harbor-Npc가 켜져 있을 때: 평판 등급, NPC 호감도, 컷씬 재생, NPC 대화 열기. */
+/**
+ * When Harbor-Npc is enabled: reputation rank, NPC affinity, cutscene playback, opening NPC
+ * dialogs.
+ */
 public final class NpcSyntax {
 
     private NpcSyntax() {}

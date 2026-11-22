@@ -7,12 +7,15 @@ import wiki.creeper.harbor.quest.content.CatchFilter;
 import wiki.creeper.harbor.quest.content.Objective;
 import wiki.creeper.harbor.quest.content.Target;
 
-/** 목표 대상 비교 (docs 20 6.4 목표 추적). 순수 계산. */
+/** Objective target comparison (docs 20 6.4 objective tracking). Pure computation. */
 public final class Matchers {
 
     private Matchers() {}
 
-    /** catch·donate·deliver: 어종·등급·지역 대상과 품질·크기·지역·출처 조건. */
+    /**
+     * catch, donate, deliver: species, grade and region targets plus quality, size, region and
+     * source conditions.
+     */
     public static boolean matchesFish(Objective o, CatchFacts facts) {
         if (facts.trap() && o.source() != CatchFilter.ANY) {
             return false;
@@ -62,7 +65,7 @@ public final class Matchers {
         };
     }
 
-    /** talk·boss·cutscene·use_item·affinity: ID 하나를 비교 (any면 모두). */
+    /** talk, boss, cutscene, use_item, affinity: compares a single ID (any matches all). */
     public static boolean matchesId(Objective o, @Nullable HarborId id) {
         Target t = o.target();
         if (t.kind() == Target.Kind.ANY) {
@@ -72,7 +75,7 @@ public final class Matchers {
         return want != null && want.equals(id);
     }
 
-    /** visit: 지역 진입 또는 지점 반경. */
+    /** visit: entering a region or the radius of a point. */
     public static boolean matchesVisit(
             Objective o, @Nullable HarborId region, String world, double x, double y, double z) {
         Target t = o.target();
@@ -89,7 +92,7 @@ public final class Matchers {
         };
     }
 
-    /** 다른 모듈 신호 (ObjectiveSignal.signal): 표기 그대로 비교하거나 any. */
+    /** Signals from other modules (ObjectiveSignal.signal): compares the notation as is, or any. */
     public static boolean matchesRaw(Objective o, String target) {
         Target t = o.target();
         if (t.kind() == Target.Kind.ANY || target.equals("any")) {

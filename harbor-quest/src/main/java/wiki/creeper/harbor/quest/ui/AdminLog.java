@@ -4,7 +4,10 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.HarborApi;
 
-/** 퀘스트 관리 기록 (admin_log, action은 {@code quest.<동작>}). 명령·관리 GUI·편집기가 같이 쓴다. DB 쓰기는 가상 스레드. */
+/**
+ * Quest admin log (admin_log, action is {@code quest.<action>}). Shared by commands, the admin GUI
+ * and the editor. DB writes run on a virtual thread.
+ */
 final class AdminLog {
 
     private final HarborApi api;

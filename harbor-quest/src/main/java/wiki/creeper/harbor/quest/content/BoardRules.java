@@ -15,12 +15,15 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 어부 길드 게시판 (board.yml, 추가 제안, docs 20 6.3). 수치는 '13. 제작 · 상점 가격' 6장과 '7. 밸런스 기획' 7장.
+ * Fishermen's guild board (board.yml, proposed, docs 20 6.3). Numbers come from '13. Crafting ·
+ * Shop Prices' ch. 6 and '7. Balance Design' ch. 7.
  *
- * @param slots 게시판 종류별 규칙 (daily · weekly · collect)
- * @param ladder 지역 해금 순서와 그 지역이 가장 높을 때의 의뢰 골드. 해금한 가장 높은 지역 판정에도 쓴다
- * @param location 게시판 Interaction 위치 (없으면 /의뢰 명령으로만 연다)
- * @param collectNpc 수집 의뢰를 주는 NPC (수족관 관장 이슬). quest:list에 수집 의뢰 게시판을 붙인다
+ * @param slots rules per board kind (daily · weekly · collect)
+ * @param ladder region unlock order and the request gold when that region is the highest. Also used
+ *     to determine the highest unlocked region
+ * @param location board Interaction location (if absent, opened only with the /의뢰 command)
+ * @param collectNpc NPC that gives collection requests (aquarium curator Iseul). Adds the
+ *     collection request board to quest:list
  */
 public record BoardRules(
         Map<QuestType, Slot> slots,
@@ -31,12 +34,15 @@ public record BoardRules(
         @Nullable NpcId collectNpc) {
 
     /**
-     * @param offers 게시하는 후보 수
-     * @param pick 수락할 수 있는 수 (일일 1, 주간 3, 수집 2)
+     * @param offers number of candidates posted
+     * @param pick number that can be accepted (daily 1, weekly 3, collect 2)
      */
     public record Slot(int offers, int pick, long mulbineul, int reputation) {}
 
-    /** 지역 ID는 World가 regions.yml을 채우기 전에도 쓸 수 있게 참조 검사를 하지 않는다 (없는 지역은 해금 판정에서 빠짐). */
+    /**
+     * Region IDs are not reference-checked so they can be used before World fills regions.yml
+     * (missing regions are left out of the unlock check).
+     */
     public record RegionGold(RegionId region, long daily, long weekly) {}
 
     public record Location(String world, double x, double y, double z, float yaw) {}
@@ -54,7 +60,7 @@ public record BoardRules(
         return s != null ? s : new Slot(3, 1, 0, 0);
     }
 
-    /** 지역 순서 (해금 순서, 0부터). 표에 없으면 -1. */
+    /** Region order (unlock order, from 0). -1 if not in the table. */
     public int rank(RegionId region) {
         for (int i = 0; i < ladder.size(); i++) {
             if (ladder.get(i).region().equals(region)) {

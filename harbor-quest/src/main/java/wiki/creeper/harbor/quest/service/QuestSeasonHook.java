@@ -4,9 +4,11 @@ import wiki.creeper.harbor.season.api.SeasonHook;
 import wiki.creeper.harbor.season.api.SeasonHookContext;
 
 /**
- * 시즌 전환 (docs 20 6.4): 메인이 아닌 quest_progress 행과 quest_board는 Season reset_plan이 아카이브 후 지운다 (메인 행은
- * keep_where로 원래 season 값 그대로 이월). 시즌 범위 플래그(연대기 회상 quest/recap/*)는 player_flags 정리로 함께 초기화된다.
- * Quest는 메모리 캐시만 들고 있어 서버 재시작으로 비워지므로 여기서는 기록만 남긴다 (여러 번 불려도 같다).
+ * Season change (docs 20 6.4): non-main quest_progress rows and quest_board are archived and
+ * deleted by the Season reset_plan (main rows are carried over with their original season value via
+ * keep_where). Season-scoped flags (chronicle recap quest/recap/*) are reset together by the
+ * player_flags cleanup. Quest only holds in-memory caches, which a server restart clears, so this
+ * only writes a log entry (idempotent).
  */
 final class QuestSeasonHook implements SeasonHook {
 

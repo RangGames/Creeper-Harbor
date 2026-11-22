@@ -4,12 +4,15 @@ import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.quest.content.Requires;
 
-/** 시작 조건 평가 (docs 20 6.4). 순수 계산: 플레이어 상태는 {@link Facts}로 받는다. */
+/**
+ * Start requirement evaluation (docs 20 6.4). Pure computation: player state comes in through
+ * {@link Facts}.
+ */
 public final class Requirements {
 
     private Requirements() {}
 
-    /** 평가에 쓰는 플레이어 상태 (메인 스레드 메모리 조회). */
+    /** Player state used in the evaluation (main thread in-memory lookups). */
     public interface Facts {
         boolean completed(QuestId quest);
 
@@ -21,7 +24,7 @@ public final class Requirements {
 
         boolean serverFlag(String flag);
 
-        /** 시즌 주차 (Season SeasonClock). */
+        /** Season week (Season SeasonClock). */
         int week();
 
         int affinityLevel(NpcId npc);
@@ -30,9 +33,10 @@ public final class Requirements {
     }
 
     /**
-     * 평가 결과.
+     * Evaluation result.
      *
-     * @param lockedWeek 주차만 남았을 때 그 주차 (대화에 "N주차에 열립니다", 회색 ?). 0이면 주차 잠금 아님
+     * @param lockedWeek the week when only the week remains (dialog "opens in week N", gray ?). 0
+     *     means no week lock
      */
     public record Outcome(boolean met, int lockedWeek) {
         public static final Outcome MET = new Outcome(true, 0);

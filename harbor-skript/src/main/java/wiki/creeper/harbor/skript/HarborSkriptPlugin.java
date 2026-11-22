@@ -5,11 +5,13 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Harbor-Skript: Skript 애드온 (추가 제안). Skript가 켜져 있을 때만 문법을 등록하고, 없으면 아무것도 하지 않는다. Skript 클래스는 {@link
- * SkriptSyntax}에만 있어서 Skript가 없으면 불러오지 않는다.
+ * Harbor-Skript: Skript addon (proposed). Registers syntax only when Skript is enabled and does
+ * nothing otherwise. Skript classes live only in {@link SkriptSyntax}, so they are not loaded
+ * without Skript.
  *
- * <p>문법은 Harbor API를 거친다: 골드·물비늘은 원장(SCRIPT_GRANT · SCRIPT_TAKE)으로, 아이템은 ItemService로 만든다. 스크립트가 잔액
- * 열이나 아이템 태그를 직접 고치지 않게 하기 위해서다.
+ * <p>The syntax goes through the Harbor API: gold and mulbineul through the ledger (SCRIPT_GRANT ·
+ * SCRIPT_TAKE), items through ItemService. This keeps scripts from editing balance columns or item
+ * tags directly.
  */
 public final class HarborSkriptPlugin extends JavaPlugin {
 

@@ -22,24 +22,26 @@ import wiki.creeper.harbor.quest.content.BoardRules;
 import wiki.creeper.harbor.quest.content.Objective;
 import wiki.creeper.harbor.quest.content.QuestDef;
 import wiki.creeper.harbor.quest.content.QuestType;
-import wiki.creeper.harbor.quest.data.BoardState;
 import wiki.creeper.harbor.quest.data.QuestEntry;
 import wiki.creeper.harbor.quest.logic.Progress;
 import wiki.creeper.harbor.quest.service.QuestEngine;
 import wiki.creeper.harbor.quest.service.QuestServices;
 
 /**
- * 퀘스트 화면 (docs 20 6.4 퀘스트 목록): /퀘스트 목록 Dialog(진행 중·수락 가능·완료), 상세(추적·포기), NPC 대화의 quest:list, 수락 제안,
- * 게시판. 화면은 Core Dialog 래퍼만 쓴다.
+ * Quest screens (docs 20 6.4 quest list): the /퀘스트 목록 Dialog (in progress, available, completed),
+ * details (track, abandon), quest:list in NPC dialogs, accept offers, the board. Screens use only
+ * the Core Dialog wrapper.
  */
 public final class QuestDialogs {
 
     private final HarborApi api;
     private final QuestServices q;
+    private final BoardDialogs board;
 
     public QuestDialogs(HarborApi api, QuestServices q) {
         this.api = api;
         this.q = q;
+        this.board = new BoardDialogs(api, q, this);
     }
 
     private MessageService msg() {
@@ -91,7 +93,7 @@ public final class QuestDialogs {
                         });
     }
 
-    /** 수락 가능·완료 목록 (게시판 의뢰 제외, 20개까지). */
+    /** Available and completed lists (excluding board requests, up to 20). */
     void list(Player player, QuestState state) {
         HarborPlayer hp = api.players().get(player);
         List<QuestDef> found = new ArrayList<>();
@@ -146,7 +148,7 @@ public final class QuestDialogs {
                         });
     }
 
-    /** 진행 중인 퀘스트 상세: 목표 진행, 보상, 추적·포기. */
+    /** Details of a quest in progress: objective progress, rewards, track and abandon. */
     public void detail(Player player, QuestDef def) {
         HarborPlayer hp = api.players().get(player);
         Optional<QuestEntry> entry = hp.get(QuestEngine.COMPONENT).entry(def.id());
@@ -201,7 +203,10 @@ public final class QuestDialogs {
                         });
     }
 
-    /** 정보만 보기 (완료·수락 가능 목록). 완료한 퀘스트는 목표를 모두 채운 것으로 보여 준다 (진행 기록은 완료 때 지워진다). */
+    /**
+     * View only (completed and available lists). Completed quests are shown with all objectives
+     * filled (progress records are cleared on completion).
+     */
     private void info(Player player, QuestDef def, boolean completed, Runnable back) {
         api.dialogs()
                 .choose(
@@ -218,9 +223,10 @@ public final class QuestDialogs {
     // ------------------------------------------------------------------ NPC (quest:list)
 
     /**
-     * NPC 대화의 '의뢰·이야기': 보고 가능 → 수락 가능 → 진행 중 → 주차 잠금 순. 이 NPC가 수집 의뢰 NPC면 수집 의뢰 게시판도 보여준다.
+     * "Requests · stories" in NPC dialogs: ready to turn in → available → in progress → week
+     * locked. If this NPC is the collection request NPC, also shows the collection request board.
      *
-     * @return 보여줄 것이 있었으면 true
+     * @return true if there was something to show
      */
     public boolean npcList(Player player, NpcId npc) {
         HarborPlayer hp = api.players().get(player);
@@ -305,7 +311,8 @@ public final class QuestDialogs {
         }
         DialogStyle style = q.npcDialogs().styleOf(npc);
         if (!style.modal()) {
-            // NPC가 말풍선·채팅 등으로 말하면 퀘스트 목록도 같은 방식으로 (선택지는 채팅 버튼)
+            // if the NPC speaks via speech bubble, chat etc., show the quest list the same way
+            // (choices as chat buttons)
             q.npcDialogs()
                     .present(
                             player,
@@ -344,12 +351,15 @@ public final class QuestDialogs {
         return false;
     }
 
-    /** 수락 제안: 설명·목표·보상을 보여주고 수락을 받는다. */
+    /** Accept offer: shows the description, objectives and rewards and asks for acceptance. */
     public void offer(Player player, QuestDef def) {
         offer(player, def, null, ok -> {});
     }
 
-    /** NPC가 제안할 때. 방식은 퀘스트 offer_style → 그 NPC의 대화 방식 (Dialog면 확인 화면). */
+    /**
+     * When an NPC offers. The style is the quest's offer_style → that NPC's dialog style (a
+     * confirmation screen for Dialog).
+     */
     public void offer(Player player, QuestDef def, @Nullable NpcId npc) {
         offer(player, def, npc, ok -> {});
     }
@@ -388,7 +398,10 @@ public final class QuestDialogs {
         return npc == null ? DialogStyle.DIALOG : q.npcDialogs().styleOf(npc);
     }
 
-    /** NPC 입으로 제안 (화자는 NPC): 퀘스트 이름, 설명 줄마다 한 쪽, 마지막 쪽은 목표·보상. 선택지는 수락·다음에. */
+    /**
+     * Offer spoken by the NPC (the NPC is the speaker): the quest name, one page per description
+     * line, the last page objectives and rewards. Choices are accept and later.
+     */
     private void speakOffer(
             Player player, QuestDef def, NpcId npc, DialogStyle style, Consumer<Boolean> result) {
         List<Component> pages = new ArrayList<>();
@@ -419,135 +432,28 @@ public final class QuestDialogs {
                         });
     }
 
-    // ------------------------------------------------------------------ 게시판
+    // ------------------------------------------------------------------ Board
 
-    /** 게시판 첫 화면: 일일·주간. */
+    /** Board home screen: daily and weekly. */
     public void boardRoot(Player player) {
-        HarborPlayer hp = api.players().get(player);
-        List<Dialogs.Choice> choices =
-                List.of(
-                        new Dialogs.Choice(
-                                msg().get(
-                                                "quest.board.daily",
-                                                Placeholder.unparsed(
-                                                        "left",
-                                                        String.valueOf(
-                                                                q.remainingPicks(
-                                                                        hp, QuestType.DAILY)))),
-                                Component.empty()),
-                        new Dialogs.Choice(
-                                msg().get(
-                                                "quest.board.weekly",
-                                                Placeholder.unparsed(
-                                                        "left",
-                                                        String.valueOf(
-                                                                q.remainingPicks(
-                                                                        hp, QuestType.WEEKLY)))),
-                                Component.empty()));
-        api.dialogs()
-                .choose(
-                        player,
-                        msg().get("quest.board.title"),
-                        List.of(msg().get("quest.board.body")),
-                        choices,
-                        2,
-                        i -> board(player, i == 0 ? QuestType.DAILY : QuestType.WEEKLY));
+        board.boardRoot(player);
     }
 
-    /** 게시판 후보 (초기화 뒤 처음 열 때 뽑는다). */
+    /** Board candidates (drawn on the first open after a reset). */
     public void board(Player player, QuestType kind) {
-        var _ =
-                q.ensureBoard(player, kind)
-                        .whenComplete(
-                                (board, error) -> {
-                                    if (error != null || board == null) {
-                                        msg().send(player, "quest.error.save");
-                                        return;
-                                    }
-                                    showBoard(player, board);
-                                });
+        board.board(player, kind);
     }
 
-    private void showBoard(Player player, BoardState board) {
-        HarborPlayer hp = api.players().get(player);
-        List<QuestDef> offers = new ArrayList<>();
-        List<Dialogs.Choice> choices = new ArrayList<>();
-        for (var id : board.offers()) {
-            engine().def(id)
-                    .ifPresent(
-                            def -> {
-                                offers.add(def);
-                                QuestState state = engine().avail(hp, def).state();
-                                String key =
-                                        switch (state) {
-                                            case ACTIVE, READY, COMPLETING ->
-                                                    "quest.board.offer_active";
-                                            case COMPLETED -> "quest.board.offer_done";
-                                            case AVAILABLE -> "quest.board.offer";
-                                            default -> "quest.board.offer_locked";
-                                        };
-                                Progress.Snapshot snap = q.preview(hp, def);
-                                choices.add(
-                                        new Dialogs.Choice(
-                                                msg().get(
-                                                                key,
-                                                                Placeholder.unparsed(
-                                                                        "name", def.name())),
-                                                msg().get(
-                                                                "quest.board.offer_reward",
-                                                                Placeholder.unparsed(
-                                                                        "money",
-                                                                        String.valueOf(
-                                                                                snap.gold())),
-                                                                Placeholder.unparsed(
-                                                                        "mulbineul",
-                                                                        String.valueOf(
-                                                                                snap.mulbineul())),
-                                                                Placeholder.unparsed(
-                                                                        "reputation",
-                                                                        String.valueOf(
-                                                                                snap
-                                                                                        .reputation())))));
-                            });
-        }
-        if (offers.isEmpty()) {
-            msg().send(player, "quest.board.empty");
-            return;
-        }
-        api.dialogs()
-                .choose(
-                        player,
-                        msg().get("quest.board.title_" + board.kind().key()),
-                        List.of(
-                                msg().get(
-                                                "quest.board.pick",
-                                                Placeholder.unparsed(
-                                                        "left",
-                                                        String.valueOf(
-                                                                q.remainingPicks(
-                                                                        hp, board.kind()))))),
-                        choices,
-                        1,
-                        i -> {
-                            QuestDef def = offers.get(i);
-                            QuestState state = engine().avail(hp, def).state();
-                            if (state.open()) {
-                                detail(player, def);
-                            } else if (state == QuestState.AVAILABLE) {
-                                offer(player, def);
-                            } else {
-                                engine().explainLocked(player, def, engine().avail(hp, def));
-                            }
-                        });
-    }
-
-    // ------------------------------------------------------------------ 본문
+    // ------------------------------------------------------------------ Body
 
     List<Component> describe(Player player, QuestDef def, Optional<Progress> progress) {
         return describe(player, def, progress, false);
     }
 
-    /** 설명·목표(진행)·보상 줄. completed면 모든 목표를 채운 것으로 그린다. */
+    /**
+     * Description, objective (progress) and reward lines. If completed, all objectives are drawn as
+     * filled.
+     */
     List<Component> describe(
             Player player, QuestDef def, Optional<Progress> progress, boolean completed) {
         List<Component> body = new ArrayList<>();

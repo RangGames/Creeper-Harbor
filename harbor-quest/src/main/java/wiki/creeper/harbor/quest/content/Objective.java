@@ -11,22 +11,26 @@ import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 퀘스트 목표 ('11. 데이터 설계' 2.6 + 2.9 추가 필드).
+ * Quest objective ('11. Data Design' 2.6 + 2.9 additional fields).
  *
- * @param key 목표 고유 키. 리로드 때 진행을 이어 붙이는 기준 (없으면 순서 번호 "o<n>")
- * @param type 목표 유형 (catch · deliver · visit · talk · donate · codex · job_level · job_tier · boss
- *     · chart_percent · use_item · flag · cutscene · affinity · reputation, 다른 모듈이 등록한 유형)
- * @param count 필요한 수. codex·chart_percent는 달성률(%), job_level·job_tier·affinity·reputation은 도달할 값
- * @param qualityMin 품질 하한 (catch·deliver·donate)
- * @param sizeMin 크기 하한 cm (catch·deliver)
- * @param region 포획 지역 조건 (catch)
- * @param npc deliver·talk 대상 (없으면 end_npc)
- * @param source catch에 통발 포함 여부 (기본 rod)
- * @param waypoint 추적 표시 위치
- * @param text 목표 문구 (비우면 유형별 기본 문구)
- * @param scope codex 범위 (season · total)
- * @param node talk 목표: 이 대화 노드에서 quest:talk 액션이 실행돼야 한다 (비우면 NPC 클릭)
- * @param server flag 목표: 서버 플래그인지
+ * @param key unique objective key. Used to carry progress over on reload (if absent, the order
+ *     number "o<n>")
+ * @param type objective type (catch · deliver · visit · talk · donate · codex · job_level ·
+ *     job_tier · boss · chart_percent · use_item · flag · cutscene · affinity · reputation, or a
+ *     type registered by another module)
+ * @param count required amount. Completion rate (%) for codex and chart_percent; the value to reach
+ *     for job_level, job_tier, affinity and reputation
+ * @param qualityMin minimum quality (catch, deliver, donate)
+ * @param sizeMin minimum size in cm (catch, deliver)
+ * @param region catch region condition (catch)
+ * @param npc deliver/talk target (end_npc if absent)
+ * @param source whether catch includes traps (default rod)
+ * @param waypoint tracking marker location
+ * @param text objective text (empty means the type's default text)
+ * @param scope codex scope (season · total)
+ * @param node talk objective: the quest:talk action must run at this dialog node (empty means
+ *     clicking the NPC)
+ * @param server flag objective: whether it is a server flag
  */
 public record Objective(
         String key,
@@ -45,14 +49,15 @@ public record Objective(
         boolean server) {
 
     /**
-     * 추적 표시 위치. NPC면 NPC의 현재 위치(떠돌이는 이동마다 갱신), 아니면 좌표.
+     * Tracking marker location. For an NPC, the NPC's current location (updated on every move for
+     * wanderers); otherwise coordinates.
      *
-     * @param world 콘텐츠 월드 ID (비우면 플레이어가 있는 월드)
+     * @param world content world ID (empty means the player's current world)
      */
     public record Waypoint(
             @Nullable NpcId npc, @Nullable String world, double x, double y, double z) {}
 
-    /** 기본 목표 유형. 다른 모듈은 ObjectiveTypeRegistry로 더한다. */
+    /** Built-in objective types. Other modules add more through ObjectiveTypeRegistry. */
     public static final Set<String> BUILTIN =
             Set.of(
                     "catch",
@@ -71,7 +76,10 @@ public record Objective(
                     "affinity",
                     "reputation");
 
-    /** 진행 값을 "도달한 값"으로 두는 유형 (세지 않고 현재 값으로 덮어쓴다). */
+    /**
+     * Types whose progress value is a "reached value" (overwritten with the current value instead
+     * of counted).
+     */
     public static final Set<String> GAUGES =
             Set.of("codex", "job_level", "job_tier", "chart_percent", "affinity", "reputation");
 
@@ -96,7 +104,10 @@ public record Objective(
                     "node",
                     "server");
 
-    /** 지금 수량을 세는 유형인지 (보고할 때 인벤토리를 보는 deliver 제외). */
+    /**
+     * Whether this type counts a current amount (excluding deliver, which checks the inventory on
+     * turn-in).
+     */
     public boolean tracked() {
         return !type.equals("deliver");
     }
@@ -105,21 +116,22 @@ public record Objective(
         return GAUGES.contains(type);
     }
 
-    /** 축약형에서 값이 대상이 아니라 수량인 유형 ({@code - job_level: 5}). */
+    /** Types whose value in the short form is an amount, not a target ({@code - job_level: 5}). */
     private static final Set<String> VALUE_IS_COUNT = Set.of("job_level", "job_tier", "reputation");
 
     /**
-     * 목표 한 줄. 두 가지로 쓸 수 있다:
+     * One objective line. It can be written two ways:
      *
      * <pre>{@code
-     * - {key: mackerel, type: catch, target: fish/harbor_mackerel, count: 3}   # 기본형
-     * - {catch: fish/harbor_mackerel, count: 3}                                # 축약형 (추가 제안)
+     * - {key: mackerel, type: catch, target: fish/harbor_mackerel, count: 3}   # full form
+     * - {catch: fish/harbor_mackerel, count: 3}                                # short form (proposed)
      * - {talk: npc/bawi}
-     * - {job_level: 5}                                                         # 값이 수량인 유형
+     * - {job_level: 5}                                                         # type whose value is an amount
      * }</pre>
      *
-     * 축약형은 기본 유형 이름을 키로 쓰고 type·target을 생략한다. key를 비우면 유형·대상으로 만든다 (catch_harbor_mackerel). 기본형에서
-     * key를 비우면 순서 번호 o&lt;n&gt;이다 (기존 진행과 맞추려고 바꾸지 않는다).
+     * The short form uses a built-in type name as the key and omits type and target. An empty key
+     * is built from the type and target (catch_harbor_mackerel). In the full form an empty key is
+     * the order number o&lt;n&gt; (kept unchanged to match existing progress).
      */
     static Objective parse(YamlNode n, int index, ParseContext ctx) {
         String shorthand = shorthandType(n);
@@ -175,7 +187,9 @@ public record Objective(
                         ? n.integer(java.util.Objects.requireNonNull(shorthand), 1, 1, 1_000_000)
                         : n.integer("count", 1, 1, 1_000_000);
         if ("visit".equals(type) && count != 1) {
-            // 지역 안에서 칸을 옮길 때마다 1씩 올라가므로 2 이상이면 들어가서 몇 칸 걷기만 해도 찬다
+            // it goes up by 1 each time the player moves to another block inside the region, so 2
+            // or
+            // more would be filled just by entering and walking a few blocks
             n.error("visit 목표의 count는 1이어야 합니다 (방문 여부만 셉니다)");
         }
         Quality quality = null;
@@ -229,7 +243,7 @@ public record Objective(
                 n.bool("server", false));
     }
 
-    /** type 없이 기본 유형 이름이 키로 하나 있으면 그 유형 (축약형). */
+    /** If there is no type and exactly one key is a built-in type name, that type (short form). */
     static @Nullable String shorthandType(YamlNode n) {
         if (!n.isMap() || n.has("type")) {
             return null;
@@ -247,7 +261,10 @@ public record Objective(
         return found;
     }
 
-    /** 축약형 기본 key: 유형_대상이름 (ID 마지막 부분, 영숫자·밑줄만, 32자까지). */
+    /**
+     * Default key for the short form: type_targetName (last part of the ID, letters, digits and
+     * underscores only, up to 32 characters).
+     */
     public static String autoKey(String type, String rawTarget) {
         String t = rawTarget.strip().toLowerCase(java.util.Locale.ROOT);
         int slash = t.lastIndexOf('/');
@@ -304,7 +321,8 @@ public record Objective(
                 }
             }
             default -> {
-                // job_level·job_tier·reputation·flag, 다른 모듈 유형은 대상 형식을 따지지 않는다
+                // job_level, job_tier, reputation, flag and other modules' types do not check the
+                // target format
             }
         }
     }
@@ -353,7 +371,7 @@ public record Objective(
                         Double.parseDouble(parts[3].strip()));
             }
         } catch (NumberFormatException e) {
-            // 아래 오류
+            // error below
         }
         w.error("waypoint는 NPC ID, \"x,y,z\", \"월드,x,y,z\" 또는 {world, x, y, z}여야 합니다: " + raw);
         return new Waypoint(null, null, 0, 0, 0);
