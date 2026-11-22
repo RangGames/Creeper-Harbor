@@ -465,7 +465,11 @@ public final class CutsceneManager implements CutsceneService, HandoffBlocker, L
         restore.preload(event);
     }
 
-    /** First join after a server crash: game mode always, location only on the same server. */
+    /**
+     * First join after a server crash: restores game mode and location only on the server that ran
+     * the cutscene (game mode lives in each server's own player file); other servers leave the row
+     * alone.
+     */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         restore.join(event.getPlayer());
