@@ -5,6 +5,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
 import wiki.creeper.harbor.common.db.SqlFunction;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.task.Tasks;
@@ -16,10 +17,12 @@ public final class Calls {
 
     private final HarborApi api;
     private final Tasks tasks;
+    private final Logger log;
 
-    public Calls(HarborApi api, Tasks tasks) {
+    public Calls(HarborApi api, Tasks tasks, Logger log) {
         this.api = api;
         this.tasks = tasks;
+        this.log = log;
     }
 
     public HarborApi api() {
@@ -44,7 +47,9 @@ public final class Calls {
             Thread.currentThread().interrupt();
             throw new Router.ApiException(503, "interrupted", "중단되었습니다");
         } catch (ExecutionException e) {
-            throw new Router.ApiException(500, "internal", String.valueOf(e.getCause()));
+            // 원인(SQL 오류 문구 등)은 서버 로그에만 남기고 응답에는 싣지 않는다
+            log.warn("REST 읽기 실패", e.getCause());
+            throw new Router.ApiException(500, "internal", "처리하지 못했습니다");
         }
     }
 }

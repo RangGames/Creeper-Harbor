@@ -207,6 +207,14 @@ public final class PaymentProcessor {
         } else if (!"RECEIVED".equals(state)) {
             return false; // 이미 지급·환불된 결제 (재전송)
         }
+        if (!g.lineTxId().equals(payment.txId())) {
+            // 품목이 여럿이면 보류 행은 tx_id 하나뿐이다: 보류 중 환불·분쟁으로 닫혔으면 재처리해도 지급하지 않는다
+            Optional<String> base = purchaseState(c, payment.txId());
+            if (base.isPresent() && !"HELD".equals(base.get()) && !"RECEIVED".equals(base.get())) {
+                setState(c, g.lineTxId(), base.get(), "지급 전 " + base.get());
+                return false;
+            }
+        }
         UUID player = g.player();
         ProductDef product = g.product();
         switch (product.kind()) {
@@ -355,6 +363,7 @@ public final class PaymentProcessor {
             return new Outcome.Held("거래 ID 없음", List.of());
         }
         List<UUID> donors = new ArrayList<>();
+        List<String> ungranted = new ArrayList<>();
         PearlManager.Committed<Integer> committed =
                 pearls.runBlocking(
                         t -> {
@@ -364,6 +373,16 @@ public final class PaymentProcessor {
                             }
                             int done = 0;
                             for (Row row : rows) {
+                                if ("HELD".equals(row.state()) || "RECEIVED".equals(row.state())) {
+                                    // 아직 지급 전: 회수할 것은 없고, 나중에 관리자가 재처리해도 grant()가 멈추도록 상태만 닫는다
+                                    setState(
+                                            t.connection(),
+                                            row.txId(),
+                                            type == Reversal.REFUND ? "REFUNDED" : "CHARGEBACK",
+                                            "지급 전 " + type.name());
+                                    ungranted.add(row.txId());
+                                    continue;
+                                }
                                 if (!"GRANTED".equals(row.state()) || row.player() == null) {
                                     continue;
                                 }
@@ -381,7 +400,7 @@ public final class PaymentProcessor {
         donors.forEach(d -> after.add(() -> hooks.donorChanged(d)));
         rows(tx).forEach(
                         r -> {
-                            if (r.player() != null) {
+                            if (r.player() != null && !ungranted.contains(r.txId())) {
                                 UUID player = r.player();
                                 after.add(() -> rt.notifyPlayer(player, type.name(), r.reversed()));
                             }
@@ -418,7 +437,11 @@ public final class PaymentProcessor {
         long shortage = Math.max(0, row.pearls() - taken);
         if (shortage > 0) {
             ShopRepository.addDebt(c, player, shortage);
-            ShopRepository.setLock(c, player, true, "debt:" + ref);
+            // 관리자 정지 등 다른 사유가 이미 있으면 덮어쓰지 않는다 (debt를 다 갚을 때 unlockIfDebt가 그 정지를 풀어 버린다)
+            Optional<String> existing = ShopRepository.lockReason(c, player);
+            if (existing.isEmpty() || existing.get().startsWith("debt:")) {
+                ShopRepository.setLock(c, player, true, "debt:" + ref);
+            }
         }
         if (ProductDef.Kind.SUBSCRIPTION.key().equals(row.kind())) {
             ShopRepository.endSubscription(c, player);
@@ -458,7 +481,7 @@ public final class PaymentProcessor {
                                     continue;
                                 }
                                 UUID player = Objects.requireNonNull(row.player());
-                                ShopRepository.lockDebt(c, player);
+                                long debt = ShopRepository.lockDebt(c, player);
                                 if (row.reversed() > 0) {
                                     t.apply(
                                             new PearlLedger.Change(
@@ -470,7 +493,22 @@ public final class PaymentProcessor {
                                                     "restore:" + row.txId(),
                                                     null));
                                 }
-                                ShopRepository.addDebt(c, player, -row.debtAdded());
+                                // debt는 플레이어 합계라 건별로 남은 양을 모른다: 이 건 몫이 최대한 남아 있다고 보고
+                                // (min(debtAdded, debt)) 그만큼만 지우고, 나머지는 이미 충전에서 갚은 것이라 돌려준다
+                                long remaining = Math.min(row.debtAdded(), Math.max(0, debt));
+                                long repaid = row.debtAdded() - remaining;
+                                if (repaid > 0) {
+                                    t.apply(
+                                            new PearlLedger.Change(
+                                                    player,
+                                                    repaid,
+                                                    LedgerReason.CHARGEBACK_RESTORE,
+                                                    "repaid:" + row.txId(),
+                                                    true,
+                                                    "repaid:" + row.txId(),
+                                                    null));
+                                }
+                                ShopRepository.addDebt(c, player, -remaining);
                                 if (ShopRepository.wallet(c, player).debt() <= 0) {
                                     unlockIfDebt(c, player);
                                 }

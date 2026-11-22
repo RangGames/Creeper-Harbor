@@ -97,7 +97,7 @@ public final class HarborWebPlugin extends HarborModule {
             RecentEvents events = new RecentEvents(config.getInt("http.recent_events", 500));
             api.bus().subscribe(Channels.EVENTS, envelope -> events.add(envelope.payload()));
             recent = events;
-            Calls calls = new Calls(api, ctx.tasks());
+            Calls calls = new Calls(api, ctx.tasks(), getSLF4JLogger());
             Router router = new Router();
             CoreRoutes.register(router, calls, events);
             if (CoreRoutes.enabled("Harbor-Economy")) {

@@ -102,6 +102,7 @@ public final class ShopOrders {
         return finish(
                 pearls.transact(
                         tx -> {
+                            ShopRepository.lockWallet(tx.connection(), uuid);
                             tx.requireUnlocked(uuid);
                             if (!ShopRepository.insertOrder(
                                     tx.connection(),
@@ -122,8 +123,10 @@ public final class ShopOrders {
                                             def.price(),
                                             LedgerReason.SHOP_BUY,
                                             "order:" + orderId));
-                            ShopRepository.insertOwned(
-                                    tx.connection(), uuid, def.id(), "SHOP", "order:" + orderId);
+                            if (!ShopRepository.insertOwned(
+                                    tx.connection(), uuid, def.id(), "SHOP", "order:" + orderId)) {
+                                throw new ShopReject("shop.error.owned"); // 롤백되어 차감도 취소된다
+                            }
                             return Set.of(def.id());
                         }),
                 uuid,
@@ -148,6 +151,7 @@ public final class ShopOrders {
         return finish(
                 pearls.transact(
                         tx -> {
+                            ShopRepository.lockWallet(tx.connection(), uuid);
                             tx.requireUnlocked(uuid);
                             // 계정당 구매 한도 (account_limit, 추가 제안): 주문 기록으로 센다
                             if (bundle.accountLimit() > 0
@@ -186,6 +190,9 @@ public final class ShopOrders {
                                     added.add(item);
                                 }
                             }
+                            if (added.isEmpty()) {
+                                throw new ShopReject("shop.error.owned"); // 그사이 다른 경로로 전부 얻었다
+                            }
                             return Set.copyOf(added);
                         }),
                 uuid,
@@ -218,6 +225,7 @@ public final class ShopOrders {
         Instant since = dayStart.toInstant();
         return pearls.transact(
                         tx -> {
+                            ShopRepository.lockWallet(tx.connection(), uuid);
                             tx.requireUnlocked(uuid);
                             UUID recipient =
                                     online != null
@@ -260,12 +268,15 @@ public final class ShopOrders {
                                             def.price(),
                                             LedgerReason.GIFT,
                                             "order:" + orderId));
-                            ShopRepository.insertOwned(
+                            // 받는 사람 쪽 동시 선물은 산 사람 잠금으로 막히지 않는다: 넣기 결과로 판정하고 롤백한다
+                            if (!ShopRepository.insertOwned(
                                     tx.connection(),
                                     recipient,
                                     def.id(),
                                     "GIFT",
-                                    "order:" + orderId);
+                                    "order:" + orderId)) {
+                                throw new ShopReject("shop.gift.owned");
+                            }
                             ShopRepository.insertNotice(
                                     tx.connection(),
                                     recipient,
@@ -316,6 +327,7 @@ public final class ShopOrders {
         int price = settings.nameChange().price();
         return pearls.transact(
                         tx -> {
+                            ShopRepository.lockWallet(tx.connection(), uuid);
                             tx.requireUnlocked(uuid);
                             if (ShopRepository.nameTaken(tx.connection(), uuid, name)) {
                                 throw new ShopReject("shop.name.taken");

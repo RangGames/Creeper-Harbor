@@ -87,6 +87,8 @@ public final class ChestManager {
         long price = count == 1 ? chest.priceSingle() : chest.priceTen();
         return pearls.<Opened>transact(
                         tx -> {
+                            // 지갑 잠금이 첫 문장이어야 아래 소유 목록 읽기가 앞선 개봉의 커밋을 본다
+                            ShopRepository.lockWallet(tx.connection(), uuid);
                             tx.requireUnlocked(uuid);
                             if (!ShopRepository.insertOrder(
                                     tx.connection(),

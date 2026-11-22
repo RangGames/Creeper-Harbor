@@ -126,6 +126,14 @@ public final class ShopRepository {
         }
     }
 
+    /**
+     * 주문 트랜잭션 맨 앞에서 산 사람 지갑 행을 잠근다. 같은 플레이어의 주문을 줄 세워 한도·소유 검사가 동시에 통과하지 않게 하고, 잠금 뒤에 첫 일반 읽기가 일어나야
+     * REPEATABLE READ 스냅샷이 앞 주문의 커밋을 본다.
+     */
+    public static void lockWallet(Connection c, UUID player) throws SQLException {
+        lockDebt(c, player);
+    }
+
     public static void addDebt(Connection c, UUID player, long delta) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
