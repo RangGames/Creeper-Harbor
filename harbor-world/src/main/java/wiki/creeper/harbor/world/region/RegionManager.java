@@ -16,7 +16,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import net.kyori.adventure.sound.Sound;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -32,11 +31,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.vehicle.VehicleMoveEvent;
-import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RegionId;
@@ -50,7 +46,6 @@ import wiki.creeper.harbor.world.api.FishingSpot;
 import wiki.creeper.harbor.world.api.RegionInfo;
 import wiki.creeper.harbor.world.api.RegionService;
 import wiki.creeper.harbor.world.api.UnlockStatus;
-import wiki.creeper.harbor.world.api.event.RegionBlockedEvent;
 import wiki.creeper.harbor.world.api.event.RegionEnterEvent;
 import wiki.creeper.harbor.world.api.event.RegionFirstVisitEvent;
 import wiki.creeper.harbor.world.api.event.RegionLeaveEvent;
@@ -69,8 +64,6 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
 
     public static final String BYPASS = "harbor.world.bypass";
 
-    private static final String OCCUPANCY_KEY = "harbor:world:occupancy";
-
     /** 다른 매니저에 넘기는 연결 지점 (생성 순서를 풀기 위해 나중에 붙인다). */
     public interface Hooks {
         /** 지역 안에서 청크가 바뀌었을 때 (해도). */
@@ -83,7 +76,7 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         Optional<FishingSpot> school(@Nullable Player shooter, Location bobber);
     }
 
-    private static final class Track {
+    static final class Track {
         @Nullable RegionId region;
         List<String> areas = List.of();
         long chunk = Long.MIN_VALUE;
@@ -91,17 +84,26 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         Instant dialogAt = Instant.EPOCH;
     }
 
-    private static final Set<String> CHECKED_CAUSES =
-            Set.of("ENDER_PEARL", "COMMAND", "CHORUS_FRUIT", "CONSUMABLE_EFFECT", "SPECTATE");
-
     private final WorldKit kit;
     private final ServerRouter router;
     private final Map<UUID, Track> tracks = new HashMap<>();
+    private final RegionBarrier barrier;
+    private final RegionOccupancy occupancyBoard;
     private @Nullable Hooks hooks;
 
     public RegionManager(WorldKit kit, ServerRouter router) {
         this.kit = kit;
         this.router = router;
+        this.barrier = new RegionBarrier(kit, router, this);
+        this.occupancyBoard = new RegionOccupancy(kit, this);
+    }
+
+    /**
+     * Entry-condition listener (push-back, teleport/portal guards); register it alongside this
+     * manager.
+     */
+    public RegionBarrier barrier() {
+        return barrier;
     }
 
     public void hooks(Hooks value) {
@@ -111,7 +113,7 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
     public void start() {
         var _ = kit.tasks().timer(20, 20, this::saveSafePositions);
         long publish = 20L * kit.balance().occupancyPublishSeconds();
-        var _ = kit.tasks().timer(publish, publish, this::publishOccupancy);
+        var _ = kit.tasks().timer(publish, publish, occupancyBoard::publish);
     }
 
     // ------------------------------------------------------------------ 조회
@@ -297,57 +299,7 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
 
     @Override
     public CompletableFuture<Map<RegionId, Integer>> occupancyAll() {
-        long staleBefore = Instant.now().getEpochSecond() - kit.balance().occupancyStaleSeconds();
-        return kit.tasks()
-                .supplyAsync(
-                        () -> {
-                            Map<RegionId, Integer> result = new HashMap<>();
-                            kit.api()
-                                    .redis()
-                                    .sync()
-                                    .hgetall(OCCUPANCY_KEY)
-                                    .forEach(
-                                            (field, value) -> {
-                                                String[] f = field.split("\\|", 2);
-                                                String[] v = value.split("\\|", 2);
-                                                if (f.length != 2 || v.length != 2) {
-                                                    return;
-                                                }
-                                                try {
-                                                    if (Long.parseLong(v[1]) < staleBefore) {
-                                                        return;
-                                                    }
-                                                    result.merge(
-                                                            RegionId.parse(f[1]),
-                                                            Integer.parseInt(v[0]),
-                                                            Integer::sum);
-                                                } catch (IllegalArgumentException e) {
-                                                    // 형식이 틀린 항목은 건너뛴다
-                                                }
-                                            });
-                            return result;
-                        })
-                .thenApplyAsync(Function.identity(), kit.tasks().main());
-    }
-
-    private void publishOccupancy() {
-        String server = kit.api().infra().serverId();
-        long now = Instant.now().getEpochSecond();
-        Map<String, String> values = new HashMap<>();
-        for (WorldIndex.Entry e : kit.index().regions()) {
-            values.put(server + "|" + e.id(), occupancy(e.id()) + "|" + now);
-        }
-        if (values.isEmpty()) {
-            return;
-        }
-        var _ =
-                kit.tasks()
-                        .async(() -> kit.api().redis().sync().hset(OCCUPANCY_KEY, values))
-                        .exceptionally(
-                                e -> {
-                                    kit.log().debug("체류 인원 발행 실패: {}", String.valueOf(e));
-                                    return null;
-                                });
+        return occupancyBoard.all();
     }
 
     @Override
@@ -431,7 +383,7 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         if (!Objects.equals(newId, t.region) && region != null && !player.hasPermission(BYPASS)) {
             UnlockStatus status = status(player, region, false);
             if (!status.allowed()) {
-                return pushBack(player, t, region, status, from, to, vehicle);
+                return barrier.pushBack(player, t, region, status, from, to, vehicle);
             }
         }
         t.chunk = chunk;
@@ -528,140 +480,9 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         return wiki.creeper.harbor.world.api.WorldFlags.visited(region);
     }
 
-    private @Nullable Location pushBack(
-            Player player,
-            Track t,
-            WorldIndex.Entry region,
-            UnlockStatus status,
-            Location from,
-            Location to,
-            @Nullable Vehicle vehicle) {
-        Location safe = t.safe;
-        Location dest =
-                safe != null
-                                && Objects.equals(safe.getWorld(), to.getWorld())
-                                && safe.distanceSquared(to) < 48 * 48
-                        ? safe.clone()
-                        : from.clone();
-        dest.setYaw(to.getYaw());
-        dest.setPitch(to.getPitch());
-        Vector push = dest.toVector().subtract(to.toVector()).setY(0);
-        if (push.lengthSquared() < 1e-6) {
-            double[] edge = region.polygon().nearestEdgePoint(to.getX(), to.getZ());
-            push = new Vector(edge[0] - to.getX(), 0, edge[1] - to.getZ());
-        }
-        Vector velocity =
-                push.lengthSquared() < 1e-6
-                        ? new Vector()
-                        : push.normalize().multiply(kit.balance().pushSpeed());
-        Entity mover = vehicle != null ? vehicle : player;
-        if (vehicle != null) {
-            var _ = vehicle.teleport(dest, PlayerTeleportEvent.TeleportCause.PLUGIN);
-        }
-        var _ = kit.tasks().later(1, () -> mover.setVelocity(velocity));
-        kit.actionBar(
-                player,
-                "world.region.blocked_bar",
-                Placeholder.parsed("name", region.def().name()));
-        Bukkit.getPluginManager().callEvent(new RegionBlockedEvent(player, region.info(), status));
-        Instant now = Instant.now();
-        if (now.isAfter(t.dialogAt.plusSeconds(kit.balance().dialogCooldownSeconds()))) {
-            t.dialogAt = now;
-            showRequirements(player, region, status);
-        }
-        return vehicle == null ? dest : null;
-    }
-
     /** 해금 조건과 현재 진행도 Dialog (예: "Lv 18 / 20"). */
     public void showRequirements(Player player, WorldIndex.Entry region, UnlockStatus status) {
-        List<Component> body = new ArrayList<>();
-        body.add(
-                kit.api()
-                        .messages()
-                        .get(
-                                "world.unlock.header",
-                                Placeholder.parsed("name", region.def().name())));
-        for (UnlockStatus.Requirement r : status.missing()) {
-            body.add(
-                    kit.api()
-                            .messages()
-                            .get(
-                                    "world.unlock.req."
-                                            + r.kind().name().toLowerCase(java.util.Locale.ROOT),
-                                    Placeholder.unparsed("detail", r.detail()),
-                                    Placeholder.unparsed("have", String.valueOf(r.have())),
-                                    Placeholder.unparsed("need", String.valueOf(r.need()))));
-        }
-        kit.api().dialogs().notice(player, kit.api().messages().get("world.unlock.title"), body);
-    }
-
-    // ------------------------------------------------------------------ 우회 차단
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onTeleport(PlayerTeleportEvent event) {
-        Player player = event.getPlayer();
-        Location to = event.getTo();
-        if (CHECKED_CAUSES.contains(event.getCause().name()) && !player.hasPermission(BYPASS)) {
-            Optional<WorldIndex.Entry> region = entryAt(to);
-            if (region.isPresent()
-                    && !current(player.getUniqueId()).equals(Optional.of(region.get().id()))) {
-                UnlockStatus status = status(player, region.get(), false);
-                if (!status.allowed()) {
-                    event.setCancelled(true);
-                    kit.actionBar(
-                            player,
-                            "world.region.blocked_bar",
-                            Placeholder.parsed("name", region.get().def().name()));
-                    Bukkit.getPluginManager()
-                            .callEvent(new RegionBlockedEvent(player, region.get().info(), status));
-                    return;
-                }
-            }
-        }
-        var _ = kit.tasks().later(1, () -> refresh(player, true));
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onPortal(PlayerPortalEvent event) {
-        Player player = event.getPlayer();
-        String fromWorld = kit.worldId(event.getFrom());
-        String targetWorld =
-                switch (event.getCause()) {
-                    case NETHER_PORTAL ->
-                            fromWorld.equals("harbor_nether") ? "harbor_main" : "harbor_nether";
-                    case END_PORTAL ->
-                            fromWorld.equals("harbor_end") ? "harbor_main" : "harbor_end";
-                    default -> "";
-                };
-        if (targetWorld.isEmpty()) {
-            return;
-        }
-        Optional<WorldIndex.Entry> target =
-                kit.index().regions().stream()
-                        .filter(e -> e.def().world().equals(targetWorld))
-                        .findFirst();
-        if (target.isEmpty()) {
-            return;
-        }
-        WorldIndex.Entry region = target.get();
-        if (!player.hasPermission(BYPASS)) {
-            UnlockStatus status = status(player, region, false);
-            if (!status.allowed()) {
-                event.setCancelled(true);
-                Bukkit.getPluginManager()
-                        .callEvent(new RegionBlockedEvent(player, region.info(), status));
-                showRequirements(player, region, status);
-                return;
-            }
-        }
-        ServerRouter.Destination dest = spawnOf(region);
-        World world = kit.bukkitWorld(dest.world());
-        if (world == null) {
-            event.setCancelled(true);
-            router.send(player, dest, region.ext().server(), "portal");
-            return;
-        }
-        event.setTo(new Location(world, dest.x(), dest.y(), dest.z(), dest.yaw(), 0));
+        barrier.showRequirements(player, region, status);
     }
 
     // ------------------------------------------------------------------ 접속·퇴장

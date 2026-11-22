@@ -132,6 +132,7 @@ public final class HarborWorldPlugin extends HarborModule {
                 new Listener[] {
                     router,
                     regions,
+                    regions.barrier(),
                     charts,
                     ship,
                     env,
@@ -142,6 +143,7 @@ public final class HarborWorldPlugin extends HarborModule {
                     housing,
                     housing.protection(),
                     decor,
+                    decor.placement(),
                     ride
                 }) {
             ctx.listen(l);
