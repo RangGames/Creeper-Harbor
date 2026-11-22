@@ -5,12 +5,12 @@
 ## 1. 개요
 
 - **무엇:** 크리퍼 항구 게임 서버(Purpur) 안에서 도는 Harbor-Web 플러그인이 여는 **읽기 전용** HTTP API다. 쓰기(지급, 경매 등록 등)는 없다. 모든 경로는 `GET`이다.
-- **어디서:** `config.yml http.enabled: true`인 서버에서만 열린다. 운영 의도는 한 서버(예: lobby)에서만 켜는 것이다. 여러 서버에서 켜도 동작은 하지만 서로 독립이다 (특히 `/v1/events`의 seq는 서버마다 다르다). REST에는 리더 잠금이 없다 (잠금은 웹훅에만 있다).
+- **어디서:** `config.yml http.enabled: true`인 서버에서만 열린다. 운영 의도는 한 서버(예: lobby)에서만 켜는 것이다. 여러 서버에서 켜도 동작은 하지만 서로 독립이다 (특히 `/v1/events`의 seq·커서는 서버마다 따로이고, 응답의 `server`로 어느 서버의 seq인지 알 수 있다). REST에는 리더 잠금이 없다 (잠금은 웹훅에만 있다).
 - **주소:** `http://<http.bind>:<http.port>/v1/…`. 기본 `127.0.0.1:8765`. HTTPS는 지원하지 않으므로 앞에 리버스 프록시(nginx, Caddy 등)를 두고 TLS를 끝낸다. 밖에서 직접 받으려면 `bind: 0.0.0.0`.
 - **구현:** JDK 내장 `HttpServer` + 요청마다 가상 스레드. DB와 모듈 캐시를 읽는 동안 게임 메인 스레드를 막지 않는다. 메인 스레드에서만 읽을 수 있는 값은 메인 스레드에 맡기고 **최대 5초** 기다린다 (넘으면 503).
 - **데이터 신선도:**
   - 플레이어 자료(요약·도감·퀘스트·원장)는 DB에서 읽는다. 도감·퀘스트 진행, 레벨·경험치·플레이 시간은 게임 서버가 지연 쓰기(write-behind, 키별 마지막 값을 주기적으로 씀)하므로 **접속 중인 플레이어는 몇 분 늦을 수 있다.** 재화(골드·물비늘 잔액과 원장)는 즉시 트랜잭션이라 늦지 않다.
-  - 시세·기록·랭킹은 그 모듈의 메모리 캐시를 읽는다 (랭킹은 기본 10분 주기 집계).
+  - 시세·기록·랭킹은 그 모듈의 메모리 캐시를 읽는다 (랭킹은 기본 10분 주기 집계). 경매 목록은 DB를 직접 읽는다 (캐시 없음).
 
 ### 경로 묶음과 필요한 모듈
 
@@ -97,9 +97,11 @@ Access-Control-Allow-Methods: GET, OPTIONS
 ```json
 {"ok": true, "data": <경로마다 다름>}
 {"ok": false, "error": {"code": "player_not_found", "message": "플레이어를 찾지 못했습니다: Steve"}}
+{"ok": false, "error": {"code": "bad_parameter", "message": "league는 tier1, tier2, all 중 하나여야 합니다: tier9", "param": "league", "allowed": ["tier1", "tier2", "all"]}}
 ```
 
 - 분기는 `error.code`로 한다. `message`는 사람이 읽는 한국어이고 바뀔 수 있다.
+- `bad_parameter`에는 `error.param`(파라미터 이름)이 있고, 선택형 파라미터면 `error.allowed`(허용 값 배열)도 있다.
 - **null 값은 키째 빠진다** (Gson 기본). 선택 필드는 "없으면 키가 없다"로 다룬다.
 - 캐시 헤더(`Cache-Control`, `ETag`, `Last-Modified`)는 없다. 필요하면 앞단 프록시나 웹 백엔드에서 캐시한다.
 - 500·503의 원인(SQL 오류 등)은 서버 로그에만 남고 응답에는 들어가지 않는다.
@@ -108,11 +110,10 @@ Access-Control-Allow-Methods: GET, OPTIONS
 |---|---|---|
 | 400 | `bad_request` | 경로·쿼리의 퍼센트 인코딩이 잘못됨 (`%zz`) |
 | 400 | `bad_id` | `{id}`가 UUID도 마인크래프트 이름(`[A-Za-z0-9_]{1,16}`)도 아님 |
-| 400 | `bad_currency` | ledger의 `currency`가 `gold`·`mulbineul`이 아님 |
-| 400 | `bad_league` | records·rankings의 `league`가 `tier1`·`tier2`·`all`이 아님 |
+| 400 | `bad_parameter` | 정수 파라미터(`limit`·`after`·`cursor`)가 10진 정수가 아님, 또는 선택형 파라미터(`currency`·`scope`·`category`·`league`)가 허용 값이 아님 |
 | 401 | `unauthorized` | 토큰 없음·틀림 |
 | 404 | `not_found` | 등록되지 않은 경로 (모듈이 꺼진 경우 포함) |
-| 404 | `player_not_found` | 이름으로 플레이어를 못 찾음, 또는 요약 경로에서 players 행이 없음 |
+| 404 | `player_not_found` | players 행이 없음 (UUID로 불러도 이름으로 불러도, 모든 `/players/{id}…` 경로) |
 | 404 | `fish_not_found` | records의 `fish`가 없거나 형식이 틀리거나 콘텐츠에 없음 |
 | 404 | `board_not_found` | 없는 랭킹 보드 |
 | 405 | `method_not_allowed` | GET이 아님 |
@@ -124,7 +125,8 @@ Access-Control-Allow-Methods: GET, OPTIONS
 
 **쿼리 파라미터 규칙** (`Router.Request`):
 - 빈 값(`?limit=`)은 없는 것과 같다 (기본값).
-- 정수 파라미터가 숫자가 아니거나 int 범위를 넘으면 **기본값**을 쓴다 (400이 아니다). 숫자면 최소·최대로 잘라 쓴다 (`limit=0` → 1, `limit=9999` → 최대).
+- 정수 파라미터가 10진 정수가 아니면 400 `bad_parameter`다. 정수이면 최소·최대로 잘라 쓴다 (`limit=0` → 1, `limit=9999` → 최대).
+- 선택형 파라미터는 허용 값(소문자, 정확히 일치)이 아니면 400 `bad_parameter`이고 `error.allowed`에 허용 값이 온다. 모든 경로가 같은 규칙이다.
 - 같은 이름이 여러 번 오면 마지막 값을 쓴다.
 - 경로 끝 `/`와 겹친 `/`는 무시한다 (`/v1//server/` = `/v1/server`).
 
@@ -140,8 +142,10 @@ Access-Control-Allow-Methods: GET, OPTIONS
 | 크기 | cm, 소수 첫째 자리 (`41.2`) |
 | 품질 | 별 개수 1~5 정수 |
 | 등급 (`grade`) | `common`·`uncommon`·`rare`·`epic`·`legendary`·`mythic` |
-| 리그 | 쿼리는 소문자 `tier1`·`tier2`·`all`. 랭킹 응답의 `league`만 대문자 `TIER1`·`TIER2`·`ALL` |
-| 필드 이름 대소문자 | Harbor-Web이 직접 만드는 응답은 snake_case, 모듈 레코드를 그대로 내보내는 응답(**ledger, auctions, records, rankings/{board}**, events의 이벤트 봉투)은 camelCase다. 경로별 스키마를 따른다 |
+| 리그 | 쿼리와 응답 모두 소문자 `tier1`·`tier2`·`all` |
+| 필드 이름 | **모든 REST 응답과 웹훅 `json` 본문은 snake_case**다 (모듈 레코드도 명시적으로 옮겨 쓴다). Redis를 직접 구독할 때의 원본 메시지만 Common 레코드 그대로 camelCase다 ([events.md](events.md#2-redis-메시지-형식)) |
+| enum 성격의 값 | 소문자 키 (`currency: "gold"`, `league: "all"`, `reason: "fish_sell"`, `state: "completed"`). 쿼리 파라미터가 받는 값과 같다 |
+| 목록 | 페이지가 있는 목록(`/v1/events`, `/v1/auctions`)은 `{items, next, …}` 객체, 페이지가 없는 목록은 배열 |
 | 시즌 | 정수 시즌 번호. "이번 시즌"은 REST 서버의 `harbor-infra.yml` 시즌 값 |
 
 ## 7. 경로 목록
@@ -188,10 +192,13 @@ curl -s -H "Authorization: Bearer $TOKEN" $HARBOR/v1
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" $HARBOR/v1/server
-# {"ok":true,"data":{"server":"lobby-1","season":1,"online":12}}
+# {"ok":true,"data":{"server":"lobby-1","season":1,"online":57,"online_scope":"network","servers_reporting":3,"server_online":12}}
 ```
 
-`online`은 **REST가 열린 서버 한 대**의 접속 인원이다. 네트워크 전체 인원은 이 API로 알 수 없다 ([Open questions](#open-questions)).
+- `online`: **네트워크 전체** 접속 인원. 모든 백엔드가 5초마다 Redis `harbor:server`로 보내는 하트비트 중 15초 안에 받은 서버별 마지막 값을 더한다 (Economy 시세 계산과 같은 방식).
+- `online_scope`: `network`이면 위 합계, `server`이면 받은 하트비트가 없어서(Redis 장애, REST 서버가 막 켜짐) 이 서버 인원으로 대신한 값이다.
+- `servers_reporting`: 합계에 들어간 서버 수 (`server`이면 0).
+- `server_online`: REST를 연 이 서버 한 대의 인원.
 
 ### GET /v1/players/{id}
 
@@ -208,8 +215,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $HARBOR/v1/players/069a79f4-44e9-4726-
             "gold":125400,"mulbineul":37,"reputation":410}}}
 ```
 
-- `{id}` 해석 (모든 `/players/{id}…` 공통): UUID 형식이면 UUID로, 아니면 `[A-Za-z0-9_]{1,16}`인 이름으로 보고 players 테이블에서 `last_join`이 가장 최근인 행을 찾는다. 이름 비교의 대소문자 구분은 DB 콜레이션을 따른다. 형식이 둘 다 아니면 400 `bad_id`, 이름을 못 찾으면 404 `player_not_found`.
-- 이 경로는 UUID로 불러도 players 행이 없으면 404다.
+- `{id}` 해석 (모든 `/players/{id}…` 공통): UUID 형식이면 UUID로, 아니면 `[A-Za-z0-9_]{1,16}`인 이름으로 보고 players 테이블에서 `last_join`이 가장 최근인 행을 찾는다. 이름 비교의 대소문자 구분은 DB 콜레이션을 따른다. 형식이 둘 다 아니면 400 `bad_id`, UUID든 이름이든 players 행이 없으면 404 `player_not_found`.
 - `season`: 이번 시즌 행이 없으면(이번 시즌에 접속한 적 없음) 키가 없다. `job_line`은 2차 전직 전이면 키가 없다 (`explore`·`collect`·`produce`·`economy`). `job_tier`는 1~3.
 - `playtime_seconds`는 누적 초. 접속 중이면 마지막 저장 시점까지다.
 
@@ -221,18 +227,18 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/players/Steve/ledger?curre
 
 | 파라미터 | 기본 | 범위 |
 |---|---|---|
-| `currency` | `gold` | `gold`·`mulbineul` (그 밖은 400 `bad_currency`) |
+| `currency` | `gold` | `gold`·`mulbineul` (그 밖은 400 `bad_parameter`) |
 | `limit` | 50 | 1~200 |
 
 ```json
 {"ok":true,"data":[
-  {"id":99812,"currency":"GOLD","delta":1520,"balanceAfter":125400,"reason":"FISH_SELL","refId":"sell:4f1c2a","createdAt":"2026-11-20T11:57:41.302Z"}]}
+  {"id":99812,"currency":"gold","delta":1520,"balance_after":125400,"reason":"fish_sell","ref_id":"sell:4f1c2a","created_at":"2026-11-20T11:57:41.302Z"}]}
 ```
 
-- 원장 id 내림차순(최신순). 시즌 구분 없이 전 기간이다. 페이지 넘기기(offset·커서)는 없다. 최대 200행.
-- 필드는 camelCase. `currency`는 대문자. `reason`은 `LedgerReason` 이름(대문자)이고 예전 사유가 남아 있을 수 있으니 모르는 값도 처리한다. `refId`는 없으면 키가 없다.
+- 원장 id 내림차순(최신순). 시즌 구분 없이 전 기간이다. 페이지 없음, 최대 200행 (배열).
+- `currency`·`reason`은 소문자 키다. `reason`은 `LedgerReason` 이름의 소문자이고 이벤트 `economy.currency_changed`의 `reason`과 같은 값이다. 예전 사유가 남아 있을 수 있으니 모르는 값도 처리한다. `ref_id`는 없으면 키가 없다.
 - 진주(PEARL)는 이 경로로 볼 수 없다.
-- UUID로 부르면 플레이어 존재를 확인하지 않는다 (없는 UUID → 빈 배열).
+- players 행이 없는 플레이어는 UUID로 불러도 404 `player_not_found`.
 
 ### GET /v1/players/{id}/collection
 
@@ -242,7 +248,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/players/Steve/collection?s
 
 | 파라미터 | 기본 | 값 |
 |---|---|---|
-| `scope` | `total` | `season`이면 이번 시즌, 그 밖은 모두 `total` (400 없음) |
+| `scope` | `total` | `total`(누적)·`season`(이번 시즌). 그 밖은 400 `bad_parameter` |
 
 ```json
 {"ok":true,"data":{"scope":"total","registered":2,"total":120,"percent":1.7,"entries":[
@@ -252,7 +258,8 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/players/Steve/collection?s
 - `total`은 현재 콘텐츠의 어종 수, `percent`는 소수 첫째 자리 (`total`이 0이면 `0`).
 - `entries` 순서는 정해지지 않았다. 화면에서는 `GET /v1/content/fish`의 `no`로 정렬한다.
 - `fish_name`은 콘텐츠에서 빠진 어종이면 없다.
-- 지연 쓰기 때문에 접속 중인 플레이어는 몇 분 늦을 수 있다. UUID로 부르면 존재를 확인하지 않는다.
+- `scope=season`이면 읽은 시즌 번호 `season`이 함께 온다.
+- 지연 쓰기 때문에 접속 중인 플레이어는 몇 분 늦을 수 있다. players 행이 없는 플레이어는 UUID로 불러도 404.
 
 ### GET /v1/players/{id}/quests
 
@@ -261,14 +268,15 @@ curl -s -H "Authorization: Bearer $TOKEN" $HARBOR/v1/players/Steve/quests
 ```
 
 ```json
-{"ok":true,"data":{"quests":[
-  {"quest":"harbor:quest/main/ch1_first_cast","season":1,"state":"completed","updated_at":"2026-10-01T10:02:11Z","name":"첫 캐스팅"}]}}
+{"ok":true,"data":{"season":2,"quests":[
+  {"quest":"harbor:quest/main/ch1_first_cast","main":true,"season":1,"state":"completed","updated_at":"2026-10-01T10:02:11Z","quest_name":"첫 캐스팅"},
+  {"quest":"harbor:quest/daily/bring_mackerel","main":false,"season":2,"state":"active","updated_at":"2026-11-20T09:15:40Z","quest_name":"고등어 납품"}]}}
 ```
 
-- 이번 시즌의 모든 퀘스트 행 + **시즌과 상관없이** `harbor:quest/main/`으로 시작하는 메인 퀘스트 행. 메인 퀘스트가 여러 시즌에 걸쳐 있으면 같은 `quest`가 시즌별로 여러 번 나올 수 있다.
+- 이번 시즌의 퀘스트 행 + 이전 시즌에서 이월된 메인 퀘스트(`harbor:quest/main/…`, `main: true`) 행. **퀘스트마다 한 줄**이다. 같은 메인 퀘스트가 여러 시즌에 행이 있으면 게임이 쓰는 것과 같이 가장 최근 시즌의 행만 준다 (`season`이 그 행의 시즌). 위쪽 `season`은 이번 시즌 번호다.
 - `state`: `active`·`ready`(목표 달성, 제출 가능)·`completed`·`failed`(기간 종료). 포기한 퀘스트는 행이 지워져 없다. 아직 받지 않은 퀘스트(잠김·수락 가능)도 나오지 않는다.
-- 이름 키는 `name`이다 (이벤트의 `quest_name`과 다름). 진행도(목표별 수치)는 주지 않는다.
-- 순서는 정해지지 않았다.
+- 이름 키는 `quest_name`이다 (이벤트와 같다). 진행도(목표별 수치)는 주지 않는다.
+- quest ID 오름차순. players 행이 없는 플레이어는 UUID로 불러도 404.
 
 ### GET /v1/events
 
@@ -278,25 +286,33 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/events?after=1040&type=col
 
 | 파라미터 | 기본 | 범위 |
 |---|---|---|
-| `after` | 0 | 0~2147483647. 이 seq보다 큰 것만 |
+| `after` | 0 | 이 seq보다 큰 것만 (보통 앞 응답의 `next`). 음수는 0 |
 | `type` | (전부) | type glob, `*`만 와일드카드 |
 | `limit` | 100 | 1~500 |
 
 ```json
-{"ok":true,"data":{"last":1042,"items":[
+{"ok":true,"data":{"server":"lobby-1","last":1042,"next":1042,"items":[
   {"seq":1042,"event":{"id":"a8d2…","type":"collection.record_broken","version":1,"server":"main-1",
-   "occurredAt":"2026-11-20T12:00:05.901Z","player":"069a…","data":{"fish":"harbor:fish/harbor_mackerel","size":41.2,"…":"…"}}}]}}
+   "occurred_at":"2026-11-20T12:00:05.901Z","player":"069a…","player_name":"Steve","data":{"fish":"harbor:fish/harbor_mackerel","size":41.2,"…":"…"}}}]}}
 ```
 
+| 필드 | 뜻 |
+|---|---|
+| `server` | seq를 붙인 REST 서버 ID. **seq와 커서는 이 서버에서만 뜻이 있다** |
+| `last` | 이 서버가 지금까지 붙인 마지막 seq (필터와 무관) |
+| `next` | 다음 요청의 `after`. 페이지가 꽉 찼으면 마지막 item의 seq, 아니면 `last`, 보낸 `after`가 `last`보다 크면 0 |
+| `items[].event` | snake_case 이벤트 ([events.md](events.md)). `event.server`는 이벤트가 난 게임 서버 |
+
 폴링 방법:
-1. 처음에는 `after=0`(버퍼 전체) 또는 현재 `last`를 얻어 그 뒤부터 읽는다.
-2. 받은 `items`의 마지막 `seq`를 저장하고 다음 요청의 `after`로 쓴다. `items`가 비면 `after`를 유지한다. (`type` 필터를 쓰면 `last`가 아니라 마지막 item의 seq를 써야 필터에 맞는 이벤트를 놓치지 않는다. 필터 없이 다 받았다면 `last`를 써도 된다.)
-3. `last < after`이면 REST 서버가 재시작된 것이다 (seq가 1부터 다시). `after=0`으로 다시 읽고, 이미 처리한 것은 `event.id`로 거른다.
+1. 처음에는 `after=0`(버퍼 전체)으로 읽는다.
+2. 응답의 `next`와 `server`를 저장하고 다음 요청의 `after`로 `next`를 쓴다. `type` 필터를 써도 `next`를 그대로 쓰면 된다.
+3. `next`가 0으로 오면 REST 서버가 재시작된 것이다 (seq가 1부터 다시). 그대로 `after=0`으로 읽고, 이미 처리한 것은 `event.id`로 거른다.
+4. 응답의 `server`가 저장한 값과 다르면 다른 REST 서버가 답한 것이다 (로드밸런서 뒤에 여러 대). 저장한 커서를 버리고 `after=0`으로 읽은 뒤 `event.id`로 거른다. 서버 간 공통 순서는 만들지 않는다. REST는 한 서버에서만 켜거나 고정 라우팅을 권한다.
 
 주의:
 - 버퍼는 REST 서버 메모리에 최근 `recent_events`개(기본 500)만 있다. 폴링 간격 동안 그보다 많이 쌓이면 **빠진 이벤트를 알려 주지 않고** 잃는다. `fishing.caught`·`economy.currency_changed`가 많으면 버퍼가 빨리 돈다.
-- seq는 REST 서버가 받은 순서다. 서버 간 실제 발생 순서와 다를 수 있다 (`occurredAt` 참고).
-- `event.data`의 숫자는 정수도 `13.0`처럼 실수로 나온다. 이벤트별 data 필드는 [events.md](events.md#3-이벤트-카탈로그).
+- seq는 REST 서버가 받은 순서다. 서버 간 실제 발생 순서와 다를 수 있다 (`occurred_at` 참고).
+- `event.data`의 정수는 정수(`13`)로, 소수가 있는 값은 실수로 나온다. 이벤트별 data 필드는 [events.md](events.md#3-이벤트-카탈로그).
 
 ### GET /v1/content/fish
 
@@ -325,32 +341,33 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/auctions?category=fish&lim
 
 | 파라미터 | 기본 | 값 |
 |---|---|---|
-| `category` | (전체) | `fish`·`gear`·`bait`·`material`·`food`·`other`. 검사하지 않으므로 그 밖의 값은 빈 배열 |
-| `limit` | 50 | 1~200으로 받지만 **실제 최대 45** |
+| `category` | `all` | `all`·`fish`·`gear`·`bait`·`material`·`food`·`other` (그 밖은 400 `bad_parameter`) |
+| `limit` | 50 | 1~200 |
+| `cursor` | (첫 페이지) | 앞 응답의 `next` |
 
 ```json
-{"ok":true,"data":[{"id":5120,"seller":"069a…","sellerName":"Steve","itemId":"harbor:fish/silver_anchovy","itemName":"은빛 멸치",
-  "category":"fish","amount":1,"price":4200,"expiresAt":"2026-11-22T11:00:00Z"}]}
+{"ok":true,"data":{"next":"5101","items":[{"id":5120,"seller":"069a…","seller_name":"Steve","item_id":"harbor:fish/silver_anchovy","item_name":"은빛 멸치",
+  "category":"fish","amount":1,"price":4200,"created_at":"2026-11-20T11:00:00Z","expires_at":"2026-11-22T11:00:00Z"}]}}
 ```
 
-- 최신 등록순, 만료되지 않은 진행 중 목록. camelCase. `price`는 묶음 전체 골드.
-- 경매 화면의 첫 페이지(45개)를 재사용하므로 45개를 넘게 받을 수 없고, 다음 페이지도 없다.
-- 카테고리별로 `balance.yml economy.auction.cache_s`(기본 30초) 캐시된다.
+- 만료되지 않은 진행 중 목록, 최신순(listing id 내림차순). `price`는 묶음 전체 골드.
+- **페이지:** `next`가 있으면 그 값을 다음 요청의 `cursor`로 넣는다. `next`가 없으면 마지막 페이지다. 키셋 방식이라 페이지 사이에 새 등록이 생겨도 겹치거나 빠지지 않는다 (그 사이 팔리거나 만료된 경매는 빠진다). `cursor`는 불투명한 문자열로 다룬다.
+- Economy의 `auction_listing` 테이블을 직접 읽는다 (읽기 전용, 캐시 없음). 게임 경매 화면의 45개 페이지와 무관하다.
 
 ### GET /v1/records
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/records?fish=harbor:fish/harbor_mackerel&league=all&limit=5"
-# {"ok":true,"data":[{"player":"069a…","name":"Steve","size":41.2,"caughtAt":"2026-11-20T12:00:05.901Z"}]}
+# {"ok":true,"data":[{"rank":1,"player":"069a…","name":"Steve","size":41.2,"caught_at":"2026-11-20T12:00:05.901Z"}]}
 ```
 
 | 파라미터 | 기본 | 값 |
 |---|---|---|
 | `fish` | (필수) | `harbor:fish/<이름>` 또는 `fish/<이름>`. 없거나 틀리면 404 `fish_not_found` |
-| `league` | `all` | `tier1`·`tier2`·`all` (그 밖은 400 `bad_league`) |
+| `league` | `all` | `tier1`·`tier2`·`all` (그 밖은 400 `bad_parameter`) |
 | `limit` | 10 | 1~10 |
 
-이번 시즌의 그 어종 최대어 상위(크기 내림차순), camelCase. 기록이 없으면 빈 배열. 리그는 기록 당시 직업 단계로 정해진다.
+이번 시즌의 그 어종 최대어 상위(크기 내림차순, `rank`는 1부터). 기록이 없으면 빈 배열. 리그는 기록 당시 직업 단계로 정해진다.
 
 ### GET /v1/rankings
 
@@ -368,13 +385,13 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/rankings/level?league=tier
 ```
 
 ```json
-{"ok":true,"data":{"board":"level","league":"TIER1","season":1,"computedAt":"2026-11-20T12:00:00.004Z","entries":[
-  {"rank":1,"uuid":"069a…","name":"Steve","value":52.0,"secondary":18200.0,"achievedAt":"2026-11-19T22:41:10Z","members":1}]}}
+{"ok":true,"data":{"board":"level","league":"tier1","season":1,"computed_at":"2026-11-20T12:00:00.004Z","entries":[
+  {"rank":1,"uuid":"069a…","name":"Steve","value":52.0,"secondary":18200.0,"achieved_at":"2026-11-19T22:41:10Z","members":1}]}}
 ```
 
-- 집계 캐시(보드별 `refresh`, 기본 10분)를 읽는다. `computedAt`으로 집계 시각을 보여 줄 수 있다.
-- 아직 집계 전이거나 그 보드가 이 리그를 집계하지 않으면 `entries: []`, `computedAt: "1970-01-01T00:00:00Z"`.
-- camelCase이고 `league`는 대문자. `value` 단위는 보드의 source에 따른다 (최대어 cm, 레벨, 도감 수, 보스 처치 시간 ms 등). `uuid`는 없으면 키가 없다. 동점은 먼저 달성한 사람이 위다.
+- 집계 캐시(보드별 `refresh`, 기본 10분)를 읽는다. `computed_at`으로 집계 시각을 보여 줄 수 있다.
+- 아직 집계 전이거나 그 보드가 이 리그를 집계하지 않으면 `entries: []`, `computed_at: "1970-01-01T00:00:00Z"`.
+- `league`는 쿼리와 같은 소문자 키. `league`가 허용 값이 아니면 400 `bad_parameter`. `value`·`secondary`는 항상 실수 표기(`52.0`)다. `value` 단위는 보드의 source에 따른다 (최대어 cm, 레벨, 도감 수, 보스 처치 시간 ms 등). `uuid`는 없으면 키가 없다. 동점은 먼저 달성한 사람이 위다.
 
 ## 9. 웹 백엔드 구현 권장
 
@@ -384,22 +401,30 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/rankings/level?league=tier
 
 ## Open questions
 
-코드에서 확인한 동작 중 의도가 불분명하거나 웹 팀이 알아야 할 제약이다. 고칠지 여부는 서버 팀이 정한다.
+서버 팀이 알고 있지만 그대로 두는 동작과 제약이다.
 
-1. **필드 이름 표기가 섞여 있다.** Harbor-Web이 만든 응답은 snake_case, 모듈 레코드를 그대로 내보내는 ledger·auctions·records·rankings/{board}는 camelCase다. 또 `currency`(`GOLD`)와 랭킹 `league`(`ALL`)는 대문자 enum 이름인데 쿼리와 다른 응답은 소문자다. 지금 명세는 현재 동작을 그대로 적었다. 통일하면 하위 호환이 깨진다.
-2. **`/v1/auctions`의 `limit`은 200까지 받지만 실제 최대 45**이고 다음 페이지가 없다.
-3. **`/v1/events`의 data 숫자가 실수로 나온다** (`13.0`). Redis 원본은 정수다. REST 서버가 Gson 기본 숫자 정책(DOUBLE)으로 다시 읽기 때문이다. 웹훅 `json` 본문도 같다.
-4. **이벤트의 `playerName`이 대부분 없다.** 모듈 이벤트 대부분이 Player가 아니라 UUID를 주기 때문이다. 디스코드 문구의 `<player>`에도 UUID가 찍힌다 ([events.md](events.md#discord)).
-5. **`/v1/server`의 `online`은 REST 서버 한 대 기준이다.** 네트워크 전체 인원 경로는 없다.
-6. **잘못된 값의 처리가 경로마다 다르다.** `scope`·`category`는 검사하지 않고(기본값/빈 배열), `currency`·`league`는 400, 정수 파라미터는 숫자가 아니면 조용히 기본값이다.
-7. **UUID로 부른 하위 경로(ledger·collection·quests)는 플레이어 존재를 확인하지 않는다** (빈 결과 200). 요약 경로만 404를 준다.
-8. **도감 테이블 이름이 아직 `codex_total`/`codex_season`이다** (모듈 이름은 collection으로 바뀜). API 응답에는 영향이 없다. 랭킹 보드 ID에도 `codex`가 남아 있다 (`content/season/rankings.yml`). 보드 ID는 콘텐츠 값이라 바뀌면 `/v1/rankings/{board}` 경로가 바뀐다.
-9. **`jobs.advanced` 이벤트의 `tier`가 `"second"` 같은 enum 이름이다.** 디스코드 문구 `<tier>차 전직`이 "second차"로 찍힌다.
-10. **`server.content_reloaded`의 `snapshot` 값은 Java 객체 문자열이라 의미가 없다.**
-11. **이름으로 찾을 때의 대소문자 구분**은 DB 콜레이션에 달려 있다 (코드는 `name = ?` 비교만 한다).
-12. **같은 메인 퀘스트가 시즌별로 여러 행** 나올 수 있다 (`/players/{id}/quests`). 의도인지 확인 필요.
-13. **REST를 여러 서버에서 켜면** `/v1/events`의 seq가 서버마다 달라 로드밸런서 뒤에 두면 커서가 깨진다. 한 서버만 켜거나, 고정 라우팅을 쓴다.
-14. **버전 정책:** 경로 접두사 `/v1` 말고 응답 형식 버전 표시는 없다. 응답 필드 추가는 예고 없이 될 수 있다고 가정하고, 모르는 필드는 무시하게 만든다.
+1. **이름으로 찾을 때의 대소문자 구분**은 DB 콜레이션에 달려 있다 (코드는 `name = ?` 비교만 한다).
+2. **도감 테이블 이름이 아직 `codex_total`/`codex_season`이다** (모듈 이름은 collection으로 바뀜). API 응답에는 영향이 없다. 랭킹 보드 ID에도 `codex`가 남아 있다 (`content/season/rankings.yml`). 보드 ID는 콘텐츠 값이라 바뀌면 `/v1/rankings/{board}` 경로가 바뀐다.
+3. **Redis 원본 메시지는 camelCase다.** `harbor:events`를 직접 구독하면 Common `ExternalEvent` 레코드 그대로(`occurredAt`, `playerName`)다. REST와 웹훅만 snake_case로 옮긴다. 원본을 바꾸려면 Common·Core 변경이 필요하다 ([events.md](events.md#2-redis-메시지-형식)).
+4. **Redis pub/sub 특성:** 구독하지 않던 동안의 이벤트, 리더 교체 중 웹훅, 버퍼에서 밀려난 `/v1/events` 이벤트는 잃는다 ([events.md](events.md)).
+5. **버전 정책:** 경로 접두사 `/v1` 말고 응답 형식 버전 표시는 없다. 1.0 전에는 아래 Changelog처럼 형식이 바뀔 수 있다. 응답 필드 추가는 예고 없이 될 수 있다고 가정하고, 모르는 필드는 무시하게 만든다.
+
+## Changelog (pre-1.0)
+
+외부 소비자가 생기기 전에 정리한 변경이다 (하위 호환 없음).
+
+- **필드 이름 snake_case 통일:** ledger(`balance_after`, `ref_id`, `created_at`), auctions(`seller_name`, `item_id`, `item_name`, `expires_at`, 새 `created_at`), records(`caught_at`, 새 `rank`), rankings/{board}(`computed_at`, `achieved_at`), `/v1/events`와 웹훅 `json`의 이벤트(`occurred_at`, `player_name`). quests의 이름 키는 `name` → `quest_name`.
+- **enum 값 소문자 통일:** ledger `currency`(`gold`)·`reason`(`fish_sell`), rankings `league`(`all`).
+- **이벤트 정수 보존:** `/v1/events`와 웹훅 `json`에서 정수가 `13.0`이 아니라 `13`으로 나온다. 웹훅 `json` 본문은 HTML 문자를 이스케이프하지 않는다.
+- **`/v1/auctions` 페이지:** `limit` 최대 200을 실제로 지키고, 응답이 `{items, next}`이며 `cursor`로 다음 페이지를 읽는다. `category` 기본값은 `all`.
+- **`player_name` 채움:** UUID만 있는 모듈 이벤트도 발행 서버가 이름을 찾아 넣는다 (디스코드 `<player>`에 이름이 찍힌다).
+- **`/v1/server`:** `online`이 네트워크 전체(하트비트 합계)가 되고, `online_scope`·`servers_reporting`·`server_online`(이 서버)이 생겼다.
+- **입력 검사 통일:** 선택형 파라미터(`currency`·`scope`·`category`·`league`)와 정수 파라미터가 틀리면 모두 400 `bad_parameter`(`error.param`, `error.allowed`). 오류 코드 `bad_currency`·`bad_league`는 없어졌다.
+- **없는 플레이어 404:** ledger·collection·quests도 UUID로 불렀을 때 players 행이 없으면 404 `player_not_found`.
+- **`jobs.advanced`:** `tier`가 숫자(1~3)이고 `tier_key`(`first`·`second`·`third`)가 생겼다. 디스코드 문구가 "2차 전직"으로 찍힌다.
+- **`server.content_reloaded`:** 의미 없던 `snapshot`을 빼고 `entry_counts`(다시 읽은 형식별 항목 수)를 넣었다.
+- **quests 중복 제거:** 퀘스트마다 한 줄(메인은 가장 최근 시즌 행), `main` 필드와 위쪽 `season` 추가.
+- **`/v1/events` 커서:** 응답에 `server`(seq를 붙인 서버)와 `next`가 생겼다. `after`는 int64.
 
 ## Source map
 
@@ -409,14 +434,16 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/rankings/level?league=tier
 |---|---|
 | 플러그인 시작, 설정 읽기, 라우트 등록 조건, `server.started`/`stopping`, 관리 명령 | `harbor-web/src/main/java/wiki/creeper/harbor/web/HarborWebPlugin.java` |
 | HTTP 서버, 인증, CORS, 처리 순서, 응답 봉투 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/ApiServer.java` |
-| 경로 매칭, 쿼리 파싱, 정수 파라미터 자르기 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/Router.java` |
+| 경로 매칭, 쿼리 파싱·검사 (`bad_parameter`) | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/Router.java` |
 | 5초 타임아웃, 503/500 변환 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/Calls.java` |
 | 속도 제한 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/RateLimiter.java` |
-| `/v1/events` 버퍼 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/RecentEvents.java` |
+| `/v1/events` 버퍼·커서 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/RecentEvents.java` |
+| 네트워크 접속 인원 (하트비트) | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/NetworkOnline.java` |
+| Redis 이벤트 읽기(정수 보존), snake_case 이벤트 | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/EventWire.java` |
 | server, players/*, events, content/fish 경로 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/CoreRoutes.java` |
 | market, auctions, records, rankings 경로 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/ModuleRoutes.java` |
 | 이벤트 카탈로그 (type ↔ 클래스) | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/EventCatalog.java` |
-| 이벤트 구독·발행, 접속/퇴장, `_name` 찾기 | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/EventRelay.java` |
+| 이벤트 구독·발행, 접속/퇴장, `_name` 찾기, `player_name` 찾기 | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/EventRelay.java` |
 | 이벤트 data 변환 | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/EventSerializer.java` |
 | glob | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/Globs.java` |
 | 웹훅 발송, 리더 잠금, 재시도, 디스코드 본문 | `harbor-web/src/main/java/wiki/creeper/harbor/web/webhook/WebhookDispatcher.java` |
@@ -428,10 +455,11 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/rankings/level?league=tier
 | JSON 설정 (Gson, null 생략) | `harbor-common/src/main/java/wiki/creeper/harbor/common/util/Json.java` |
 | 외부 이벤트 API·구현 | `harbor-core/src/main/java/wiki/creeper/harbor/core/api/ExternalEvents.java`, `harbor-core/src/main/java/wiki/creeper/harbor/core/event/CoreExternalEvents.java` |
 | 원장 조회 | `harbor-core/src/main/java/wiki/creeper/harbor/core/api/{CurrencyService,LedgerRecord}.java`, `harbor-core/src/main/java/wiki/creeper/harbor/core/currency/CurrencyManager.java` |
-| 경매 조회 | `harbor-economy/src/main/java/wiki/creeper/harbor/economy/api/{AuctionService,AuctionListingInfo}.java`, `harbor-economy/src/main/java/wiki/creeper/harbor/economy/service/{AuctionHouse,AuctionListings}.java` |
+| 경매 테이블 | `harbor-economy/src/main/resources/db/migration/economy/V1__economy.sql` (`auction_listing`) |
 | 시세 | `harbor-economy/src/main/java/wiki/creeper/harbor/economy/api/PriceService.java`, `harbor-economy/src/main/java/wiki/creeper/harbor/economy/service/MarketEngine.java` |
 | 최대어 기록 | `harbor-collection/src/main/java/wiki/creeper/harbor/collection/api/{RecordService,RecordEntry}.java`, `harbor-collection/src/main/java/wiki/creeper/harbor/collection/service/RecordBoard.java` |
 | 랭킹 | `harbor-season/src/main/java/wiki/creeper/harbor/season/api/{RankingService,RankingBoard,RankEntry,League}.java`, `harbor-season/src/main/java/wiki/creeper/harbor/season/content/RankingBoardDef.java` |
+| 하트비트 | `harbor-common/src/main/java/wiki/creeper/harbor/common/proxy/ProxyMessages.java` (`HEARTBEATS`) |
 | 테이블 | `harbor-common/.../db/migration/common/V1__common_tables.sql`(players, ledger), `harbor-core/.../db/migration/core/V1__core_tables.sql`(player_season), `harbor-collection/.../db/migration/collection/V1__collection.sql`(codex_*), `harbor-quest/.../db/migration/quest/V1__quest.sql`(quest_progress) |
 | 모듈 이벤트 클래스 | `harbor-<모듈>/src/main/java/wiki/creeper/harbor/<모듈>/api/event/*.java` |
 | 디스코드 문구 | `content/messages_ko.yml` (`web.discord.*`) |

@@ -25,7 +25,7 @@
 
 ## 이벤트 형식
 
-Redis 메시지는 Harbor 공통 봉투이고 `payload`가 이벤트다.
+Redis 메시지는 Harbor 공통 봉투이고 `payload`가 이벤트다. Redis 원본은 Common 레코드 그대로 camelCase이고, REST `/v1/events`와 웹훅 `json`은 같은 이벤트를 snake_case(`occurred_at`, `player_name`)로 보낸다.
 
 ```json
 {"type":"ExternalEvent","server":"main-1","sentAt":"2026-11-20T12:00:00Z",
@@ -36,12 +36,15 @@ Redis 메시지는 Harbor 공통 봉투이고 `payload`가 이벤트다.
 ```
 
 - **id:** 이벤트 고유 ID다. 받는 쪽에서 중복을 거를 때 쓴다.
+- **playerName:** 원본 이벤트가 UUID만 줘도 발행 서버가 이름을 찾아 넣는다 (접속 중 → 최근 이름 → players 테이블).
+- **숫자:** 정수는 REST·웹훅에서도 정수로 나간다 (`13`, `13.0` 아님).
 - **version:** data 형식 버전이다. 필드를 빼거나 뜻을 바꿀 때만 올리고, 필드 추가는 그대로 1이다.
 - **data 필드 이름:** 이벤트 getter 이름을 snake_case로 바꾼 것이다 (`getSizeCm` → `size_cm`).
 - **값 변환:**
   - ID는 `harbor:<종류>/<이름>` 글이 된다. 콘텐츠 이름을 찾으면 `<필드>_name`을 함께 넣는다.
   - 레코드는 지도가 된다. 콘텐츠 정의(어종 등)는 `{id, no, name, grade}`만 넣는다.
   - enum은 소문자 키, 위치는 `{world,x,y,z}`, 아이템은 `{material, amount}`가 된다.
+  - 직업 단계는 숫자(`tier: 2`)와 `tier_key`(`"second"`)로 나간다.
 - **다른 플러그인에서 발행:** `Harbor.api().events().emit("skript.lottery_won", uuid, name, Map.of("prize", 1000))`. type 형식은 `모듈.사건`(소문자·밑줄)이다.
 
 ### type 목록
@@ -83,7 +86,7 @@ webhooks:
 ```
 
 - **discord:** `messages_ko.yml`의 `web.discord.<type>` 문구로 보낸다. 문구가 없는 type은 보내지 않는다. 자리표시자는 `<player>` `<server>` `<type>`와 data의 모든 칸이다 (점은 밑줄: `fish.name` → `<fish_name>`). 멘션은 막는다.
-- **json:** 이벤트(payload) 전체를 POST한다. 헤더는 다음과 같다.
+- **json:** 이벤트 전체를 snake_case로 POST한다 (REST `/v1/events`의 `event`와 같은 형식). 헤더는 다음과 같다.
   - `X-Harbor-Event`: type
   - `X-Harbor-Id`: 이벤트 id
   - `X-Harbor-Timestamp`: 초 단위 유닉스 시각
@@ -96,25 +99,25 @@ webhooks:
 
 ## REST API
 
-`Authorization: Bearer <토큰>`이 필요하다 (`/v1/health`만 예외). 토큰마다 분당 요청 수를 제한한다 (`rate_limit_per_minute`). 응답 형식은 `{"ok":true,"data":…}` 또는 `{"ok":false,"error":{"code","message"}}`이다. 경로 목록은 `GET /v1`로도 볼 수 있다.
+`Authorization: Bearer <토큰>`이 필요하다 (`/v1/health`만 예외). 토큰마다 분당 요청 수를 제한한다 (`rate_limit_per_minute`). 응답 형식은 `{"ok":true,"data":…}` 또는 `{"ok":false,"error":{"code","message"}}`이다. 필드 이름은 모두 snake_case, enum 값은 소문자 키다. 틀린 쿼리 파라미터는 400 `bad_parameter`(`error.allowed`에 허용 값), 없는 플레이어는 404다. 경로 목록은 `GET /v1`로도 볼 수 있다.
 
 | 경로 | 내용 |
 |---|---|
 | `GET /v1/health` | 살아 있는지 (토큰 불필요) |
-| `GET /v1/server` | 서버 ID·시즌·접속 인원 |
+| `GET /v1/server` | 서버 ID·시즌·접속 인원 (`online` 네트워크 전체, `server_online` 이 서버) |
 | `GET /v1/players/{uuid 또는 이름}` | 이름·접속 시각·플레이 시간 + 이번 시즌 레벨·직업·골드·물비늘·평판 |
 | `GET /v1/players/{id}/collection?scope=total\|season` | 도감 (등록 수·%·어종별 최대 크기·최고 품질·횟수) — Collection |
-| `GET /v1/players/{id}/quests` | 퀘스트 상태 (이번 시즌 + 메인) — Quest |
+| `GET /v1/players/{id}/quests` | 퀘스트 상태 (이번 시즌 + 이월된 메인, 퀘스트마다 한 줄) — Quest |
 | `GET /v1/players/{id}/ledger?currency=gold\|mulbineul&limit=50` | 재화 원장 최근 기록 (사유·증감·잔액·시각, 최대 200) |
-| `GET /v1/events?after=<seq>&type=<glob>&limit=100` | 최근 외부 이벤트 (`last`를 다음 요청의 `after`로) |
+| `GET /v1/events?after=<seq>&type=<glob>&limit=100` | 이 서버가 받은 최근 외부 이벤트 (`next`를 다음 요청의 `after`로, seq는 서버마다 따로) |
 | `GET /v1/content/fish` | 어종 목록 |
 | `GET /v1/market` | 어종 시세 계수와 다음 시간 예측 — Economy |
-| `GET /v1/auctions?category=&limit=50` | 경매 진행 중 목록 — Economy |
+| `GET /v1/auctions?category=all&limit=50&cursor=` | 경매 진행 중 목록 (`{items, next}`, `next`를 다음 `cursor`로) — Economy |
 | `GET /v1/records?fish=<어종 ID>&league=all&limit=10` | 어종 서버 기록 TOP — Collection |
 | `GET /v1/rankings` · `GET /v1/rankings/{board}?league=all` | 랭킹 보드와 순위표 (10분 주기 집계 캐시) — Season |
 
 - **자료 출처:** 플레이어 자료는 DB에서 읽기만 한다. 접속 중인 플레이어는 지연 쓰기 때문에 몇 분 늦을 수 있다.
-- **모듈 자료:** 시세·기록·랭킹은 그 모듈의 캐시를 메인 스레드에서 읽는다.
+- **모듈 자료:** 시세·기록·랭킹은 그 모듈의 캐시를 메인 스레드에서 읽는다. 경매 목록은 DB를 직접 읽는다.
 - **응답 시간:** 5초 안에 답하지 못하면 503이다.
 
 ```bash
@@ -125,6 +128,6 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/v1/players/Steve
 
 웹 프런트엔드·백엔드 팀용 상세 명세는 `docs/`에 있다 (코드 기준, 바꾸면 같이 고친다).
 
-- [docs/api.md](docs/api.md): REST API 설명 (인증, 속도 제한, 오류, 표기 규칙, 경로별 설명, Open questions)
+- [docs/api.md](docs/api.md): REST API 설명 (인증, 속도 제한, 오류, 표기 규칙, 경로별 설명, Open questions, Changelog)
 - [docs/openapi.yaml](docs/openapi.yaml): REST API OpenAPI 3.1 명세
 - [docs/events.md](docs/events.md): Redis `harbor:events` 메시지 형식, 이벤트 카탈로그, 웹훅 형식·서명·재시도

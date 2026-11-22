@@ -23,9 +23,9 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.event.ExternalEvent;
-import wiki.creeper.harbor.common.redis.Channels;
 import wiki.creeper.harbor.common.redis.DistributedLock;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.web.relay.EventWire;
 
 /**
  * Webhook delivery (config.yml webhooks). Subscribes to harbor:events (all servers), filters per
@@ -33,8 +33,8 @@ import wiki.creeper.harbor.core.api.HarborApi;
  * #LOCK} sends (the lock is extended every 10 seconds, 30-second TTL).
  *
  * <ul>
- *   <li>json: POSTs the whole event. Headers X-Harbor-Event · X-Harbor-Id · X-Harbor-Timestamp,
- *       plus X-Harbor-Signature if a secret is set
+ *   <li>json: POSTs the whole event ({@link EventWire#toJson}, snake_case). Headers X-Harbor-Event
+ *       · X-Harbor-Id · X-Harbor-Timestamp, plus X-Harbor-Signature if a secret is set
  *   <li>discord: the messages_ko.yml {@code web.discord.<type>} text as content (types without text
  *       are not sent). Placeholders are player · server · type and every data field (dots become
  *       underscores, e.g. rewards.gold → rewards_gold)
@@ -94,7 +94,10 @@ public final class WebhookDispatcher {
                             .start(() -> work(queue)));
         }
         leaderThread = Thread.ofVirtual().name("harbor-webhook-leader").start(this::lead);
-        api.bus().subscribe(Channels.EVENTS, envelope -> onEvent(envelope.payload()));
+        api.bus()
+                .subscribe(
+                        EventWire.CHANNEL,
+                        envelope -> onEvent(EventWire.decode(envelope.payload())));
     }
 
     public void stop() {
@@ -189,7 +192,7 @@ public final class WebhookDispatcher {
 
     Optional<String> body(WebhookTarget target, ExternalEvent event) {
         return switch (target.format()) {
-            case JSON -> Optional.of(GSON.toJson(event));
+            case JSON -> Optional.of(EventWire.GSON.toJson(EventWire.toJson(event)));
             case DISCORD -> discordText(event).map(WebhookDispatcher::discordBody);
         };
     }

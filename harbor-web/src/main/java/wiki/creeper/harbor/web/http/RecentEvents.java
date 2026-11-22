@@ -49,4 +49,27 @@ public final class RecentEvents {
     public synchronized long last() {
         return seq;
     }
+
+    /**
+     * One GET /v1/events page, read atomically.
+     *
+     * @param last last seq assigned by this buffer (ignores the filter)
+     * @param next value to send as after on the next request: the last item's seq when the page is
+     *     full, else {@code last} (nothing newer matches yet), or 0 when {@code after > last} (the
+     *     buffer restarted: read it again and skip known event ids)
+     */
+    public record Page(long last, long next, List<Item> items) {}
+
+    public synchronized Page page(long after, String typeGlob, int limit) {
+        List<Item> items = after(after, typeGlob, limit);
+        long next;
+        if (after > seq) {
+            next = 0;
+        } else if (items.size() >= limit) {
+            next = items.getLast().seq();
+        } else {
+            next = seq;
+        }
+        return new Page(seq, next, items);
+    }
 }

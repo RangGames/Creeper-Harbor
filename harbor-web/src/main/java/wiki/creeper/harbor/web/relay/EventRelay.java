@@ -1,9 +1,16 @@
 package wiki.creeper.harbor.web.relay;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -11,6 +18,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.core.api.HarborApi;
 
@@ -19,6 +27,10 @@ import wiki.creeper.harbor.core.api.HarborApi;
  * catalog ({@link EventCatalog}) only when their plugin is enabled, builds data with {@link
  * EventSerializer} and publishes to harbor:events via {@code api.events().emit}. Join and quit are
  * emitted directly.
+ *
+ * <p>When the event names a player by UUID only, the name is filled in (online player on this
+ * server, recent-name cache, else the players table on a virtual thread; the event is then
+ * published once the lookup finishes). Without a players row it goes out without a name.
  */
 public final class EventRelay implements Listener {
 
@@ -28,6 +40,11 @@ public final class EventRelay implements Listener {
     private final List<String> exclude;
     private final Logger log;
     private int registered;
+
+    private static final int NAME_CACHE = 4096;
+
+    /** UUID → last known name (filled from joins, online lookups and DB lookups). */
+    private final Map<UUID, String> names = new ConcurrentHashMap<>();
 
     public EventRelay(
             Plugin plugin,
@@ -83,11 +100,65 @@ public final class EventRelay implements Listener {
     }
 
     private void relay(String type, Event event) {
+        EventSerializer.Result r;
         try {
-            EventSerializer.Result r = serializer.serialize(event);
-            api.events().emit(type, r.player(), r.playerName(), r.data());
+            r = serializer.serialize(event);
         } catch (RuntimeException e) {
             log.warn("외부 이벤트 {} 변환 실패: {}", type, String.valueOf(e));
+            return;
+        }
+        UUID player = r.player();
+        String name = r.playerName();
+        if (player == null || name != null) {
+            api.events().emit(type, player, name, r.data());
+            return;
+        }
+        // Module events mostly carry a UUID only: fill player_name from this server's online
+        // players, then a small cache, then the players table (off the main thread)
+        String known = knownName(player);
+        if (known != null) {
+            api.events().emit(type, player, known, r.data());
+            return;
+        }
+        var _ =
+                api.database()
+                        .async(c -> lookupName(c, player))
+                        .handle(
+                                (found, error) -> {
+                                    String resolved = null;
+                                    if (found != null && found.isPresent()) {
+                                        resolved = found.get();
+                                        remember(player, resolved);
+                                    }
+                                    api.events().emit(type, player, resolved, r.data());
+                                    return null;
+                                });
+    }
+
+    /** Online player on this server or a recently seen name (any thread). */
+    private @Nullable String knownName(UUID player) {
+        Player online = Bukkit.getPlayer(player);
+        if (online != null) {
+            String n = online.getName();
+            remember(player, n);
+            return n;
+        }
+        return names.get(player);
+    }
+
+    private void remember(UUID player, String name) {
+        if (names.size() >= NAME_CACHE) {
+            names.clear(); // crude bound; names are cheap to look up again
+        }
+        names.put(player, name);
+    }
+
+    private static Optional<String> lookupName(Connection c, UUID player) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement("SELECT name FROM players WHERE uuid = ?")) {
+            ps.setString(1, player.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.ofNullable(rs.getString(1)) : Optional.empty();
+            }
         }
     }
 
@@ -100,6 +171,7 @@ public final class EventRelay implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
+        remember(event.getPlayer().getUniqueId(), event.getPlayer().getName());
         if (!Globs.any(exclude, "server.player_join")) {
             api.events()
                     .emit(

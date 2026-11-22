@@ -21,7 +21,7 @@ import wiki.creeper.harbor.common.util.Json;
  * Read-only REST API (proposed). JDK HttpServer + virtual threads. Every request needs {@code
  * Authorization: Bearer <token>} (except GET /v1/health), and requests per minute are limited per
  * token. Responses are {@code {"ok":true,"data":…}} or {@code
- * {"ok":false,"error":{"code","message"}}}.
+ * {"ok":false,"error":{"code","message"[,"param","allowed"]}}}. Every field name is snake_case.
  *
  * <p>HTTPS is terminated at a front reverse proxy (default bind 127.0.0.1). The route list is at
  * GET /v1.
@@ -126,7 +126,7 @@ public final class ApiServer {
             try {
                 write(ex, 200, ok(match.get().getKey().handle(request)));
             } catch (Router.ApiException e) {
-                write(ex, e.status(), error(e.code(), String.valueOf(e.getMessage())));
+                write(ex, e.status(), error(e));
             } catch (RuntimeException e) {
                 log.warn("REST {} 처리 실패: {}", path, String.valueOf(e));
                 write(ex, 500, error("internal", "처리하지 못했습니다"));
@@ -171,6 +171,23 @@ public final class ApiServer {
 
     private static Map<String, Object> error(String code, String message) {
         return Map.of("ok", false, "error", Map.of("code", code, "message", message));
+    }
+
+    /** Error envelope with param (and allowed, for choice parameters) when present. */
+    static Map<String, Object> error(Router.ApiException e) {
+        Map<String, Object> err = new LinkedHashMap<>();
+        err.put("code", e.code());
+        err.put("message", String.valueOf(e.getMessage()));
+        if (!e.param().isEmpty()) {
+            err.put("param", e.param());
+        }
+        if (!e.allowed().isEmpty()) {
+            err.put("allowed", e.allowed());
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("ok", false);
+        out.put("error", err);
+        return out;
     }
 
     private static void write(HttpExchange ex, int status, Object body) throws IOException {
