@@ -1,6 +1,6 @@
-// Harbor-Web: 외부 연동 (추가 제안). 게임 이벤트 → Redis harbor:events, 웹훅 발송(디스코드·JSON), 읽기 전용 REST API.
-// 게임 모듈 이벤트는 클래스 이름으로 구독하므로(모듈이 켜져 있을 때만) 이벤트 쪽은 Core에만 기댄다.
-// REST의 모듈별 조회(시세·경매·기록·랭킹)는 그 모듈이 켜져 있을 때만 불러오는 bridge 클래스에 둔다.
+// Harbor-Web: external integration (proposed). Game events → Redis harbor:events, webhook delivery (Discord, JSON), read-only REST API.
+// Game module events are subscribed by class name (only when the module is enabled), so the event side depends on Core only.
+// Per-module REST queries (market, auctions, records, rankings) live in bridge classes loaded only when that module is enabled.
 plugins {
     id("harbor.paper-module")
 }
@@ -9,7 +9,7 @@ dependencies {
     compileOnly(project(":harbor-economy"))
     compileOnly(project(":harbor-collection"))
     compileOnly(project(":harbor-season"))
-    // 테스트: 이벤트 목록의 클래스가 실제로 있는지 확인한다
+    // Tests: verify that the classes in the event list actually exist
     listOf(
         "jobs", "fishing", "collection", "npc", "quest", "economy",
         "world", "boss", "season", "shop", "wildlife",

@@ -1,10 +1,10 @@
-// Harbor-Economy: 상점·경매·시세·제작
+// Harbor-Economy: shops, auctions, market prices, crafting
 plugins {
     id("harbor.paper-module")
 }
 
 dependencies {
-    // docs 20 0.3: Jobs·Fishing 필수, NPC·Season(WeeklyLimitService) 필수 (지시), World·Quest는 이벤트·플래그로만 연결
+    // docs 20 0.3: Jobs and Fishing required, NPC and Season (WeeklyLimitService) required (as directed); World and Quest are connected only via events and flags
     compileOnly(project(":harbor-jobs"))
     compileOnly(project(":harbor-fishing"))
     compileOnly(project(":harbor-npc"))

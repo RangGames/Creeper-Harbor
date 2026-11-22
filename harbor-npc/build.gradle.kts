@@ -1,4 +1,4 @@
-// Harbor-Npc: NPC·대화·호감도
+// Harbor-Npc: NPCs, dialog, affinity
 plugins {
     id("harbor.paper-module")
 }

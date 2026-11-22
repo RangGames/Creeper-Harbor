@@ -1,4 +1,4 @@
-// Harbor-Boss: 보스전 (docs 20 10장)
+// Harbor-Boss: boss fights (docs 20 ch. 10)
 plugins {
     id("harbor.paper-module")
 }
@@ -12,7 +12,7 @@ dependencies {
     testImplementation(project(":harbor-season"))
 }
 
-// JOML(Display 변환 행렬, 예고 바닥 판)은 옛 클래스 파일 형식이라 javac classfile 경고가 난다. 그 경고만 끈다
+// JOML (Display transform matrices, telegraph floor panels) uses an old class file format that triggers javac classfile warnings; silence only that warning
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-Xlint:-classfile")
 }

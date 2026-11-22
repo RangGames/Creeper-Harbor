@@ -1,11 +1,11 @@
-// Harbor-Core: 모든 게임 모듈이 기대는 Purpur 공통 플러그인. Harbor-Common을 jar 안에 품는다.
+// Harbor-Core: the shared Purpur plugin every game module relies on. Bundles Harbor-Common inside its jar.
 plugins {
     id("harbor.paper-plugin")
     id("harbor.shadow")
     id("harbor.run-paper")
 }
 
-// 리그 재생이 Display 변환(JOML)을 쓰는데, JOML jar의 옛 class 형식 경고(classfile)가 -Werror에 걸린다. 그 경고만 끈다
+// Rig playback uses Display transforms (JOML), whose jar's old class format warning (classfile) trips -Werror; silence only that warning
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-Xlint:-classfile")
 }
@@ -16,8 +16,8 @@ dependencies {
     testImplementation(libs.gson)
 }
 
-// 외부 라이브러리는 jar에 넣지 않고 PluginLoader가 시작할 때 Maven에서 받는다.
-// 목록은 버전 카탈로그(server-runtime 묶음)에서 만들어 리소스로 넣는다.
+// External libraries are not bundled; the PluginLoader downloads them from Maven at startup.
+// The list is generated from the version catalog (server-runtime bundle) and added as a resource.
 val generateLibraryList by tasks.registering {
     val coordinates = libs.bundles.server.runtime.get().map {
         "${it.module.group}:${it.module.name}:${it.versionConstraint.requiredVersion}"
@@ -32,8 +32,8 @@ val generateLibraryList by tasks.registering {
     }
 }
 
-// 저장소의 content/를 기본 콘텐츠로 jar에 넣는다 (harbor-content/ + 파일 목록 harbor-content.txt).
-// Core가 처음 시작할 때 plugins/Harbor/content에 없는 파일만 풀어 놓는다 (DefaultContent)
+// Bundle the repository's content/ into the jar as default content (harbor-content/ plus the file list harbor-content.txt).
+// On startup Core extracts only the files missing from plugins/Harbor/content (DefaultContent)
 val bundleDefaultContent by tasks.registering(Sync::class) {
     val outputRoot = layout.buildDirectory.dir("generated/harbor-default-content")
     from(rootProject.layout.projectDirectory.dir("content")) { into("harbor-content") }
@@ -58,7 +58,7 @@ sourceSets.main {
 tasks.shadowJar {
     archiveClassifier = ""
     dependencies {
-        // Common만 품는다. 나머지는 PluginLoader가 적재
+        // Bundle only Common; the PluginLoader loads the rest
         include(project(":harbor-common"))
     }
 }
@@ -71,8 +71,8 @@ tasks.assemble {
     dependsOn(tasks.shadowJar)
 }
 
-// ---------------------------------------------------------------- 로컬 테스트 서버
-// ./gradlew :harbor-core:runServer → 모든 Purpur 모듈을 넣은 테스트 서버 실행 (DB·Redis는 harbor-infra.yml에 설정)
+// ---------------------------------------------------------------- local test server
+// ./gradlew :harbor-core:runServer → runs a test server with every Purpur module (configure DB/Redis in harbor-infra.yml)
 val devPlugins by configurations.creating {
     isCanBeConsumed = false
     isTransitive = false
