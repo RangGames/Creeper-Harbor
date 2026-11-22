@@ -482,6 +482,7 @@ harbor admin remove [the] [harbor] furniture (at|of) %location/entity% [and drop
   - `make … place`: 그 플레이어가 놓는 것처럼 보호 구역 검사까지 하고, 그 플레이어가 주인입니다.
   - 결과: `ok` · `unknown`(없는 가구) · `no_space` · `occupied` · `no_permission` · `cancelled`(이벤트 취소).
 - `harbor admin remove`: 보호 검사·회수 이벤트 없이 치웁니다 (앉은 사람은 내려짐). 놓을 때 쓴 아이템을 변수에 넣고, `and drop the item`이면 그 자리에 떨어뜨립니다. 플레이어에게 주려면 스크립트에서 `give`하세요.
+  - **하우징 장식 주의:** 회수 이벤트를 부르지 않으므로 하우징 플롯의 장식 가구를 치워도 주인 보관함 개수가 늘지 않습니다. 돌려받은 아이템을 떨어뜨리거나 건네지 않으면 장식이 사라집니다. 플레이어가 치우게 하려면 이 문법 대신 손으로 회수하게 하세요.
 
 ```
 harbor admin place furniture "fishing_chair" at location of target block facing 90 and store the result in {_r}
