@@ -54,8 +54,9 @@ import wiki.creeper.harbor.world.data.WorldRepository;
 import wiki.creeper.harbor.world.data.WorldState;
 
 /**
- * 지역 판정·진입 조건·밀어내기·첫 방문·체류 인원 (docs 20 8.4 '지역 판정' · '진입 조건' · '밀어내기'). Fishing의 RegionKeyResolver도
- * 구현한다 (지역, 찌 자리 바이옴 키, 세부 구역, 물고기 떼). 메인 스레드 전용.
+ * Region detection, entry conditions, push-back, first visits and occupancy (docs 20 8.4 'region
+ * detection' · 'entry conditions' · 'push-back'). Also implements Fishing's RegionKeyResolver
+ * (region, biome key at the bobber, sub-areas, fish school). Main thread only.
  */
 public final class RegionManager implements Listener, RegionService, RegionKeyResolver {
 
@@ -64,15 +65,15 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
 
     public static final String BYPASS = "harbor.world.bypass";
 
-    /** 다른 매니저에 넘기는 연결 지점 (생성 순서를 풀기 위해 나중에 붙인다). */
+    /** Connection points to other managers (attached later to break the construction order). */
     public interface Hooks {
-        /** 지역 안에서 청크가 바뀌었을 때 (해도). */
+        /** When the chunk changes inside a region (sea chart). */
         void onChunk(Player player, WorldIndex.Entry region, int cx, int cz);
 
-        /** 타고 있는 선박 종류 (없으면 null). */
+        /** Type of the ship being ridden (null if none). */
         @Nullable HarborId shipType(Player player);
 
-        /** 찌 자리의 물고기 떼 (보정자 등록 포함). */
+        /** Fish school at the bobber (including modifier registration). */
         Optional<FishingSpot> school(@Nullable Player shooter, Location bobber);
     }
 
@@ -116,7 +117,7 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         var _ = kit.tasks().timer(publish, publish, occupancyBoard::publish);
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ lookup
 
     public Optional<WorldIndex.Entry> entryAt(Location location) {
         return kit.index().at(kit.worldId(location), location.getX(), location.getZ());
@@ -149,7 +150,7 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         return resolve(bobber);
     }
 
-    /** RegionKeyResolver (Fishing 캐스팅마다, 목표 0.05ms). */
+    /** RegionKeyResolver (every Fishing cast, target 0.05 ms). */
     @Override
     public Optional<RegionKey> resolve(Location bobber) {
         Optional<WorldIndex.Entry> found = entryAt(bobber);
@@ -311,7 +312,7 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         return router.send(player, spawnOf(entry.get()), entry.get().ext().server(), reason);
     }
 
-    /** 지역 안전 지점 (world/regions.yml spawn, 없으면 경계 가운데). */
+    /** Region safe point (world/regions.yml spawn, otherwise the center of the bounds). */
     public static ServerRouter.Destination spawnOf(WorldIndex.Entry e) {
         RegionExt.Point spawn = e.ext().spawn();
         if (spawn != null) {
@@ -326,7 +327,7 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
                 0);
     }
 
-    // ------------------------------------------------------------------ 이동 판정
+    // ------------------------------------------------------------------ movement checks
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
@@ -363,9 +364,10 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
     }
 
     /**
-     * 이동을 반영한다. 막힌 지역이면 밀어내고 되돌아갈 위치를 돌려준다 (PlayerMoveEvent는 setTo로, 탈것은 여기서 직접 옮긴다).
+     * Applies a move. In a locked region it pushes back and returns the position to return to
+     * (PlayerMoveEvent via setTo; vehicles are moved directly here).
      *
-     * @return 밀어냈으면 되돌아갈 위치, 아니면 null
+     * @return the position to return to if pushed back, otherwise null
      */
     @Nullable Location check(Player player, Location from, Location to, @Nullable Vehicle vehicle) {
         Track t = tracks.computeIfAbsent(player.getUniqueId(), u -> new Track());
@@ -436,7 +438,8 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
                             Duration.ofMillis(300),
                             Duration.ofSeconds(2),
                             Duration.ofMillis(600));
-            // 지역 배경음·환경음은 데이터팩 바이옴(Environment Attributes)이 바꾼다. music은 진입 때 한 번 내는 추가 연출
+            // Regional background music and ambience are changed by datapack biomes (Environment
+            // Attributes). music is an extra effect played once on entry
             HarborSounds.play(
                     player,
                     next.def().music(),
@@ -448,7 +451,9 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
     private void firstVisit(Player player, WorldIndex.Entry region) {
         HarborPlayer hp = kit.api().players().get(player);
         WorldState state = hp.get(COMPONENT);
-        // Economy 레시피·상점 해금이 읽는 방문 플래그 (시즌 범위). region_visit와 별개로 빠져 있으면 다시 세운다
+        // Visit flag read by Economy recipe and shop unlocks (season scope). Set it again if
+        // missing,
+        // independently of region_visit
         String flag = visitedFlag(region.id());
         if (!kit.api().flags().hasPlayer(player.getUniqueId(), flag)) {
             var _ =
@@ -475,17 +480,20 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         Bukkit.getPluginManager().callEvent(new RegionFirstVisitEvent(player, region.info()));
     }
 
-    /** 지역 첫 방문 플래그 {@code visited/<지역 이름>} (Economy 레시피·상점 해금이 읽는다). */
+    /**
+     * First-visit flag of a region {@code visited/<region name>} (read by Economy recipe and shop
+     * unlocks).
+     */
     public static String visitedFlag(RegionId region) {
         return wiki.creeper.harbor.world.api.WorldFlags.visited(region);
     }
 
-    /** 해금 조건과 현재 진행도 Dialog (예: "Lv 18 / 20"). */
+    /** Dialog with the unlock requirements and current progress (e.g. "Lv 18 / 20"). */
     public void showRequirements(Player player, WorldIndex.Entry region, UnlockStatus status) {
         barrier.showRequirements(player, region, status);
     }
 
-    // ------------------------------------------------------------------ 접속·퇴장
+    // ------------------------------------------------------------------ join and quit
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onJoin(PlayerJoinEvent event) {
@@ -502,7 +510,7 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         if (region.isPresent()
                 && !player.hasPermission(BYPASS)
                 && !status(player, region.get(), true).allowed()) {
-            // 시즌 초기화로 레벨이 내려간 경우 등: 여관 앞 광장으로
+            // E.g. the level dropped after a season reset: send to the plaza in front of the inn
             kit.index().regions().stream()
                     .findFirst()
                     .ifPresent(
@@ -520,7 +528,10 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         tracks.remove(event.getPlayer().getUniqueId());
     }
 
-    /** 지금 위치로 지역을 다시 계산한다 (텔레포트 뒤·리로드 뒤). 리로드 때는 막힌 지역이어도 밀어내지 않는다 (다음 이동부터). */
+    /**
+     * Recomputes the region from the current position (after a teleport or reload). On reload it
+     * does not push back even inside a locked region (enforcement starts from the next move).
+     */
     public void refresh(Player player, boolean announce) {
         if (!player.isOnline()) {
             return;
@@ -536,14 +547,17 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
         t.chunk = Long.MIN_VALUE;
     }
 
-    /** 콘텐츠 리로드 뒤 모든 플레이어 지역을 다시 계산한다. */
+    /** Recomputes every player's region after a content reload. */
     public void refreshAll() {
         for (Player p : Bukkit.getOnlinePlayers()) {
             refresh(p, false);
         }
     }
 
-    /** 1초마다: 허용된 지역 안에서 경계로부터 3블록 이상 떨어져 있으면 안전 위치 저장. */
+    /**
+     * Every second: saves a safe position when inside an allowed region and at least 3 blocks from
+     * the boundary.
+     */
     private void saveSafePositions() {
         double min = kit.balance().safeDistance();
         Collection<? extends Player> online = Bukkit.getOnlinePlayers();

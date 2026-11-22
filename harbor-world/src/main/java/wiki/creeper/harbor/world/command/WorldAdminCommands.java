@@ -72,7 +72,10 @@ final class WorldAdminCommands {
         this.support = support;
     }
 
-    /** /harbor world … (권한 harbor.admin.world는 Core가 건다, 하위는 harbor.admin.world.&lt;명령&gt;). */
+    /**
+     * /harbor world … (Core applies the harbor.admin.world permission; subcommands use
+     * harbor.admin.world.&lt;command&gt;).
+     */
     LiteralArgumentBuilder<CommandSourceStack> build() {
         return Commands.literal("world")
                 .then(

@@ -110,7 +110,7 @@ public final class RegionBarrier implements Listener {
         return vehicle == null ? dest : null;
     }
 
-    /** 해금 조건과 현재 진행도 Dialog (예: "Lv 18 / 20"). */
+    /** Dialog with the unlock requirements and current progress (e.g. "Lv 18 / 20"). */
     void showRequirements(Player player, WorldIndex.Entry region, UnlockStatus status) {
         List<Component> body = new ArrayList<>();
         body.add(
@@ -133,7 +133,7 @@ public final class RegionBarrier implements Listener {
         kit.api().dialogs().notice(player, kit.api().messages().get("world.unlock.title"), body);
     }
 
-    // ------------------------------------------------------------------ 우회 차단
+    // ------------------------------------------------------------------ bypass blocking
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {

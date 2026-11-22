@@ -7,7 +7,9 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.world.api.RegionInfo;
 
-/** 지역에 들어왔을 때 (블록 이동·텔레포트·접속). from은 이전 지역 (없으면 null). */
+/**
+ * When entering a region (block move, teleport, join). from is the previous region (null if none).
+ */
 public final class RegionEnterEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -21,12 +23,12 @@ public final class RegionEnterEvent extends PlayerEvent {
         this.from = from;
     }
 
-    /** 지역 ID (Quest가 반사로 읽는 접근자). */
+    /** Region ID (accessor Quest reads via reflection). */
     public RegionId region() {
         return info.id();
     }
 
-    /** 지역 요약. */
+    /** Region summary. */
     public RegionInfo info() {
         return info;
     }

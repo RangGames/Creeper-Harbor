@@ -12,8 +12,9 @@ import wiki.creeper.harbor.season.content.RankingBoardDef;
 import wiki.creeper.harbor.world.sea.TournamentManager;
 
 /**
- * Season 연결 (선택). 주간 낚시 대회 순위 원천 {@code tournament}를 Season RankingService에 등록한다
- * (season/rankings.yml 보드 tournament, 이번 시즌 가장 최근 대회 점수). Harbor-Season이 있을 때만 이 클래스를 불러온다.
+ * Season integration (optional). Registers the weekly fishing tournament ranking source {@code
+ * tournament} with the Season RankingService (season/rankings.yml board tournament, score of the
+ * most recent tournament this season). This class is loaded only when Harbor-Season is present.
  */
 public final class SeasonBridge {
 

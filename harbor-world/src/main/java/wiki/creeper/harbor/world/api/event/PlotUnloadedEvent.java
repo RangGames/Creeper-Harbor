@@ -4,7 +4,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.world.api.PlotInfo;
 
-/** 하우징 플롯을 내렸을 때 (아무도 없을 때). */
+/** When a housing plot is unloaded (nobody there). */
 public final class PlotUnloadedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

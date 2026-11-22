@@ -28,11 +28,14 @@ import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.region.WorldIndex;
 
 /**
- * 물고기 떼 포인트 (docs 20 8.4 '물고기 떼 포인트'). 지역마다 fishing_spots개를 spot_candidates에서 골라 두고 10~20분마다 다른 후보로
- * 옮긴다. 반경 6블록 안 캐스팅이면 RegionKeyResolver 결과에 물고기 떼 표시를 싣고, 던진 사람에게 bite_wait ×0.8 · rare_weight
- * +0.10 보정자 (출처 spot:…, 45초)를 단다 (희귀 이상 보정 상한 +60%는 Fishing이 적용). 입질 대기는 던질 때 정해지므로 같은 자리에서 다시 던질
- * 때부터 적용된다. 파티클은 반경 32블록 안 플레이어에게만, 숨은 낚시터는 탐험 2차 '숨은 낚시터 감지'(feature_hidden_spot)가 있는 플레이어에게만 보낸다.
- * 이 서버에 월드가 있는 지역만 다룬다. 메인 스레드 전용.
+ * Fish school points (docs 20 8.4 'fish school points'). Picks fishing_spots spots per region from
+ * spot_candidates and moves them to another candidate every 10–20 minutes. A cast within a radius
+ * of 6 blocks puts a fish school marker in the RegionKeyResolver result and gives the caster
+ * bite_wait ×0.8 · rare_weight +0.10 modifiers (source spot:…, 45 seconds) (the +60% cap on rare
+ * and above is applied by Fishing). The bite wait is fixed at cast time, so it applies from the
+ * next cast at the same spot. Particles are sent only to players within 32 blocks, and hidden
+ * fishing spots only to players with exploration tier 2 'hidden spot detection'
+ * (feature_hidden_spot). Only regions whose world is on this server are handled. Main thread only.
  */
 public final class SpotManager implements FishingSpotService {
 
@@ -52,7 +55,7 @@ public final class SpotManager implements FishingSpotService {
         var _ = kit.tasks().timer(45, 40, this::particles);
     }
 
-    /** 리로드 뒤: 후보가 바뀐 지역은 다시 고른다. */
+    /** After a reload: re-picks spots for regions whose candidates changed. */
     public void reset() {
         spots.clear();
         tick();
@@ -217,7 +220,7 @@ public final class SpotManager implements FishingSpotService {
         return result;
     }
 
-    /** 관리 명령: 지금 바로 옮긴다. */
+    /** Admin command: moves them right now. */
     public int moveNow(RegionId region) {
         List<FishingSpot> list = spots.get(region);
         if (list == null) {
@@ -243,7 +246,7 @@ public final class SpotManager implements FishingSpotService {
         return expired.size();
     }
 
-    /** 찌 자리의 물고기 떼 + 던진 사람 보정자 (RegionManager 훅). */
+    /** Fish school at the bobber + caster modifiers (RegionManager hook). */
     public Optional<FishingSpot> school(@Nullable Player shooter, Location bobber) {
         double radius = kit.balance().spotRadius();
         Optional<FishingSpot> spot =

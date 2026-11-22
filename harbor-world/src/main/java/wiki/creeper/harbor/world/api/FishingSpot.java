@@ -4,10 +4,11 @@ import java.time.Instant;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * 물고기 떼 포인트 (docs 20 8.4). 10~20분마다 다른 후보로 옮긴다. hidden이면 숨은 낚시터 (탐험 2차 '숨은 낚시터 감지'로만 보인다).
+ * Fish school point (docs 20 8.4). Moves to another candidate every 10–20 minutes. If hidden, it is
+ * a hidden fishing spot (visible only with exploration tier 2 'hidden spot detection').
  *
- * @param id 보정자 출처로도 쓰는 ID (spot:<지역>_<번호> 또는 spot:<숨은 낚시터 ID>)
- * @param world 콘텐츠 월드 이름
+ * @param id ID also used as the modifier source (spot:<region>_<number> or spot:<hidden spot ID>)
+ * @param world content world name
  */
 public record FishingSpot(
         String id,

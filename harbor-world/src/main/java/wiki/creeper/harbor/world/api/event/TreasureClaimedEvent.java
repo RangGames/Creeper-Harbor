@@ -5,7 +5,10 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.common.id.RegionId;
 
-/** 보물 지도를 수령했을 때 (커밋 후). hint면 Collection이 도감 힌트를 준다 (treasure.yml hint_chance). */
+/**
+ * When a treasure map was claimed (after commit). If hint, Collection gives a collection book hint
+ * (treasure.yml hint_chance).
+ */
 public final class TreasureClaimedEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();

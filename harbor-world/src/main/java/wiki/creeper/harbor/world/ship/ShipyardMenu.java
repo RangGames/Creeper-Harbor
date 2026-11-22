@@ -19,8 +19,9 @@ import wiki.creeper.harbor.world.api.UpgradePath;
 import wiki.creeper.harbor.world.content.ShipDef;
 
 /**
- * 조선소 화면 (docs 20 8.4, '12. 월드 · 하우징 · 통발' 3장 조선소: 선박 구매·업그레이드·수리). 구매는 확인 Dialog 뒤
- * 결제(SHIP_PURCHASE)와 ships 행 삽입을 한 트랜잭션으로 한다. 메인 스레드 전용.
+ * Shipyard screen (docs 20 8.4, '12. world · housing · traps' chapter 3 shipyard: ship purchase,
+ * upgrade, repair). A purchase runs the payment (SHIP_PURCHASE) and the ships row insert in one
+ * transaction after a confirmation Dialog. Main thread only.
  */
 final class ShipyardMenu {
 

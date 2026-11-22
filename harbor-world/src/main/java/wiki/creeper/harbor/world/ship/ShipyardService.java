@@ -21,8 +21,9 @@ import wiki.creeper.harbor.world.bridge.Payments;
 import wiki.creeper.harbor.world.content.ShipDef;
 
 /**
- * 조선소 거래 (구매·업그레이드·수리)와 증서 지급, 관리 명령의 선박 지급·완전 수리. 결제는 Payments(원장)로 하고 ships 행 변경을 같은 트랜잭션에 넣는다.
- * 메인 스레드 전용.
+ * Shipyard trades (purchase, upgrade, repair), deed issuing, and the admin commands' ship giving
+ * and full repair. Payments go through Payments (ledger) with the ships row change in the same
+ * transaction. Main thread only.
  */
 final class ShipyardService {
 
@@ -47,7 +48,10 @@ final class ShipyardService {
         kit.give(player, deed);
     }
 
-    /** 구매 조건 (레벨·직업 단계·플래그, D3 원양 탐사선 = 2차 전직 후 Lv50). 못 채우면 메시지 키. */
+    /**
+     * Purchase conditions (level, job tier, flags; D3 ocean explorer = Lv50 after the 2nd job
+     * advancement). Returns a message key if unmet.
+     */
     @Nullable String requirement(Player player, ShipDef def) {
         HarborPlayer hp = kit.api().players().get(player);
         ShipDef.Requires r = def.requires();
@@ -231,7 +235,7 @@ final class ShipyardService {
                 .serialize(kit.api().messages().get(key));
     }
 
-    /** 관리 명령: 선박 지급 (조선소 구매와 같은 행, 결제 없음). */
+    /** Admin command: give a ship (same row as a shipyard purchase, no payment). */
     CompletableFuture<Boolean> adminGive(Player player, ShipDef def) {
         UUID uuid = player.getUniqueId();
         int season = kit.season();
@@ -255,7 +259,7 @@ final class ShipyardService {
                         kit.tasks().main());
     }
 
-    /** 관리 명령: 모든 선박 완전 수리. */
+    /** Admin command: fully repair all ships. */
     void adminRepair(Player player) {
         for (ShipRepository.Row row : new ArrayList<>(fleet.rows(player.getUniqueId()))) {
             Optional<ShipDef> def = fleet.def(row.type());

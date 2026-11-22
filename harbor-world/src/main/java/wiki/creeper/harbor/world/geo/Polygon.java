@@ -4,14 +4,16 @@ import java.util.List;
 import wiki.creeper.harbor.common.content.type.RegionDef;
 
 /**
- * 수평 다각형 (x, z). 지역 경계와 세부 구역에 쓴다. 서버 API가 없어 단위 테스트와 harbor-tools에서도 쓴다. 변경 불가.
+ * Horizontal polygon (x, z). Used for region bounds and sub-areas. Has no server API, so unit tests
+ * and harbor-tools use it too. Immutable.
  *
- * <p>점 판정은 짝수-홀수 규칙 (RegionDef.contains와 같은 식). 청크 분류는 경계에 걸친 청크만 정밀 판정이 필요하도록 "통째로 안 · 통째로 밖 · 걸침"
- * 셋으로 나눈다 (docs 20 8.4 '지역 판정').
+ * <p>Point tests use the even-odd rule (same formula as RegionDef.contains). Chunk classification
+ * has three outcomes, "fully inside · fully outside · straddling", so only chunks on the boundary
+ * need a precise test (docs 20 8.4 'region detection').
  */
 public final class Polygon {
 
-    /** 청크(정사각형)와 다각형의 관계. */
+    /** Relation between a chunk (square) and the polygon. */
     public enum Cover {
         INSIDE,
         OUTSIDE,
@@ -71,7 +73,7 @@ public final class Polygon {
         return maxZ;
     }
 
-    /** 점이 안에 있는지 (짝수-홀수 규칙). 꼭짓점이 3개 미만이면 항상 밖. */
+    /** Whether the point is inside (even-odd rule). Always outside with fewer than 3 vertices. */
     public boolean contains(double x, double z) {
         int n = xs.length;
         if (n < 3 || x < minX || x > maxX || z < minZ || z > maxZ) {
@@ -87,7 +89,7 @@ public final class Polygon {
         return inside;
     }
 
-    /** 점에서 가장 가까운 경계선까지 거리. */
+    /** Distance from the point to the nearest edge. */
     public double edgeDistance(double x, double z) {
         int n = xs.length;
         double best = Double.POSITIVE_INFINITY;
@@ -97,7 +99,10 @@ public final class Polygon {
         return best;
     }
 
-    /** 점에서 가장 가까운 경계 위의 점 [x, z]. 밀어내기 방향(경계 바깥쪽)을 정할 때 쓴다. 꼭짓점이 없으면 입력 점. */
+    /**
+     * Nearest point [x, z] on the boundary to the given point. Used to choose the push-back
+     * direction (outward from the boundary). The input point if there are no vertices.
+     */
     public double[] nearestEdgePoint(double x, double z) {
         int n = xs.length;
         double best = Double.POSITIVE_INFINITY;
@@ -114,8 +119,10 @@ public final class Polygon {
     }
 
     /**
-     * 축 정렬 정사각형 [x0, x0+size) × [z0, z0+size)와의 관계. 네 모서리가 모두 안이고 경계선이 정사각형을 지나지 않으면 INSIDE, 모두 밖이고
-     * 경계선·꼭짓점이 정사각형에 닿지 않으면 OUTSIDE, 나머지는 PARTIAL. 애매하면 PARTIAL로 보므로 결과는 항상 안전하다.
+     * Relation to the axis-aligned square [x0, x0+size) × [z0, z0+size). INSIDE if all four corners
+     * are inside and no edge crosses the square, OUTSIDE if all are outside and no edge or vertex
+     * touches the square, otherwise PARTIAL. Ambiguous cases are PARTIAL, so the result is always
+     * safe.
      */
     public Cover cover(double x0, double z0, double size) {
         double x1 = x0 + size;
@@ -137,7 +144,7 @@ public final class Polygon {
         return Cover.PARTIAL;
     }
 
-    /** 경계선 하나라도 정사각형 안을 지나거나 꼭짓점이 정사각형 안에 있는지. */
+    /** Whether any edge passes through the square or any vertex lies inside it. */
     private boolean crossesSquare(double x0, double z0, double x1, double z1) {
         int n = xs.length;
         for (int i = 0, j = n - 1; i < n; j = i++) {

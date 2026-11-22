@@ -70,9 +70,9 @@ final class DecorShop {
         return decor.count(player, id);
     }
 
-    // ------------------------------------------------------------------ 상점
+    // ------------------------------------------------------------------ shop
 
-    /** 장식 상점 (/부두 상점). */
+    /** Decor shop (/부두 상점). */
     void openShop(Player player) {
         MessageService msg = kit.api().messages();
         List<DecorDef> defs =
@@ -133,7 +133,9 @@ final class DecorShop {
         return Icons.of(base(d), Component.text(d.name()), lore, iconModel(d));
     }
 
-    /** 아이콘 모델: 직접 적은 model, 없으면 Core 가구·커스텀 블록의 모델. */
+    /**
+     * Icon model: the explicit model, otherwise the model of the Core furniture or custom block.
+     */
     private @Nullable String iconModel(DecorDef d) {
         if (d.model() != null) {
             return d.model();
@@ -219,9 +221,12 @@ final class DecorShop {
                                 });
     }
 
-    // ------------------------------------------------------------------ 팔레트
+    // ------------------------------------------------------------------ palette
 
-    /** 장식 팔레트 (/부두 장식): 건축할 수 있는 플롯 안에서만. 클릭 1개, 쉬프트 클릭 16개. */
+    /**
+     * Decor palette (/부두 장식): only inside a plot the player may build in. Click for 1, shift-click
+     * for 16.
+     */
     void openPalette(Player player) {
         Optional<HousingManager.PlotState> plot = housing.stateAt(WorldKit.loc(player));
         if (plot.isEmpty() || !housing.can(player, plot.get().info, PlotPermission.BUILD)) {
@@ -284,7 +289,9 @@ final class DecorShop {
                                         kit.send(player, "world.decor.take_failed");
                                         return;
                                     }
-                                    // 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 보관함으로 되돌린다
+                                    // Once the move snapshot has been taken, adding to the
+                                    // inventory would not be saved, so return
+                                    // it to storage
                                     if (!player.isOnline() || kit.api().players().frozen(uuid)) {
                                         addCount(uuid, id, n);
                                         return;
@@ -293,7 +300,9 @@ final class DecorShop {
                                     var left = player.getInventory().addItem(item);
                                     left.values()
                                             .forEach(rest -> addCount(uuid, id, rest.getAmount()));
-                                    // 보관함 차감은 이미 커밋됐다: 인벤토리도 곧 저장한다 (서버가 죽으면 아이템 유실)
+                                    // The storage deduction is already committed: save the
+                                    // inventory soon too (items are lost if
+                                    // the server dies)
                                     kit.api().players().saveSoon(uuid);
                                 },
                                 kit.tasks().main());
@@ -315,7 +324,10 @@ final class DecorShop {
         return stack;
     }
 
-    /** Core 가구·커스텀 블록 아이템 (장식 태그는 item()이 붙인다). 이름은 장식 이름으로 둔다. */
+    /**
+     * Core furniture or custom block item (item() adds the decor tag). The name is set to the decor
+     * name.
+     */
     private Optional<ItemStack> coreItem(DecorDef d, int amount) {
         HarborId furniture = d.furniture();
         HarborId block = d.block();

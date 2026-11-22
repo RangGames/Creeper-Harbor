@@ -3,13 +3,14 @@ package wiki.creeper.harbor.world.content;
 import wiki.creeper.harbor.common.content.type.Balance;
 
 /**
- * balance.yml world 절 (docs 20 8.4). 값이 없으면 문서 값 또는 제안값 (환경 디버프·선박 업그레이드 효과는 문서에 없어 모두 제안값, docs 20
- * 8.8).
+ * The world section of balance.yml (docs 20 8.4). Missing values fall back to the documented value
+ * or a proposed value (environment debuffs and ship upgrade effects are not in the docs, so all of
+ * them are proposed values, docs 20 8.8).
  */
 public record WorldBalance(Balance b) {
 
-    // ---------------------------------------------------------------- 지역
-    /** 경계에서 이만큼 떨어져 있을 때만 안전 위치로 저장 (블록). */
+    // ---------------------------------------------------------------- regions
+    /** Saved as a safe position only when at least this far from the boundary (blocks). */
     public double safeDistance() {
         return b.number("world.region.safe_distance", 3);
     }
@@ -26,8 +27,8 @@ public record WorldBalance(Balance b) {
         return b.string("world_alias." + world).orElse(world);
     }
 
-    // ---------------------------------------------------------------- 해도
-    /** 보상 단계 n(1~4)의 완성도 (25 · 50 · 75 · 95%). */
+    // ---------------------------------------------------------------- chart
+    /** Completion of reward step n (1–4) (25 · 50 · 75 · 95%). */
     public double chartStep(int step) {
         double fallback =
                 switch (step) {
@@ -43,17 +44,17 @@ public record WorldBalance(Balance b) {
         return b.integer("world.chart.step_count", 4);
     }
 
-    /** 단계 골드 = 지역 시간당 골드 × 이 값 (제안값 25%). */
+    /** Step gold = regional hourly gold × this value (proposed value 25%). */
     public double chartStepGoldRatio() {
         return b.number("world.chart.step_gold_ratio", 0.25);
     }
 
-    /** 완성(마지막 단계) 물비늘 ('7. 밸런스 기획' 7장 지역당 2). */
+    /** Sea scales for completion (last step) ('7. balance design' chapter 7: 2 per region). */
     public int chartCompleteMulbineul() {
         return b.integer("world.chart.complete_mulbineul", 2);
     }
 
-    // ---------------------------------------------------------------- 보물 지도
+    // ---------------------------------------------------------------- treasure maps
     public double treasureFuzz() {
         return b.number("world.treasure.fuzz", 48);
     }
@@ -70,7 +71,7 @@ public record WorldBalance(Balance b) {
         return (int) Math.round(b.number("world.treasure.dig_seconds", 3) * 20);
     }
 
-    // ---------------------------------------------------------------- 선박
+    // ---------------------------------------------------------------- ships
     public double summonWaterRadius() {
         return b.number("world.ship.summon_water_radius", 3);
     }
@@ -79,7 +80,7 @@ public record WorldBalance(Balance b) {
         return b.integer("world.ship.summon_cooldown_s", 10);
     }
 
-    /** 업그레이드 n단계 비용 비율 (선박 가격의 10 · 20 · 30%). */
+    /** Cost ratio of upgrade step n (10 · 20 · 30% of the ship price). */
     public double upgradeCost(int level) {
         double fallback =
                 switch (level) {
@@ -90,7 +91,7 @@ public record WorldBalance(Balance b) {
         return b.number("world.ship.upgrade_cost." + level, fallback);
     }
 
-    /** 수리비 비율 (Economy와 같은 economy.repair 값: 3%, 내구도 0이면 10%). */
+    /** Repair cost ratio (same economy.repair value as Economy: 3%, 10% at durability 0). */
     public double repairRate(boolean wrecked) {
         return wrecked
                 ? b.number("economy.repair.broken_rate", 0.10)
@@ -109,7 +110,10 @@ public record WorldBalance(Balance b) {
         return b.integer("world.ship.ice_restore_s", 60);
     }
 
-    /** 바닐라 보트 가속 (물 위 틱당). 속도 보정은 이 값에 (배율 − 1)을 곱해 앞으로 더한다 (Phase 1 검증 항목). */
+    /**
+     * Vanilla boat acceleration (per tick on water). The speed modifier adds this value ×
+     * (multiplier − 1) forward (Phase 1 verification item).
+     */
     public double boatAcceleration() {
         return b.number("world.ship.vanilla_accel", 0.04);
     }
@@ -118,7 +122,7 @@ public record WorldBalance(Balance b) {
         return b.string("world.ship.starter").orElse("harbor:ship/rowboat");
     }
 
-    // ---------------------------------------------------------------- 환경
+    // ---------------------------------------------------------------- environment
     public double coldOutdoor() {
         return b.number("world.env.cold.outdoor", 1);
     }
@@ -183,7 +187,7 @@ public record WorldBalance(Balance b) {
         return b.number("world.env.heat.boots_mult", 0.5);
     }
 
-    // ---------------------------------------------------------------- 물고기 떼
+    // ---------------------------------------------------------------- fish schools
     public double spotRadius() {
         return b.number("world.spot.radius", 6);
     }
@@ -200,12 +204,12 @@ public record WorldBalance(Balance b) {
         return b.number("world.spot.particle_radius", 32);
     }
 
-    /** 물고기 떼 캐스팅 입질 대기 배율 (−20%, 제안값). */
+    /** Bite wait multiplier when casting into a fish school (−20%, proposed value). */
     public double spotBiteWait() {
         return b.number("world.spot.bite_wait", 0.8);
     }
 
-    /** 물고기 떼 희귀 가중치 (+10%, 제안값). */
+    /** Rare weight bonus in a fish school (+10%, proposed value). */
     public double spotRareWeight() {
         return b.number("world.spot.rare_weight", 0.10);
     }
@@ -218,7 +222,7 @@ public record WorldBalance(Balance b) {
         return b.number("world.spot.radar_radius", 64);
     }
 
-    // ---------------------------------------------------------------- 탈것
+    // ---------------------------------------------------------------- rides
     public int airshipIntervalSeconds() {
         return b.integer("world.airship.interval_s", 180);
     }
@@ -227,7 +231,7 @@ public record WorldBalance(Balance b) {
         return b.integer("world.airship.capacity", 4);
     }
 
-    /** 비행 속도 (블록/틱). */
+    /** Flight speed (blocks/tick). */
     public double airshipSpeed() {
         return b.number("world.airship.speed", 1.2);
     }
@@ -244,12 +248,12 @@ public record WorldBalance(Balance b) {
         return b.integer("world.nautilus.return_after_s", 30);
     }
 
-    // ---------------------------------------------------------------- 하우징
+    // ---------------------------------------------------------------- housing
     public String housingWorld() {
         return b.string("world.housing.world").orElse("harbor_homes");
     }
 
-    /** 플롯 칸 (32 최대 크기 + 길 8, 제안값). */
+    /** Plot cell (32 max size + 8 road, proposed value). */
     public int housingCell() {
         return b.integer("world.housing.cell", 40);
     }
@@ -262,7 +266,10 @@ public record WorldBalance(Balance b) {
         return b.integer("world.housing.large_size", 32);
     }
 
-    /** 시즌 간 최고 평판 등급이 이 이상이면 큰 플롯 (항구의 일원 = 4). */
+    /**
+     * Large plot when the best cross-season reputation tier is at least this (member of the harbor
+     * = 4).
+     */
     public int housingLargeTier() {
         return b.integer("world.housing.large_tier", 4);
     }
@@ -283,7 +290,7 @@ public record WorldBalance(Balance b) {
         return b.integer("world.housing.anchor_limit", 12);
     }
 
-    // ---------------------------------------------------------------- 기타
+    // ---------------------------------------------------------------- misc
     public int occupancyPublishSeconds() {
         return b.integer("world.occupancy.publish_s", 60);
     }

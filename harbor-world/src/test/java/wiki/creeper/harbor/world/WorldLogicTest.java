@@ -42,7 +42,10 @@ import wiki.creeper.harbor.world.region.UnlockRules;
 import wiki.creeper.harbor.world.sea.EventPlanner;
 import wiki.creeper.harbor.world.ship.ShipMath;
 
-/** World 순수 로직: 지역 도형·색인, 진입 조건, 이벤트 일정, 플롯 배치, 해도 비트맵, 선박 수치, 보물 보상. */
+/**
+ * Pure World logic: region shapes and index, entry conditions, event schedule, plot layout, chart
+ * bitmap, ship stats, treasure rewards.
+ */
 class WorldLogicTest {
 
     private static List<RegionDef.Point> pts(double... xz) {
@@ -53,7 +56,7 @@ class WorldLogicTest {
         return list;
     }
 
-    // ------------------------------------------------------------------ 도형·색인
+    // ------------------------------------------------------------------ shapes and index
 
     @Test
     void polygonContainsAndCover() {
@@ -67,7 +70,7 @@ class WorldLogicTest {
         double[] edge = square.nearestEdgePoint(50, 10);
         assertEquals(50, edge[0], 1e-9);
         assertEquals(0, edge[1], 1e-9);
-        // 오목 다각형 (ㄷ자): 오목한 곳은 밖
+        // Concave polygon (U shape): the concave part is outside
         Polygon u = new Polygon(pts(0, 0, 90, 0, 90, 30, 30, 30, 30, 60, 90, 60, 90, 90, 0, 90));
         assertTrue(u.contains(10, 45));
         assertFalse(u.contains(60, 45));
@@ -100,7 +103,7 @@ class WorldLogicTest {
         assertTrue(index.mixedChunks() > 0);
     }
 
-    // ------------------------------------------------------------------ 진입 조건
+    // ------------------------------------------------------------------ entry conditions
 
     private static RegionDef region(int level, List<ItemId> items, QuestId quest) {
         return new RegionDef(
@@ -160,13 +163,13 @@ class WorldLogicTest {
                 new UnlockRules.Facts(41, 2, flags::contains, coat::equals, false, null);
         UnlockStatus noShip = UnlockRules.check(def, ext, ready, i -> "외투", s -> "쇄빙선", false);
         assertTrue(noShip.onlyVehicleMissing());
-        // '해금한 가장 높은 지역' 판정은 탈것을 보지 않는다
+        // The "highest unlocked region" check ignores the vehicle
         assertTrue(UnlockRules.check(def, ext, ready, i -> "", s -> "", true).allowed());
-        // 쇄빙선을 타면 첫 진입 가능
+        // First entry is allowed while riding an icebreaker
         UnlockRules.Facts aboard =
                 new UnlockRules.Facts(41, 2, flags::contains, coat::equals, false, icebreaker);
         assertTrue(UnlockRules.check(def, ext, aboard, i -> "", s -> "", false).allowed());
-        // first_entry_only: 한 번 와 봤으면 배 없이도 (비행선)
+        // first_entry_only: once visited, no ship is needed (airship)
         UnlockRules.Facts visited =
                 new UnlockRules.Facts(41, 2, flags::contains, coat::equals, true, null);
         assertTrue(UnlockRules.check(def, ext, visited, i -> "", s -> "", false).allowed());
@@ -175,7 +178,7 @@ class WorldLogicTest {
                 "visited/frost_fjord", WorldFlags.visited(RegionId.parse("region/frost_fjord")));
     }
 
-    // ------------------------------------------------------------------ 이벤트 일정
+    // ------------------------------------------------------------------ event schedule
 
     private static SeaEventDef event(
             double chance, int gapHours, int duration, Set<DayOfWeek> days, int maxPerSeason) {
@@ -238,7 +241,7 @@ class WorldLogicTest {
                                 wednesday,
                                 zone)
                         .isEmpty());
-        // 확률 0.35면 한 해 동안 대략 35% 발동
+        // With chance 0.35 it fires on roughly 35% of the days over a year
         SeaEventDef sometimes = event(0.35, 0, 30, EnumSet.allOf(DayOfWeek.class), 0);
         int fired = 0;
         for (int i = 0; i < 365; i++) {
@@ -256,7 +259,7 @@ class WorldLogicTest {
         assertFalse(EventPlanner.allowed(plan, null, 0, false));
     }
 
-    // ------------------------------------------------------------------ 플롯
+    // ------------------------------------------------------------------ plots
 
     @Test
     void plotSpiralIsBijective() {
@@ -266,7 +269,7 @@ class WorldLogicTest {
             assertTrue(seen.add(cell), "중복 칸 " + cell);
             assertEquals(n, PlotGrid.index(cell.x(), cell.z()));
         }
-        // 처음 9칸은 3×3을 채운다
+        // The first 9 slots fill a 3×3
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
                 assertTrue(PlotGrid.index(x, z) < 9);
@@ -285,11 +288,11 @@ class WorldLogicTest {
         assertEquals(PlotGrid.cellAt(large.minX(), large.minZ(), 40), new PlotGrid.Cell(1, -2));
         assertEquals(24, PlotGrid.size(0, 3, 4, 24, 32));
         assertEquals(32, PlotGrid.size(24, 4, 4, 24, 32));
-        // 평판이 초기화돼도 줄지 않는다 (D11)
+        // Does not shrink even when reputation is reset (D11)
         assertEquals(32, PlotGrid.size(32, 1, 4, 24, 32));
     }
 
-    // ------------------------------------------------------------------ 해도
+    // ------------------------------------------------------------------ chart
 
     @Test
     void chartBitsCountNavigableCells() {
@@ -310,7 +313,7 @@ class WorldLogicTest {
         assertEquals(-1, mask.cell(50, 50));
     }
 
-    // ------------------------------------------------------------------ 선박
+    // ------------------------------------------------------------------ ships
 
     @Test
     void shipMath() {
@@ -347,20 +350,20 @@ class WorldLogicTest {
         assertEquals(200, ShipMath.maxDurability(explorer, none));
         assertEquals(260, ShipMath.maxDurability(explorer, maxed));
         assertEquals(45, ShipMath.cargo(explorer, maxed));
-        // 업그레이드 비용 = 가격 × 10 · 20 · 30% ('13' 5.1: 원양 탐사선 6,000 / 12,000 / 18,000)
+        // Upgrade cost = price × 10 · 20 · 30% ('13' 5.1: ocean explorer 6,000 / 12,000 / 18,000)
         assertEquals(6000, ShipMath.upgradeCost(explorer, 0.10));
         assertEquals(18000, ShipMath.upgradeCost(explorer, 0.30));
-        // 탐험 자동 패시브 +10% · 폭풍 ×0.7
+        // Exploration automatic passive +10% · storm ×0.7
         assertEquals(1.6 * 1.1 * 0.7, ShipMath.speed(1.6, 1.1, 0.7), 1e-9);
         assertEquals(0.04 * 0.6, ShipMath.impulse(0.04, 1.6), 1e-9);
         assertEquals(0.82, ShipMath.stormDamage(1, 0.82), 1e-9);
-        // 수리비 3% (파손 10%) × 수리공 −30%
+        // Repair cost 3% (10% when wrecked) × repairer −30%
         assertEquals(1800, ShipMath.repairCost(60000, 0.03, 1.0));
         assertEquals(4200, ShipMath.repairCost(60000, 0.10, 0.7));
         assertEquals(0, ShipMath.repairCost(0, 0.10, 1.0));
     }
 
-    // ------------------------------------------------------------------ 보물
+    // ------------------------------------------------------------------ treasure
 
     @Test
     void treasureRollStaysInRange() {
@@ -394,7 +397,7 @@ class WorldLogicTest {
             assertTrue(count >= 8 && count <= 16);
             assertFalse(roll.hint());
         }
-        // 가중치 0(이벤트 전용)은 지도를 만들 때 뽑히지 않는다
+        // Weight 0 (event only) is never drawn when making a map
         for (int i = 0; i < 100; i++) {
             assertEquals("common", table.pickTier(harbor, random).orElseThrow().id());
         }

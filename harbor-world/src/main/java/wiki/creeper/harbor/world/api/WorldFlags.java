@@ -4,22 +4,25 @@ import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * World가 읽고 쓰는 플래그 이름 (Core FlagService). Quest는 퀘스트를 완료하면 {@link #questDone}을, 장 마지막 퀘스트를 끝내면
- * story/ch&lt;N&gt;_done을 세운다 (regions.yml unlock.quest · world/regions.yml unlock.flags). World는 첫
- * 방문 때 {@link #visited}를 세운다.
+ * Flag names World reads and writes (Core FlagService). Quest sets {@link #questDone} when a quest
+ * is completed and story/ch&lt;N&gt;_done when the last quest of a chapter is finished (regions.yml
+ * unlock.quest · world/regions.yml unlock.flags). World sets {@link #visited} on the first visit.
  */
 public final class WorldFlags {
 
     private WorldFlags() {}
 
-    /** 지역 첫 방문 플래그 {@code visited/<지역 이름>} (시즌 범위, World가 첫 방문 때 세운다. Economy 레시피·상점 해금이 읽는다). */
+    /**
+     * First-visit flag of a region {@code visited/<region name>} (season scope, set by World on the
+     * first visit; read by Economy recipe and shop unlocks).
+     */
     public static String visited(RegionId region) {
         return "visited/" + region.id().name();
     }
 
     /**
-     * 퀘스트 완료 플래그 = 퀘스트 ID 경로 그대로 (예: quest/main/ch1_dark_lighthouse). Quest가 완료 때 세운다 (메인은 영구, 나머지는
-     * 시즌 범위).
+     * Quest completion flag = the quest ID path as is (e.g. quest/main/ch1_dark_lighthouse). Set by
+     * Quest on completion (permanent for main quests, season scope for the rest).
      */
     public static String questDone(QuestId quest) {
         return quest.id().path();

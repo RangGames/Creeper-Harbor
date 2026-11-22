@@ -8,14 +8,16 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * 플레이어별 World 데이터 (docs 20 8.3 PlayerComponent&lt;WorldState&gt;). 변경 불가: 바꿀 때는 with…로 새 값을 만들어
- * HarborPlayer.set. 해도 비트맵은 DB에서 읽은 원본 바이트로 두고(마스크는 콘텐츠에 따라 바뀌므로), 쓰는 쪽(ChartManager)이 마스크와 합쳐 읽는다.
+ * Per-player World data (docs 20 8.3 PlayerComponent&lt;WorldState&gt;). Immutable: to change it,
+ * create a new value with with… and call HarborPlayer.set. Chart bitmaps are kept as the raw bytes
+ * read from the DB (since the mask changes with content), and the consumer (ChartManager) reads
+ * them combined with the mask.
  *
- * @param visited 이번 시즌 방문 지역 (region_visit)
- * @param charts 지역별 해도 원본 (sea_chart)
- * @param cold 혹한 게이지 (0~100)
- * @param oxygen 산소 게이지 (초, −1 = 가득)
- * @param safe 마지막 안전 위치 (서버 이동·재접속에 이어 감)
+ * @param visited regions visited this season (region_visit)
+ * @param charts raw chart per region (sea_chart)
+ * @param cold frostbite gauge (0–100)
+ * @param oxygen oxygen gauge (seconds, −1 = full)
+ * @param safe last safe position (carried over across server moves and rejoins)
  */
 public record WorldState(
         Set<RegionId> visited,
@@ -24,7 +26,7 @@ public record WorldState(
         double oxygen,
         @Nullable SafePos safe) {
 
-    /** 해도 행 (원본 바이트는 복사해서 들고 있어 바뀌지 않는다). */
+    /** Chart row (the raw bytes are held as a copy and never change). */
     public static final class ChartRow {
 
         private final byte[] bits;
@@ -50,7 +52,7 @@ public record WorldState(
         }
     }
 
-    /** 안전 위치 (콘텐츠 월드 이름 기준). */
+    /** Safe position (by content world name). */
     public record SafePos(String world, double x, double y, double z) {}
 
     public static final WorldState EMPTY = new WorldState(Set.of(), Map.of(), 0, -1, null);

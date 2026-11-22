@@ -6,12 +6,13 @@ import wiki.creeper.harbor.common.redis.Channel;
 import wiki.creeper.harbor.common.redis.Channels;
 
 /**
- * World 서버끼리 주고받는 해상 이벤트 신호 (harbor:event, 추가 제안). Fishing용 {@code SeaEventMessage}(START·END +
- * fish_effects)와 같은 채널에 다른 형식으로 보낸다 (봉투의 type으로 거른다). WARN은 예고, START·END는 시작·종료.
+ * Sea event signal exchanged between World servers (harbor:event, proposed). Sent on the same
+ * channel as Fishing's {@code SeaEventMessage} (START · END + fish_effects) in a different format
+ * (filtered by the envelope's type). WARN is the announcement; START · END are start and end.
  *
- * @param runId 실행 ID
- * @param eventId 이벤트 정의 ID (harbor:event/…)
- * @param region 해역 (null = 서버 전체)
+ * @param runId run ID
+ * @param eventId event definition ID (harbor:event/…)
+ * @param region waters (null = whole server)
  */
 public record SeaEventSignal(
         String runId,

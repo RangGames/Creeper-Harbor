@@ -22,15 +22,18 @@ import wiki.creeper.harbor.world.WorldKit;
 import wiki.creeper.harbor.world.content.SeaEventDef;
 
 /**
- * 해상 이벤트 스케줄러 (docs 20 8.4 1~4단계). 잠금 harbor:lock:event를 얻은 서버 하나가 1분마다 events.yml의 시간대·확률·최소 간격을
- * 확인한다. 발동 계획은 {@link EventPlanner}가 날짜로 정해 어느 서버에서도 같고, 상태 전이(WARN → ACTIVE → ENDED)는
- * sea_event_log 행 갱신이 성공한 서버만 신호를 보내므로 두 서버가 겹쳐도 한 번만 나간다.
+ * Sea event scheduler (docs 20 8.4 steps 1–4). The one server holding the lock harbor:lock:event
+ * checks the time windows, chances and minimum intervals in events.yml every minute. Firing plans
+ * are fixed by date in {@link EventPlanner}, so they are the same on any server, and state
+ * transitions (WARN → ACTIVE → ENDED) send a signal only from the server whose sea_event_log row
+ * update succeeded, so it goes out once even if two servers overlap.
  *
  * <ul>
- *   <li>WARN: warn_min 전 (물때 읽기 알림을 위해 1분 먼저 보내고 서버마다 시각에 맞춰 알린다). SeaEventSignal WARN
- *   <li>START: sea_event_log ACTIVE, SeaEventSignal START + Fishing용 SeaEventMessage
- *       START(fish_effects), harbor:announce 공지
- *   <li>END: ENDED, SeaEventSignal END + SeaEventMessage END. 대회면 순위 보상
+ *   <li>WARN: warn_min before (sent 1 minute early for the 'read the tides' notice; each server
+ *       announces on time). SeaEventSignal WARN
+ *   <li>START: sea_event_log ACTIVE, SeaEventSignal START + SeaEventMessage START (fish_effects)
+ *       for Fishing, harbor:announce announcement
+ *   <li>END: ENDED, SeaEventSignal END + SeaEventMessage END. Rank rewards for tournaments
  * </ul>
  */
 public final class SeaEventScheduler {
@@ -56,7 +59,7 @@ public final class SeaEventScheduler {
 
     private record Outgoing(SeaEventSignal signal, SeaEventDef def) {}
 
-    /** 메인 스레드: 정의와 서버 플래그를 모아 가상 스레드로 넘긴다. */
+    /** Main thread: gathers definitions and server flags and hands them to a virtual thread. */
     private void check() {
         if (running) {
             return;
@@ -117,7 +120,7 @@ public final class SeaEventScheduler {
         List<Outgoing> out = new ArrayList<>();
         Map<String, SeaEventDef> byId = new HashMap<>();
         defs.forEach(d -> byId.put(d.id().toString(), d));
-        // 1) 열린 실행의 상태 전이
+        // 1) State transitions of open runs
         for (SeaEventRepository.Row row : SeaEventRepository.open(c)) {
             SeaEventDef def = byId.get(row.eventId());
             if (def == null) {
@@ -135,7 +138,7 @@ public final class SeaEventScheduler {
                 }
             }
         }
-        // 2) 새 실행 (예고 1분 전부터)
+        // 2) New runs (from 1 minute before the announcement)
         Map<String, Instant> last = SeaEventRepository.lastStarts(c);
         Map<String, Integer> counts = SeaEventRepository.seasonCounts(c, season);
         for (SeaEventDef def : defs) {
@@ -206,7 +209,10 @@ public final class SeaEventScheduler {
                 row.endsAt());
     }
 
-    /** 신호를 보내고 이 서버에도 바로 반영한다 (Redis 메아리는 같은 결과라 무시된다). */
+    /**
+     * Sends the signal and applies it on this server right away (the Redis echo gives the same
+     * result and is ignored).
+     */
     private void publish(SeaEventSignal signal, SeaEventDef def) {
         kit.api().bus().publish(SeaEventSignal.CHANNEL, signal);
         events.apply(signal, true);
@@ -256,14 +262,14 @@ public final class SeaEventScheduler {
                 }
             }
             default -> {
-                // WARN은 신호만
+                // WARN only sends the signal
             }
         }
     }
 
-    // ------------------------------------------------------------------ 관리 명령
+    // ------------------------------------------------------------------ admin commands
 
-    /** 수동 발동 (관리자 Dialog 패널과 같은 기능). 지금 바로 ACTIVE로 시작한다. */
+    /** Manual start (same as the admin Dialog panel). Starts it as ACTIVE right now. */
     public CompletableFuture<Optional<String>> startNow(
             SeaEventDef def, @Nullable RegionId region, int minutes) {
         Instant now = Instant.now();
@@ -319,7 +325,7 @@ public final class SeaEventScheduler {
                         kit.tasks().main());
     }
 
-    /** 수동 중단 (취소: 대회 보상 없음). */
+    /** Manual stop (cancel: no tournament rewards). */
     public CompletableFuture<Boolean> stop(String runId) {
         Optional<wiki.creeper.harbor.world.api.ActiveSeaEvent> e =
                 events.all().stream().filter(x -> x.runId().equals(runId)).findFirst();

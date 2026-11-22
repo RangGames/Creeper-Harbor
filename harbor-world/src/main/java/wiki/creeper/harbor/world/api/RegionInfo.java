@@ -5,13 +5,13 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * 지역 요약 (regions.yml + world/regions.yml).
+ * Region summary (regions.yml + world/regions.yml).
  *
- * @param world 콘텐츠의 월드 이름 (harbor_main · harbor_nether · harbor_end)
- * @param order 해금 순서 (1 항구 … 7 엔드)
- * @param hourlyGold 수동 낚시 시간당 골드 ('7. 밸런스 기획' 3.2)
- * @param areas 세부 구역 ID
- * @param server 이 지역 월드를 돌리는 서버 ID (null = 지금 서버)
+ * @param world content world name (harbor_main · harbor_nether · harbor_end)
+ * @param order unlock order (1 harbor … 7 end)
+ * @param hourlyGold gold per hour of manual fishing ('7. balance design' 3.2)
+ * @param areas sub-area IDs
+ * @param server ID of the server running this region's world (null = this server)
  */
 public record RegionInfo(
         RegionId id,

@@ -12,7 +12,7 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/** region_visit · sea_chart · world_player_state 읽기·쓰기 (가상 스레드). */
+/** Reads and writes region_visit · sea_chart · world_player_state (virtual threads). */
 public final class WorldRepository {
 
     private WorldRepository() {}
@@ -117,7 +117,9 @@ public final class WorldRepository {
         }
     }
 
-    /** 첫 방문 즉시 기록 (지연 쓰기 큐 키 player:&lt;uuid&gt;:world:visit:…). */
+    /**
+     * Records a first visit immediately (write-behind queue key player:&lt;uuid&gt;:world:visit:…).
+     */
     public static void insertVisit(Connection c, UUID uuid, int season, RegionId region)
             throws SQLException {
         try (PreparedStatement ps =

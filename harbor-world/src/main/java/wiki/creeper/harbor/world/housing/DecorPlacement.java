@@ -74,7 +74,10 @@ public final class DecorPlacement implements Listener {
         decor.creditAfterWorldSave(world, owner, id, amount);
     }
 
-    /** 플롯 안 Core 가구: 플롯 건축 권한이 있으면 회수를 허락한다. 장식으로 산 가구는 회수한 사람이 아니라 플롯 주인의 보관함 개수로 돌린다. */
+    /**
+     * Core furniture inside a plot: allows removal if the player has build permission on the plot.
+     * Furniture bought as decor goes back to the plot owner's storage count, not the remover's.
+     */
     @EventHandler(ignoreCancelled = true)
     public void onFurnitureRemove(FurnitureRemoveEvent event) {
         Optional<HousingManager.PlotState> plot = housing.stateAt(event.location());
@@ -113,7 +116,10 @@ public final class DecorPlacement implements Listener {
         return block.getChunk().getPersistentDataContainer().has(blockKey(block));
     }
 
-    /** 그 자리 블록이 아직 그 장식인지 (피스톤·액체 등으로 바뀌었으면 태그만 남은 것). */
+    /**
+     * Whether the block there is still that decor (if a piston or liquid changed it, only the tag
+     * is left).
+     */
     private boolean matches(Block block, DecorDef d) {
         HarborId custom = d.block();
         if (custom != null) {
@@ -121,12 +127,16 @@ public final class DecorPlacement implements Listener {
         }
         String raw = d.material();
         Material m = raw == null ? null : Material.matchMaterial(raw);
-        // 벽 횃불처럼 놓으면 종류가 바뀌는 블록은 설치 아이템으로 비교한다
+        // Blocks whose type changes when placed (like wall torches) are compared by their placement
+        // item
         return m != null
                 && (block.getType() == m || block.getBlockData().getPlacementMaterial() == m);
     }
 
-    /** 장식이 아닌 것이 놓인 자리의 남은 태그를 지운다 (수조면 어항 자리도). */
+    /**
+     * Clears a leftover tag where something other than decor was placed (and the aquarium slot for
+     * a tank).
+     */
     private void clearStale(Block block) {
         Optional<DecorDef> d = placedAt(block);
         block.getChunk().getPersistentDataContainer().remove(blockKey(block));
@@ -152,7 +162,7 @@ public final class DecorPlacement implements Listener {
             return;
         }
         if (d.get().kind() == DecorDef.Kind.FURNITURE) {
-            return; // Core 가구 설치 확인 (블록을 놓지 않는다)
+            return; // Core furniture placement confirmation (no block is placed)
         }
         if (d.get().kind() == DecorDef.Kind.TANK
                 && plot.get().anchors.size() >= kit.balance().housingAnchorLimit()) {
@@ -209,7 +219,8 @@ public final class DecorPlacement implements Listener {
             return;
         }
         if (!matches(block, d.get())) {
-            clearStale(block); // 장식은 이미 옮겨졌다: 회수하지 않고 평범하게 부순다
+            clearStale(
+                    block); // The decor was already moved: break it normally without recovering it
             return;
         }
         block.getChunk().getPersistentDataContainer().remove(blockKey(block));
@@ -247,7 +258,9 @@ public final class DecorPlacement implements Listener {
                         });
     }
 
-    // 장식 태그는 위치에 붙어 있어 블록이 옮겨지면 태그만 남는다: 장식 블록을 밀거나 당기거나 액체로 쓸어 가지 못하게 한다
+    // Decor tags are tied to positions, so moving the block leaves only the tag behind: prevent
+    // decor
+    // blocks from being pushed, pulled or washed away by liquids
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPiston(BlockPistonExtendEvent event) {
         if (!housing.isHousingWorld(event.getBlock().getWorld())) {
@@ -255,7 +268,7 @@ public final class DecorPlacement implements Listener {
         }
         BlockFace dir = event.getDirection();
         if (tagged(event.getBlock().getRelative(dir))) {
-            event.setCancelled(true); // 머리 자리의 부서지는 장식 (횃불 등)
+            event.setCancelled(true); // Breakable decor in the piston head's spot (torches etc.)
             return;
         }
         for (Block b : event.getBlocks()) {
@@ -287,7 +300,7 @@ public final class DecorPlacement implements Listener {
         }
     }
 
-    /** 가구 설치: 가구 장식을 들고 플롯 안 블록을 우클릭. */
+    /** Furniture placement: right-click a block inside a plot while holding furniture decor. */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onUse(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND
@@ -302,7 +315,7 @@ public final class DecorPlacement implements Listener {
                 || d.get().kind() != DecorDef.Kind.FURNITURE
                 || d.get().furniture() != null
                 || clicked == null) {
-            return; // Core 가구(furniture:)는 Core가 놓는다
+            return; // Core furniture (furniture:) is placed by Core
         }
         event.setCancelled(true);
         Block target = clicked.getRelative(event.getBlockFace());
@@ -347,7 +360,7 @@ public final class DecorPlacement implements Listener {
         hand.setAmount(hand.getAmount() - 1);
     }
 
-    /** 가구 회수: 웅크리고 우클릭 (건축 권한). */
+    /** Furniture recovery: sneak + right-click (build permission). */
     @EventHandler(priority = EventPriority.HIGH)
     public void onFurniture(PlayerInteractEntityEvent event) {
         if (!(event.getRightClicked() instanceof Interaction box)) {
@@ -375,7 +388,7 @@ public final class DecorPlacement implements Listener {
                     display.remove();
                 }
             } catch (IllegalArgumentException e) {
-                // 잘못된 UUID는 무시
+                // Ignore an invalid UUID
             }
         }
         World world = box.getWorld();

@@ -50,7 +50,7 @@ final class RegionOccupancy {
                                                             Integer.parseInt(v[0]),
                                                             Integer::sum);
                                                 } catch (IllegalArgumentException e) {
-                                                    // 형식이 틀린 항목은 건너뛴다
+                                                    // Skip malformed entries
                                                 }
                                             });
                             return result;

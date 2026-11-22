@@ -11,7 +11,7 @@ import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.core.api.ItemModels;
 
-/** GUI 아이콘 도우미 (이름·설명·모델). */
+/** GUI icon helper (name, lore, model). */
 public final class Icons {
 
     private Icons() {}

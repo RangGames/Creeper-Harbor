@@ -39,9 +39,12 @@ import wiki.creeper.harbor.world.content.SeaEventDef;
 import wiki.creeper.harbor.world.region.RegionManager;
 
 /**
- * 유령선 습격 해골 해적 (docs 20 8.4 해상 이벤트 표, 0.1: World가 직접 소환·관리, 몹 정의는 events.yml ghost, Boss에 의존하지 않음).
- * 이 서버에 있는 해역에서만 웨이브마다 해역 안 플레이어 주변에 해적을 띄우고, 세 번째 웨이브마다 선장을 띄운다. 선장을 쓰러뜨린 플레이어는 실행당 한 번 유령선 보물 지도
- * (treasure.yml ghost 등급)를 받는다. 해적은 저장하지 않고(setPersistent false) 드롭이 없으며, 이벤트가 끝나면 모두 지운다.
+ * Ghost ship raid skeleton pirates (docs 20 8.4 sea event table, 0.1: World spawns and manages them
+ * itself, mob definitions in events.yml ghost, no dependency on Boss). Only in waters on this
+ * server, each wave spawns pirates around players in the waters, and every third wave spawns a
+ * captain. The player who defeats the captain gets a ghost ship treasure map (treasure.yml ghost
+ * tier) once per run. Pirates are not saved (setPersistent false), drop nothing, and are all
+ * removed when the event ends.
  */
 public final class GhostShipController implements Listener {
 
@@ -255,7 +258,7 @@ public final class GhostShipController implements Listener {
                         });
     }
 
-    /** 재시작 뒤 청크에 남은 해적을 지운다 (저장하지 않지만 안전장치). */
+    /** Removes pirates left in chunks after a restart (they are not saved, but as a safeguard). */
     @EventHandler
     public void onEntitiesLoad(EntitiesLoadEvent event) {
         for (Entity e : event.getEntities()) {

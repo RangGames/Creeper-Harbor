@@ -19,12 +19,12 @@ import wiki.creeper.harbor.common.ledger.LedgerException;
 import wiki.creeper.harbor.world.api.ShipState;
 import wiki.creeper.harbor.world.api.UpgradePath;
 
-/** ships 표 (가상 스레드). */
+/** ships table (virtual threads). */
 public final class ShipRepository {
 
     private ShipRepository() {}
 
-    /** ships 행 하나 (변경 불가). cargo는 ItemStack.serializeItemsAsBytes 결과. */
+    /** One ships row (immutable). cargo is the result of ItemStack.serializeItemsAsBytes. */
     public static final class Row {
 
         private final long shipId;
@@ -130,7 +130,9 @@ public final class ShipRepository {
         return rows;
     }
 
-    /** 구매: 같은 종류가 이미 있으면 REJECTED (원장 차감도 함께 롤백). */
+    /**
+     * Purchase: REJECTED if the same type already exists (the ledger deduction is rolled back too).
+     */
     public static long insert(Connection c, UUID owner, int season, HarborId type, int durability)
             throws SQLException {
         try (PreparedStatement ps =
@@ -160,7 +162,7 @@ public final class ShipRepository {
         }
     }
 
-    /** 튜토리얼 선박 (있으면 그대로). 새로 넣었으면 true. */
+    /** Tutorial ship (unchanged if present). true if newly inserted. */
     public static boolean insertStarter(
             Connection c, UUID owner, int season, HarborId type, int durability)
             throws SQLException {
@@ -197,7 +199,10 @@ public final class ShipRepository {
         }
     }
 
-    /** 업그레이드: 읽은 값이 그대로일 때만 바꾼다 (동시 구매 방지). 아니면 REJECTED. */
+    /**
+     * Upgrade: changes only if the read value is unchanged (prevents concurrent purchases).
+     * Otherwise REJECTED.
+     */
     public static void upgrade(
             Connection c,
             long shipId,
@@ -231,12 +236,12 @@ public final class ShipRepository {
                 }
             }
         } catch (RuntimeException e) {
-            // 형식이 틀리면 업그레이드 없음으로 본다
+            // Malformed values are treated as no upgrades
         }
         return result;
     }
 
-    /** 갈래 순서가 고정된 JSON ('{}' 또는 {"speed":1,…}, 0단계는 뺀다). */
+    /** JSON with a fixed path order ('{}' or {"speed":1,…}; step 0 is omitted). */
     static String json(Map<UpgradePath, Integer> upgrades) {
         JsonObject json = new JsonObject();
         for (UpgradePath p : UpgradePath.values()) {

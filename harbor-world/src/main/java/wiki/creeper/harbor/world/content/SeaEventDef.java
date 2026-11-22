@@ -24,17 +24,19 @@ import wiki.creeper.harbor.fishing.api.SeaEventMessage.FishEffect;
 import wiki.creeper.harbor.world.api.SeaEventType;
 
 /**
- * 해상 이벤트·대회 일정 (world/events.yml, docs 20 8.3 events.yml, '11. 데이터 설계' 2.8). 서버 API 없음.
+ * Sea event and tournament schedule (world/events.yml, docs 20 8.3 events.yml, '11. data design'
+ * 2.8). No server API.
  *
- * @param regions 후보 지역 (실행마다 하나, 비우면 서버 전체)
- * @param area 지역 안 세부 구역 (폭풍 해역 등)
- * @param window 발동 시간대
- * @param chance 시간대 하루 발동 확률
- * @param requiresFlag 서버 플래그 조건
- * @param maxPerSeason 시즌당 최대 실행 수 (0 = 제한 없음)
- * @param wildlifeBoost Wildlife 밀도 배율 (물고기 대이동, 1 = 없음)
- * @param startSound 시작 때 해역 플레이어에게 낼 소리 ('15. 사운드' 4.7, 추가 제안. null = 없음)
- * @param loopSound 폭풍 해역 안에 있는 동안 반복할 소리 (null = 없음)
+ * @param regions candidate regions (one per run, empty = whole server)
+ * @param area sub-area within the region (storm waters etc.)
+ * @param window time window when it can fire
+ * @param chance daily chance of firing in the window
+ * @param requiresFlag server flag condition
+ * @param maxPerSeason maximum runs per season (0 = unlimited)
+ * @param wildlifeBoost Wildlife density multiplier (great fish migration, 1 = none)
+ * @param startSound sound played to players in the waters at the start ('15. sound' 4.7, proposed.
+ *     null = none)
+ * @param loopSound sound looped while inside the storm waters (null = none)
  */
 public record SeaEventDef(
         HarborId id,
@@ -58,10 +60,10 @@ public record SeaEventDef(
         @Nullable String startSound,
         @Nullable String loopSound) {
 
-    /** 시간대. end가 start보다 이르면 자정을 넘는다. */
+    /** Time window. If end is earlier than start, it crosses midnight. */
     public record Window(Set<DayOfWeek> days, LocalTime start, LocalTime end) {
 
-        /** 창 길이 (분). */
+        /** Window length (minutes). */
         public int minutes() {
             int s = start.toSecondOfDay() / 60;
             int e = end.toSecondOfDay() / 60;
@@ -69,14 +71,14 @@ public record SeaEventDef(
         }
     }
 
-    /** 이벤트 보정자 (출처 event:<id>). */
+    /** Event modifier (source event:<id>). */
     public record ModifierSpec(String stat, boolean multiply, double value) {}
 
     /**
-     * 폭풍 설정.
+     * Storm settings.
      *
-     * @param damage 주기마다 선박 내구도 감소
-     * @param speedMult 폭풍 중 선박 속도 배율
+     * @param damage ship durability lost per interval
+     * @param speedMult ship speed multiplier during the storm
      */
     public record Storm(
             int damage,
@@ -85,7 +87,7 @@ public record SeaEventDef(
             int lightningIntervalSeconds,
             double lightningDamage) {}
 
-    /** 해골 해적 한 종류 (World가 직접 소환·관리, docs 20 0.1). */
+    /** One kind of skeleton pirate (World spawns and manages them itself, docs 20 0.1). */
     public record PirateMob(
             String id,
             String entity,
@@ -95,7 +97,7 @@ public record SeaEventDef(
             @Nullable String helmet,
             int weight) {}
 
-    /** 유령선 습격 설정. */
+    /** Ghost ship raid settings. */
     public record Ghost(
             int waveIntervalSeconds,
             int perPlayer,
@@ -106,10 +108,10 @@ public record SeaEventDef(
             List<PirateMob> mobs,
             @Nullable PirateMob captain) {}
 
-    /** 순위 보상 구간. */
+    /** Rank reward bracket. */
     public record Reward(int from, int to, long gold) {}
 
-    /** 주간 낚시 대회 설정. */
+    /** Weekly fishing tournament settings. */
     public record Tournament(
             Map<Grade, Integer> points, double qualityBonus, String board, List<Reward> rewards) {
 
@@ -155,7 +157,7 @@ public record SeaEventDef(
                     "tournament",
                     "sounds");
 
-    /** 이벤트 ID의 마지막 마디 (실행 ID·보정자 출처에 쓴다). */
+    /** Last segment of the event ID (used for run IDs and modifier sources). */
     public String key() {
         return id.name();
     }
@@ -383,7 +385,10 @@ public record SeaEventDef(
         };
     }
 
-    /** sounds.start / sounds.loop: 소리 키, 빈 문자열이면 없음, 키가 없으면 형식별 기본값. */
+    /**
+     * sounds.start / sounds.loop: sound key; an empty string means none, a missing key means the
+     * per-type default.
+     */
     private static @Nullable String sound(YamlNode node, String key, @Nullable String fallback) {
         Optional<YamlNode> sounds = node.get("sounds");
         if (sounds.isEmpty()) {

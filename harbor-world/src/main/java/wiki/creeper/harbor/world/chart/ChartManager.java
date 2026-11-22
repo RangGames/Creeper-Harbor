@@ -43,10 +43,12 @@ import wiki.creeper.harbor.world.region.RegionManager;
 import wiki.creeper.harbor.world.region.WorldIndex;
 
 /**
- * 해도 (docs 20 8.4 '해도'). 지역 안에서 청크가 바뀌면 비트맵에 표시하고(지연 쓰기: PlayerComponent 저장), 25 · 50 · 75 · 95%에
- * 골드(지역 시간당 골드 × 25% × (1 + 해도 장인)), 마지막 단계에 물비늘 2를 준다 (원장 CHART_REWARD, 참조 ID
- * chart:s&lt;시즌&gt;:&lt;지역&gt;:&lt;단계&gt;). 지도 아이템은 지역마다 MapView 하나를 같이 쓰고, 플레이어별 렌더러가 방문하지 않은 칸을
- * 안개로 덮는다 (비트맵이 바뀌었을 때만 다시 그림, 초당 1회 이하).
+ * Sea chart (docs 20 8.4 'sea chart'). When the chunk changes inside a region it is marked on the
+ * bitmap (write-behind: PlayerComponent save); at 25 · 50 · 75 · 95% it pays gold (regional hourly
+ * gold × 25% × (1 + chart master)) and at the last step 2 sea scales (ledger CHART_REWARD,
+ * reference ID chart:s&lt;season&gt;:&lt;region&gt;:&lt;step&gt;). Map items share one MapView per
+ * region, and a per-player renderer covers unvisited cells with fog (redrawn only when the bitmap
+ * changed, at most once per second).
  */
 public final class ChartManager implements ChartService, Listener {
 
@@ -69,12 +71,15 @@ public final class ChartManager implements ChartService, Listener {
         this.mapFile = new File(kit.plugin().getDataFolder(), "charts.yml");
     }
 
-    /** 리로드 뒤: 마스크가 바뀌었을 수 있으니 캐시를 비운다 (다음 조회 때 DB 원본과 새 마스크로 다시 센다). */
+    /**
+     * After a reload: the mask may have changed, so clear the cache (the next lookup recounts from
+     * the DB original and the new mask).
+     */
     public void clearCache() {
         cache.clear();
     }
 
-    // ------------------------------------------------------------------ 기록
+    // ------------------------------------------------------------------ recording
 
     public ChartBits bits(UUID player, WorldIndex.Entry region) {
         return cache.computeIfAbsent(player, u -> new HashMap<>())
@@ -92,7 +97,7 @@ public final class ChartManager implements ChartService, Listener {
         return versions.getOrDefault(player, 0);
     }
 
-    /** 지역 안 청크 이동 (RegionManager 훅). */
+    /** Chunk move inside a region (RegionManager hook). */
     public void onChunk(Player player, WorldIndex.Entry region, int cx, int cz) {
         ChartMask mask = region.mask();
         int cell = mask.cell(cx, cz);
@@ -137,7 +142,10 @@ public final class ChartManager implements ChartService, Listener {
                                                                 bits.claimed()))));
     }
 
-    /** 닿은 보상 단계를 지급한다. 원장 참조 ID가 시즌·지역·단계마다 유니크라 두 번 지급되지 않는다. */
+    /**
+     * Pays the reward steps reached. The ledger reference ID is unique per season, region and step,
+     * so nothing is paid twice.
+     */
     private void claimSteps(Player player, WorldIndex.Entry region) {
         WorldBalance b = kit.balance();
         UUID uuid = player.getUniqueId();
@@ -188,7 +196,7 @@ public final class ChartManager implements ChartService, Listener {
         }
     }
 
-    /** 관리 명령: 완성도를 ratio로 맞춘다 (보상 단계는 그대로, 다음 이동 때 지급). */
+    /** Admin command: sets completion to ratio (reward steps unchanged, paid on the next move). */
     public boolean adminSet(Player player, RegionId regionId, double ratio) {
         Optional<WorldIndex.Entry> region = kit.index().get(regionId);
         if (region.isEmpty()) {
@@ -261,9 +269,12 @@ public final class ChartManager implements ChartService, Listener {
         return Optional.of(stack);
     }
 
-    // ------------------------------------------------------------------ 지도
+    // ------------------------------------------------------------------ map
 
-    /** 지역 MapView (ID는 plugins/Harbor-World/charts.yml에 남겨 재시작 뒤에도 같은 지도를 쓴다). */
+    /**
+     * Region MapView (the ID is kept in plugins/Harbor-World/charts.yml so the same map is used
+     * after a restart).
+     */
     private @Nullable MapView view(WorldIndex.Entry region) {
         MapView existing = views.get(region.id());
         if (existing != null) {
@@ -302,7 +313,7 @@ public final class ChartManager implements ChartService, Listener {
         return view;
     }
 
-    /** 플레이어별 해도 렌더러 (contextual). */
+    /** Per-player chart renderer (contextual). */
     private final class Renderer extends MapRenderer {
 
         private final RegionId region;
@@ -406,7 +417,7 @@ public final class ChartManager implements ChartService, Listener {
         }
     }
 
-    /** 이 접속 동안 비트맵 (HarborPlayer가 없으면 빈 값). */
+    /** Bitmap for this session (empty if there is no HarborPlayer). */
     public Optional<HarborPlayer> online(UUID uuid) {
         return kit.api().players().get(uuid);
     }

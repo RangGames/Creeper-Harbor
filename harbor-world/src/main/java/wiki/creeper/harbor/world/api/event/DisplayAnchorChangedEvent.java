@@ -5,7 +5,7 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.world.api.DisplayAnchor;
 import wiki.creeper.harbor.world.api.PlotInfo;
 
-/** 개인 어항 수조가 놓이거나 치워졌을 때 (Collection이 전시를 다시 그린다). */
+/** When a personal aquarium tank is placed or removed (Collection redraws the display). */
 public final class DisplayAnchorChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

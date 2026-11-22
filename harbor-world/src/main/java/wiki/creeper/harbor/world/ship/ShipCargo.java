@@ -15,10 +15,13 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.world.WorldKit;
 import wiki.creeper.harbor.world.content.ShipDef;
 
-/** 화물 칸. 상자 GUI로 열고(상자 보트를 열거나 /선박 화물), 닫을 때 지연 쓰기로 저장한다. 메인 스레드 전용. */
+/**
+ * Cargo hold. Opened as a chest GUI (opening a chest boat or /선박 화물) and saved write-behind on
+ * close. Main thread only.
+ */
 final class ShipCargo {
 
-    /** 화물 GUI. */
+    /** Cargo GUI. */
     private static final class Cargo implements InventoryHolder {
         final long shipId;
         final UUID owner;
@@ -47,7 +50,7 @@ final class ShipCargo {
         this.fleet = fleet;
     }
 
-    /** 상자 보트를 열면 화물 GUI. */
+    /** Opening a chest boat opens the cargo GUI. */
     void onOpen(InventoryOpenEvent event) {
         if (event.getInventory().getHolder(false) instanceof ChestBoat boat
                 && fleet.isShipBoat(boat.getUniqueId())
@@ -61,7 +64,7 @@ final class ShipCargo {
         }
     }
 
-    /** /선박 화물: 타고 있거나 8블록 안에 있는 자기 배. */
+    /** /선박 화물: your own boat that you ride or that is within 8 blocks. */
     void open(Player player) {
         Optional<Afloat> a = fleet.aboardAfloat(player);
         if (a.isEmpty()) {
@@ -142,8 +145,9 @@ final class ShipCargo {
                 .enqueue(
                         "player:" + cargo.owner + ":world:cargo:" + id,
                         c -> ShipRepository.updateCargo(c, id, bytes));
-        // 화물과 인벤토리를 함께 쓴다 (같은 player: 키라 주인이면 flushNow에 화물도 실린다). 한쪽만 쓰인 채 서버가 죽으면
-        // 옮긴 아이템이 복제되거나 사라진다
+        // Write the cargo and the inventory together (same player: key, so for the owner flushNow
+        // carries the cargo too). If the server dies with only one side written, moved items are
+        // duplicated or lost
         UUID closer = event.getPlayer().getUniqueId();
         kit.api().players().saveSoon(closer);
         if (!closer.equals(cargo.owner)) {

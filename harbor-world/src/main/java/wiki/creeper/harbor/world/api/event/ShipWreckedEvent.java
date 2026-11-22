@@ -5,7 +5,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.world.api.ShipInfo;
 
-/** 선박 내구도가 0이 되어 파손됐을 때. player는 주인. */
+/** When a ship's durability reached 0 and it was wrecked. player is the owner. */
 public final class ShipWreckedEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();

@@ -1,11 +1,11 @@
 package wiki.creeper.harbor.world.api;
 
-/** 선박 상태 (ships.state). */
+/** Ship state (ships.state). */
 public enum ShipState {
-    /** 조선소에 정박 (엔티티 없음). */
+    /** Docked at the shipyard (no entity). */
     STORED,
-    /** 물에 띄움 (엔티티 있음, 한 사람당 하나). */
+    /** Afloat on water (entity exists, one per person). */
     AFLOAT,
-    /** 파손 (조선소 수리 전까지 띄울 수 없음). */
+    /** Wrecked (cannot be launched until repaired at the shipyard). */
     WRECKED
 }

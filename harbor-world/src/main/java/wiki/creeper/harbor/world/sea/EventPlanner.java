@@ -15,9 +15,11 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.world.content.SeaEventDef;
 
 /**
- * 해상 이벤트 일정 계산 (docs 20 8.4 '해상 이벤트 스케줄러' 1·2단계). 날짜와 이벤트 ID로 정한 난수(FNV-1a)를 써서, 어느 서버에서 언제 계산해도 같은
- * 결과가 나온다: 그날 발동할지(chance), 창 안의 시작 시각, 후보 지역 중 어디인지. 잠금을 가진 서버가 바뀌어도 일정이 흔들리지 않는다. 서버 API 없음 (단위
- * 테스트).
+ * Sea event schedule calculation (docs 20 8.4 'sea event scheduler' steps 1–2). Uses a random
+ * number seeded by the date and event ID (FNV-1a), so any server computing it at any time gets the
+ * same result: whether it fires that day (chance), the start time within the window, and which
+ * candidate region. The schedule stays stable even if the lock-holding server changes. No server
+ * API (unit tests).
  */
 public final class EventPlanner {
 
@@ -26,10 +28,11 @@ public final class EventPlanner {
     private EventPlanner() {}
 
     /**
-     * 실행 한 번의 계획.
+     * Plan of one run.
      *
-     * @param runId 실행 ID (<이벤트 이름>_<시작 시각 yyyyMMddHHmm>), Fishing 신화 카운터 키에도 쓰인다
-     * @param region 해역 (null = 서버 전체)
+     * @param runId run ID (<event name>_<start time yyyyMMddHHmm>), also used as the Fishing mythic
+     *     counter key
+     * @param region waters (null = whole server)
      */
     public record Plan(
             String runId,
@@ -44,7 +47,10 @@ public final class EventPlanner {
         }
     }
 
-    /** 이 날짜에 창이 열리는 실행 (없으면 빈 값). 확률·요일만 본다 (최소 간격·플래그·시즌 횟수는 {@link #allowed}). */
+    /**
+     * The run whose window opens on this date (empty if none). Only looks at chance and weekday
+     * (minimum interval, flags and season count are checked by {@link #allowed}).
+     */
     public static Optional<Plan> plan(SeaEventDef def, LocalDate date, ZoneId zone) {
         SeaEventDef.Window window = def.window();
         if (!window.days().contains(date.getDayOfWeek())) {
@@ -77,7 +83,7 @@ public final class EventPlanner {
                         startAt.plus(Duration.ofMinutes(def.durationMinutes()))));
     }
 
-    /** 지금 열려 있어야 하는 실행 (어제 창이 자정을 넘어 이어지는 경우 포함). */
+    /** Runs that should be open now (including yesterday's window continuing past midnight). */
     public static List<Plan> openPlans(SeaEventDef def, Instant now, ZoneId zone) {
         LocalDate today = now.atZone(zone).toLocalDate();
         List<Plan> result = new ArrayList<>();
@@ -88,11 +94,11 @@ public final class EventPlanner {
     }
 
     /**
-     * 최소 간격·플래그·시즌 횟수 검사.
+     * Checks the minimum interval, flag and season count.
      *
-     * @param lastStart 같은 이벤트의 앞 실행 시작 (없으면 null)
-     * @param seasonRuns 이번 시즌 실행 수
-     * @param flagSet requires_flag가 서 있는지 (조건이 없으면 true)
+     * @param lastStart start of the previous run of the same event (null if none)
+     * @param seasonRuns number of runs this season
+     * @param flagSet whether requires_flag is set (true if there is no condition)
      */
     public static boolean allowed(
             Plan plan, @Nullable Instant lastStart, int seasonRuns, boolean flagSet) {
@@ -107,7 +113,7 @@ public final class EventPlanner {
                 || !plan.startAt().isBefore(lastStart.plus(Duration.ofHours(def.minGapHours())));
     }
 
-    /** 문자열 → [0, 1) (FNV-1a 64비트 + 섞기). */
+    /** String → [0, 1) (FNV-1a 64-bit + mixing). */
     static double unit(String seed) {
         long h = 0xcbf29ce484222325L;
         for (byte b : seed.getBytes(StandardCharsets.UTF_8)) {

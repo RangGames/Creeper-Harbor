@@ -5,7 +5,10 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.common.id.RegionId;
 
-/** 해도 완성도가 1%p 이상 바뀌었거나 보상 단계에 닿았을 때 (Quest chart_percent 목표). step은 이번에 받은 보상 단계 (없으면 0). */
+/**
+ * When sea chart completion changed by at least 1 percentage point or a reward step was reached
+ * (Quest chart_percent objective). step is the reward step just received (0 if none).
+ */
 public final class ChartProgressEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();

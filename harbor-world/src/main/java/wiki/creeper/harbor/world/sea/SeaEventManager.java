@@ -38,16 +38,20 @@ import wiki.creeper.harbor.world.region.RegionManager;
 import wiki.creeper.harbor.world.region.WorldIndex;
 
 /**
- * 해상 이벤트의 서버별 상태와 효과 (docs 20 8.4 '해상 이벤트 스케줄러' 2~4단계). 스케줄러(한 서버)가 harbor:event로 보낸
- * WARN·START·END를 모든 서버가 받아 같은 상태를 갖고, 이 서버에 있는 지역에만 효과를 준다.
+ * Per-server state and effects of sea events (docs 20 8.4 'sea event scheduler' steps 2–4). Every
+ * server receives the WARN · START · END sent by the scheduler (one server) over harbor:event and
+ * holds the same state, applying effects only to regions on this server.
  *
  * <ul>
- *   <li>WARN: 예고 문구 (탐험 3차 '물때 읽기' event_forewarn_s 만큼 먼저), 수평선 번개 연출
- *   <li>START: 전역 보정자(출처 event:&lt;이름&gt;, 만료 = 종료 시각), SeaEventStartEvent, 폭풍·유령선·대회 시작
- *   <li>END: 보정자 해제, 개인 날씨 복구, 해적 정리, SeaEventEndEvent
+ *   <li>WARN: announcement text (earlier by exploration tier 3 'read the tides' event_forewarn_s),
+ *       lightning on the horizon
+ *   <li>START: global modifier (source event:&lt;name&gt;, expires at the end time),
+ *       SeaEventStartEvent, starts storms, ghost ships and tournaments
+ *   <li>END: removes modifiers, restores personal weather, clears pirates, SeaEventEndEvent
  * </ul>
  *
- * 재시작하면 sea_event_log에서 진행 중인 이벤트를 다시 등록하고, END를 못 받아도 종료 시각이 지나면 스스로 끝낸다. 메인 스레드 전용.
+ * After a restart, in-progress events are re-registered from sea_event_log, and an event ends by
+ * itself once its end time passes even if END never arrives. Main thread only.
  */
 public final class SeaEventManager implements SeaEventService, Listener {
 
@@ -57,7 +61,7 @@ public final class SeaEventManager implements SeaEventService, Listener {
     private final Map<String, Set<UUID>> warned = new HashMap<>();
     private final Set<UUID> stormy = new HashSet<>();
 
-    /** 폭풍 해역에 있는 동안의 반복 소리 (event.storm_loop, '15. 사운드' 2장). */
+    /** Looping sound while in storm waters (event.storm_loop, '15. sound' chapter 2). */
     private final Map<UUID, HarborSounds.Loop> stormLoops = new HashMap<>();
 
     private final Map<String, Integer> stormTicks = new HashMap<>();
@@ -127,9 +131,12 @@ public final class SeaEventManager implements SeaEventService, Listener {
         events.clear();
     }
 
-    // ------------------------------------------------------------------ 신호 처리
+    // ------------------------------------------------------------------ signal handling
 
-    /** 신호를 반영한다. 같은 신호가 두 번 와도(내가 보낸 것 + Redis 메아리) 결과가 같다. */
+    /**
+     * Applies a signal. The result is the same even if the same signal arrives twice (sent by us +
+     * Redis echo).
+     */
     public void apply(SeaEventSignal signal, boolean announce) {
         Optional<HarborId> id = HarborId.tryParse(signal.eventId());
         Optional<SeaEventDef> def =
@@ -172,7 +179,7 @@ public final class SeaEventManager implements SeaEventService, Listener {
                 end(current, signal.state().equals(SeaEventSignal.END));
             }
             default -> {
-                // 모르는 상태는 무시
+                // Ignore unknown states
             }
         }
     }
@@ -215,7 +222,7 @@ public final class SeaEventManager implements SeaEventService, Listener {
                         Placeholder.parsed("name", def.name()),
                         Placeholder.unparsed("minutes", String.valueOf(def.durationMinutes())));
             }
-            // 시작 소리 (유령선 등장·물고기 대이동, '15. 사운드' 4.7)
+            // Start sound (ghost ship appearance, great fish migration, '15. sound' 4.7)
             HarborSounds.play(players, def.startSound(), HarborSounds.Options.DEFAULT);
         }
         GhostShipController g = ghosts;
@@ -267,7 +274,7 @@ public final class SeaEventManager implements SeaEventService, Listener {
         }
     }
 
-    /** 이 서버에서 이벤트 해역에 있는 플레이어 (해역이 없으면 전원). */
+    /** Players on this server in the event waters (everyone if there are no waters). */
     private List<Player> affected(ActiveSeaEvent e) {
         List<Player> result = new ArrayList<>();
         RegionId region = e.region();
@@ -280,7 +287,7 @@ public final class SeaEventManager implements SeaEventService, Listener {
         return result;
     }
 
-    // ------------------------------------------------------------------ 매초
+    // ------------------------------------------------------------------ every second
 
     private void tick() {
         Instant now = Instant.now();
@@ -293,7 +300,8 @@ public final class SeaEventManager implements SeaEventService, Listener {
             if (e.phase() == ActiveSeaEvent.Phase.WARN) {
                 warn(e, now);
                 if (!now.isBefore(e.startsAt())) {
-                    // START를 아직 못 받았다 (Redis 지연): 시각이 지났으니 스스로 시작한다
+                    // START has not arrived yet (Redis delay): the time has passed, so start it
+                    // ourselves
                     kit.api()
                             .content()
                             .snapshot()
@@ -311,7 +319,10 @@ public final class SeaEventManager implements SeaEventService, Listener {
         storms();
     }
 
-    /** 예고: 물때 읽기(event_forewarn_s)가 있으면 그만큼 먼저. 수평선 번개 연출. */
+    /**
+     * Announcement: earlier by 'read the tides' (event_forewarn_s) if present. Lightning on the
+     * horizon.
+     */
     private void warn(ActiveSeaEvent e, Instant now) {
         Set<UUID> done = warned.computeIfAbsent(e.runId(), r -> new HashSet<>());
         long warnMinutes =
@@ -348,7 +359,10 @@ public final class SeaEventManager implements SeaEventService, Listener {
         }
     }
 
-    /** 폭풍: 해역 안 플레이어 개인 날씨, 낙뢰 (폭풍 항해 2랭크 피해 −50%). */
+    /**
+     * Storm: personal weather for players in the waters, lightning (storm sailing rank 2: −50%
+     * damage).
+     */
     private void storms() {
         Set<UUID> inStorm = new HashSet<>();
         for (Player p : Bukkit.getOnlinePlayers()) {
@@ -490,7 +504,7 @@ public final class SeaEventManager implements SeaEventService, Listener {
         return Optional.empty();
     }
 
-    /** 관리 명령 목록용. */
+    /** For the admin command list. */
     public List<ActiveSeaEvent> all() {
         return List.copyOf(events.values());
     }

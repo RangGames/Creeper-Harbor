@@ -16,12 +16,13 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 지역 확장 (world/regions.yml, docs 20 8.3 regions.yml 추가 필드, 모두 추가 제안). Core RegionDef가 regions.yml의
- * 필드를 고정하므로 World만 쓰는 필드는 같은 지역 ID로 이 파일에 둔다. 서버 API 없음 (harbor-tools도 같은 코드로 검사).
+ * Region extension (world/regions.yml, docs 20 8.3 regions.yml extra fields, all proposed). Core
+ * RegionDef fixes the fields of regions.yml, so World-only fields live in this file under the same
+ * region ID. No server API (harbor-tools checks it with the same code).
  *
- * @param order 해금 순서 (1 항구 … 7 엔드)
- * @param hourlyGold 수동 낚시 시간당 골드 ('7. 밸런스 기획' 3.2)
- * @param server 이 지역 월드를 돌리는 서버 ID (null = 지금 서버)
+ * @param order unlock order (1 harbor … 7 end)
+ * @param hourlyGold gold per hour of manual fishing ('7. balance design' 3.2)
+ * @param server ID of the server running this region's world (null = this server)
  */
 public record RegionExt(
         RegionId id,
@@ -40,16 +41,16 @@ public record RegionExt(
         List<Point> airPockets,
         @Nullable String iceArea) {
 
-    /** 3차원 점. yaw는 정류장·안전 지점만 쓴다. */
+    /** 3D point. yaw is used only by stations and safe points. */
     public record Point(double x, double y, double z, float yaw) {}
 
     /**
-     * RegionDef.unlock에 더하는 조건.
+     * Conditions added to RegionDef.unlock.
      *
-     * @param flags 플레이어 플래그 (Quest가 장 보상으로 세운 진입 플래그, Core FlagService)
-     * @param jobTier 필요한 직업 단계 (전직 퀘스트, 1 = 조건 없음)
-     * @param vehicle 탑승해야 하는 선박 ID (비우면 조건 없음)
-     * @param firstEntryOnly 탈것 조건을 첫 방문에만 적용
+     * @param flags player flags (entry flags set by Quest as chapter rewards, Core FlagService)
+     * @param jobTier required job tier (job advancement quest, 1 = no condition)
+     * @param vehicle ship ID that must be ridden (empty = no condition)
+     * @param firstEntryOnly apply the vehicle condition only on the first visit
      */
     public record Unlock(
             List<String> flags, int jobTier, List<HarborId> vehicle, boolean firstEntryOnly) {
@@ -57,13 +58,13 @@ public record RegionExt(
     }
 
     /**
-     * 세부 구역 (어종 area와 맞춘다).
+     * Sub-area (matches the fish species area).
      *
-     * @param minY 높이 범위 (없으면 전체)
+     * @param minY height range (none = full height)
      */
     public record Area(String id, List<RegionDef.Point> bounds, int minY, int maxY) {}
 
-    /** 정류장 종류. */
+    /** Station kind. */
     public enum DockKind {
         AIRSHIP,
         DIVE,
@@ -72,7 +73,7 @@ public record RegionExt(
 
     public record Dock(String id, DockKind kind, Point at) {}
 
-    /** 시설 종류. */
+    /** Facility kind. */
     public enum StationType {
         SHIPYARD,
         HOUSING,
@@ -85,7 +86,7 @@ public record RegionExt(
 
     public record HiddenSpot(String id, Point at) {}
 
-    /** 환경 디버프 종류. */
+    /** Environment debuff kind. */
     public enum EnvType {
         COLD,
         OXYGEN,
@@ -93,11 +94,11 @@ public record RegionExt(
     }
 
     /**
-     * 환경 구역.
+     * Environment zone.
      *
-     * @param area 세부 구역 ID (null = 지역 전체)
-     * @param surfaceY 수면 높이 (산소)
-     * @param depth 수면 아래 이 깊이부터 산소 소모 (산소)
+     * @param area sub-area ID (null = whole region)
+     * @param surfaceY water surface height (oxygen)
+     * @param depth oxygen drains from this depth below the surface (oxygen)
      */
     public record Env(EnvType type, @Nullable String area, int surfaceY, int depth) {}
 

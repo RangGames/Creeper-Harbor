@@ -4,7 +4,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.world.api.ActiveSeaEvent;
 
-/** 해상 이벤트 종료 (모든 서버). */
+/** Sea event ended (all servers). */
 public final class SeaEventEndEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

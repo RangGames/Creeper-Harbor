@@ -30,24 +30,29 @@ import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.region.ServerRouter;
 
 /**
- * 하우징 (개인 부두, docs 20 8.4 '하우징', '12. 월드 · 하우징 · 통발' 4장).
+ * Housing (personal dock, docs 20 8.4 'housing', '12. world · housing · traps' chapter 4).
  *
  * <ul>
- *   <li>배치: harbor_homes 월드의 40×40 칸을 나선 순서로 계정당 1개, 처음 /부두를 쓸 때 만든다
- *   <li>크기: 기본 24×24, 시즌 간 최고 평판 등급(NPC ReputationService.bestTier, D11)이 4 이상이면 32×32로 가운데 기준 확장
- *       (줄지 않음)
- *   <li>보호: 블록 설치·파괴·상호작용, 피스톤, 액체 흐름, 폭발, 엔티티 생성을 플롯 경계로 막는다. 엔티티 30개 · 레드스톤 부품 20개 제한 (플러그인 장식
- *       Display·Interaction은 제외)
- *   <li>권한: 주인, 공동 건축자(housing_member), 방문객(모험 모드). 방문 정책 공개 · 건축자만(친구 대신) · 비공개
- *   <li>좋아요: 방문객 1명이 플롯 1곳에 하루 1회. 주인과 같은 IP 계정(Common AccountLinkReader)의 좋아요는 세지 않는다 (제안)
+ *   <li>Layout: one 40×40 cell per account in the harbor_homes world, in spiral order, created on
+ *       the first /부두
+ *   <li>Size: 24×24 by default, expanded around the center to 32×32 when the best cross-season
+ *       reputation tier (NPC ReputationService.bestTier, D11) is 4 or higher (never shrinks)
+ *   <li>Protection: block place/break/interact, pistons, liquid flow, explosions and entity spawns
+ *       are confined to the plot bounds. Limits of 30 entities · 20 redstone components (plugin
+ *       decor Display·Interaction excluded)
+ *   <li>Permissions: owner, co-builders (housing_member), visitors (adventure mode). Visit policy
+ *       public · builders only (instead of friends) · private
+ *   <li>Likes: once a day per visitor per plot. Likes from accounts sharing the owner's IP (Common
+ *       AccountLinkReader) are not counted (proposed)
  * </ul>
  *
- * <p>적재·조회는 {@link PlotStore}, 보호는 {@link PlotProtection}(따로 등록하는 Listener), 권한 판정은 {@link
- * PlotAccess}, 설정·좋아요는 {@link PlotActions}가 맡고, 이 클래스는 HousingService·이동·게임 모드를 맡는다.
+ * <p>Loading and lookup are handled by {@link PlotStore}, protection by {@link PlotProtection} (a
+ * separately registered Listener), permission checks by {@link PlotAccess}, settings and likes by
+ * {@link PlotActions}; this class handles HousingService, travel and game modes.
  */
 public final class HousingManager implements HousingService, Listener {
 
-    /** 적재된 플롯. */
+    /** A loaded plot. */
     static final class PlotState {
         PlotInfo info;
         List<DisplayAnchor> anchors;
@@ -69,7 +74,7 @@ public final class HousingManager implements HousingService, Listener {
     private final Map<UUID, GameMode> savedMode = new HashMap<>();
 
     /**
-     * @param bestTier 시즌 간 최고 평판 등급 (NPC가 없으면 0)
+     * @param bestTier best cross-season reputation tier (0 without NPC)
      */
     public HousingManager(
             WorldKit kit,
@@ -83,7 +88,7 @@ public final class HousingManager implements HousingService, Listener {
         this.protection = new PlotProtection(kit, store);
     }
 
-    /** 플롯 보호 Listener (이 객체 바로 뒤에 등록한다). */
+    /** Plot protection Listener (register it right after this object). */
     public Listener protection() {
         return protection;
     }
@@ -96,7 +101,7 @@ public final class HousingManager implements HousingService, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 적재
+    // ------------------------------------------------------------------ loading
 
     @Override
     public boolean isHousingWorld(World world) {
@@ -147,9 +152,9 @@ public final class HousingManager implements HousingService, Listener {
         return s == null ? List.of() : List.copyOf(s.anchors);
     }
 
-    // ------------------------------------------------------------------ 이동
+    // ------------------------------------------------------------------ travel
 
-    /** /부두: 내 플롯 (없으면 만든다). */
+    /** /부두: my plot (created if missing). */
     public void home(Player player) {
         UUID uuid = player.getUniqueId();
         var _ =
@@ -214,7 +219,7 @@ public final class HousingManager implements HousingService, Listener {
                         });
     }
 
-    /** /부두 방문 &lt;이름&gt;. */
+    /** /부두 방문 &lt;name&gt;. */
     public void visit(Player player, String name) {
         var _ =
                 kit.api()
@@ -244,7 +249,7 @@ public final class HousingManager implements HousingService, Listener {
                                 });
     }
 
-    /** 관리 명령: 방문 정책과 상관없이 플롯으로 간다. */
+    /** Admin command: goes to the plot regardless of the visit policy. */
     public void visitAsAdmin(Player player, PlotInfo plot) {
         go(player, plot);
     }
@@ -259,38 +264,39 @@ public final class HousingManager implements HousingService, Listener {
                 "housing");
     }
 
-    // ------------------------------------------------------------------ 설정·좋아요
+    // ------------------------------------------------------------------ settings and likes
 
     public void settings(Player player) {
         actions.settings(player);
     }
 
-    /** /부두 건축자 추가·제거 &lt;이름&gt;. */
+    /** /부두 건축자 추가·제거 &lt;name&gt; (add/remove builder). */
     public void member(Player player, String name, boolean add) {
         actions.member(player, name, add);
     }
 
-    /** /부두 입구: 내 플롯 안 지금 위치를 입장 지점으로. */
+    /** /부두 입구: sets the current position inside my plot as the entry point. */
     public void setSpawn(Player player) {
         actions.setSpawn(player);
     }
 
-    /** /부두 좋아요: 지금 서 있는 남의 플롯. */
+    /** /부두 좋아요: likes the other player's plot the player is standing in. */
     public void like(Player player) {
         actions.like(player);
     }
 
-    /** 관리 명령: 초기화 (공동 건축자·수조·좋아요). */
+    /** Admin command: reset (co-builders, tanks, likes). */
     public CompletableFuture<Boolean> adminReset(UUID owner) {
         return store.adminReset(owner);
     }
 
-    /** 관리 명령: 주인 바꾸기 (받는 쪽에 플롯이 없을 때만). */
+    /** Admin command: change owner (only if the recipient has no plot). */
     public CompletableFuture<Boolean> adminTransfer(UUID from, UUID to) {
         return store.adminTransfer(from, to);
     }
 
-    // ------------------------------------------------------------------ 레드스톤·수조 (DecorManager)
+    // ------------------------------------------------------------------ redstone and tanks
+    // (DecorManager)
 
     void addAnchor(PlotState state, DisplayAnchor anchor) {
         state.anchors.add(anchor);
@@ -300,7 +306,7 @@ public final class HousingManager implements HousingService, Listener {
         state.anchors.removeIf(a -> a.slot() == slot);
     }
 
-    // ------------------------------------------------------------------ 게임 모드
+    // ------------------------------------------------------------------ game mode
 
     private boolean housing(@Nullable World world) {
         return world != null && isHousingWorld(world);
@@ -338,7 +344,10 @@ public final class HousingManager implements HousingService, Listener {
         }
     }
 
-    /** 하우징 월드: 건축 권한이 있는 플롯 안이면 생존, 아니면 모험 모드. 나가면 원래 모드로. */
+    /**
+     * Housing world: survival inside a plot the player may build in, otherwise adventure mode. The
+     * original mode is restored on leaving.
+     */
     private void updateMode(Player player) {
         if (!player.isOnline()) {
             return;

@@ -18,7 +18,10 @@ import wiki.creeper.harbor.world.api.ShipInfo;
 import wiki.creeper.harbor.world.api.ShipState;
 import wiki.creeper.harbor.world.content.ShipDef;
 
-/** 선박 상태 저장소. 플레이어별 보유 선박 행, 띄운 배, 보트 엔티티 → 선박 ID를 들고 회수(엔티티 제거 + 내구도·상태 저장)를 맡는다. 메인 스레드 전용. */
+/**
+ * Ship state store. Holds each player's owned ship rows, launched boats and boat entity → ship ID,
+ * and handles recall (entity removal + saving durability and state). Main thread only.
+ */
 final class ShipFleet {
 
     private final WorldKit kit;
@@ -30,7 +33,7 @@ final class ShipFleet {
         this.kit = kit;
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ lookup
 
     Optional<ShipDef> def(HarborId type) {
         return kit.api().content().snapshot().get(ShipDef.TYPE, type);
@@ -68,7 +71,7 @@ final class ShipFleet {
         owned.remove(owner);
     }
 
-    /** 띄운 배 목록의 복사본 (돌면서 회수해도 된다). */
+    /** Copy of the launched boat list (safe to recall while iterating). */
     List<Afloat> afloatList() {
         return new ArrayList<>(afloat.values());
     }
@@ -85,7 +88,7 @@ final class ShipFleet {
         return afloat.size();
     }
 
-    /** 이 엔티티가 띄운 배의 보트면 선박 ID. */
+    /** Ship ID if this entity is the boat of a launched ship. */
     @Nullable Long shipIdOf(UUID entity) {
         return byBoat.get(entity);
     }
@@ -108,14 +111,14 @@ final class ShipFleet {
         return id == null ? Optional.empty() : Optional.ofNullable(afloat.get(id));
     }
 
-    // ------------------------------------------------------------------ 띄우기·회수
+    // ------------------------------------------------------------------ launch and recall
 
     void launch(Afloat a) {
         afloat.put(a.row.shipId(), a);
         byBoat.put(a.boat.getUniqueId(), a.row.shipId());
     }
 
-    /** 회수: 승객을 내리고 엔티티를 지운 뒤 내구도·상태를 저장한다. */
+    /** Recall: dismounts passengers, removes the entity, then saves durability and state. */
     CompletableFuture<Void> recall(Afloat a, ShipState state) {
         a.engine.stop();
         afloat.remove(a.row.shipId());

@@ -29,13 +29,17 @@ import wiki.creeper.harbor.world.bridge.Payments;
 import wiki.creeper.harbor.world.content.DecorDef;
 
 /**
- * 하우징 장식 (docs 20 8.4 '장식 상점' · '개인 어항'). 장식 상점(housing_decor.yml)에서 사면 원장(HOUSING_DECOR)과 보유
- * 개수(housing_decor_owned)를 한 트랜잭션으로 바꾼다 (Economy가 있으면 ShopService.charge). 산 장식은 인벤토리가 아니라 개수로 쌓이고,
- * 플롯 안 팔레트에서 꺼내 설치한다. 부수면 개수로 돌아오고, 하우징 월드를 나가면 가방에 든 장식 아이템은 보관함(개수)으로 돌아간다.
+ * Housing decor (docs 20 8.4 'decor shop' · 'personal aquarium'). Buying from the decor shop
+ * (housing_decor.yml) updates the ledger (HOUSING_DECOR) and the owned count (housing_decor_owned)
+ * in one transaction (ShopService.charge if Economy is present). Bought decor accumulates as a
+ * count rather than inventory items and is taken out from the palette inside a plot to place it.
+ * Breaking it returns it to the count, and leaving the housing world returns decor items in the
+ * inventory to storage (the count).
  *
- * <p>설치한 블록 장식은 청크 PDC에 위치 → 장식 ID로 남긴다. 수조(tank) 장식을 놓으면 개인 어항 자리(DisplayAnchor, housing_anchor)를
- * 만들고 DisplayAnchorChangedEvent로 Collection에 알린다. 가구(furniture)는 ItemDisplay + Interaction(웅크리고
- * 우클릭하면 회수).
+ * <p>Placed block decor is recorded in the chunk PDC as position → decor ID. Placing tank decor
+ * creates a personal aquarium slot (DisplayAnchor, housing_anchor) and notifies Collection via
+ * DisplayAnchorChangedEvent. Furniture is ItemDisplay + Interaction (sneak + right-click to recover
+ * it).
  */
 public final class DecorManager implements Listener {
 
@@ -98,15 +102,18 @@ public final class DecorManager implements Listener {
                         .asyncVoid(c -> HousingRepository.addDecor(c, uuid, decor, amount));
     }
 
-    /** 월드 저장을 기다리는 회수분 (주인 → 장식 → 개수). 메인 스레드 전용. */
+    /** Recovered decor waiting for the world save (owner → decor → count). Main thread only. */
     private final Map<UUID, Map<HarborId, Integer>> unsavedCredits = new HashMap<>();
 
     private final Set<UUID> worldSavePending = new HashSet<>();
 
     /**
-     * 월드에서 치운 장식(블록·가구 엔티티)을 보관함으로 돌린다. 치운 것은 청크와 함께 저장되므로, 개수를 바로 DB에 쓰면 청크가 저장되기 전 서버가 죽었을 때 장식이
-     * 월드에도 되살아나고 보관함에도 남는다. 메모리 개수는 바로 늘리고, 다음 틱에 그 월드를 저장한 뒤 DB에 쓴다 (여러 번 치워도 저장은 틱마다 한 번, 추가 제안).
-     * 하우징 월드는 플롯 근처 청크만 로드돼 있어 저장 비용이 작다.
+     * Returns decor removed from the world (blocks, furniture entities) to storage. The removal is
+     * saved with the chunk, so writing the count to the DB right away would, if the server died
+     * before the chunk was saved, leave the decor both revived in the world and in storage. The
+     * in-memory count goes up at once, and the DB is written on the next tick after saving that
+     * world (at most one save per tick however many are removed, proposed). The housing world only
+     * has chunks near plots loaded, so the save is cheap.
      */
     void creditAfterWorldSave(World world, UUID owner, HarborId decor, int amount) {
         owned.computeIfAbsent(owner, u -> new HashMap<>()).merge(decor, amount, Integer::sum);
@@ -131,7 +138,10 @@ public final class DecorManager implements Listener {
                                 });
     }
 
-    /** 월드 저장 뒤 (또는 종료 때: 월드는 플러그인이 꺼진 뒤 저장된다) 기다리던 회수분을 DB에 쓴다. */
+    /**
+     * Writes the pending recovered decor to the DB after the world save (or at shutdown: worlds are
+     * saved after plugins are disabled).
+     */
     public void flushCredits(boolean blocking) {
         if (unsavedCredits.isEmpty()) {
             return;
@@ -150,7 +160,7 @@ public final class DecorManager implements Listener {
             var _ = kit.api().database().asyncVoid(write);
             return;
         }
-        // 종료 중: DB 연결이 곧 닫히므로 기다려서 쓴다
+        // Shutting down: the DB connection closes soon, so write and wait
         try {
             kit.api().database().txVoid(write);
         } catch (java.sql.SQLException e) {
@@ -173,21 +183,24 @@ public final class DecorManager implements Listener {
         return placement;
     }
 
-    // ------------------------------------------------------------------ 상점
+    // ------------------------------------------------------------------ shop
 
-    /** 장식 상점 (/부두 상점). */
+    /** Decor shop (/부두 상점). */
     public void openShop(Player player) {
         shop.openShop(player);
     }
 
-    // ------------------------------------------------------------------ 팔레트
+    // ------------------------------------------------------------------ palette
 
-    /** 장식 팔레트 (/부두 장식): 건축할 수 있는 플롯 안에서만. 클릭 1개, 쉬프트 클릭 16개. */
+    /**
+     * Decor palette (/부두 장식): only inside a plot the player may build in. Click for 1, shift-click
+     * for 16.
+     */
     public void openPalette(Player player) {
         shop.openPalette(player);
     }
 
-    // ------------------------------------------------------------------ 하우징 월드를 나갈 때
+    // ------------------------------------------------------------------ leaving the housing world
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
@@ -202,8 +215,10 @@ public final class DecorManager implements Listener {
     }
 
     /**
-     * 퇴장 저장(MONITOR)보다 먼저 보관함으로 돌린다. 서버 이동이면 저장본을 이미 떴으므로 (퇴장 때 다시 저장하지 않음) 여기서 옮기면 저장본과 보관함 양쪽에
-     * 남는다: 이동은 {@link #handoffBlocker()}가 저장 전에 처리하고, 여기서는 건너뛴다.
+     * Returns decor to storage before the quit save (MONITOR). On a server move the save snapshot
+     * was already taken (not saved again on quit), so moving it here would leave it in both the
+     * snapshot and storage: moves are handled by {@link #handoffBlocker()} before the save and are
+     * skipped here.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onQuit(PlayerQuitEvent event) {
@@ -216,8 +231,10 @@ public final class DecorManager implements Listener {
     }
 
     /**
-     * 서버 이동 전 (저장본을 뜨기 전, 메인 스레드): 하우징 월드에서 떠나면 장식 아이템을 보관함으로 돌린다. 이동하지 않는 훅이라 항상 허용한다. 다른 훅이 이동을
-     * 거부해도 장식은 보관함에 들어가 있을 뿐이다 (다시 꺼내면 된다). World 훅 중 마지막에 등록한다.
+     * Before a server move (before the save snapshot, main thread): when leaving the housing world,
+     * returns decor items to storage. This hook never blocks, so it always allows. Even if another
+     * hook denies the move, the decor merely sits in storage (it can be taken out again). Register
+     * it last among the World hooks.
      */
     public HandoffBlocker handoffBlocker() {
         return (player, destination) -> {
@@ -228,7 +245,7 @@ public final class DecorManager implements Listener {
         };
     }
 
-    /** 가방의 장식 아이템을 보관함 개수로 돌려놓는다. */
+    /** Returns decor items in the inventory to the storage count. */
     private void stash(Player player) {
         ItemStack[] contents = player.getInventory().getContents();
         boolean moved = false;
@@ -242,7 +259,9 @@ public final class DecorManager implements Listener {
             }
         }
         if (moved) {
-            // 보관함 개수는 즉시 쓰고 인벤토리는 지연 쓰기라, 서버가 죽으면 양쪽에 남는다 (퇴장 때는 곧이어 퇴장 저장이 돈다)
+            // The storage count is written immediately but the inventory is write-behind, so a
+            // crash would
+            // leave it in both (on quit the quit save follows right after)
             kit.api().players().saveSoon(player.getUniqueId());
         }
     }

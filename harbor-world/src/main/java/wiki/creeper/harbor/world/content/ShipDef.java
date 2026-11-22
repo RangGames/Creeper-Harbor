@@ -17,16 +17,19 @@ import wiki.creeper.harbor.world.api.ShipFlag;
 import wiki.creeper.harbor.world.api.UpgradePath;
 
 /**
- * 선박 정의 (world/ships.yml, docs 20 8.3 ships.yml, 추가 제안). 서버 API 없음.
+ * Ship definition (world/ships.yml, docs 20 8.3 ships.yml, proposed). No server API.
  *
- * @param price 조선소 가격 (0 = 팔지 않음)
- * @param speed 속도 보정 (+0.30 = +30%)
- * @param cargo 화물 칸 (9의 배수)
- * @param starter 시즌 첫 접속 때 지급 (나룻배)
- * @param upgrades 갈래별 단계 누적값 (speed: 속도 보정 더하기, cargo: 칸 더하기, hull: 내구도 배율 더하기)
- * @param engineSound 항해 반복 소리 (기본: 쇄빙선 harbor:ship.icebreaker_loop, 나머지 harbor:ship.engine_loop,
- *     '15. 사운드' 4.4, 추가 제안). 빈 문자열이면 소리 없음
- * @param enginePitch 항해 소리 피치 (원양 탐사선·나룻배는 같은 소리를 피치만 바꿔 쓴다)
+ * @param price shipyard price (0 = not for sale)
+ * @param speed speed modifier (+0.30 = +30%)
+ * @param cargo cargo slots (multiple of 9)
+ * @param starter given on the first login of the season (rowboat)
+ * @param upgrades cumulative values per path step (speed: added speed modifier, cargo: added slots,
+ *     hull: added durability multiplier)
+ * @param engineSound looping sailing sound (default: harbor:ship.icebreaker_loop for the
+ *     icebreaker, harbor:ship.engine_loop for the rest, '15. sound' 4.4, proposed). Empty string
+ *     means no sound
+ * @param enginePitch sailing sound pitch (the ocean explorer and the rowboat share a sound with a
+ *     different pitch)
  */
 public record ShipDef(
         HarborId id,
@@ -50,14 +53,14 @@ public record ShipDef(
     public static final String ENGINE_LOOP = "harbor:ship.engine_loop";
     public static final String ICEBREAKER_LOOP = "harbor:ship.icebreaker_loop";
 
-    /** 구매 조건. */
+    /** Purchase conditions. */
     public record Requires(int level, int jobTier, List<String> flags) {
         public static final Requires NONE = new Requires(0, 1, List.of());
     }
 
     public static final String PREFIX = "ship/";
 
-    /** 화물 칸 상한 (상자 6줄). */
+    /** Cargo slot cap (6 chest rows). */
     public static final int MAX_CARGO = 54;
 
     public static final Set<String> WOODS =
@@ -100,7 +103,7 @@ public record ShipDef(
         return flags.contains(flag);
     }
 
-    /** 단계별 업그레이드 값 (0단계 = 0). */
+    /** Upgrade value per step (step 0 = 0). */
     public double upgradeValue(UpgradePath path, int level) {
         List<Double> values = upgrades.getOrDefault(path, List.of());
         if (level <= 0 || values.isEmpty()) {
@@ -113,7 +116,7 @@ public record ShipDef(
         return upgrades.getOrDefault(path, List.of()).size();
     }
 
-    /** 엔티티 종류 이름 (예: SPRUCE_CHEST_BOAT). */
+    /** Entity type name (e.g. SPRUCE_CHEST_BOAT). */
     public String entityName() {
         return wood.toUpperCase(java.util.Locale.ROOT) + (chest ? "_CHEST_BOAT" : "_BOAT");
     }

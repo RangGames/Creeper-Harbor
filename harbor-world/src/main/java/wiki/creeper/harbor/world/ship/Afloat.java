@@ -5,7 +5,7 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.RigInstance;
 
-/** 띄운 배. 메인 스레드 전용. */
+/** A launched boat. Main thread only. */
 final class Afloat {
     ShipRepository.Row row;
     final Boat boat;
@@ -14,7 +14,7 @@ final class Afloat {
     double damage;
     int ticks;
 
-    /** 항해 반복 소리 (운전 중 움직일 때만, '15. 사운드' 4.4). */
+    /** Looping sailing sound (only while moving under control, '15. sound' 4.4). */
     HarborSounds.Loop engine = HarborSounds.Loop.NONE;
 
     Afloat(ShipRepository.Row row, Boat boat, @Nullable RigInstance rig, boolean follow) {

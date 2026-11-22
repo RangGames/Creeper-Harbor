@@ -27,7 +27,10 @@ import wiki.creeper.harbor.world.content.TreasureTable;
 import wiki.creeper.harbor.world.content.WorldContent;
 import wiki.creeper.harbor.world.region.WorldIndex;
 
-/** 저장소의 content/를 서버와 같은 로더로 읽어 World 파일에 오류가 없는지 본다 (다른 모듈 파일의 오류는 대상이 아님). */
+/**
+ * Reads the repository's content/ with the same loader as the server and checks the World files for
+ * errors (errors in other modules' files are out of scope).
+ */
 class WorldContentTest {
 
     private static final Set<String> OWNED =
@@ -104,7 +107,8 @@ class WorldContentTest {
                 assertEquals(
                         List.of("lighthouse"),
                         index.at("harbor_main", -10, -60).orElseThrow().areasAt(-10, 80, -60));
-                // 물고기 떼 후보가 fishing_spots보다 많아야 옮길 자리가 있다
+                // There must be more school candidates than fishing_spots so spots have somewhere
+                // to move
                 for (WorldIndex.Entry e : index.regions()) {
                     assertTrue(
                             e.ext().spotCandidates().size() > e.def().fishingSpots(),

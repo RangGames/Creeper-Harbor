@@ -34,17 +34,24 @@ import wiki.creeper.harbor.world.region.RegionManager;
 import wiki.creeper.harbor.world.region.WorldIndex;
 
 /**
- * 환경 디버프 (docs 20 8.4 '환경 디버프', 수치는 모두 제안값). 환경 구역 안 플레이어만 20틱마다 계산한다.
+ * Environment debuffs (docs 20 8.4 'environment debuffs', all numbers are proposed values).
+ * Computed every 20 ticks only for players inside an environment zone.
  *
  * <ul>
- *   <li>혹한 (서리 협만): 야외 +1/초, 물속 +3/초, 열원 4블록 안·실내 −2/초. 60 이상 구속 I, 100이면 3초마다 피해 + 얼어붙음 화면. 방한 외투
- *       면역. 상승 배율 = env_rate × cold_debuff_time(협만 생선 수프 −50%) × debuff_duration(탐험 3차 −20%)
- *   <li>산소 (잿빛 해구 심층): 수면 20블록 아래에서 −1/초 (잠수 헬멧 기준 120초, 없으면 ×2), 노틸러스 갑옷 탑승 ×0.5, 공기 주머니·수면에서 회복.
- *       20% 이하 붉은 테두리(WorldBorderService WORLD_ENVIRONMENT), 0이면 초당 피해 2
- *   <li>화염 (용암 호수): 바닐라 화염 피해, 내열 장화 −50%. 낚시 중 면역은 Fishing이 처리
+ *   <li>Frostbite (Frost Fjord): +1/s outdoors, +3/s in water, −2/s within 4 blocks of a heat
+ *       source or indoors. Slowness I at 60 or more, damage plus the frozen screen every 3 seconds
+ *       at 100. Immune with the winter coat. Rise multiplier = env_rate × cold_debuff_time (fjord
+ *       fish soup −50%) × debuff_duration (exploration tier 3 −20%)
+ *   <li>Oxygen (Ashen Trench depths): −1/s from 20 blocks below the surface (120 seconds with a
+ *       diving helmet, ×2 without), ×0.5 riding with nautilus armor, recovers in air pockets and at
+ *       the surface. Red border at 20% or less (WorldBorderService WORLD_ENVIRONMENT), 2 damage per
+ *       second at 0
+ *   <li>Fire (Lava Lake): vanilla fire damage, heat-resistant boots −50%. Immunity while fishing is
+ *       handled by Fishing
  * </ul>
  *
- * 피해는 debuff_damage 스탯(환경 적응 −15%/랭크)을 곱한다. 게이지는 PlayerComponent에 두어 서버 이동 뒤에도 이어진다.
+ * Damage is multiplied by the debuff_damage stat (environment adaptation −15%/rank). Gauges live in
+ * a PlayerComponent so they carry over after a server move.
  */
 public final class EnvironmentManager implements Listener {
 
@@ -115,7 +122,7 @@ public final class EnvironmentManager implements Listener {
                             oxygen = oxygen(player, at, env, oxygen, b);
                         }
                         case HEAT -> {
-                            // 바닐라 화염 피해 + onDamage 보정
+                            // Vanilla fire damage + onDamage modifier
                         }
                     }
                 }
@@ -259,7 +266,7 @@ public final class EnvironmentManager implements Listener {
         }
         Optional<FishingService> fishing = kit.api().service(FishingService.class);
         if (fishing.isPresent() && fishing.get().isFishing(player.getUniqueId())) {
-            return; // 낚시 중에는 Fishing이 액션바를 쓴다
+            return; // Fishing uses the action bar while fishing
         }
         if (cold > 0) {
             kit.actionBar(
@@ -282,7 +289,7 @@ public final class EnvironmentManager implements Listener {
         return "■".repeat(filled) + "□".repeat(cells - filled);
     }
 
-    /** 용암 호수: 내열 장화 화염 피해 −50%, debuff_damage 보정. */
+    /** Lava Lake: heat-resistant boots −50% fire damage, debuff_damage modifier. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player player)) {

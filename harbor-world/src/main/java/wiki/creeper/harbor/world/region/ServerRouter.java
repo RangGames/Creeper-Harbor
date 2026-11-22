@@ -16,13 +16,15 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.world.WorldKit;
 
 /**
- * 지역 서버 사이 이동 (docs 20 8.1 '어디로 가는지'). 목적지 월드가 이 서버에 있으면 텔레포트하고, 다른 서버에 있으면 도착 위치를 Redis {@code
- * harbor:world:arrive:<uuid>} (60초)에 적은 뒤 Core ProxyBridge.requestMove로 옮긴다. 도착 서버는 접속 직후 그 키를 읽어
- * 옮긴다 (Core가 세션 handoff를 끝낸 뒤라 데이터는 이미 적재돼 있다). Redis 입출력은 가상 스레드에서 한다.
+ * Travel between region servers (docs 20 8.1 'where to go'). If the destination world is on this
+ * server it teleports; if it is on another server it writes the arrival position to Redis {@code
+ * harbor:world:arrive:<uuid>} (60 seconds) and moves the player with Core ProxyBridge.requestMove.
+ * The arrival server reads that key right after join and moves the player (Core has finished the
+ * session handoff by then, so the data is already loaded). Redis I/O runs on virtual threads.
  */
 public final class ServerRouter implements Listener {
 
-    /** 목적지 (콘텐츠 월드 이름 기준). */
+    /** Destination (by content world name). */
     public record Destination(String world, double x, double y, double z, float yaw) {}
 
     private static final String KEY = "harbor:world:arrive:";
@@ -35,8 +37,8 @@ public final class ServerRouter implements Listener {
     }
 
     /**
-     * @param server 목적지 월드를 돌리는 서버 (null이면 이 서버에 있어야 한다)
-     * @return 이동을 시작했으면 true
+     * @param server server running the destination world (if null, it must be on this server)
+     * @return true if the move started
      */
     public boolean send(Player player, Destination to, @Nullable String server, String reason) {
         World world = kit.bukkitWorld(to.world());

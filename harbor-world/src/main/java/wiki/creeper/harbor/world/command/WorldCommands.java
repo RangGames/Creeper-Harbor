@@ -33,7 +33,10 @@ import wiki.creeper.harbor.world.sea.SeaEventScheduler;
 import wiki.creeper.harbor.world.ship.ShipManager;
 import wiki.creeper.harbor.world.spot.SpotManager;
 
-/** /해도 · /부두 · /선박 · /조선소 · /비행선 · /노틸러스, /harbor world … (docs 20 8.5). */
+/**
+ * /해도 · /부두 · /선박 · /조선소 · /비행선 · /노틸러스 (chart, dock, ship, shipyard, airship, nautilus), /harbor
+ * world … (docs 20 8.5).
+ */
 public final class WorldCommands {
 
     private final WorldKit kit;
@@ -70,7 +73,7 @@ public final class WorldCommands {
                         kit, regions, charts, ships, housing, events, scheduler, spots, support);
     }
 
-    // ------------------------------------------------------------------ 플레이어 명령
+    // ------------------------------------------------------------------ player commands
 
     public void registerPlayerCommands(Commands commands) {
         commands.register(
@@ -241,7 +244,7 @@ public final class WorldCommands {
                 List.of());
     }
 
-    /** 조선소: 조선소 시설 8블록 안 (우회 권한이면 어디서나). */
+    /** Shipyard: within 8 blocks of a shipyard facility (anywhere with the bypass permission). */
     public void yard(Player player) {
         if (!player.hasPermission(RegionManager.BYPASS)
                 && !nearStation(player, RegionExt.StationType.SHIPYARD)) {
@@ -342,9 +345,12 @@ public final class WorldCommands {
         }
     }
 
-    // ------------------------------------------------------------------ 관리 명령
+    // ------------------------------------------------------------------ admin commands
 
-    /** /harbor world … (권한 harbor.admin.world는 Core가 건다, 하위는 harbor.admin.world.&lt;명령&gt;). */
+    /**
+     * /harbor world … (Core applies the harbor.admin.world permission; subcommands use
+     * harbor.admin.world.&lt;command&gt;).
+     */
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {
         return admin.build();
     }

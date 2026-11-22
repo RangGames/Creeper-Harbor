@@ -12,16 +12,21 @@ import wiki.creeper.harbor.npc.api.DialogService;
 import wiki.creeper.harbor.npc.api.ReputationService;
 
 /**
- * NPC 연결 (선택). 시즌 간 최고 평판 등급(ReputationService.bestTier, D11: 하우징 크기·장식 조건)과 대화 액션 키를 등록한다. 대화
- * 파일(NPC content/dialogs)에 아래 키를 넣으면 선택지가 보인다: {@code world:shipyard}(조선소), {@code world:housing}(내
- * 부두), {@code world:decor_shop}(장식 상점), {@code world:airship}(비행선 노선), {@code world:chart}(해도).
- * Harbor-NPC가 있을 때만 이 클래스를 불러온다.
+ * NPC integration (optional). Registers the best cross-season reputation tier
+ * (ReputationService.bestTier, D11: housing size and decor conditions) and dialog action keys.
+ * Putting these keys in a dialog file (NPC content/dialogs) shows the choices: {@code
+ * world:shipyard} (shipyard), {@code world:housing} (my dock), {@code world:decor_shop} (decor
+ * shop), {@code world:airship} (airship routes), {@code world:chart} (sea chart). This class is
+ * loaded only when Harbor-NPC is present.
  */
 public final class NpcBridge {
 
     private NpcBridge() {}
 
-    /** 최고 평판 등급 (접속 중이면 캐시, 아니면 DB). 서비스가 없으면 0. */
+    /**
+     * Best reputation tier (cached while online, otherwise from the DB). 0 if the service is
+     * missing.
+     */
     public static CompletableFuture<Integer> bestTier(UUID player) {
         ReputationService rep = Bukkit.getServicesManager().load(ReputationService.class);
         if (rep == null) {
@@ -33,7 +38,7 @@ public final class NpcBridge {
         return rep.loadBestTier(player);
     }
 
-    /** 대화 액션 등록 (화면을 여는 액션은 대화 세션만 끝낸다). */
+    /** Registers dialog actions (actions that open a screen only end the dialog session). */
     public static void registerActions(
             Plugin plugin,
             Consumer<Player> shipyard,

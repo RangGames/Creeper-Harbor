@@ -20,12 +20,12 @@ import wiki.creeper.harbor.common.ledger.LedgerException;
 import wiki.creeper.harbor.world.api.DisplayAnchor;
 import wiki.creeper.harbor.world.api.VisitPolicy;
 
-/** housing_* 표 (가상 스레드). */
+/** housing_* tables (virtual threads). */
 public final class HousingRepository {
 
     private HousingRepository() {}
 
-    /** housing_plot 행 + 공동 건축자. */
+    /** housing_plot row + co-builders. */
     public record PlotRow(
             long plotId,
             UUID owner,
@@ -129,9 +129,10 @@ public final class HousingRepository {
     }
 
     /**
-     * 새 플롯: 다음 나선 번호에 넣는다. 다른 서버와 겹치면(유니크 위반) 번호를 올려 다시 시도한다.
+     * New plot: inserts at the next spiral index. On a collision with another server (unique
+     * violation), bumps the index and retries.
      *
-     * @param spawn (블록 x, y, z, yaw)을 돌려주는 함수 (칸 번호 → 입장 지점)
+     * @param spawn function returning (block x, y, z, yaw) (cell index → entry point)
      */
     public static long create(
             Connection c, UUID owner, int size, java.util.function.LongFunction<double[]> spawn)
@@ -237,7 +238,10 @@ public final class HousingRepository {
         }
     }
 
-    /** 좋아요: 하루 한 번만 (housing_like 기본 키). 새로 눌렀으면 플롯 likes를 올리고 새 값을 돌려준다, 이미 눌렀으면 −1. */
+    /**
+     * Like: only once a day (housing_like primary key). If newly liked, increments the plot's likes
+     * and returns the new value; −1 if already liked.
+     */
     public static int like(Connection c, long plotId, UUID uuid, LocalDate day)
             throws SQLException {
         try (PreparedStatement ps =
@@ -277,7 +281,7 @@ public final class HousingRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 장식 보유 개수
+    // ------------------------------------------------------------------ owned decor counts
 
     public static Map<HarborId, Integer> decor(Connection c, UUID uuid) throws SQLException {
         Map<HarborId, Integer> result = new HashMap<>();
@@ -296,7 +300,7 @@ public final class HousingRepository {
         return result;
     }
 
-    /** 개수 더하기 (구매·회수). */
+    /** Adds to the count (purchase, recovery). */
     public static void addDecor(Connection c, UUID uuid, HarborId decor, int amount)
             throws SQLException {
         try (PreparedStatement ps =
@@ -309,7 +313,7 @@ public final class HousingRepository {
         }
     }
 
-    /** 개수 빼기 (팔레트에서 꺼냄). 모자라면 REJECTED. */
+    /** Subtracts from the count (taken out from the palette). REJECTED if insufficient. */
     public static void takeDecor(Connection c, UUID uuid, HarborId decor, int amount)
             throws SQLException {
         try (PreparedStatement ps =
@@ -325,7 +329,7 @@ public final class HousingRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 수조 자리
+    // ------------------------------------------------------------------ tank slots
 
     public static List<DisplayAnchor> anchors(Connection c, long plotId) throws SQLException {
         List<DisplayAnchor> result = new ArrayList<>();
@@ -379,7 +383,7 @@ public final class HousingRepository {
         }
     }
 
-    /** 관리 명령 초기화: 공동 건축자·수조·좋아요를 지운다 (플롯 행과 장식 보유는 남긴다). */
+    /** Admin reset: deletes co-builders, tanks and likes (keeps the plot row and owned decor). */
     public static void reset(Connection c, long plotId) throws SQLException {
         for (String sql :
                 List.of(
