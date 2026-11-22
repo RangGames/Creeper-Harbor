@@ -9,18 +9,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.boss.api.Contribution;
 import wiki.creeper.harbor.boss.api.EncounterInfo;
@@ -39,15 +34,11 @@ import wiki.creeper.harbor.common.ledger.LedgerError;
 import wiki.creeper.harbor.common.ledger.LedgerException;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.model.Currency;
-import wiki.creeper.harbor.common.redis.Channels;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.HarborApi;
-import wiki.creeper.harbor.fishing.api.CatchOptions;
-import wiki.creeper.harbor.fishing.api.CatchResult;
 import wiki.creeper.harbor.npc.api.ReputationService;
 import wiki.creeper.harbor.npc.api.ReputationSource;
-import wiki.creeper.harbor.season.api.HallOfFameSubmission;
 import wiki.creeper.harbor.season.api.LimitResult;
 import wiki.creeper.harbor.season.api.SeasonServices;
 import wiki.creeper.harbor.season.api.TitleId;
@@ -78,10 +69,16 @@ public final class RewardService {
 
     private final EncounterManager mgr;
     private final HarborApi api;
+    private final ClearRecords records;
+    private final RewardDelivery delivery;
+    private final BaitRefunds refunds;
 
     RewardService(EncounterManager mgr) {
         this.mgr = mgr;
         this.api = mgr.api();
+        this.records = new ClearRecords(mgr);
+        this.delivery = new RewardDelivery(mgr);
+        this.refunds = new BaitRefunds(mgr);
     }
 
     // ------------------------------------------------------------------ Settlement
@@ -129,10 +126,10 @@ public final class RewardService {
             if (def.isWorld()) {
                 var _ = api.flags().setServer("climax_done", "1", false);
             } else if (e.allFromStart()) {
-                record(e, info, durationMs, endedAt);
+                records.record(e, info, durationMs, endedAt);
             }
             if (def.presentation().announce()) {
-                announce(e, info, durationMs);
+                records.announce(e, info, durationMs);
             }
         } else if (result == EncounterState.FAILED && !def.story()) {
             for (Contribution c : eligible) {
@@ -526,96 +523,7 @@ public final class RewardService {
         return done;
     }
 
-    // ------------------------------------------------------------------ Records and announcements
-
-    private void record(Encounter e, EncounterInfo info, long durationMs, Instant clearedAt) {
-        int season = SeasonServices.clock().current().value();
-        List<UUID> members = info.members();
-        var record =
-                new wiki.creeper.harbor.boss.api.BossRecord(
-                        e.def.id(), season, durationMs, e.id, members, clearedAt);
-        String leaderName =
-                Optional.ofNullable(Bukkit.getPlayer(e.leader)).map(Player::getName).orElse("?");
-        Component name =
-                members.size() <= 1
-                        ? Component.text(leaderName)
-                        : api.messages()
-                                .get(
-                                        "boss.record.party_name",
-                                        Placeholder.unparsed("leader", leaderName),
-                                        Placeholder.unparsed(
-                                                "others", String.valueOf(members.size() - 1)));
-        String plain = PlainTextComponentSerializer.plainText().serialize(name);
-        var _ =
-                api.database()
-                        .async(c -> BossRepository.insertRecord(c, record))
-                        .thenAcceptAsync(
-                                rank -> {
-                                    if (rank == 1) {
-                                        e.broadcast(
-                                                "boss.record.new_best",
-                                                Placeholder.unparsed(
-                                                        "time",
-                                                        EncounterManager.formatMs(durationMs)));
-                                    } else if (rank > 0) {
-                                        e.broadcast(
-                                                "boss.record.ranked",
-                                                Placeholder.unparsed("rank", String.valueOf(rank)),
-                                                Placeholder.unparsed(
-                                                        "time",
-                                                        EncounterManager.formatMs(durationMs)));
-                                    }
-                                    var _ =
-                                            SeasonServices.hallOfFame()
-                                                    .submit(
-                                                            HallOfFameSubmission.fastestBoss(
-                                                                    e.def.id().id(),
-                                                                    e.leader,
-                                                                    plain,
-                                                                    durationMs,
-                                                                    Map.of(
-                                                                            "members",
-                                                                            BossRepository
-                                                                                    .membersJson(
-                                                                                            members),
-                                                                            "encounter",
-                                                                            e.id.toString()),
-                                                                    clearedAt));
-                                },
-                                mgr.tasks().main())
-                        .exceptionally(
-                                err -> {
-                                    mgr.log()
-                                            .warn(
-                                                    "보스 기록 저장 실패 {}: {}",
-                                                    e.id,
-                                                    String.valueOf(err.getMessage()));
-                                    return null;
-                                });
-    }
-
-    private void announce(Encounter e, EncounterInfo info, long durationMs) {
-        String leaderName =
-                Optional.ofNullable(Bukkit.getPlayer(e.leader)).map(Player::getName).orElse("?");
-        Component msg =
-                api.messages()
-                        .get(
-                                e.def.isWorld()
-                                        ? "boss.announce.world_cleared"
-                                        : "boss.announce.cleared",
-                                Placeholder.component("boss", e.bossName()),
-                                Placeholder.unparsed("leader", leaderName),
-                                Placeholder.unparsed(
-                                        "count", String.valueOf(info.members().size())),
-                                Placeholder.unparsed(
-                                        "time", EncounterManager.formatMs(durationMs)));
-        api.bus()
-                .publish(
-                        Channels.ANNOUNCEMENTS,
-                        new Channels.Announcement(MiniMessage.miniMessage().serialize(msg)));
-    }
-
-    // ------------------------------------------------------------------ Bait refunds
+    // ------------------------------------------------------------------ Bait refunds (BaitRefunds)
 
     /**
      * Restart recovery: inside the transaction that closes the encounter as ABORTED, inserts the
@@ -626,67 +534,24 @@ public final class RewardService {
      * @return the summoner if a refund was inserted, otherwise null
      */
     @Nullable UUID refundBaitInTx(Connection c, BossRepository.Aborted a) throws SQLException {
-        UUID leader = a.leader();
-        String item = a.summonItem();
-        if (leader == null || item == null) {
-            return null;
-        }
-        ItemId id;
-        try {
-            id = new ItemId(HarborId.parse(item));
-        } catch (IllegalArgumentException e) {
-            mgr.log().warn("환급할 미끼 ID 형식이 틀렸습니다: {}", item);
-            return null;
-        }
-        refundInTx(c, a.id(), leader, id);
-        return leader;
+        return refunds.refundBaitInTx(c, a);
     }
 
     /** Refunds the bait via pending if it was already taken (end during departure, ABORTED). */
     void refundIfTaken(Encounter e) {
-        ItemId item = e.summonItem;
-        if (e.baitTaken && item != null) {
-            refund(e.id, e.leader, item);
-        }
+        refunds.refundIfTaken(e);
     }
 
     /** Announces and delivers a refund inserted by the restart recovery transaction (if online). */
     void notifyRefund(UUID leader) {
-        Player p = Bukkit.getPlayer(leader);
-        if (p != null) {
-            api.messages().send(p, "boss.reward.bait_refund");
-            deliverPending(p, false);
-        }
-    }
-
-    private void refund(UUID encounter, UUID leader, ItemId item) {
-        var _ =
-                api.database()
-                        .asyncVoid(c -> refundInTx(c, encounter, leader, item))
-                        .thenRunAsync(() -> notifyRefund(leader), mgr.tasks().main())
-                        .exceptionally(
-                                err -> {
-                                    mgr.log()
-                                            .warn(
-                                                    "미끼 환급 기록 실패 {}: {}",
-                                                    encounter,
-                                                    String.valueOf(err.getMessage()));
-                                    return null;
-                                });
+        refunds.notifyRefund(leader);
     }
 
     void refundInTx(Connection c, UUID encounter, UUID leader, ItemId item) throws SQLException {
-        BossRepository.insertPendingIgnore(
-                c,
-                new PendingReward(
-                        PendingReward.idFor(encounter, leader, "refund"),
-                        encounter,
-                        leader,
-                        "refund",
-                        List.of(new PendingReward.Entry("item", item.toString(), 1, null))));
+        refunds.refundInTx(c, encounter, leader, item);
     }
 
-    // ------------------------------------------------------------------ Delivery
+    // ------------------------------------------------------------------ Delivery (RewardDelivery)
 
     /**
      * Delivers unclaimed rewards (steps 4-5). IDs already in the PDC only close their row. If the
@@ -695,168 +560,10 @@ public final class RewardService {
      * @param notifyEmpty whether to notify even when there is nothing to receive (/boss claim)
      */
     public void deliverPending(Player player, boolean notifyEmpty) {
-        UUID uuid = player.getUniqueId();
-        var _ =
-                api.database()
-                        .async(c -> BossRepository.undelivered(c, uuid))
-                        .thenAcceptAsync(
-                                list -> deliver(player, list, notifyEmpty), mgr.tasks().main())
-                        .exceptionally(
-                                err -> {
-                                    mgr.log()
-                                            .warn(
-                                                    "미지급 보상 조회 실패 {}: {}",
-                                                    uuid,
-                                                    String.valueOf(err.getMessage()));
-                                    return null;
-                                });
+        delivery.deliverPending(player, notifyEmpty);
     }
 
     public CompletableFuture<List<PendingReward>> pending(UUID player) {
-        CompletableFuture<List<PendingReward>> out = new CompletableFuture<>();
-        var _ =
-                api.database()
-                        .async(c -> BossRepository.undelivered(c, player))
-                        .whenCompleteAsync(
-                                (list, err) -> {
-                                    if (err != null) {
-                                        out.completeExceptionally(err);
-                                    } else {
-                                        out.complete(list);
-                                    }
-                                },
-                                mgr.tasks().main());
-        return out;
-    }
-
-    private void deliver(Player player, List<PendingReward> list, boolean notifyEmpty) {
-        if (!player.isOnline()) {
-            return;
-        }
-        if (list.isEmpty()) {
-            if (notifyEmpty) {
-                api.messages().send(player, "boss.reward.nothing");
-            }
-            return;
-        }
-        Set<String> done = BossItems.delivered(player);
-        List<UUID> close = new ArrayList<>();
-        List<String> marked = new ArrayList<>();
-        boolean full = false;
-        for (PendingReward r : list) {
-            if (done.contains(r.id().toString())) {
-                close.add(r.id());
-                continue;
-            }
-            List<ItemStack> stacks = build(player, r);
-            if (!fits(player, stacks)) {
-                full = true;
-                continue;
-            }
-            for (ItemStack s : stacks) {
-                var _ = player.getInventory().addItem(s);
-                api.messages()
-                        .send(
-                                player,
-                                "boss.reward.item",
-                                Placeholder.component("item", s.effectiveName()),
-                                Placeholder.unparsed("count", String.valueOf(s.getAmount())));
-            }
-            marked.add(r.id().toString());
-            close.add(r.id());
-        }
-        if (!marked.isEmpty()) {
-            BossItems.markDelivered(player, marked);
-        }
-        if (full) {
-            api.messages().send(player, "boss.reward.inventory_full");
-        }
-        if (!close.isEmpty()) {
-            // Save the delivered items and PDC marker first, then close the DB reward rows. In the
-            // reverse order, if the server died after closing, the inventory would roll back to
-            // before delivery and the rewards would be lost. If the save fails, the rows stay open
-            // and the next delivery handles them via the PDC marker (if in memory) or by granting
-            // again. Vanilla saveData() does not help because the Harbor save is the source of
-            // truth
-            UUID uuid = player.getUniqueId();
-            var _ =
-                    api.players()
-                            .saveNow(uuid)
-                            .thenCompose(
-                                    v ->
-                                            api.database()
-                                                    .asyncVoid(
-                                                            c ->
-                                                                    BossRepository.markDelivered(
-                                                                            c, close)))
-                            .exceptionally(
-                                    e -> {
-                                        mgr.log()
-                                                .warn(
-                                                        "보스 보상 지급 기록 실패 {}: {}",
-                                                        uuid,
-                                                        String.valueOf(e.getMessage()));
-                                        return null;
-                                    });
-        }
-    }
-
-    private List<ItemStack> build(Player player, PendingReward r) {
-        List<ItemStack> out = new ArrayList<>();
-        for (PendingReward.Entry entry : r.entries()) {
-            try {
-                if ("fish".equals(entry.type())) {
-                    BossBalance bb = mgr.balance();
-                    Optional<CatchResult> fish =
-                            mgr.fishing()
-                                    .createCatch(
-                                            player,
-                                            new FishId(HarborId.parse(entry.id())),
-                                            new CatchOptions(
-                                                    bb.captureQualityStars(),
-                                                    bb.captureLuck(),
-                                                    true));
-                    fish.map(CatchResult::stack)
-                            .ifPresent(
-                                    s -> {
-                                        if (s != null) {
-                                            out.add(s);
-                                        }
-                                    });
-                    continue;
-                }
-                Optional<ItemStack> stack =
-                        mgr.items().create(new ItemId(HarborId.parse(entry.id())), entry.count());
-                if (stack.isEmpty()) {
-                    mgr.log().warn("보상 아이템이 콘텐츠에 없습니다: {}", entry.id());
-                    continue;
-                }
-                ItemStack s = stack.get();
-                String uid = entry.uid();
-                if (uid != null) {
-                    s.editPersistentDataContainer(
-                            pdc ->
-                                    pdc.set(
-                                            BossItems.BOSS_UID,
-                                            org.bukkit.persistence.PersistentDataType.STRING,
-                                            uid));
-                }
-                out.add(s);
-            } catch (IllegalArgumentException e) {
-                mgr.log().warn("보상 항목 형식이 틀렸습니다: {}", entry);
-            }
-        }
-        return out;
-    }
-
-    /** Whether everything fits in the inventory (judged conservatively by empty slot count). */
-    private static boolean fits(Player player, List<ItemStack> stacks) {
-        int empty = 0;
-        for (ItemStack s : player.getInventory().getStorageContents()) {
-            if (s == null || s.isEmpty()) {
-                empty++;
-            }
-        }
-        return empty >= stacks.size();
+        return delivery.pending(player);
     }
 }

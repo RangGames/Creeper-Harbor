@@ -228,8 +228,7 @@ final class EncounterRoster {
         e.mgr.unbind(m.uuid, e);
     }
 
-    // ------------------------------------------------------------------ Leaving, rejoin, falling
-    // into water
+    // --------------------------------------------------------- Leaving, rejoin, falling into water
 
     /** Rejoin (within the slot hold time). field encounters send the player back to the deck. */
     void rejoin(Player p) {

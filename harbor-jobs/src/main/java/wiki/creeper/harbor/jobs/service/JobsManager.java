@@ -12,7 +12,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -27,7 +26,6 @@ import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.content.type.RegionDef;
-import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.common.id.SkillId;
 import wiki.creeper.harbor.common.ledger.LedgerEntry;
 import wiki.creeper.harbor.common.ledger.LedgerError;
@@ -38,7 +36,6 @@ import wiki.creeper.harbor.common.model.JobTier;
 import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.common.model.SeasonId;
 import wiki.creeper.harbor.common.util.Result;
-import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.HarborSounds;
@@ -46,7 +43,6 @@ import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
-import wiki.creeper.harbor.core.task.Sequence;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.jobs.api.AdvanceResult;
 import wiki.creeper.harbor.jobs.api.CapstoneState;
@@ -54,12 +50,9 @@ import wiki.creeper.harbor.jobs.api.ExpGrant;
 import wiki.creeper.harbor.jobs.api.ExpSource;
 import wiki.creeper.harbor.jobs.api.JobState;
 import wiki.creeper.harbor.jobs.api.JobsService;
-import wiki.creeper.harbor.jobs.api.event.JobAdvancedEvent;
 import wiki.creeper.harbor.jobs.api.event.JobExpGainEvent;
 import wiki.creeper.harbor.jobs.api.event.JobLevelUpEvent;
-import wiki.creeper.harbor.jobs.api.event.JobLineChangedEvent;
 import wiki.creeper.harbor.jobs.api.event.SkillAllocatedEvent;
-import wiki.creeper.harbor.jobs.api.event.SkillResetEvent;
 import wiki.creeper.harbor.jobs.content.JobLineDef;
 import wiki.creeper.harbor.jobs.content.JobsBalance;
 import wiki.creeper.harbor.jobs.content.SkillNode;
@@ -77,7 +70,6 @@ public final class JobsManager implements JobsService, Listener {
             new PlayerComponent<>("jobs", JobsRepository::load, JobsRepository::saveState);
 
     static final StatKey EXP_GAIN = StatKey.of("exp_gain");
-    private static final Duration DIALOG_TIMEOUT = Duration.ofMinutes(5);
 
     private final Plugin plugin;
     private final HarborApi api;
@@ -89,6 +81,8 @@ public final class JobsManager implements JobsService, Listener {
     private @Nullable CapstoneService capstones;
     private @Nullable CatchUpService catchUp;
     private java.util.function.@Nullable Predicate<Player> advanceCutscene;
+    private final JobAdvancement advancement = new JobAdvancement(this);
+    private final SkillResets resets = new SkillResets(this);
 
     public JobsManager(Plugin plugin, HarborApi api, Tasks tasks, Logger log) {
         this.plugin = plugin;
@@ -109,6 +103,33 @@ public final class JobsManager implements JobsService, Listener {
     public void attach(CapstoneService capstoneService, CatchUpService catchUpService) {
         this.capstones = capstoneService;
         this.catchUp = catchUpService;
+    }
+
+    // ------------------------------------------------------------------ Collaborator access
+
+    HarborApi api() {
+        return api;
+    }
+
+    Tasks tasks() {
+        return tasks;
+    }
+
+    Logger log() {
+        return log;
+    }
+
+    Plugin plugin() {
+        return plugin;
+    }
+
+    /** Players with a currency change in flight (one at a time per player). */
+    Set<UUID> busy() {
+        return busy;
+    }
+
+    java.util.function.@Nullable Predicate<Player> advanceCutscene() {
+        return advanceCutscene;
     }
 
     // ------------------------------------------------------------------ Lookup
@@ -280,197 +301,12 @@ public final class JobsManager implements JobsService, Listener {
 
     @Override
     public CompletableFuture<AdvanceResult> requestAdvance(Player player, JobTier target) {
-        HarborPlayer hp = api.players().get(player);
-        JobsBalance b = balance();
-        if (busy.contains(hp.uuid())) {
-            return CompletableFuture.completedFuture(AdvanceResult.BUSY);
-        }
-        if (target.level() != hp.jobTier().level() + 1) {
-            return CompletableFuture.completedFuture(AdvanceResult.WRONG_TIER);
-        }
-        if (hp.level() < b.advanceLevel(target)) {
-            return CompletableFuture.completedFuture(AdvanceResult.LEVEL_TOO_LOW);
-        }
-        long cost = b.advanceCost(target);
-        if (hp.balance(Currency.GOLD) < cost) {
-            return CompletableFuture.completedFuture(AdvanceResult.NOT_ENOUGH_GOLD);
-        }
-        CompletableFuture<AdvanceResult> result = new CompletableFuture<>();
-        var _ =
-                tasks.later(
-                        DIALOG_TIMEOUT.toSeconds() * 20,
-                        () -> result.complete(AdvanceResult.CANCELLED));
-        if (target == JobTier.SECOND) {
-            List<JobLine> lines = List.of(JobLine.values());
-            List<Dialogs.Choice> choices = new ArrayList<>();
-            for (JobLine line : lines) {
-                String name = lineDef(line).map(d -> d.name(2)).orElse(line.key());
-                choices.add(new Dialogs.Choice(Component.text(name), passiveSummary(line)));
-            }
-            api.dialogs()
-                    .choose(
-                            player,
-                            api.messages().get("jobs.advance.choose_title"),
-                            List.of(api.messages().get("jobs.advance.choose_body")),
-                            choices,
-                            2,
-                            index ->
-                                    confirmAdvance(player, target, lines.get(index), cost, result));
-        } else {
-            hp.jobLine()
-                    .ifPresentOrElse(
-                            line -> confirmAdvance(player, target, line, cost, result),
-                            () -> result.complete(AdvanceResult.FAILED));
-        }
-        return result;
-    }
-
-    private Component passiveSummary(JobLine line) {
-        StringBuilder text = new StringBuilder();
-        lineDef(line)
-                .ifPresent(
-                        def ->
-                                def.passives().stream()
-                                        .filter(p -> p.tier() == 2)
-                                        .forEach(
-                                                p ->
-                                                        text.append(p.stat())
-                                                                .append(' ')
-                                                                .append(signed(p.value()))
-                                                                .append('\n')));
-        return Component.text(text.toString().strip());
-    }
-
-    private void confirmAdvance(
-            Player player,
-            JobTier target,
-            JobLine line,
-            long cost,
-            CompletableFuture<AdvanceResult> result) {
-        String name = lineDef(line).map(d -> d.name(target.level())).orElse(line.key());
-        api.dialogs()
-                .confirm(
-                        player,
-                        api.messages().get("jobs.advance.confirm_title"),
-                        List.of(
-                                api.messages()
-                                        .get(
-                                                "jobs.advance.confirm_body",
-                                                Placeholder.unparsed("job", name),
-                                                Placeholder.unparsed(
-                                                        "cost", String.valueOf(cost)))),
-                        api.messages().get("jobs.advance.yes"),
-                        api.messages().get("jobs.advance.no"),
-                        ok -> {
-                            if (!ok) {
-                                result.complete(AdvanceResult.CANCELLED);
-                                return;
-                            }
-                            commitAdvance(player, target, line, cost, result);
-                        });
-    }
-
-    private void commitAdvance(
-            Player player,
-            JobTier target,
-            JobLine line,
-            long cost,
-            CompletableFuture<AdvanceResult> result) {
-        HarborPlayer hp = api.players().get(player);
-        UUID uuid = hp.uuid();
-        SeasonId season = hp.season();
-        if (!busy.add(uuid)) {
-            result.complete(AdvanceResult.BUSY);
-            return;
-        }
-        String ref = "adv:" + season.value() + ":" + uuid + ":" + target.level();
-        // Update the cache first: if changed after commit, a quit or auto-save (saveBase) in
-        // between would overwrite the committed job_tier with the old tier in memory. Reverted on
-        // failure
-        JobLine prevLine = hp.jobLine().orElse(null);
-        JobTier prevTier = hp.jobTier();
-        hp.setJob(line, target, hp.level(), hp.exp());
-        var _ =
-                api.currency()
-                        .atomic(
-                                List.of(
-                                        new LedgerEntry(
-                                                uuid,
-                                                Currency.GOLD,
-                                                -cost,
-                                                LedgerReason.JOB_ADVANCE,
-                                                ref)),
-                                c -> JobsRepository.updateJob(c, uuid, season, line, target))
-                        .thenAccept(
-                                r -> {
-                                    busy.remove(uuid);
-                                    switch (r) {
-                                        case Result.Ok<List<Long>, LedgerError> _ -> {
-                                            afterAdvance(hp, target, line);
-                                            result.complete(AdvanceResult.OK);
-                                        }
-                                        case Result.Err<List<Long>, LedgerError>(
-                                                        LedgerError error) -> {
-                                            if (error == LedgerError.DUPLICATE) {
-                                                // A payment and advancement with the same reference
-                                                // ID was already committed (the tier had been
-                                                // overwritten by a save race). Do not charge again;
-                                                // only sync the tier
-                                                afterAdvance(hp, target, line);
-                                                result.complete(AdvanceResult.OK);
-                                                return;
-                                            }
-                                            hp.setJob(prevLine, prevTier, hp.level(), hp.exp());
-                                            result.complete(
-                                                    error == LedgerError.INSUFFICIENT_FUNDS
-                                                            ? AdvanceResult.NOT_ENOUGH_GOLD
-                                                            : AdvanceResult.FAILED);
-                                        }
-                                    }
-                                });
+        return advancement.request(player, target);
     }
 
     /** Main thread after commit: cache → automatic passives → apply overflow → event → cutscene. */
     void afterAdvance(HarborPlayer hp, JobTier target, JobLine line) {
-        hp.setJob(line, target, hp.level(), hp.exp());
-        rebuildModifiers(hp);
-        JobsData data = data(hp);
-        if (data.overflowExp() > 0) {
-            hp.set(COMPONENT, data.withOverflow(0));
-            addExp(hp, data.overflowExp());
-        }
-        Bukkit.getPluginManager().callEvent(new JobAdvancedEvent(hp.uuid(), target, line));
-        Player player = Bukkit.getPlayer(hp.uuid());
-        if (player != null) {
-            String name = lineDef(line).map(d -> d.name(target.level())).orElse(line.key());
-            var cutscene = advanceCutscene;
-            if (cutscene != null && cutscene.test(player)) {
-                api.messages().send(player, "jobs.advance.done", Placeholder.unparsed("job", name));
-                return;
-            }
-            HarborSounds.play(player, "harbor:ui.job_change"); // '15. Sound' 4.5 job advancement
-            Sequence.of(plugin, player)
-                    .run(
-                            p ->
-                                    api.ui()
-                                            .title(
-                                                    p,
-                                                    api.messages()
-                                                            .get("jobs.advance.cutscene_title"),
-                                                    Component.text(name),
-                                                    Duration.ofMillis(500),
-                                                    Duration.ofSeconds(3),
-                                                    Duration.ofSeconds(1)))
-                    .waitTicks(60)
-                    .run(
-                            p ->
-                                    api.messages()
-                                            .send(
-                                                    p,
-                                                    "jobs.advance.done",
-                                                    Placeholder.unparsed("job", name)))
-                    .start();
-        }
+        advancement.afterAdvance(hp, target, line);
     }
 
     // ------------------------------------------------------------------ Skills
@@ -610,52 +446,7 @@ public final class JobsManager implements JobsService, Listener {
      * @param refund false means no refund (admin)
      */
     public CompletableFuture<Boolean> resetCommon(UUID uuid, boolean charge, boolean refund) {
-        HarborPlayer hp = api.players().get(uuid).orElseThrow();
-        JobsData data = data(hp);
-        Map<SkillId, SkillNode> nodes = nodes();
-        List<SkillId> common =
-                data.skills().keySet().stream()
-                        .filter(
-                                id ->
-                                        nodes.containsKey(id)
-                                                && Objects.requireNonNull(nodes.get(id)).kind()
-                                                        == SkillNode.Kind.COMMON)
-                        .toList();
-        long invested = pointsIn(data, n -> n.kind() == SkillNode.Kind.COMMON);
-        boolean free = !data.freeResetUsed();
-        long cost = charge && !free ? balance().commonResetCost() : 0;
-        String ref = "rst:" + UUID.randomUUID();
-        List<LedgerEntry> entries = new ArrayList<>();
-        if (cost > 0) {
-            entries.add(new LedgerEntry(uuid, Currency.GOLD, -cost, LedgerReason.SKILL_RESET, ref));
-        }
-        if (refund && invested > 0) {
-            entries.add(
-                    new LedgerEntry(
-                            uuid, Currency.MULBINEUL, invested, LedgerReason.SKILL_REFUND, ref));
-        }
-        JobsData next = (charge && free ? data.withFreeResetUsed() : data);
-        Map<SkillId, Integer> kept = new HashMap<>(data.skills());
-        common.forEach(kept::remove);
-        JobsData after = next.withSkills(kept);
-        SeasonId season = hp.season();
-        SqlConsumer extra =
-                c -> {
-                    JobsRepository.deleteNodes(c, uuid, season, common);
-                    JobsRepository.saveState(c, uuid, season, after);
-                };
-        long refunded = refund ? invested : 0;
-        return runChange(uuid, entries, extra)
-                .thenApply(
-                        ok -> {
-                            if (ok) {
-                                hp.set(COMPONENT, after);
-                                rebuildModifiers(hp);
-                                Bukkit.getPluginManager()
-                                        .callEvent(new SkillResetEvent(uuid, "common", refunded));
-                            }
-                            return ok;
-                        });
+        return resets.resetCommon(uuid, charge, refund);
     }
 
     /**
@@ -663,81 +454,7 @@ public final class JobsManager implements JobsService, Listener {
      * tree.
      */
     public CompletableFuture<Boolean> changeLine(UUID uuid, JobLine newLine, boolean charge) {
-        HarborPlayer hp = api.players().get(uuid).orElseThrow();
-        JobLine oldLine = hp.jobLine().orElse(null);
-        if (hp.jobTier() == JobTier.FIRST || oldLine == null || oldLine == newLine) {
-            return CompletableFuture.completedFuture(false);
-        }
-        JobsData data = data(hp);
-        Map<SkillId, SkillNode> nodes = nodes();
-        List<SkillId> lineNodes =
-                data.skills().keySet().stream()
-                        .filter(
-                                id ->
-                                        !nodes.containsKey(id)
-                                                || Objects.requireNonNull(nodes.get(id)).kind()
-                                                        != SkillNode.Kind.COMMON)
-                        .toList();
-        long invested = pointsIn(data, n -> n.kind() != SkillNode.Kind.COMMON);
-        long refund = (long) Math.floor(invested * balance().refundRatio());
-        long cost = charge ? balance().lineChangeCost(hp.jobTier()) : 0;
-        String ref = "line:" + UUID.randomUUID();
-        List<LedgerEntry> entries = new ArrayList<>();
-        if (cost > 0) {
-            entries.add(new LedgerEntry(uuid, Currency.GOLD, -cost, LedgerReason.LINE_CHANGE, ref));
-        }
-        if (refund > 0) {
-            entries.add(
-                    new LedgerEntry(
-                            uuid, Currency.MULBINEUL, refund, LedgerReason.SKILL_REFUND, ref));
-        }
-        Map<SkillId, Integer> kept = new HashMap<>(data.skills());
-        lineNodes.forEach(kept::remove);
-        SeasonId season = hp.season();
-        JobTier tier = hp.jobTier();
-        SqlConsumer extra =
-                c -> {
-                    JobsRepository.deleteNodes(c, uuid, season, lineNodes);
-                    JobsRepository.updateJob(c, uuid, season, newLine, tier);
-                };
-        return runChange(uuid, entries, extra)
-                .thenApply(
-                        ok -> {
-                            if (ok) {
-                                hp.setJob(newLine, tier, hp.level(), hp.exp());
-                                hp.set(COMPONENT, data.withSkills(kept).withCapstoneCleared());
-                                rebuildModifiers(hp);
-                                Bukkit.getPluginManager()
-                                        .callEvent(new JobLineChangedEvent(uuid, oldLine, newLine));
-                            }
-                            return ok;
-                        });
-    }
-
-    /**
-     * atomic if there are currency entries, otherwise just the extra SQL in one transaction. Result
-     * on the main thread.
-     */
-    private CompletableFuture<Boolean> runChange(
-            UUID uuid, List<LedgerEntry> entries, SqlConsumer extra) {
-        if (!busy.add(uuid)) {
-            return CompletableFuture.completedFuture(false);
-        }
-        CompletableFuture<Boolean> done =
-                entries.isEmpty()
-                        ? api.database().asyncVoid(extra).thenApply(_ -> true)
-                        : api.currency().atomic(entries, extra).thenApply(Result::isOk);
-        return done.exceptionally(
-                        e -> {
-                            log.error("직업 데이터 변경 실패: {}", uuid, e);
-                            return false;
-                        })
-                .thenApplyAsync(
-                        ok -> {
-                            busy.remove(uuid);
-                            return ok;
-                        },
-                        tasks.main());
+        return resets.changeLine(uuid, newLine, charge);
     }
 
     /**
@@ -745,75 +462,12 @@ public final class JobsManager implements JobsService, Listener {
      * cost.
      */
     public CompletableFuture<Boolean> adminReset(UUID uuid, String scope, boolean refund) {
-        if (scope.equals("common")) {
-            return resetCommon(uuid, false, refund);
-        }
-        HarborPlayer hp = api.players().get(uuid).orElseThrow();
-        JobsData data = data(hp);
-        Map<SkillId, SkillNode> nodes = nodes();
-        Predicate<SkillId> target =
-                id ->
-                        scope.equals("all")
-                                || !nodes.containsKey(id)
-                                || Objects.requireNonNull(nodes.get(id)).kind()
-                                        != SkillNode.Kind.COMMON;
-        List<SkillId> removed = data.skills().keySet().stream().filter(target).toList();
-        long invested = pointsIn(data, n -> target.test(n.id()));
-        List<LedgerEntry> entries = new ArrayList<>();
-        if (refund && invested > 0) {
-            entries.add(
-                    new LedgerEntry(
-                            uuid,
-                            Currency.MULBINEUL,
-                            invested,
-                            LedgerReason.SKILL_REFUND,
-                            "adm:" + UUID.randomUUID()));
-        }
-        Map<SkillId, Integer> kept = new HashMap<>(data.skills());
-        removed.forEach(kept::remove);
-        SeasonId season = hp.season();
-        long refunded = refund ? invested : 0;
-        return runChange(uuid, entries, c -> JobsRepository.deleteNodes(c, uuid, season, removed))
-                .thenApply(
-                        ok -> {
-                            if (ok) {
-                                hp.set(COMPONENT, data.withSkills(kept));
-                                rebuildModifiers(hp);
-                                Bukkit.getPluginManager()
-                                        .callEvent(new SkillResetEvent(uuid, scope, refunded));
-                            }
-                            return ok;
-                        });
+        return resets.adminReset(uuid, scope, refund);
     }
 
     /** Admin: forcibly sets tier and line (no gold deduction). */
     public CompletableFuture<Boolean> forceTier(UUID uuid, JobTier tier, @Nullable JobLine line) {
-        HarborPlayer hp = api.players().get(uuid).orElseThrow();
-        SeasonId season = hp.season();
-        JobLine nextLine =
-                tier == JobTier.FIRST
-                        ? null
-                        : line != null ? line : hp.jobLine().orElse(JobLine.EXPLORE);
-        return runChange(
-                        uuid,
-                        List.of(),
-                        c -> JobsRepository.updateJob(c, uuid, season, nextLine, tier))
-                .thenApply(
-                        ok -> {
-                            if (ok) {
-                                if (nextLine == null) {
-                                    hp.setJob(
-                                            null,
-                                            tier,
-                                            Math.min(hp.level(), levelCap(tier)),
-                                            hp.exp());
-                                    rebuildModifiers(hp);
-                                } else {
-                                    afterAdvance(hp, tier, nextLine);
-                                }
-                            }
-                            return ok;
-                        });
+        return resets.forceTier(uuid, tier, line);
     }
 
     // ------------------------------------------------------------------ Modifiers

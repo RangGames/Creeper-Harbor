@@ -11,7 +11,6 @@ import java.util.Optional;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -29,14 +28,11 @@ import wiki.creeper.harbor.boss.api.EncounterState;
 import wiki.creeper.harbor.boss.content.BossBalance;
 import wiki.creeper.harbor.boss.content.BossDef;
 import wiki.creeper.harbor.boss.content.BossType;
-import wiki.creeper.harbor.boss.logic.ContributionCalc;
 import wiki.creeper.harbor.boss.logic.Fight;
-import wiki.creeper.harbor.boss.logic.HpScaling;
 import wiki.creeper.harbor.boss.logic.Qte;
 import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.rig.Vec3;
-import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.fishing.api.TensionSession;
@@ -96,6 +92,7 @@ public final class Encounter {
     final FinalTugQte qte = new FinalTugQte(this);
     final WorldBossTracker worldBoss = new WorldBossTracker(this);
     final EncounterRoster roster = new EncounterRoster(this);
+    final PhaseTransitions transitions = new PhaseTransitions(this);
 
     private boolean launched;
     boolean launching;
@@ -153,34 +150,7 @@ public final class Encounter {
             m.rememberIp(p);
             members.put(p.getUniqueId(), m);
         }
-        double maxHp =
-                def.isWorld()
-                        ? HpScaling.worldMaxHp(def.hp().base(), 0, bb.worldMinParticipants())
-                        : HpScaling.partyMaxHp(def.hp().base(), perPlayerRate(), members.size());
-        int timeLimit =
-                def.timeLimitSeconds() > 0
-                        ? def.timeLimitSeconds()
-                        : bb.timeLimitSeconds(def.type());
-        BossDef.PhaseDef hook = def.phase(BossDef.PhaseKind.HOOK).orElseThrow();
-        Fight.Rules rules =
-                new Fight.Rules(
-                        Integer.MAX_VALUE,
-                        bb.introTicks(),
-                        hook.hookTicks() > 0 ? hook.hookTicks() : bb.hookTicks(),
-                        bb.hookLineBreakCap(),
-                        bb.hookDecayPerSecond() / 20.0,
-                        def.finalTugBelow(),
-                        bb.qteWin(),
-                        bb.qteLose(),
-                        bb.qteRecover(),
-                        timeLimit * 20L,
-                        bb.allAbsentFailTicks());
-        this.fight = new Fight(rules, maxHp, def.hull().max());
-    }
-
-    private double perPlayerRate() {
-        double rate = def.hp().perPlayerRate();
-        return rate >= 0 ? rate : bb.perPlayerRate(def.type());
+        this.fight = FightSetup.create(def, bb, members.size());
     }
 
     private BossRole recommended(Player p) {
@@ -393,82 +363,15 @@ public final class Encounter {
 
     void handle(List<Fight.Transition> transitions) {
         for (Fight.Transition t : transitions) {
-            onTransition(t);
+            lastState = t.to();
+            this.transitions.onTransition(t);
             if (finished) {
                 return;
             }
         }
     }
 
-    private void onTransition(Fight.Transition t) {
-        lastState = t.to();
-        mgr.firePhase(this, t);
-        switch (t.to()) {
-            case INTRO -> onIntro();
-            case HOOK -> {
-                hud.titleAll("boss.phase.hook.title", "boss.phase.hook.subtitle");
-                for (Member m : members.values()) {
-                    if (m.role == BossRole.ANCHOR && m.present()) {
-                        anchors.open(m);
-                    }
-                }
-            }
-            case COUNTER -> {
-                if ("tug_failed".equals(t.cause())) {
-                    hud.titleAll("boss.phase.recover.title", "boss.phase.recover.subtitle");
-                    qte.end();
-                    for (Member m : members.values()) {
-                        if (m.role == BossRole.ANCHOR && m.present()) {
-                            anchors.open(m);
-                        }
-                    }
-                } else {
-                    hud.titleAll("boss.phase.counter.title", "boss.phase.counter.subtitle");
-                }
-                bossRig.roar();
-                combat.resetWeakTimer();
-                patterns.delay(mgr.now() + 40);
-                RigInstance r = bossRig.instance();
-                if (r != null) {
-                    r.play("idle");
-                }
-            }
-            case FINAL_TUG -> {
-                if ("tug_retry".equals(t.cause())) {
-                    broadcast("boss.qte.retry");
-                } else {
-                    hud.titleAll("boss.phase.tug.title", "boss.phase.tug.subtitle");
-                    bossRig.roar();
-                }
-                patterns.clear();
-                combat.setWeak(false);
-                for (Member m : members.values()) {
-                    anchors.close(m);
-                }
-                qte.arm(mgr.now());
-            }
-            case CLEARED, FAILED, ABORTED -> mgr.finish(this, t.to(), t.cause());
-            default -> {
-                // PREPARING
-            }
-        }
-    }
-
-    private void onIntro() {
-        bossRig.spawn();
-        stations.spawnInteractions();
-        // Boss theme: Core HarborSounds skips keys missing from the pack (no fallback sound)
-        HarborSounds.play(
-                onlinePlayers(),
-                def.presentation().music(),
-                HarborSounds.Options.DEFAULT.withSource(Sound.Source.RECORD));
-        bossRig.roar();
-        hud.titleAll("boss.phase.intro.title", "boss.phase.intro.subtitle");
-        mgr.chunkHold(this, true);
-    }
-
-    // ------------------------------------------------------------------ Input and interaction
-    // (delegated to collaborators)
+    // ------------------------------------------ Input and interaction (delegated to collaborators)
 
     /** Harpoon throw hit on a rig part (trajectory hit detection in EncounterManager). */
     void harpoonHit(Player p, ItemDef harpoon, String bone) {
@@ -589,36 +492,7 @@ public final class Encounter {
 
     /** Contribution ranking (ContributionCalc). */
     public List<Contribution> contributions() {
-        List<ContributionCalc.Stats> stats = new ArrayList<>();
-        for (Member m : members.values()) {
-            stats.add(m.stats());
-        }
-        List<ContributionCalc.Scored> scored =
-                ContributionCalc.rank(
-                        stats,
-                        bb.weights(),
-                        bb.topRatio(),
-                        Math.max(1, fight.elapsed()),
-                        bb.minScoreRatio(),
-                        bb.minActiveRatio());
-        List<Contribution> out = new ArrayList<>();
-        for (ContributionCalc.Scored s : scored) {
-            Member m = members.get(s.stats().player());
-            BossRole role = m == null ? BossRole.HARPOONER : m.role;
-            out.add(
-                    new Contribution(
-                            s.stats().player(),
-                            role,
-                            s.stats().damage(),
-                            s.stats().tension(),
-                            s.stats().repair(),
-                            s.stats().evasion(),
-                            s.score(),
-                            s.rank(),
-                            s.top(),
-                            s.eligible()));
-        }
-        return out;
+        return EncounterSummary.contributions(this);
     }
 
     /** Whether everyone took part from the start (fastest record candidate). */
@@ -627,31 +501,11 @@ public final class Encounter {
     }
 
     public EncounterInfo info() {
-        Map<UUID, BossRole> roles = new LinkedHashMap<>();
-        List<UUID> order = new ArrayList<>();
-        order.add(leader);
-        for (Member m : members.values()) {
-            roles.put(m.uuid, m.role);
-            if (!m.uuid.equals(leader)) {
-                order.add(m.uuid);
-            }
-        }
-        if (!members.containsKey(leader)) {
-            order.remove(leader);
-        }
-        return new EncounterInfo(
-                id,
-                def.id(),
-                finished ? lastState : fight.state(),
-                leader,
-                order,
-                roles,
-                mgr.serverId(),
-                slot,
-                fight.hpRatio(),
-                fight.hull(),
-                fight.hullMax(),
-                fight.elapsed());
+        return EncounterSummary.info(this);
+    }
+
+    EncounterState lastState() {
+        return lastState;
     }
 
     Instant startedAt() {

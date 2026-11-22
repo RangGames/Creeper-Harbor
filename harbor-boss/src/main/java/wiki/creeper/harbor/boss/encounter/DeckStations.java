@@ -150,8 +150,7 @@ final class DeckStations {
         repairPoints.clear();
     }
 
-    // ------------------------------------------------------------------ Captain, mechanic,
-    // quartermaster
+    // ------------------------------------------------------------ Captain, mechanic, quartermaster
 
     /** Right-click on the helm or a damaged spot. */
     void click(Player p, Encounter.ClickKind kind, int index) {

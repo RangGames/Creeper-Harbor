@@ -514,8 +514,7 @@ public final class WorldBossManager
         var _ = tasks.later(200, this::hideBar);
     }
 
-    // ------------------------------------------------------------------ Broadcasts from other
-    // servers
+    // --------------------------------------------------------------- Broadcasts from other servers
 
     private void received(String server, WorldBossProgress p) {
         if (server.equals(api.infra().serverId())) {

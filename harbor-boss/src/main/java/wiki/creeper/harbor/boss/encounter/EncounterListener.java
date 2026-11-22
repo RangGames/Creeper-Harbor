@@ -51,8 +51,7 @@ public final class EncounterListener implements Listener {
         return mgr.encounterOfPlayer(player).orElse(null);
     }
 
-    // ------------------------------------------------------------------ Harpoon trajectory hit
-    // detection
+    // ------------------------------------------------------------ Harpoon trajectory hit detection
 
     @EventHandler(ignoreCancelled = true)
     public void onLaunch(ProjectileLaunchEvent event) {

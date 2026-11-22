@@ -17,8 +17,7 @@ public record BossBalance(Balance balance) {
         return new BossBalance(Balance.of(java.util.Map.of()));
     }
 
-    // ------------------------------------------------------------------ Type defaults ('7. Balance
-    // design' chapter 9)
+    // ----------------------------------------------- Type defaults ('7. Balance design' chapter 9)
 
     /** HP increase per player: intro 0.60 · sea 0.50 · dimension 0.45 · raid 0.40. */
     public double perPlayerRate(BossType type) {
@@ -107,8 +106,7 @@ public record BossBalance(Balance balance) {
         return balance.integer(T + type.key() + ".anchors_min", type == BossType.RAID ? 2 : 1);
     }
 
-    // ------------------------------------------------------------------ Latency compensation ('7.
-    // Balance design' chapter 5)
+    // ---------------------------------------- Latency compensation ('7. Balance design' chapter 5)
 
     public int latencyPingMs() {
         return balance.integer("boss.latency.ping_ms", 150);
