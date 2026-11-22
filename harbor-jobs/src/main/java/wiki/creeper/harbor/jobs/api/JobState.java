@@ -5,11 +5,11 @@ import wiki.creeper.harbor.common.model.JobLine;
 import wiki.creeper.harbor.common.model.JobTier;
 
 /**
- * 직업 상태.
+ * Job state.
  *
- * @param exp 현재 레벨 안에서 쌓인 EXP
- * @param nextLevelExp 다음 레벨까지 필요한 EXP (최대 레벨이면 0)
- * @param levelCap 지금 단계의 레벨 상한 (1차 30, 2차 60, 3차 70)
+ * @param exp EXP accumulated within the current level
+ * @param nextLevelExp EXP needed for the next level (0 at max level)
+ * @param levelCap level cap of the current tier (1st 30, 2nd 60, 3rd 70)
  */
 public record JobState(
         Optional<JobLine> line,

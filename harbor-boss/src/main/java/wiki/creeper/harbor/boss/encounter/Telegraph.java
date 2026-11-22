@@ -23,12 +23,14 @@ import wiki.creeper.harbor.boss.logic.Geometry;
 import wiki.creeper.harbor.boss.logic.Qte;
 
 /**
- * 패턴 예고 하나 (docs 20 10.4 패턴 예고). 범위 모양대로 BlockDisplay 바닥 판(빨간 유리, 반투명)을 깔고, 가장자리 파티클 링이 예고 시간 동안 중심
- * 쪽으로 줄어든다. 예고가 끝나는 틱에 판정한다. 표식과 파티클은 시청자(파티원, 월드 보스는 반경 안 플레이어)에게만 보낸다.
+ * One pattern telegraph (docs 20 10.4 pattern telegraphs). Lays BlockDisplay floor tiles (red
+ * glass, translucent) in the area shape, and an edge particle ring shrinks toward the center over
+ * the telegraph time. Resolved on the tick the telegraph ends. Markers and particles are sent only
+ * to viewers (party members; for world bosses, players within the radius).
  */
 final class Telegraph {
 
-    /** 바닥 판 하나가 덮는 칸 수 상한 (엔티티 수를 묶는다, 제안값). */
+    /** Cap on cells covered by one floor tile (limits the entity count, proposed value). */
     private static final int MAX_CELLS = 25;
 
     private static final Particle.DustOptions DUST = new Particle.DustOptions(Color.RED, 1.3f);
@@ -41,7 +43,7 @@ final class Telegraph {
     final World world;
     final Set<UUID> insideAtStart = new HashSet<>();
 
-    /** 돌진 패턴의 돌진 방향 (선장은 반대 방향을 입력해야 한다). */
+    /** Charge direction of a charge pattern (the captain must input the opposite direction). */
     final Qte.@Nullable Key chargeSide;
 
     boolean evaded;
@@ -65,9 +67,9 @@ final class Telegraph {
     }
 
     /**
-     * 바닥 판을 깐다.
+     * Lays the floor tiles.
      *
-     * @param viewers null이면 모두에게 보인다 (월드 보스)
+     * @param viewers null means visible to everyone (world boss)
      */
     void spawn(Plugin plugin, @Nullable Collection<? extends Player> viewers, float viewRange) {
         double reach =
@@ -111,7 +113,7 @@ final class Telegraph {
         }
     }
 
-    /** 줄어드는 파티클 링 (2틱마다 부른다). */
+    /** Shrinking particle ring (called every 2 ticks). */
     void particles(long now, Collection<? extends Player> viewers) {
         double progress = (double) (now - start) / Math.max(1, end - start);
         List<double[]> points = area.outline(28, 1.0 - progress);

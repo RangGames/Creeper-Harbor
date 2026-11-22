@@ -4,7 +4,7 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 레벨이 오른 뒤 메인 스레드에서 발생한다. */
+/** Fired on the main thread after a level up. */
 public final class JobLevelUpEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

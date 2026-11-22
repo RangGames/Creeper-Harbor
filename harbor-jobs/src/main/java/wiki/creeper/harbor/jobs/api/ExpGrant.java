@@ -4,11 +4,12 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * 경험치 지급 요청 (docs 20 2.2).
+ * Experience grant request (docs 20 2.2).
  *
- * @param base 출처 모듈이 계산한 기본 EXP (Fishing: 등급 기본 EXP × 지역 배율 × 첫 포획 배율)
- * @param region 지역 감쇠 판정용 (FISHING만)
- * @param refId 기록용 참조 ID
+ * @param base base EXP computed by the source module (Fishing: grade base EXP × region multiplier ×
+ *     first catch multiplier)
+ * @param region for region decay (FISHING only)
+ * @param refId reference ID for records
  */
 public record ExpGrant(
         ExpSource source, double base, @Nullable RegionId region, @Nullable String refId) {

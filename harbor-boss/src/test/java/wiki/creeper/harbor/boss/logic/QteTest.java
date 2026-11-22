@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.SplittableRandom;
 import org.junit.jupiter.api.Test;
 
-/** 최후의 줄다리기 QTE 판정 (docs 20 10.4). */
+/** Final tug-of-war QTE judgment (docs 20 10.4). */
 class QteTest {
 
     @Test
@@ -19,7 +19,7 @@ class QteTest {
         Qte.InputState w = new Qte.InputState(true, false, false, false, false, false);
         Qte.InputState wd = new Qte.InputState(true, false, false, true, false, false);
         assertEquals(Set.of(Qte.Key.FORWARD), w.newlyPressed(none));
-        assertEquals(Set.of(), w.newlyPressed(w)); // 누르고 있기
+        assertEquals(Set.of(), w.newlyPressed(w)); // holding
         assertEquals(Set.of(Qte.Key.RIGHT), wd.newlyPressed(w));
     }
 
@@ -39,11 +39,11 @@ class QteTest {
                         20,
                         2,
                         0);
-        assertTrue(t.press(Set.of(Qte.Key.FORWARD), 5)); // 성공
-        assertTrue(t.press(Set.of(Qte.Key.RIGHT), 10)); // 다른 키 → 실패
-        t.tick(31); // 10 + 20 + 2 이내 → 아직
+        assertTrue(t.press(Set.of(Qte.Key.FORWARD), 5)); // success
+        assertTrue(t.press(Set.of(Qte.Key.RIGHT), 10)); // another key → failure
+        t.tick(31); // within 10 + 20 + 2 → not yet
         assertEquals(2, t.index());
-        t.tick(33); // 여유 2틱 지남 → 시간 초과 실패
+        t.tick(33); // 2-tick slack passed → timeout failure
         assertEquals(3, t.index());
         assertTrue(t.press(Set.of(Qte.Key.SNEAK), 40));
         assertTrue(t.done());

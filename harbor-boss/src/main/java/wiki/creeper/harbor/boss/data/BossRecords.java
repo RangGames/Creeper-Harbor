@@ -8,7 +8,7 @@ import wiki.creeper.harbor.boss.api.BossRecordService;
 import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.id.BossId;
 
-/** BossRecordService 구현 (boss_records 읽기). */
+/** BossRecordService implementation (reads boss_records). */
 public final class BossRecords implements BossRecordService {
 
     private final Database db;

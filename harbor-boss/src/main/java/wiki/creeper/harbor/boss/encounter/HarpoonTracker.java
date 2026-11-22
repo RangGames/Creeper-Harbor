@@ -17,10 +17,13 @@ import wiki.creeper.harbor.boss.logic.Geometry;
 import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.core.api.HarborSounds;
 
-/** 작살 궤적 판정: 던진 작살(삼지창)을 매 틱 추적해 리그 판정 상자와의 교차를 직접 계산한다. 메인 스레드 전용. */
+/**
+ * Harpoon trajectory hit detection: tracks thrown harpoons (tridents) every tick and computes
+ * intersections with the rig hitboxes directly. Main thread only.
+ */
 final class HarpoonTracker {
 
-    /** 추적 중인 작살. */
+    /** A tracked harpoon. */
     private static final class Harpoon {
         final UUID thrower;
         final ItemDef def;
@@ -43,7 +46,10 @@ final class HarpoonTracker {
         this.mgr = mgr;
     }
 
-    /** 작살 투척 (ProjectileLaunchEvent): 조우 경기장 안에서 던진 작살만 추적한다. */
+    /**
+     * Harpoon throw (ProjectileLaunchEvent): only harpoons thrown inside an encounter arena are
+     * tracked.
+     */
     void launched(Trident trident, Player player) {
         Optional<ItemDef> harpoon = mgr.items().harpoon(trident.getItemStack());
         if (harpoon.isEmpty()) {
@@ -63,7 +69,7 @@ final class HarpoonTracker {
                         harpoon.get(),
                         trident.getItemStack().clone(),
                         BossItems.loc(trident)));
-        // 작살 투척 (공용, '15. 사운드' 4.3). 팩이 없으면 바닐라 삼지창 소리만
+        // Harpoon throw (shared, '15. Sound' 4.3). Without the pack, only the vanilla trident sound
         HarborSounds.playAt(BossItems.loc(player), "harbor:boss.harpoon_throw");
     }
 
@@ -76,7 +82,10 @@ final class HarpoonTracker {
         return null;
     }
 
-    /** 투사체는 Interaction과 충돌하지 않으므로 매 틱 직전 위치 → 현재 위치 선분과 판정 상자(AABB)의 교차를 직접 계산한다. */
+    /**
+     * Projectiles do not collide with Interactions, so each tick the intersection of the previous →
+     * current position segment with the hitbox (AABB) is computed directly.
+     */
     void track() {
         if (harpoons.isEmpty()) {
             return;

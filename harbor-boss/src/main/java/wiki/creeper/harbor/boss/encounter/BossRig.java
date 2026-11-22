@@ -14,13 +14,13 @@ import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
 
-/** 보스 리그 (Core RigService): 등장·재생성·포효·판정 상자 목록·제거. 메인 스레드 전용. */
+/** Boss rig (Core RigService): spawn, respawn, roar, hitbox list and removal. Main thread only. */
 final class BossRig {
 
     private final Encounter e;
     private @Nullable RigInstance rig;
 
-    /** 리그 판정 상자 뼈 이름 (Interaction 순서). */
+    /** Rig hitbox bone names (Interaction order). */
     private final List<String> hitboxBones = new ArrayList<>();
 
     BossRig(Encounter e) {
@@ -31,7 +31,10 @@ final class BossRig {
         return rig;
     }
 
-    /** 등장 (INTRO): 리그를 띄우고 판정 상자 뼈 이름을 모은 뒤 intro 애니메이션을 한 번 재생한다. */
+    /**
+     * Spawn (INTRO): spawns the rig, collects the hitbox bone names, then plays the intro animation
+     * once.
+     */
     void spawn() {
         var def = e.def;
         Location at = e.bossLocation();
@@ -61,8 +64,8 @@ final class BossRig {
     }
 
     /**
-     * 포효 ('15. 사운드' 4.3): 보스 위치에서 sounds.yml 음량(3 이상)으로 내고, 들리는 범위 밖 참가자에게는 직접 보낸다.
-     * presentation.roar가 없으면 생략.
+     * Roar ('15. Sound' 4.3): played at the boss position at the sounds.yml volume (3 or more), and
+     * sent directly to participants outside hearing range. Skipped if presentation.roar is absent.
      */
     void roar() {
         RigInstance r = rig;
@@ -77,7 +80,8 @@ final class BossRig {
     private void rigRemoved() {
         rig = null;
         if (!e.finished() && e.fight.state().fighting()) {
-            // 청크가 언로드되는 등으로 리그가 사라지면 같은 자리에 다시 띄운다 (청크 티켓을 걸어 두므로 드물다)
+            // If the rig disappears (e.g. chunk unload), respawn it in place (rare, since chunk
+            // tickets are held)
             var _ = Bukkit.getScheduler().runTask(e.mgr.plugin(), this::respawn);
         }
     }
@@ -105,7 +109,7 @@ final class BossRig {
         }
     }
 
-    /** 정리: 참조를 먼저 비우고 리그를 지운다 (onRemove가 재생성하지 않게). */
+    /** Cleanup: clears the reference first, then removes the rig (so onRemove does not respawn). */
     void remove() {
         RigInstance r = rig;
         rig = null;
@@ -114,7 +118,7 @@ final class BossRig {
         }
     }
 
-    /** 리그 판정 상자 Interaction과 뼈 이름 (작살 궤적 판정용). */
+    /** Rig hitbox Interactions and bone names (for harpoon trajectory hits). */
     List<Map.Entry<Interaction, String>> hitboxes() {
         RigInstance r = rig;
         if (r == null) {

@@ -11,7 +11,7 @@ class LevelCurveTest {
 
     @Test
     void matchesBalanceTable() {
-        // '7. 밸런스 기획' 3.1
+        // '7. Balance design' 3.1
         assertEquals(620, curve.cumulative(10));
         assertEquals(5_640, curve.cumulative(20));
         assertEquals(19_940, curve.cumulative(30));

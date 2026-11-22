@@ -7,18 +7,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import wiki.creeper.harbor.boss.content.BossDef;
 
-/** 작살 궤적 선분 ↔ 판정 상자, 예고 범위 모양. */
+/** Harpoon trajectory segment ↔ hitbox, telegraph area shapes. */
 class GeometryTest {
 
     @Test
     void segmentHitsBox() {
         Geometry.Aabb box = Geometry.Aabb.interaction(0, 0, 0, 2, 2); // x,z −1~1, y 0~2
-        // 한 틱에 상자를 통째로 지나가는 빠른 투사체도 잡는다
+        // Also catches fast projectiles that pass entirely through the box in one tick
         double t = box.intersect(-5, 1, 0, 5, 1, 0);
         assertEquals(0.4, t, 1e-9);
-        assertTrue(box.intersect(-5, 3, 0, 5, 3, 0) < 0); // 위로 지나감
-        assertTrue(box.intersect(-5, 1, 0, -2, 1, 0) < 0); // 못 미침
-        assertEquals(0, box.intersect(0, 1, 0, 0, 1, 0), 1e-9); // 안에서 멈춤
+        assertTrue(box.intersect(-5, 3, 0, 5, 3, 0) < 0); // passes above
+        assertTrue(box.intersect(-5, 1, 0, -2, 1, 0) < 0); // falls short
+        assertEquals(0, box.intersect(0, 1, 0, 0, 1, 0), 1e-9); // stops inside
     }
 
     private static BossDef.Telegraph tel(
@@ -37,7 +37,8 @@ class GeometryTest {
         assertTrue(ring.contains(4, 0));
         assertFalse(ring.contains(7, 0));
 
-        var line = Geometry.Area.of(tel(BossDef.Shape.LINE, 4, 10, 0, 0), 0, 0, 0, 1); // +Z 방향
+        var line =
+                Geometry.Area.of(tel(BossDef.Shape.LINE, 4, 10, 0, 0), 0, 0, 0, 1); // +Z direction
         assertTrue(line.contains(1.5, 9));
         assertFalse(line.contains(2.5, 5));
         assertFalse(line.contains(0, -1));

@@ -10,7 +10,10 @@ import wiki.creeper.harbor.boss.api.BossRole;
 import wiki.creeper.harbor.boss.api.Contribution;
 import wiki.creeper.harbor.boss.logic.HpScaling;
 
-/** 월드 보스 전용 진행: 자유 참가, 유효 참여자 기준 게이지 재조정, 25% 단계 알림, resume 복원. 메인 스레드 전용. */
+/**
+ * World boss-only progress: free participation, gauge rescaling by valid participants, 25% stage
+ * notifications, resume restoration. Main thread only.
+ */
 final class WorldBossTracker {
 
     private final Encounter e;
@@ -22,12 +25,17 @@ final class WorldBossTracker {
         this.e = e;
     }
 
-    /** 최근 기여 시각 (유효 참여자 계산용). 파티 보스에서도 기록만 한다. */
+    /**
+     * Most recent contribution time (for counting valid participants). Party bosses only record it.
+     */
     void activity(UUID player, long now) {
         lastWorldActivity.put(player, now);
     }
 
-    /** 반경 안 플레이어가 처음 기여하면 참가자가 된다 (파티 구분 없음). */
+    /**
+     * A player within the radius becomes a participant on their first contribution (regardless of
+     * party).
+     */
     @Nullable Member join(Player p, BossRole role) {
         if (!e.def.isWorld() || !e.fight.state().fighting() || !e.inArena(BossItems.loc(p))) {
             return null;
@@ -44,7 +52,10 @@ final class WorldBossTracker {
         return m;
     }
 
-    /** 매 틱 (월드 보스만): 재조정 주기가 되면 게이지를 다시 정하고 단계를 확인한다. */
+    /**
+     * Every tick (world boss only): when the rescale interval comes, resets the gauge and checks
+     * the stage.
+     */
     void tick(long now) {
         if (now >= nextRescale) {
             nextRescale = now + e.bb.worldRescaleTicks();
@@ -53,7 +64,10 @@ final class WorldBossTracker {
         checkStage();
     }
 
-    /** 10초마다: 유효 참여자(최근 60초 기여, 최소 10명)로 최대 게이지를 다시 정한다. 진행률은 유지. */
+    /**
+     * Every 10 seconds: resets the max gauge from valid participants (contributed in the last 60
+     * seconds, minimum 10). Progress is kept.
+     */
     private void rescale(long now) {
         int effective =
                 HpScaling.effectiveParticipants(lastWorldActivity, now, e.bb.worldActiveTicks());
@@ -66,7 +80,7 @@ final class WorldBossTracker {
                 lastWorldActivity, e.mgr.now(), e.bb.worldActiveTicks());
     }
 
-    /** 25% 단위 단계 (0 시작, 1 = 75% 이하, 2 = 50% 이하, 3 = 25% 이하). */
+    /** 25% stage (0 start, 1 = 75% or less, 2 = 50% or less, 3 = 25% or less). */
     int stage() {
         double percent = e.fight.hpRatio() * 100;
         return percent <= 25 ? 3 : percent <= 50 ? 2 : percent <= 75 ? 1 : 0;
@@ -80,7 +94,10 @@ final class WorldBossTracker {
         }
     }
 
-    /** resume: 저장한 진행률·기여도로 되살린다. 활동 시간이 없으면(이전 저장 형식) 0에서 시작한다. */
+    /**
+     * resume: restores from saved progress and contributions. Without active time (older save
+     * format), starts from 0.
+     */
     void restore(double hpRatio, Map<UUID, Contribution> saved, Map<UUID, Long> activeTicks) {
         e.fight.restore(hpRatio, 1.0, true);
         worldStage = stage();
@@ -100,7 +117,8 @@ final class WorldBossTracker {
             m.tensionTicks = Math.round(c.tension() * 20);
             m.repair = c.repair();
             m.evasion = c.evasion();
-            // 중단 전 활동 시간을 이어 받아야 최소 활동 비율에서 떨어지지 않는다
+            // Active time before the interruption must carry over, or players would fall below the
+            // minimum active ratio
             m.activeTicks = activeTicks.getOrDefault(c.player(), 0L);
             m.chose = true;
             m.absentSince = p == null ? e.mgr.now() : -1;

@@ -7,10 +7,10 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.SkillId;
 
 /**
- * 플레이어 직업 데이터 (PlayerComponent, 변경 불가). 단계·계열·레벨·EXP는 Core의 HarborPlayer(player_season)에 있고, 여기에는
- * 스킬 투자와 jobs_state만 둔다.
+ * Player job data (PlayerComponent, immutable). Tier, line, level and EXP live in Core's
+ * HarborPlayer (player_season); only skill investments and jobs_state are kept here.
  *
- * @param capstoneWeek 주간 사용 횟수를 센 시즌 주차
+ * @param capstoneWeek season week in which weekly uses were counted
  */
 public record JobsData(
         Map<SkillId, Integer> skills,

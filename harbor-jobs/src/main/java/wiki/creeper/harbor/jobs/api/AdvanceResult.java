@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.jobs.api;
 
-/** 전직 결과. Quest는 OK가 아니면 퀘스트를 "보고 대기"로 남긴다. */
+/** Job advancement result. Unless OK, Quest leaves the quest "waiting for report". */
 public enum AdvanceResult {
     OK,
     WRONG_TIER,

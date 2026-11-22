@@ -44,7 +44,7 @@ import wiki.creeper.harbor.season.api.WeeklyLimitService;
 
 /**
  * /boss (/보스) info · records · claim · enter · role, /harbor boss start · end · world · pending ·
- * debug · list (docs 20 10.5). 관리자 명령은 모두 admin_log에 남긴다.
+ * debug · list (docs 20 10.5). All admin commands are written to admin_log.
  */
 public final class BossCommands {
 
@@ -69,7 +69,7 @@ public final class BossCommands {
         this.instances = instances;
     }
 
-    // ------------------------------------------------------------------ 플레이어 명령
+    // ------------------------------------------------------------------ Player commands
 
     public void registerPlayerCommands(Commands commands) {
         LiteralArgumentBuilder<CommandSourceStack> root =
@@ -118,7 +118,7 @@ public final class BossCommands {
                         });
     }
 
-    /** 보스 이름(swamp_catfish) · boss/swamp_catfish · harbor:boss/swamp_catfish 모두 받는다. */
+    /** Accepts a boss name (swamp_catfish), boss/swamp_catfish and harbor:boss/swamp_catfish. */
     private Optional<BossDef> boss(CommandContext<CommandSourceStack> ctx) {
         String raw = StringArgumentType.getString(ctx, "boss");
         try {
@@ -272,7 +272,9 @@ public final class BossCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** 준비 단계면 이번 조우 역할, 아니면 선호 역할 (BossProfile). */
+    /**
+     * Role in the current encounter during preparation, otherwise the preferred role (BossProfile).
+     */
     private int role(CommandContext<CommandSourceStack> ctx) {
         Player p = java.util.Objects.requireNonNull((Player) ctx.getSource().getExecutor());
         Optional<BossRole> role = PartyCommands.role(ctx);
@@ -295,9 +297,9 @@ public final class BossCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    // ------------------------------------------------------------------ 관리자 명령
+    // ------------------------------------------------------------------ Admin commands
 
-    /** /harbor boss … (harbor.admin.boss는 Core가 건다. 하위 권한은 여기서). */
+    /** /harbor boss … (Core checks harbor.admin.boss; sub-permissions are checked here). */
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {
         return Commands.literal("boss")
                 .then(

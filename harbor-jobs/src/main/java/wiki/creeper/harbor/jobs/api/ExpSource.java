@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.jobs.api;
 
-/** 경험치 출처. 지역 감쇠는 FISHING에만 적용한다. */
+/** Experience source. Region decay applies only to FISHING. */
 public enum ExpSource {
     FISHING,
     QUEST,

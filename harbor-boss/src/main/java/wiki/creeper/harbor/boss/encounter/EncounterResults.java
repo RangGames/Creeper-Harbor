@@ -13,7 +13,10 @@ import wiki.creeper.harbor.boss.api.Contribution;
 import wiki.creeper.harbor.boss.api.EncounterState;
 import wiki.creeper.harbor.core.api.HarborApi;
 
-/** 종료 연출: 결과 화면 Dialog(순위·기여도)와 클리어 컷씬. 메인 스레드 전용. */
+/**
+ * End presentation: result screen Dialog (ranking, contribution) and the clear cutscene. Main
+ * thread only.
+ */
 final class EncounterResults {
 
     private final HarborApi api;
@@ -22,7 +25,7 @@ final class EncounterResults {
         this.api = api;
     }
 
-    /** 클리어 컷씬 (presentation.outro, NPC 모듈이 있을 때만). */
+    /** Clear cutscene (presentation.outro, only when the NPC module is present). */
     void playOutro(Encounter e, EncounterState result) {
         var outro = e.def.presentation().outro();
         if (outro == null || result != EncounterState.CLEARED) {
@@ -43,7 +46,10 @@ final class EncounterResults {
                         });
     }
 
-    /** 결과 화면 Dialog (순위·기여도). 전리품은 지급될 때 채팅으로 따로 알린다. */
+    /**
+     * Result screen Dialog (ranking, contribution). Loot is announced separately in chat when it is
+     * delivered.
+     */
     void showResult(Encounter e, EncounterState result, List<Contribution> contributions) {
         List<Component> body = new ArrayList<>();
         body.add(

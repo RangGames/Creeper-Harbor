@@ -9,12 +9,14 @@ import java.util.SplittableRandom;
 import wiki.creeper.harbor.common.model.Keyed;
 
 /**
- * 최후의 줄다리기 QTE (docs 20 10.4). 라운드마다 플레이어별로 다른 입력 N개(W·A·S·D·점프·웅크리기)를 보여주고, 입력 하나당 제한 시간 안에 눌림
- * 변화(뗀 상태 → 누름)만 센다. 라운드 성공률 = 성공 입력 수 ÷ 전체 입력 수 (낙수·이탈 중인 사람은 분모에서 뺀다).
+ * Final tug-of-war QTE (docs 20 10.4). Each round shows each player a different sequence of N
+ * inputs (W, A, S, D, jump, sneak), and only press transitions (released → pressed) within each
+ * input's time limit count. Round success rate = successful inputs ÷ total inputs (players who fell
+ * into the water or left are excluded from the denominator).
  */
 public final class Qte {
 
-    /** 입력 키. */
+    /** Input key. */
     public enum Key implements Keyed {
         FORWARD,
         BACKWARD,
@@ -23,7 +25,7 @@ public final class Qte {
         JUMP,
         SNEAK;
 
-        /** 조작 반전 디버프 (앞뒤·좌우가 뒤집힘). */
+        /** Control reversal debuff (forward/back and left/right are flipped). */
         public Key inverted() {
             return switch (this) {
                 case FORWARD -> BACKWARD;
@@ -40,7 +42,7 @@ public final class Qte {
         }
     }
 
-    /** 입력 상태 한 번 (PlayerInputEvent.getInput()을 옮긴 것). */
+    /** One input state (a copy of PlayerInputEvent.getInput()). */
     public record InputState(
             boolean forward,
             boolean backward,
@@ -63,7 +65,7 @@ public final class Qte {
             };
         }
 
-        /** 이전 상태에서 새로 눌린 키 (누르고 있기는 세지 않음). */
+        /** Keys newly pressed since the previous state (holding is not counted). */
         public Set<Key> newlyPressed(InputState previous) {
             Set<Key> out = EnumSet.noneOf(Key.class);
             for (Key k : Key.values()) {
@@ -77,7 +79,10 @@ public final class Qte {
 
     private Qte() {}
 
-    /** 라운드 입력 순서 (같은 키 연속은 피한다: 누르고 있기와 구분이 안 되므로). */
+    /**
+     * Round input sequence (avoids the same key twice in a row, since it cannot be told apart from
+     * holding).
+     */
     public static List<Key> sequence(SplittableRandom random, int count) {
         Key[] keys = Key.values();
         List<Key> out = new ArrayList<>(count);
@@ -94,10 +99,11 @@ public final class Qte {
     }
 
     /**
-     * 플레이어 한 명의 한 라운드 진행.
+     * One player's progress in one round.
      *
-     * <p>입력 하나마다 제한 시간 window (± tolerance 틱 여유, '8. 시스템 상세 기획' 3.3). 맞는 키를 누르면 성공, 다른 키를 누르면 실패,
-     * 시간이 지나면 실패하고 다음 입력으로 넘어간다.
+     * <p>Each input has a time limit window (± tolerance ticks of slack, '8. System details' 3.3).
+     * Pressing the right key succeeds, pressing another key fails, and running out of time fails
+     * and moves on to the next input.
      */
     public static final class Track {
 
@@ -121,12 +127,15 @@ public final class Qte {
             this.deadline = now + window;
         }
 
-        /** 조작 반전 디버프 (표시는 원래 키, 실제로 눌러야 하는 키는 반대). */
+        /**
+         * Control reversal debuff (the original key is displayed; the key actually required is the
+         * opposite).
+         */
         public void setInverted(boolean inverted) {
             this.inverted = inverted;
         }
 
-        /** 낙수·이탈: 분모에서 뺀다. */
+        /** Fell into the water or left: excluded from the denominator. */
         public void setExcluded(boolean excluded) {
             this.excluded = excluded;
         }
@@ -136,9 +145,9 @@ public final class Qte {
         }
 
         /**
-         * 새로 눌린 키를 넘긴다.
+         * Passes newly pressed keys.
          *
-         * @return 입력 하나가 판정됐으면 true
+         * @return true if one input was judged
          */
         public boolean press(Set<Key> newlyPressed, long now) {
             if (done() || newlyPressed.isEmpty()) {
@@ -154,7 +163,7 @@ public final class Qte {
             return true;
         }
 
-        /** 시간 초과 판정. */
+        /** Timeout judgment. */
         public void tick(long now) {
             if (!done() && now > deadline + tolerance) {
                 results.add(false);
@@ -171,7 +180,10 @@ public final class Qte {
             return index >= keys.size();
         }
 
-        /** 지금 눌러야 하는 키 (표시용, 반전 전). 끝났으면 null 대신 마지막 키. */
+        /**
+         * Key to press now (for display, before reversal). The last key instead of null when
+         * finished.
+         */
         public Key current() {
             return keys.get(Math.min(index, keys.size() - 1));
         }
@@ -184,7 +196,7 @@ public final class Qte {
             return keys;
         }
 
-        /** 판정된 입력별 성공 여부 (표시용). */
+        /** Success of each judged input (for display). */
         public List<Boolean> results() {
             return List.copyOf(results);
         }
@@ -197,13 +209,16 @@ public final class Qte {
             return keys.size();
         }
 
-        /** 지금 입력의 남은 틱. */
+        /** Ticks left for the current input. */
         public long remaining(long now) {
             return Math.max(0, deadline - now);
         }
     }
 
-    /** 라운드 성공률. 제외된 사람은 분모·분자에서 뺀다. 남은 사람이 없으면 0. */
+    /**
+     * Round success rate. Excluded players are removed from both numerator and denominator. 0 if no
+     * one remains.
+     */
     public static double rate(Collection<Track> tracks) {
         int ok = 0;
         int total = 0;
@@ -217,7 +232,7 @@ public final class Qte {
         return total == 0 ? 0 : (double) ok / total;
     }
 
-    /** 모두 끝났는지 (제외된 사람은 기다리지 않음). */
+    /** Whether everyone has finished (excluded players are not waited for). */
     public static boolean allDone(Collection<Track> tracks) {
         for (Track t : tracks) {
             if (!t.excluded() && !t.done()) {

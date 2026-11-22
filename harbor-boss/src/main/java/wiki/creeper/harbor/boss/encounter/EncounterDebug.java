@@ -6,7 +6,10 @@ import java.util.Map;
 import org.bukkit.Location;
 import org.bukkit.entity.Interaction;
 
-/** /harbor boss debug 출력: 진행 상태·판정 상자(위치에 파티클 표시)·참가자 기여 원자료. 메인 스레드 전용. */
+/**
+ * /harbor boss debug output: progress state, hitboxes (particles shown at their locations) and raw
+ * participant contribution data. Main thread only.
+ */
 final class EncounterDebug {
 
     private EncounterDebug() {}

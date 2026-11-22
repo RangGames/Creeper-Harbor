@@ -6,15 +6,15 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** '7. 밸런스 기획' 9장 체력 공식. */
+/** HP formula from '7. Balance design' chapter 9. */
 class HpScalingTest {
 
     @Test
     void partyFormula() {
-        // 그놈 2,000 · 입문 +60%
+        // Gnome 2,000 · intro +60%
         assertEquals(2000, HpScaling.partyMaxHp(2000, 0.6, 1), 1e-9);
         assertEquals(3200, HpScaling.partyMaxHp(2000, 0.6, 2), 1e-9);
-        // 곰치 3,000 · 해역 +50% · 4인
+        // Moray eel 3,000 · sea +50% · 4 players
         assertEquals(7500, HpScaling.partyMaxHp(3000, 0.5, 4), 1e-9);
         assertEquals(2000, HpScaling.partyMaxHp(2000, 0.6, 0), 1e-9);
     }

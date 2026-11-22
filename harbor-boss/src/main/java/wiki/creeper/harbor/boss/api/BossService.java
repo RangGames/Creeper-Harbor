@@ -9,34 +9,35 @@ import wiki.creeper.harbor.boss.content.BossDef;
 import wiki.creeper.harbor.common.id.BossId;
 
 /**
- * 보스 정의·조우 조회와 관리자 강제 시작·종료 (docs 20 10.2). 메인 스레드 전용 (정의 조회는 어디서나).
+ * Boss definition and encounter lookup, plus admin forced start/end (docs 20 10.2). Main thread
+ * only (definition lookup works anywhere).
  *
  * <pre>{@code
  * BossService boss = Bukkit.getServicesManager().load(BossService.class);
- * if (boss != null && boss.inEncounter(uuid)) { ... }   // 보스전 중에는 상점·컷씬을 막는다
+ * if (boss != null && boss.inEncounter(uuid)) { ... }   // block shops and cutscenes during boss fights
  * }</pre>
  */
 public interface BossService {
 
-    /** 시작 결과. */
+    /** Start result. */
     enum StartResult {
         STARTED,
         UNKNOWN_BOSS,
-        /** 파티 인원이 min~max를 벗어남. */
+        /** Party size is outside min-max. */
         PARTY_SIZE,
-        /** 파티원이 경기장 반경 밖에 있음. */
+        /** A party member is outside the arena radius. */
         OUT_OF_RANGE,
-        /** 빈 경기장 슬롯이 없음 (또는 동시 조우 상한). */
+        /** No free arena slot (or concurrent encounter cap reached). */
         NO_SLOT,
-        /** 파티원 누군가 이미 조우 중. */
+        /** A party member is already in an encounter. */
         BUSY,
-        /** 같은 파티장의 소환 대기 시간. */
+        /** Summon cooldown for the same party leader. */
         COOLDOWN,
-        /** BossEncounterStartEvent가 취소됨 (점검 등). */
+        /** BossEncounterStartEvent was cancelled (maintenance, etc.). */
         CANCELLED,
-        /** 이 보스는 이 서버에서 시작할 수 없음 (인스턴스·월드 경기장). */
+        /** This boss cannot be started on this server (instance or world arena). */
         WRONG_SERVER,
-        /** 파티장이 아님. */
+        /** Not the party leader. */
         NOT_LEADER
     }
 
@@ -44,18 +45,21 @@ public interface BossService {
 
     Optional<BossDef> definition(BossId boss);
 
-    /** 플레이어가 참가 중인 조우 (퇴장 뒤 슬롯 유지 중이면 그것도). */
+    /** Encounter the player is in (including one whose slot is held after they left). */
     Optional<EncounterInfo> encounterOf(UUID player);
 
     boolean inEncounter(UUID player);
 
     List<EncounterInfo> encounters();
 
-    /** 관리자 강제 시작 (소환 미끼 없이). 리더의 파티 전원을 리더 위치에서 가장 가까운 빈 슬롯으로 옮겨 시작한다 (반경 검사 생략). */
+    /**
+     * Admin forced start (without a summon bait). Moves the leader's whole party to the free slot
+     * nearest the leader and starts (radius check skipped).
+     */
     StartResult forceStart(BossId boss, Player leader);
 
     /**
-     * 관리자 강제 종료.
+     * Admin forced end.
      *
      * @param result CLEARED · FAILED · ABORTED
      */

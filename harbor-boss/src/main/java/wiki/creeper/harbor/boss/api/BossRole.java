@@ -6,22 +6,29 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.core.api.PartyService;
 
 /**
- * 보스전 역할 (docs 20 10.4 역할 · 기여도, '4. 낚시 연출 & 보스전' 2.1). 보스 전용 정보(추천 계열 등)는 여기에 두고, 파티 역할로는 {@link
- * #partyRole()}로 옮겨 적는다.
+ * Boss fight role (docs 20 10.4 roles and contribution, '4. Fishing presentation & boss fights'
+ * 2.1). Boss-only information (recommended line, etc.) lives here; as a party role it maps to
+ * {@link #partyRole()}.
  */
 public enum BossRole implements Keyed {
-    /** 낚싯대로 보스를 붙잡는다 (텐션). 추천: 수집 계열. */
+    /** Holds the boss with a fishing rod (tension). Recommended: gathering line. */
     ANCHOR,
-    /** 작살 투척 (피해). 추천: 탐험 계열. */
+    /** Throws harpoons (damage). Recommended: exploration line. */
     HARPOONER,
-    /** 조타륜에서 돌진 회피 (회피). 추천: 탐험 계열. */
+    /** Dodges charges at the helm (evasion). Recommended: exploration line. */
     CAPTAIN,
-    /** 파손 지점 수리 (수리). 추천: 생산 계열. */
+    /** Repairs damaged spots (repair). Recommended: production line. */
     MECHANIC,
-    /** 버프 요리 배포·전리품 보너스 (수리 항목에 지원량 합산). 추천: 경제 계열. */
+    /**
+     * Hands out buff food and gives a loot bonus (support amount is added to repair). Recommended:
+     * economy line.
+     */
     QUARTERMASTER;
 
-    /** 직업 계열 추천 역할 (고르지 않은 사람에게 배정). 계열이 없으면 작살수. */
+    /**
+     * Role recommended for a job line (assigned to players who did not pick one). Harpooner if
+     * there is no line.
+     */
     public static BossRole recommended(Optional<JobLine> line) {
         return line.map(
                         l ->
@@ -34,7 +41,7 @@ public enum BossRole implements Keyed {
                 .orElse(HARPOONER);
     }
 
-    /** Core 파티 역할로 옮길 때의 값. */
+    /** Value used when mapping to the Core party role. */
     public PartyService.Role partyRole() {
         return switch (this) {
             case ANCHOR -> PartyService.Role.REELER;

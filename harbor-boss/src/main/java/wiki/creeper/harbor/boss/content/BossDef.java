@@ -19,12 +19,13 @@ import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 보스 정의 (bosses/*.yml, docs 20 10.3). 수치가 비어 있으면(0 또는 −1) 유형 기본값을 balance.yml {@code
- * boss.types.<유형>}에서 가져온다. 진행 중 조우는 시작 시점 정의를 그대로 쓴다 (리로드해도 바뀌지 않음, 10.6).
+ * Boss definition (bosses/*.yml, docs 20 10.3). Empty values (0 or −1) take the type default from
+ * balance.yml {@code boss.types.<type>}. A running encounter keeps the definition from its start
+ * (reloads do not change it, 10.6).
  *
  * <pre>
  * - id: boss/swamp_catfish
- *   name: "&lt;dark_green&gt;늪지의 주인 '그놈'"
+ *   name: "&lt;dark_green&gt;Lord of the Swamp 'Gnome'"
  *   type: intro
  *   goal: capture
  *   region: region/harbor
@@ -42,10 +43,11 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *   summon: {item: item/boss/summon_swamp_catfish, cooldown: 600}
  * </pre>
  *
- * @param story 스토리 전투 (추가 제안: 전리품·기록·주간 횟수 없음, 10.1 해구의 군주 진정 전투)
- * @param timeLimitSeconds 0이면 유형 기본값
- * @param rigScale 리그 크기 배율 (추가 제안)
- * @param fish 연결된 보스 어종 (확정 포획. release_only 어종이면 도감만)
+ * @param story story fight (proposed: no loot, records or weekly count; 10.1 Lord of the Trench
+ *     calming fight)
+ * @param timeLimitSeconds 0 means the type default
+ * @param rigScale rig size multiplier (proposed)
+ * @param fish linked boss fish (guaranteed catch; collection only if it is a release_only fish)
  */
 public record BossDef(
         BossId id,
@@ -69,13 +71,16 @@ public record BossDef(
         @Nullable Summon summon,
         Presentation presentation) {
 
-    /** 판정 부위 상한 (제안값, docs 20 10.3). */
+    /** Hit part cap (proposed value, docs 20 10.3). */
     public static final int MAX_HIT_PARTS = 8;
 
-    /** 리그 부위 상한 ('8. 시스템 상세 기획' 12장). */
+    /** Rig part cap ('8. System details' chapter 12). */
     public static final int MAX_RIG_PARTS = 30;
 
-    /** 목표: 포획 또는 진정 (해구의 군주·녹빛 폭뢰어는 체력 대신 분노 게이지). */
+    /**
+     * Goal: capture or calm (Lord of the Trench and Verdigris Thunderfish use a rage gauge instead
+     * of HP).
+     */
     public enum Goal implements Keyed {
         CAPTURE,
         CALM;
@@ -86,13 +91,15 @@ public record BossDef(
         }
     }
 
-    /** 경기장 방식 (docs 20 10.4). */
+    /** Arena mode (docs 20 10.4). */
     public enum ArenaMode implements Keyed {
-        /** 본 서버 지역 안 고정 갑판 슬롯. 보스는 파티원에게만 보인다. */
+        /**
+         * Fixed deck slot inside a main server region. The boss is visible to party members only.
+         */
         FIELD,
-        /** 인스턴스 서버의 경기장 칸 (레이드). */
+        /** Arena cell on an instance server (raids). */
         INSTANCE,
-        /** 본 서버 고정 위치, 모두에게 보인다 (월드 보스). */
+        /** Fixed location on the main server, visible to everyone (world boss). */
         WORLD;
 
         @Override
@@ -101,47 +108,48 @@ public record BossDef(
         }
     }
 
-    /** 경기장 슬롯 하나. center는 월드 좌표, radius는 경계 반경 (블록). */
+    /** One arena slot. center is in world coordinates, radius is the boundary radius (blocks). */
     public record Slot(Vec3 center, double radius) {}
 
     /**
-     * 고정 갑판 구조물 (슬롯 중심 기준 상대 좌표).
+     * Fixed deck structure (coordinates relative to the slot center).
      *
-     * @param spawn 파티원이 서는 갑판 위치
-     * @param boss 보스 등장 위치
-     * @param wheel 조타륜 Interaction 위치 (선장 회피, 없으면 회피 입력 없음)
-     * @param repair 파손 지점 (정비사 수리)
+     * @param spawn deck position where party members stand
+     * @param boss boss spawn position
+     * @param wheel helm Interaction position (captain dodging; no dodge input if absent)
+     * @param repair damaged spots (mechanic repairs)
      */
     public record Deck(Vec3 spawn, Vec3 boss, @Nullable Vec3 wheel, List<Vec3> repair) {}
 
     public record Arena(ArenaMode mode, String world, List<Slot> slots, Deck deck) {}
 
     /**
-     * @param base 밸런스 기준 인원 (체력 조정 참고값)
+     * @param base balance reference party size (reference value for HP scaling)
      */
     public record PartyRule(int min, int max, int base) {}
 
     /**
-     * @param perPlayerRate 인원당 체력 증가율. 음수면 유형 기본값
+     * @param perPlayerRate HP increase per player. Negative means the type default
      */
     public record Hp(double base, double perPlayerRate) {}
 
     /**
-     * 판정 부위. 판정 상자 크기는 리그 뼈의 hitbox를 쓴다 (리그와 보스 정의가 어긋나지 않게).
+     * Hit part. The hitbox size comes from the rig bone's hitbox (so the rig and boss definition
+     * stay in sync).
      *
-     * @param weakpoint 약점 노출 주기에 발광하고 피해 배율 3.0을 받는 부위
-     * @param armor 단단한 부위 (피해 배율 0.2)
+     * @param weakpoint part that glows during weak point exposure and takes a 3.0 damage multiplier
+     * @param armor hard part (damage multiplier 0.2)
      */
     public record Part(String id, String bone, boolean weakpoint, boolean armor) {}
 
     /**
-     * 배 내구도.
+     * Ship durability.
      *
-     * @param repairPerAction 수리 키트 1회 복구량
+     * @param repairPerAction amount restored per repair kit use
      */
     public record Hull(int max, int repairPerAction) {}
 
-    /** 페이즈 종류 (docs 20 10.4 상태 기계). */
+    /** Phase kind (docs 20 10.4 state machine). */
     public enum PhaseKind implements Keyed {
         HOOK,
         COUNTER,
@@ -154,26 +162,28 @@ public record BossDef(
     }
 
     /**
-     * 최후의 줄다리기 설정. 0이면 balance.yml boss.qte 기본값.
+     * Final tug-of-war settings. 0 means the balance.yml boss.qte default.
      *
-     * @param rounds 라운드 수 (기본 3)
-     * @param inputs 라운드당 입력 수 (기본 4)
-     * @param windowTicks 입력 하나 제한 시간 (기본 20틱 = 1.0초)
-     * @param pass 라운드 성공 비율 (기본 0.6)
+     * @param rounds number of rounds (default 3)
+     * @param inputs inputs per round (default 4)
+     * @param windowTicks time limit per input (default 20 ticks = 1.0s)
+     * @param pass round success ratio (default 0.6)
      */
     public record Qte(int rounds, int inputs, int windowTicks, double pass) {
         public static final Qte DEFAULT = new Qte(0, 0, 0, 0);
     }
 
     /**
-     * 페이즈 하나.
+     * One phase.
      *
-     * @param hpBelow 들어가는 조건 (final_tug: 체력 비율이 이 값 이하). 0이면 조건 없음
-     * @param patterns 이 페이즈에서 고르는 패턴 ID
-     * @param patternGapTicks 패턴 사이 최소 간격 (0이면 유형 기본값)
-     * @param weakIntervalTicks 약점 노출 주기 (counter, 0이면 기본값)
-     * @param weakTicks 약점 노출 시간 (counter, 0이면 기본값)
-     * @param hookTicks 걸기 게이지를 0 → 100%로 채우는 안전 구간 유지 시간 (hook, 0이면 기본값)
+     * @param hpBelow entry condition (final_tug: HP ratio at or below this value). 0 means no
+     *     condition
+     * @param patterns pattern IDs chosen in this phase
+     * @param patternGapTicks minimum gap between patterns (0 means the type default)
+     * @param weakIntervalTicks weak point exposure interval (counter, 0 means the default)
+     * @param weakTicks weak point exposure duration (counter, 0 means the default)
+     * @param hookTicks safe-zone hold time to fill the hook gauge from 0 to 100% (hook, 0 means the
+     *     default)
      */
     public record PhaseDef(
             PhaseKind kind,
@@ -185,7 +195,7 @@ public record BossDef(
             int hookTicks,
             Qte qte) {}
 
-    /** 예고 범위 모양 (docs 20 10.3). */
+    /** Telegraph area shape (docs 20 10.3). */
     public enum Shape implements Keyed {
         CIRCLE,
         LINE,
@@ -198,13 +208,13 @@ public record BossDef(
         }
     }
 
-    /** 예고 범위 중심 (추가 제안). */
+    /** Telegraph area center (proposed). */
     public enum Anchor implements Keyed {
-        /** 무작위 파티원 발밑. */
+        /** At the feet of a random party member. */
         MEMBER,
-        /** 갑판 중심. */
+        /** Deck center. */
         DECK,
-        /** 보스 위치에서 갑판 쪽으로 (line·cone 방향). */
+        /** From the boss position toward the deck (line/cone direction). */
         BOSS;
 
         @Override
@@ -214,12 +224,12 @@ public record BossDef(
     }
 
     /**
-     * 예고. size는 circle·cone 반경, line 폭, ring 바깥 반경.
+     * Telegraph. size is the circle/cone radius, line width, or ring outer radius.
      *
-     * @param length line 길이 (블록)
-     * @param angle cone 전체 각도 (도)
-     * @param inner ring 안쪽 반경
-     * @param ticks 예고 시간 (0이면 유형 기본값, 핑 보정은 실행 중 더함)
+     * @param length line length (blocks)
+     * @param angle full cone angle (degrees)
+     * @param inner ring inner radius
+     * @param ticks telegraph time (0 means the type default; ping compensation is added at runtime)
      */
     public record Telegraph(
             Shape shape,
@@ -230,17 +240,20 @@ public record BossDef(
             int ticks,
             Anchor at) {}
 
-    /** 디버프 (개인 효과, 액션바 표시). */
+    /** Debuff (personal effect, shown on the action bar). */
     public enum Debuff implements Keyed {
         NONE,
-        /** 진흙 뿌리기(시야 가림). */
+        /** Mud splash (blocks vision). */
         BLIND,
-        /** 먹물 (실명). */
+        /** Ink (blindness). */
         DARKNESS,
         SLOW,
-        /** 중력 반전 (공중 부양). */
+        /** Gravity reversal (levitation). */
         LEVITATE,
-        /** 조작 반전 (공허 성운어 성운 폭발). QTE 좌우·앞뒤가 뒤집힌다. */
+        /**
+         * Control reversal (Void Nebula Fish nebula burst). QTE left/right and forward/back are
+         * flipped.
+         */
         INVERT;
 
         @Override
@@ -250,19 +263,20 @@ public record BossDef(
     }
 
     /**
-     * 패턴 효과. 범위 안 플레이어 넉백·배 내구도 감소, 디버프는 개인 효과.
+     * Pattern effect. Knockback for players in range and ship durability loss; debuffs are personal
+     * effects.
      *
-     * @param tension 앵커 텐션에 더하는 값 (추가 제안, 0~1)
+     * @param tension value added to anchor tension (proposed, 0-1)
      */
     public record Effect(
             int hullDamage, double knockback, Debuff debuff, int debuffTicks, double tension) {}
 
     /**
-     * 패턴 하나.
+     * One pattern.
      *
-     * @param name 액션바에 보여줄 이름 (MiniMessage)
-     * @param animation 리그 한 번 재생 동작 (없으면 재생 안 함)
-     * @param charge 돌진 패턴 (선장이 조타륜에서 반대 방향을 입력하면 피함)
+     * @param name name shown on the action bar (MiniMessage)
+     * @param animation one-shot rig animation (not played if absent)
+     * @param charge charge pattern (dodged when the captain steers the opposite way at the helm)
      */
     public record PatternDef(
             String id,
@@ -275,20 +289,20 @@ public record BossDef(
             boolean charge) {}
 
     /**
-     * 드롭 하나.
+     * One drop.
      *
-     * @param pity 천장 대상 (loot.pity_after회 연속 못 얻으면 확정)
+     * @param pity pity target (guaranteed after missing it loot.pity_after times in a row)
      */
     public record Drop(ItemId item, double chance, int countMin, int countMax, boolean pity) {}
 
     /**
-     * 전리품.
+     * Loot.
      *
-     * @param goldMin 클리어 골드 (−1이면 유형 기본값)
-     * @param topBonus 기여도 상위 20%에게 더 주는 것
-     * @param pityAfter 레이드 천장 (0이면 없음)
-     * @param participation 실패 참여 보상 (보스 비늘 1개)
-     * @param title 클리어 칭호 (없으면 null)
+     * @param goldMin clear gold (−1 means the type default)
+     * @param topBonus extra rewards for the top 20% by contribution
+     * @param pityAfter raid pity (0 means none)
+     * @param participation participation reward on failure (1 boss scale)
+     * @param title clear title (null if none)
      */
     public record Loot(
             List<Drop> drops,
@@ -300,20 +314,21 @@ public record BossDef(
             @Nullable HarborId title) {}
 
     /**
-     * 소환 미끼.
+     * Summon bait.
      *
-     * @param cooldownSeconds 같은 파티장의 재소환 대기
+     * @param cooldownSeconds resummon cooldown for the same party leader
      */
     public record Summon(ItemId item, int cooldownSeconds) {}
 
     /**
-     * 연출.
+     * Presentation.
      *
-     * @param intro 등장 때 리그 한 번 재생 동작
-     * @param outro 클리어 뒤 컷씬 ID (NPC 모듈이 있을 때만)
-     * @param music 시작 때 재생할 사운드 키
-     * @param roar 포효 소리 키 (등장·반격·최후의 줄다리기 때 보스 위치에서, '15. 사운드' 4.3, 추가 제안)
-     * @param announce 처치·신기록 서버 공지
+     * @param intro one-shot rig animation on spawn
+     * @param outro cutscene ID after a clear (only when the NPC module is present)
+     * @param music sound key played at the start
+     * @param roar roar sound key (played at the boss position on spawn, counter and final
+     *     tug-of-war; '15. Sound' 4.3, proposed)
+     * @param announce server announcement for kills and new records
      */
     public record Presentation(
             @Nullable String intro,
@@ -354,7 +369,7 @@ public record BossDef(
                     "summon",
                     "presentation");
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ Lookup
 
     public Optional<PhaseDef> phase(PhaseKind kind) {
         return phases.stream().filter(p -> p.kind() == kind).findFirst();
@@ -368,7 +383,10 @@ public record BossDef(
         return parts.stream().filter(p -> p.bone().equals(bone)).findFirst();
     }
 
-    /** 최후의 줄다리기 진입 체력 비율 (없으면 0.2 제안값이 아니라 정의 검사에서 막는다). */
+    /**
+     * HP ratio for entering the final tug-of-war (if absent, definition checks reject it rather
+     * than using a 0.2 proposed value).
+     */
     public double finalTugBelow() {
         return phase(PhaseKind.FINAL_TUG).map(PhaseDef::hpBelow).orElse(0.0);
     }
@@ -377,7 +395,7 @@ public record BossDef(
         return arena.mode() == ArenaMode.WORLD;
     }
 
-    // ------------------------------------------------------------------ 파싱
+    // ------------------------------------------------------------------ Parsing
 
     static BossDef parse(YamlNode node, ParseContext ctx) {
         node.allowOnly(FIELDS);

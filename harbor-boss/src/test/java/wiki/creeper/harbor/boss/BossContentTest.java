@@ -24,7 +24,7 @@ import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationError;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 
-/** bosses/*.yml 파서와 저장소 콘텐츠 (Boss가 맡은 파일만 오류를 본다). */
+/** bosses/*.yml parser and repository content (only errors in files owned by Boss are checked). */
 class BossContentTest {
 
     private static final List<String> OWNED =

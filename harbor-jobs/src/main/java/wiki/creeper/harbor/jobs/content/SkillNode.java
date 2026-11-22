@@ -16,11 +16,11 @@ import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.StatKey;
 
 /**
- * 스킬 노드 (skill_tree.yml, '11. 데이터 설계' 2.7 + line 추가 제안).
+ * Skill node (skill_tree.yml, '11. Data design' 2.7 + proposed line).
  *
  * @param tree common · explore_2 · explore_3 · collect_2 · … · capstone
- * @param line 계열 (common 트리는 비움). 계열 트리는 트리 이름에서 정해진다
- * @param cooldown 액티브(캡스톤)만, 초
+ * @param line line (empty for the common tree). For line trees it is determined by the tree name
+ * @param cooldown active (capstone) only, seconds
  */
 public record SkillNode(
         SkillId id,
@@ -35,10 +35,10 @@ public record SkillNode(
         List<Effect> effects,
         int cooldown) {
 
-    /** 랭크당 효과. 퍼센트 효과는 기본값 1.0 스탯에 ADD로 더한다 (docs 20 2.4). */
+    /** Effect per rank. Percentage effects are added with ADD to a base 1.0 stat (docs 20 2.4). */
     public record Effect(StatKey stat, Modifier.Op op, double valuePerRank) {}
 
-    /** 트리 종류. */
+    /** Tree kind. */
     public enum Kind {
         COMMON,
         LINE_SECOND,
@@ -81,7 +81,7 @@ public record SkillNode(
         return cooldown > 0;
     }
 
-    /** 이 노드에 rank만큼 투자했을 때의 물비늘 합계. */
+    /** Total mulbineul when rank ranks are invested in this node. */
     public long invested(int rank) {
         return (long) rank * cost;
     }

@@ -5,7 +5,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.boss.api.EncounterInfo;
 
-/** 조우 시작 직전 (소환 조건 검사 통과 뒤, 준비 단계 전). 취소하면 시작하지 않는다 (점검 중 차단 등). 메인 스레드. */
+/**
+ * Right before an encounter starts (after summon checks pass, before the preparation stage).
+ * Cancelling it prevents the start (e.g. blocking during maintenance). Main thread.
+ */
 public final class BossEncounterStartEvent extends Event implements Cancellable {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -23,7 +26,7 @@ public final class BossEncounterStartEvent extends Event implements Cancellable 
         return encounter;
     }
 
-    /** 관리자 강제 시작·월드 보스·인스턴스 자동 시작이면 true. */
+    /** True for admin forced starts, world bosses and automatic instance starts. */
     public boolean forced() {
         return forced;
     }

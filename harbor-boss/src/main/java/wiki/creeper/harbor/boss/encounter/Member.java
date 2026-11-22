@@ -11,20 +11,20 @@ import wiki.creeper.harbor.boss.logic.ContributionCalc;
 import wiki.creeper.harbor.boss.logic.Qte;
 import wiki.creeper.harbor.fishing.api.TensionSession;
 
-/** 조우 참가자 한 명의 실행 중 상태 (메인 스레드 전용). */
+/** Runtime state of one encounter participant (main thread only). */
 final class Member {
 
     final UUID uuid;
     final String name;
     BossRole role;
 
-    /** 역할을 직접 골랐는지 (준비 단계). */
+    /** Whether the role was picked explicitly (preparation stage). */
     boolean chose;
 
-    /** 처음부터 참가했는지 (최단 기록 후보 조건). */
+    /** Whether they took part from the start (fastest record candidate condition). */
     final boolean fromStart;
 
-    // 기여도 원자료
+    // Raw contribution data
     double damage;
     long tensionTicks;
     double repair;
@@ -32,29 +32,32 @@ final class Member {
     long activeTicks;
     long lastActivity = Long.MIN_VALUE / 2;
 
-    /** 입장 때 본 접속 IP (같은 IP 다계정 판정용, 처치 전에 나가도 남는다). */
+    /**
+     * Connection IP seen on entry (for same-IP multi-account checks; kept even if the player leaves
+     * before the kill).
+     */
     @Nullable String ip;
 
-    // 상태
-    /** 경기장 밖·접속 종료가 시작된 틱 (−1이면 있음). */
+    // State
+    /** Tick when being outside the arena or disconnected started (−1 if present). */
     long absentSince = -1;
 
-    /** 슬롯을 놓아 조우에서 빠짐 (기여도는 유지). */
+    /** Released the slot and left the encounter (contribution is kept). */
     boolean dropped;
 
-    /** 낙수 복귀 틱 (−1이면 아님). */
+    /** Tick to return after falling into the water (−1 if not). */
     long fallenUntil = -1;
 
-    /** 조작 반전 디버프 끝 틱. */
+    /** Tick when the control reversal debuff ends. */
     long invertedUntil = -1;
 
     long lastStab = Long.MIN_VALUE / 2;
     Qte.InputState input = Qte.InputState.NONE;
 
-    // 앵커
+    // Anchor
     @Nullable TensionSession session;
 
-    /** 의도해서 닫는 중 (onEnd를 줄 끊김으로 보지 않게). */
+    /** Closing intentionally (so onEnd is not treated as a line snap). */
     boolean closingSession;
 
     long reopenAt = -1;
@@ -69,7 +72,7 @@ final class Member {
         this.fromStart = fromStart;
     }
 
-    /** 접속 IP를 기억한다 (알 수 없으면 이전 값 유지). */
+    /** Remembers the connection IP (keeps the previous value if unknown). */
     void rememberIp(Player p) {
         InetSocketAddress addr = p.getAddress();
         InetAddress host = addr == null ? null : addr.getAddress();

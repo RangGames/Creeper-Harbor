@@ -8,7 +8,10 @@ import java.util.UUID;
 import org.bukkit.Chunk;
 import org.bukkit.plugin.Plugin;
 
-/** 경기장 청크의 플러그인 청크 티켓 (언로드 방지, 10.4). 여러 조우가 같은 청크를 쓰면 센다. 메인 스레드 전용. */
+/**
+ * Plugin chunk tickets for arena chunks (prevents unloading, 10.4). Counted when several encounters
+ * use the same chunk. Main thread only.
+ */
 final class ChunkTickets {
 
     private final Plugin plugin;
@@ -19,7 +22,10 @@ final class ChunkTickets {
         this.plugin = plugin;
     }
 
-    /** 조우 중 경기장 청크에 플러그인 청크 티켓을 건다 (언로드 방지, 10.4). 여러 조우가 같은 청크를 쓰면 센다. */
+    /**
+     * Adds plugin chunk tickets to arena chunks during an encounter (prevents unloading, 10.4).
+     * Counted when several encounters use the same chunk.
+     */
     void hold(Encounter e, boolean hold) {
         if (hold) {
             Set<Long> keys = new HashSet<>();

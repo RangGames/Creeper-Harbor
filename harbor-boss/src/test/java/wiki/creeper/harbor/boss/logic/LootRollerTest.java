@@ -13,7 +13,7 @@ import wiki.creeper.harbor.boss.content.BossDef;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.ItemId;
 
-/** 전리품 굴리기·레이드 천장 (docs 20 10.4). */
+/** Loot rolling and raid pity (docs 20 10.4). */
 class LootRollerTest {
 
     private static final ItemId LINE = new ItemId(HarborId.parse("item/line/lord_scale"));
@@ -45,7 +45,7 @@ class LootRollerTest {
 
     @Test
     void pityGuaranteesOnEighthAttemptAndResets() {
-        // 확률이 아주 낮은 드롭: 8번째 시도에서 확정
+        // Drop with a very low chance: guaranteed on the 8th attempt
         List<BossDef.Drop> drops = List.of(new BossDef.Drop(LINE, 0.000001, 1, 1, true));
         Map<ItemId, Integer> pity = new HashMap<>();
         for (int attempt = 1; attempt <= 7; attempt++) {

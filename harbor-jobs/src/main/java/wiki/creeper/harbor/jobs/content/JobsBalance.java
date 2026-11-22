@@ -5,10 +5,13 @@ import java.util.List;
 import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.model.JobTier;
 
-/** balance.yml의 jobs 절 (docs 20 2.3). 값이 없으면 기획 문서의 값을 기본값으로 쓴다. */
+/**
+ * The jobs section of balance.yml (docs 20 2.3). Missing values default to the design document
+ * values.
+ */
 public record JobsBalance(Balance balance) {
 
-    /** 캐치업 단계: 시즌 week주차 이상이고 레벨이 중앙값 − gap 이하면 exp_gain +bonus. */
+    /** Catch-up stage: from season week week onward, if level ≤ median − gap, exp_gain +bonus. */
     public record CatchUp(int week, int gap, double bonus) {}
 
     public double expCoef() {
@@ -79,7 +82,10 @@ public record JobsBalance(Balance balance) {
         return balance.integer("jobs.tier_first_quality_bonus", 2);
     }
 
-    /** 단 잠금: 그 트리에 2단은 8, 3단은 30 이상 투자 ('10. 스킬 트리' 1장). */
+    /**
+     * Tier locks: tier 2 needs 8 and tier 3 needs 30 or more invested in that tree ('10. Skill
+     * tree' chapter 1).
+     */
     public int tierPoints(int tier) {
         return switch (tier) {
             case 2 -> balance.integer("jobs.tier_points.2", 8);
@@ -109,7 +115,10 @@ public record JobsBalance(Balance balance) {
         return result;
     }
 
-    /** 레벨 곡선 검산값: 레벨 → 그 레벨 도달 누적 EXP ('7. 밸런스 기획' 3.1). */
+    /**
+     * Level curve check values: level → cumulative EXP to reach that level ('7. Balance design'
+     * 3.1).
+     */
     public List<int[]> curveChecks() {
         List<int[]> result = new ArrayList<>();
         for (String key : balance.keys("jobs.curve_check")) {
@@ -119,7 +128,7 @@ public record JobsBalance(Balance balance) {
                             Integer.parseInt(key), balance.integer("jobs.curve_check." + key, -1)
                         });
             } catch (NumberFormatException e) {
-                // 형식이 틀린 키는 검사에서 오류로 보고한다
+                // Malformed keys are reported as errors by the check
                 result.add(new int[] {-1, -1});
             }
         }

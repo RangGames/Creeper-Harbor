@@ -67,8 +67,9 @@ import wiki.creeper.harbor.jobs.data.JobsData;
 import wiki.creeper.harbor.jobs.data.JobsRepository;
 
 /**
- * Jobs 핵심 로직 (docs 20 2.4): 경험치·레벨, 전직, 스킬 투자·초기화·계열 변경, 보정자 등록. 메인 스레드 전용. 재화가 걸린 변경은 모두
- * CurrencyService.atomic으로 원장 기록과 모듈 테이블 갱신을 한 트랜잭션에 묶는다.
+ * Jobs core logic (docs 20 2.4): experience and levels, job advancement, skill investment, resets
+ * and line changes, modifier registration. Main thread only. Every change involving currency uses
+ * CurrencyService.atomic to bind the ledger entry and module table updates in one transaction.
  */
 public final class JobsManager implements JobsService, Listener {
 
@@ -97,7 +98,10 @@ public final class JobsManager implements JobsService, Listener {
         this.curve = LevelCurve.of(balance());
     }
 
-    /** 전직 컷씬 (docs 20 0.3: NPC 선택 의존의 CutsceneService). 재생을 시작했으면 true를 돌려주고, 없으면 기본 타이틀 연출을 쓴다. */
+    /**
+     * Job advancement cutscene (docs 20 0.3: CutsceneService via the optional NPC dependency).
+     * Returns true if playback started; otherwise the default title effect is used.
+     */
     public void setAdvanceCutscene(java.util.function.@Nullable Predicate<Player> cutscene) {
         this.advanceCutscene = cutscene;
     }
@@ -107,7 +111,7 @@ public final class JobsManager implements JobsService, Listener {
         this.catchUp = catchUpService;
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ Lookup
 
     public JobsBalance balance() {
         return new JobsBalance(api.content().snapshot().single(Balance.TYPE));
@@ -157,7 +161,7 @@ public final class JobsManager implements JobsService, Listener {
         return Math.min(balance().levelCap(tier), curve.maxLevel());
     }
 
-    // ------------------------------------------------------------------ 경험치
+    // ------------------------------------------------------------------ Experience
 
     @Override
     public long grantExp(UUID player, ExpGrant grant) {
@@ -168,7 +172,7 @@ public final class JobsManager implements JobsService, Listener {
         HarborPlayer hp = found.get();
         JobsBalance b = balance();
         double amount = grant.base();
-        // 지역 감쇠: 권장 레벨 + gap 이상이면 ×mult (골드·품질에는 손대지 않음)
+        // Region decay: ×mult at recommended level + gap or above (gold and quality untouched)
         if (grant.source() == ExpSource.FISHING && grant.region() != null) {
             Optional<RegionDef> region = content().get(RegionDef.TYPE, grant.region().id());
             if (region.isPresent()
@@ -188,7 +192,10 @@ public final class JobsManager implements JobsService, Listener {
         return granted;
     }
 
-    /** EXP를 더하고 단계별 레벨 상한까지 레벨업한다. 상한 뒤 EXP는 다음 1레벨분까지 overflow에 보관. */
+    /**
+     * Adds EXP and levels up to the per-tier level cap. EXP beyond the cap is kept in overflow, up
+     * to one more level's worth.
+     */
     public void addExp(HarborPlayer hp, long amount) {
         if (amount <= 0) {
             return;
@@ -216,7 +223,8 @@ public final class JobsManager implements JobsService, Listener {
 
     private void onLevelUp(HarborPlayer hp, int level) {
         Bukkit.getPluginManager().callEvent(new JobLevelUpEvent(hp.uuid(), level));
-        // 참조 ID가 유니크라서 레벨이 되감겨도 같은 레벨 보상은 다시 나가지 않는다
+        // The reference ID is unique, so even if the level is rewound the same level reward is not
+        // granted again
         String ref = "lvl:" + hp.season().value() + ":" + hp.uuid() + ":" + level;
         var _ = api.currency().give(hp.uuid(), Currency.MULBINEUL, 1, LedgerReason.LEVEL_UP, ref);
         Player player = Bukkit.getPlayer(hp.uuid());
@@ -232,7 +240,7 @@ public final class JobsManager implements JobsService, Listener {
                             Duration.ofMillis(250),
                             Duration.ofSeconds(2),
                             Duration.ofMillis(500));
-            HarborSounds.play(player, "harbor:ui.level_up"); // '15. 사운드' 4.5 레벨업
+            HarborSounds.play(player, "harbor:ui.level_up"); // '15. Sound' 4.5 level up
         }
         if (catchUp != null) {
             catchUp.apply(hp.uuid());
@@ -268,7 +276,7 @@ public final class JobsManager implements JobsService, Listener {
         return true;
     }
 
-    // ------------------------------------------------------------------ 전직
+    // ------------------------------------------------------------------ Job advancement
 
     @Override
     public CompletableFuture<AdvanceResult> requestAdvance(Player player, JobTier target) {
@@ -376,8 +384,9 @@ public final class JobsManager implements JobsService, Listener {
             return;
         }
         String ref = "adv:" + season.value() + ":" + uuid + ":" + target.level();
-        // 캐시를 먼저 바꾼다: 커밋 뒤에 바꾸면 그 사이 퇴장·자동 저장(saveBase)이 메모리의 이전 단계로 커밋된 job_tier를 덮는다.
-        // 실패하면 되돌린다
+        // Update the cache first: if changed after commit, a quit or auto-save (saveBase) in
+        // between would overwrite the committed job_tier with the old tier in memory. Reverted on
+        // failure
         JobLine prevLine = hp.jobLine().orElse(null);
         JobTier prevTier = hp.jobTier();
         hp.setJob(line, target, hp.level(), hp.exp());
@@ -403,8 +412,10 @@ public final class JobsManager implements JobsService, Listener {
                                         case Result.Err<List<Long>, LedgerError>(
                                                         LedgerError error) -> {
                                             if (error == LedgerError.DUPLICATE) {
-                                                // 같은 참조 ID로 이미 결제·전직이 커밋됐다 (단계가 저장 경합으로 덮였던 경우).
-                                                // 다시 걷지 않고 단계만 맞춘다
+                                                // A payment and advancement with the same reference
+                                                // ID was already committed (the tier had been
+                                                // overwritten by a save race). Do not charge again;
+                                                // only sync the tier
                                                 afterAdvance(hp, target, line);
                                                 result.complete(AdvanceResult.OK);
                                                 return;
@@ -419,7 +430,7 @@ public final class JobsManager implements JobsService, Listener {
                                 });
     }
 
-    /** 커밋 뒤 메인 스레드: 캐시 → 자동 패시브 → overflow 반영 → 이벤트 → 컷씬. */
+    /** Main thread after commit: cache → automatic passives → apply overflow → event → cutscene. */
     void afterAdvance(HarborPlayer hp, JobTier target, JobLine line) {
         hp.setJob(line, target, hp.level(), hp.exp());
         rebuildModifiers(hp);
@@ -437,7 +448,7 @@ public final class JobsManager implements JobsService, Listener {
                 api.messages().send(player, "jobs.advance.done", Placeholder.unparsed("job", name));
                 return;
             }
-            HarborSounds.play(player, "harbor:ui.job_change"); // '15. 사운드' 4.5 전직
+            HarborSounds.play(player, "harbor:ui.job_change"); // '15. Sound' 4.5 job advancement
             Sequence.of(plugin, player)
                     .run(
                             p ->
@@ -462,7 +473,7 @@ public final class JobsManager implements JobsService, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 스킬
+    // ------------------------------------------------------------------ Skills
 
     public Map<SkillId, SkillNode> nodes() {
         Map<SkillId, SkillNode> result = new HashMap<>();
@@ -470,7 +481,7 @@ public final class JobsManager implements JobsService, Listener {
         return result;
     }
 
-    /** 트리에 투자한 물비늘 합계. */
+    /** Total mulbineul invested in a tree. */
     public long pointsIn(JobsData data, Predicate<SkillNode> filter) {
         Map<SkillId, SkillNode> nodes = nodes();
         long sum = 0;
@@ -483,7 +494,7 @@ public final class JobsManager implements JobsService, Listener {
         return sum;
     }
 
-    /** 투자 가능 여부 (docs 20 2.4 검사 순서). OK면 투자 가능. */
+    /** Whether investment is possible (docs 20 2.4 check order). OK means it is. */
     public InvestResult checkInvest(HarborPlayer hp, SkillId nodeId) {
         SkillNode node = nodes().get(nodeId);
         if (node == null) {
@@ -500,7 +511,7 @@ public final class JobsManager implements JobsService, Listener {
                     return InvestResult.JOB_LOCKED;
                 }
                 if (node.line() != myLine) {
-                    // 다른 계열 2차 트리는 3차 전직 후 합계 40까지
+                    // Other lines' 2nd tier trees allow up to 40 total after the 3rd advancement
                     long other =
                             pointsIn(
                                     data,
@@ -545,7 +556,10 @@ public final class JobsManager implements JobsService, Listener {
         return InvestResult.OK;
     }
 
-    /** 한 랭크 투자. 물비늘 차감(SKILL_INVEST)과 skill_alloc 갱신을 한 트랜잭션으로. */
+    /**
+     * Invests one rank. Mulbineul deduction (SKILL_INVEST) and the skill_alloc update in one
+     * transaction.
+     */
     public CompletableFuture<InvestResult> invest(Player player, SkillId nodeId) {
         HarborPlayer hp = api.players().get(player);
         UUID uuid = hp.uuid();
@@ -589,10 +603,11 @@ public final class JobsManager implements JobsService, Listener {
     }
 
     /**
-     * 공통 트리 초기화: 시즌 1회 무료, 이후 골드. 공통 트리 투자분은 100% 환급 (제안값).
+     * Common tree reset: free once per season, then gold. Common tree investments are refunded 100%
+     * (proposed value).
      *
-     * @param charge false면 비용 없이 (관리자)
-     * @param refund false면 환급 없이 (관리자)
+     * @param charge false means no cost (admin)
+     * @param refund false means no refund (admin)
      */
     public CompletableFuture<Boolean> resetCommon(UUID uuid, boolean charge, boolean refund) {
         HarborPlayer hp = api.players().get(uuid).orElseThrow();
@@ -643,7 +658,10 @@ public final class JobsManager implements JobsService, Listener {
                         });
     }
 
-    /** 계열 변경: 골드 차감, 계열 트리 투자분 × 0.8 내림 환급, 공통 트리는 유지. */
+    /**
+     * Line change: deducts gold, refunds line tree investments × 0.8 rounded down, keeps the common
+     * tree.
+     */
     public CompletableFuture<Boolean> changeLine(UUID uuid, JobLine newLine, boolean charge) {
         HarborPlayer hp = api.players().get(uuid).orElseThrow();
         JobLine oldLine = hp.jobLine().orElse(null);
@@ -696,7 +714,10 @@ public final class JobsManager implements JobsService, Listener {
                         });
     }
 
-    /** 재화 기록이 있으면 atomic, 없으면 추가 SQL만 한 트랜잭션으로. 결과는 메인 스레드. */
+    /**
+     * atomic if there are currency entries, otherwise just the extra SQL in one transaction. Result
+     * on the main thread.
+     */
     private CompletableFuture<Boolean> runChange(
             UUID uuid, List<LedgerEntry> entries, SqlConsumer extra) {
         if (!busy.add(uuid)) {
@@ -719,7 +740,10 @@ public final class JobsManager implements JobsService, Listener {
                         tasks.main());
     }
 
-    /** 관리자 초기화: scope = common · line · all. refund면 투자분 100% 환급, 비용 없음. */
+    /**
+     * Admin reset: scope = common · line · all. With refund, investments are refunded 100%; no
+     * cost.
+     */
     public CompletableFuture<Boolean> adminReset(UUID uuid, String scope, boolean refund) {
         if (scope.equals("common")) {
             return resetCommon(uuid, false, refund);
@@ -762,7 +786,7 @@ public final class JobsManager implements JobsService, Listener {
                         });
     }
 
-    /** 관리자: 단계·계열 강제 지정 (골드 차감 없음). */
+    /** Admin: forcibly sets tier and line (no gold deduction). */
     public CompletableFuture<Boolean> forceTier(UUID uuid, JobTier tier, @Nullable JobLine line) {
         HarborPlayer hp = api.players().get(uuid).orElseThrow();
         SeasonId season = hp.season();
@@ -792,9 +816,12 @@ public final class JobsManager implements JobsService, Listener {
                         });
     }
 
-    // ------------------------------------------------------------------ 보정자
+    // ------------------------------------------------------------------ Modifiers
 
-    /** 노드 효과와 자동 패시브를 보정자로 다시 등록한다. 출처: skill:<노드>, job:<계열>:<단계>. 액티브 캡스톤의 효과는 사용할 때만 건다. */
+    /**
+     * Re-registers node effects and automatic passives as modifiers. Sources: skill:<node>,
+     * job:<line>:<tier>. Active capstone effects are applied only on use.
+     */
     public void rebuildModifiers(HarborPlayer hp) {
         UUID uuid = hp.uuid();
         Set<String> old = sources.getOrDefault(uuid, Set.of());
@@ -832,7 +859,10 @@ public final class JobsManager implements JobsService, Listener {
         sources.put(uuid, added);
     }
 
-    /** 콘텐츠에서 사라진 노드에 투자된 포인트는 전액 환급하고 행을 지운다 (docs 20 2.4 모서리 상황). */
+    /**
+     * Points invested in nodes removed from content are fully refunded and the rows deleted (docs
+     * 20 2.4 edge cases).
+     */
     private void refundRemovedNodes(HarborPlayer hp) {
         JobsData data = data(hp);
         Map<SkillId, SkillNode> nodes = nodes();
@@ -843,7 +873,8 @@ public final class JobsManager implements JobsService, Listener {
             SkillId removed = e.getKey();
             UUID uuid = hp.uuid();
             SeasonId season = hp.season();
-            // 원래 비용을 모르므로 투자 기록(원장)에서 되돌릴 수 없다. 관리자 확인용으로 로그를 남기고 행만 지운다
+            // The original cost is unknown, so it cannot be reversed from the investment records
+            // (ledger). Log it for admin review and just delete the row
             log.warn("사라진 스킬 노드 {}에 {}랭크 투자 ({}). 관리자 환급 필요", removed, e.getValue(), hp.name());
             var _ =
                     api.database()
@@ -855,7 +886,7 @@ public final class JobsManager implements JobsService, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 캡스톤
+    // ------------------------------------------------------------------ Capstones
 
     @Override
     public CapstoneState capstone(UUID player) {
@@ -871,7 +902,7 @@ public final class JobsManager implements JobsService, Listener {
                 : capstones.consumeWeeklyUse(player);
     }
 
-    // ------------------------------------------------------------------ 이벤트
+    // ------------------------------------------------------------------ Events
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onJoin(PlayerJoinEvent event) {

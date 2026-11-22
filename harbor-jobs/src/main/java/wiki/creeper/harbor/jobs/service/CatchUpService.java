@@ -22,12 +22,14 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.jobs.content.JobsBalance;
 
 /**
- * 캐치업 (docs 20 2.4 CatchUpService). 매일 06:00 한 서버만 최근 7일 접속자의 레벨 중앙값을 계산한다. 시즌 5주차 이상이고 레벨 ≤ 중앙값 −
- * 10이면 exp_gain +0.5, 9주차 이상이면 +1.0 ('7. 밸런스 기획' 3.3).
+ * Catch-up (docs 20 2.4 CatchUpService). Every day at 06:00 a single server computes the median
+ * level of players who joined in the last 7 days. From season week 5, if level ≤ median − 10,
+ * exp_gain +0.5; from week 9, +1.0 ('7. Balance design' 3.3).
  *
- * <p>중앙값은 문서의 Redis 키(harbor:jobs:median) 대신 Core FlagService의 서버 플래그 {@code jobs/median}에 둔다.
- * FlagService가 DB에 저장하고 Redis로 다른 서버에 변경을 알리므로, 각 서버는 ServerFlagChangedEvent로 다시 계산한다. 값이 없으면(장애)
- * 마지막 값을 유지한다.
+ * <p>The median is kept in the Core FlagService server flag {@code jobs/median} instead of the
+ * documented Redis key (harbor:jobs:median). FlagService stores it in the DB and notifies other
+ * servers of changes via Redis, so each server recomputes on ServerFlagChangedEvent. If there is no
+ * value (outage), the last value is kept.
  */
 public final class CatchUpService implements Listener {
 
@@ -73,7 +75,7 @@ public final class CatchUpService implements Listener {
                         });
     }
 
-    /** 가상 스레드에서 실행: 분산 잠금을 잡은 서버만 계산한다. */
+    /** Runs on a virtual thread: only the server holding the distributed lock computes. */
     public void recalculate() {
         Optional<DistributedLock.Handle> lock;
         try {
@@ -117,7 +119,7 @@ public final class CatchUpService implements Listener {
         }
     }
 
-    /** 플레이어의 캐치업 보정자를 다시 건다 (접속·레벨업·중앙값 갱신 때). */
+    /** Reapplies the player's catch-up modifier (on join, level up and median update). */
     public void apply(UUID uuid) {
         Optional<HarborPlayer> hp = api.players().get(uuid);
         Optional<Integer> median = median();

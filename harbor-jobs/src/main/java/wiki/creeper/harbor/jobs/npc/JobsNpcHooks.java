@@ -19,13 +19,14 @@ import wiki.creeper.harbor.npc.api.CutsceneService;
 import wiki.creeper.harbor.npc.api.DialogService;
 
 /**
- * NPC 연동 (docs 20 0.3, 5.2: Jobs → NPC 선택 의존). 길드 마스터 바위의 대화 액션 {@code job:change_line}(계열 변경) ·
- * {@code job:reset_skill}(공통 트리 초기화)과 전직 컷씬(CutsceneService, cutscene/job_advance). Harbor-Npc가 켜져
- * 있을 때만 이 클래스를 불러온다 (없으면 NPC api 클래스를 건드리지 않는다).
+ * NPC integration (docs 20 0.3, 5.2: Jobs → NPC optional dependency). The guild master rock's
+ * dialog actions {@code job:change_line} (line change) · {@code job:reset_skill} (common tree
+ * reset) and the job advancement cutscene (CutsceneService, cutscene/job_advance). This class is
+ * loaded only when Harbor-Npc is enabled (otherwise NPC api classes are not touched).
  */
 public final class JobsNpcHooks {
 
-    /** 전직 컷씬 ID (content/cutscenes/job_advance.yml). */
+    /** Job advancement cutscene ID (content/cutscenes/job_advance.yml). */
     static final HarborId ADVANCE_CUTSCENE = HarborId.parse("cutscene/job_advance");
 
     private JobsNpcHooks() {}
@@ -51,7 +52,10 @@ public final class JobsNpcHooks {
         }
     }
 
-    /** 계열 변경: 2차 이상만. 다른 계열을 고르고 비용 확인 → JobsManager.changeLine. */
+    /**
+     * Line change: 2nd tier and above only. Pick another line and confirm the cost →
+     * JobsManager.changeLine.
+     */
     static ActionResult changeLine(HarborApi api, JobsManager jobs, Player player) {
         HarborPlayer hp = api.players().get(player);
         JobLine current = hp.jobLine().orElse(null);
@@ -132,7 +136,7 @@ public final class JobsNpcHooks {
         return ActionResult.HANDOFF;
     }
 
-    /** 공통 트리 초기화: 시즌 1회 무료, 이후 골드 (JobsManager.resetCommon). */
+    /** Common tree reset: free once per season, then gold (JobsManager.resetCommon). */
     static ActionResult resetSkill(HarborApi api, JobsManager jobs, Player player) {
         HarborPlayer hp = api.players().get(player);
         boolean free = !jobs.data(hp).freeResetUsed();

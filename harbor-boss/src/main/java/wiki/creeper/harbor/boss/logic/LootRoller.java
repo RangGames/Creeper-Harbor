@@ -10,22 +10,23 @@ import wiki.creeper.harbor.boss.content.BossDef;
 import wiki.creeper.harbor.common.id.ItemId;
 
 /**
- * 전리품 굴리기 (docs 20 10.4 2단계). SplittableRandom, 조우마다 시드를 기록해 같은 시드면 같은 결과가 나온다. 레이드 천장: 천장 대상 드롭을
- * pity_after번째 시도에서 확정하고, 얻으면 0으로.
+ * Loot rolling (docs 20 10.4 step 2). SplittableRandom; the seed is recorded per encounter so the
+ * same seed gives the same result. Raid pity: a pity-target drop is guaranteed on the pity_after-th
+ * attempt and resets to 0 when obtained.
  */
 public final class LootRoller {
 
-    /** 굴린 드롭 하나. */
+    /** One rolled drop. */
     public record Rolled(ItemId item, int count, boolean byPity) {}
 
     /**
-     * @param pity 천장 대상 드롭 → 이번 결과 반영 뒤 카운터 (얻으면 0)
+     * @param pity pity-target drop → counter after applying this result (0 if obtained)
      */
     public record Result(List<Rolled> items, Map<ItemId, Integer> pity) {}
 
     private LootRoller() {}
 
-    /** 플레이어별 시드 (조우 시드 + UUID). */
+    /** Per-player seed (encounter seed + UUID). */
     public static long seed(long encounterSeed, UUID player) {
         long h =
                 player.getMostSignificantBits() * 0x9E3779B97F4A7C15L
@@ -34,9 +35,9 @@ public final class LootRoller {
     }
 
     /**
-     * @param chanceBonus 모든 드롭 확률에 더하는 값 (보급관 보너스)
-     * @param pity 지금 천장 카운터 (없으면 0)
-     * @param pityAfter 0이면 천장 없음
+     * @param chanceBonus value added to every drop chance (quartermaster bonus)
+     * @param pity current pity counter (0 if none)
+     * @param pityAfter 0 means no pity
      */
     public static Result roll(
             List<BossDef.Drop> drops,
@@ -66,7 +67,7 @@ public final class LootRoller {
         return new Result(List.copyOf(items), Map.copyOf(next));
     }
 
-    /** 범위 안 골드 (min = max면 그대로). */
+    /** Gold within the range (as is if min = max). */
     public static long gold(long min, long max, SplittableRandom random) {
         if (max <= min) {
             return Math.max(0, min);

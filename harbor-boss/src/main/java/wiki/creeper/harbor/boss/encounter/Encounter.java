@@ -42,18 +42,20 @@ import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.fishing.api.TensionSession;
 
 /**
- * 실행 중인 조우 하나 (docs 20 10.4 조우 흐름). 정의는 시작 시점 스냅샷을 끝까지 쓴다 (리로드해도 바뀌지 않음). 페이즈 규칙은 순수 로직 {@link
- * Fight}에 두고, 여기서는 준비·출발·매 틱 진행·상태 전환·정리를 맡는다. 리그·판정·패턴 예고·앵커 텐션·QTE·UI는 같은 패키지의 협력 객체 ({@link
- * BossRig}, {@link HarpoonCombat}, {@link PatternTelegraphs}, {@link AnchorLines}, {@link
- * FinalTugQte}, {@link DeckStations}, {@link EncounterRoster}, {@link WorldBossTracker}, {@link
- * EncounterHud})가 서버 API로 돌린다. 메인 스레드 전용.
+ * One running encounter (docs 20 10.4 encounter flow). Uses the definition snapshot from its start
+ * to the end (reloads do not change it). Phase rules live in the pure logic {@link Fight}; this
+ * class handles preparation, departure, per-tick progress, state transitions and cleanup. Rig, hit
+ * detection, pattern telegraphs, anchor tension, QTE and UI are driven through the server API by
+ * collaborators in the same package ({@link BossRig}, {@link HarpoonCombat}, {@link
+ * PatternTelegraphs}, {@link AnchorLines}, {@link FinalTugQte}, {@link DeckStations}, {@link
+ * EncounterRoster}, {@link WorldBossTracker}, {@link EncounterHud}). Main thread only.
  */
 public final class Encounter {
 
-    /** 보정자 키: 보스 피해 (Core 보정자 파이프라인, 스킬 트리·버프). */
+    /** Modifier key: boss damage (Core modifier pipeline, skill tree and buffs). */
     static final StatKey BOSS_DAMAGE = StatKey.of("boss_damage");
 
-    /** 클릭 대상 (조타륜·파손 지점). */
+    /** Click target (helm, damaged spot). */
     enum ClickKind {
         WHEEL,
         REPAIR
@@ -65,7 +67,7 @@ public final class Encounter {
     final EncounterManager mgr;
     final World world;
 
-    /** 슬롯 중심 (경계 중심). */
+    /** Slot center (boundary center). */
     final Location center;
 
     final int slot;
@@ -78,13 +80,13 @@ public final class Encounter {
     public final Fight fight;
     final Instant createdAt = Instant.now();
 
-    /** 인스턴스 조우면 돌아갈 서버 (원래 서버별 파티원). */
+    /** For instance encounters, the server to return to (party members by original server). */
     final Map<UUID, String> origins = new HashMap<>();
 
-    /** 참가자 (역할 선택 순서 = 들어온 순서). */
+    /** Participants (role selection order = join order). */
     final LinkedHashMap<UUID, Member> members = new LinkedHashMap<>();
 
-    // 협력 객체 (생성자에서는 참조만 담는다)
+    // Collaborators (the constructor only stores references)
     final EncounterHud hud = new EncounterHud(this);
     final BossRig bossRig = new BossRig(this);
     final DeckStations stations = new DeckStations(this);
@@ -98,7 +100,10 @@ public final class Encounter {
     private boolean launched;
     boolean launching;
 
-    /** 소환 미끼를 인벤토리에서 뺐는지 (launched 전에 끝나도 환급 판단은 이것으로). */
+    /**
+     * Whether the summon bait was taken from the inventory (decides refunds even if the encounter
+     * ends before launched).
+     */
     boolean baitTaken;
 
     private long prepareDeadline;
@@ -182,7 +187,7 @@ public final class Encounter {
         return BossRole.recommended(mgr.api().players().get(p).jobLine());
     }
 
-    // ------------------------------------------------------------------ 위치
+    // ------------------------------------------------------------------ Location
 
     Location deck(Vec3 v) {
         return center.clone().add(v.x(), v.y(), v.z());
@@ -212,9 +217,12 @@ public final class Encounter {
         return dx * dx + dz * dz <= (radius + 2) * (radius + 2);
     }
 
-    // ------------------------------------------------------------------ 시작
+    // ------------------------------------------------------------------ Start
 
-    /** 준비 단계로 시작한다 (역할 선택 Dialog). prepare가 거짓이면 바로 출발한다 (월드 보스·resume). */
+    /**
+     * Starts in the preparation stage (role selection Dialog). If prepare is false, departs
+     * immediately (world boss, resume).
+     */
     void begin(boolean prepare) {
         long now = mgr.now();
         fight.begin(now);
@@ -237,14 +245,15 @@ public final class Encounter {
         }
     }
 
-    /** 준비 단계 역할 선택 (Dialog 또는 /보스 역할). */
+    /** Role selection during preparation (Dialog or /boss role). */
     boolean chooseRole(UUID player, BossRole role) {
         return roster.chooseRole(player, role);
     }
 
     /**
-     * 출발: 앵커 최소 인원 채우기 → 미끼 차감 → 소환자 즉시 저장 → boss_encounter RUNNING 기록 → 등장 (10.4 3~4단계). 저장이 끝나기
-     * 전에는 보스를 띄우지 않는다.
+     * Departure: fill the minimum anchors → take the bait → save the summoner immediately → record
+     * boss_encounter RUNNING → spawn (10.4 steps 3-4). The boss is not spawned before the save
+     * finishes.
      */
     private void launch() {
         launching = true;
@@ -258,8 +267,10 @@ public final class Encounter {
             baitTaken = true;
         }
         startedAt = Instant.now();
-        // 미끼를 뺀 인벤토리를 먼저 저장한 뒤 RUNNING을 기록한다. 반대 순서면 기록 뒤 서버가 죽었을 때 인벤토리는 미끼가 있던 저장본으로
-        // 돌아가고 복구 처리(refundBait)가 한 번 더 돌려줘 미끼가 복제된다. 바닐라 saveData()는 Harbor 저장본이 원본이라 소용없다
+        // Save the inventory without the bait first, then record RUNNING. In the reverse order, if
+        // the server died after recording, the inventory would roll back to the save that still had
+        // the bait and recovery (refundBait) would refund it again, duplicating the bait. Vanilla
+        // saveData() does not help because the Harbor save is the source of truth
         CompletableFuture<Void> saved =
                 summonItem == null
                         ? CompletableFuture.completedFuture(null)
@@ -295,7 +306,7 @@ public final class Encounter {
                                 mgr.tasks().main());
     }
 
-    // ------------------------------------------------------------------ 틱
+    // ------------------------------------------------------------------ Tick
 
     void tick(long now) {
         if (finished) {
@@ -367,7 +378,7 @@ public final class Encounter {
             }
             case Fight.FinalTug _ -> qte.tick(now);
             default -> {
-                // 준비·등장·종료
+                // Preparation, intro, end
             }
         }
         if (def.isWorld()) {
@@ -378,7 +389,7 @@ public final class Encounter {
         }
     }
 
-    // ------------------------------------------------------------------ 상태 전환
+    // ------------------------------------------------------------------ State transitions
 
     void handle(List<Fight.Transition> transitions) {
         for (Fight.Transition t : transitions) {
@@ -446,7 +457,7 @@ public final class Encounter {
     private void onIntro() {
         bossRig.spawn();
         stations.spawnInteractions();
-        // 보스 테마: 팩에 없는 키면 Core HarborSounds가 건너뛴다 (대체 소리 없음)
+        // Boss theme: Core HarborSounds skips keys missing from the pack (no fallback sound)
         HarborSounds.play(
                 onlinePlayers(),
                 def.presentation().music(),
@@ -456,34 +467,35 @@ public final class Encounter {
         mgr.chunkHold(this, true);
     }
 
-    // ------------------------------------------------------------------ 입력·상호작용 (협력 객체로 넘김)
+    // ------------------------------------------------------------------ Input and interaction
+    // (delegated to collaborators)
 
-    /** 리그 부위 작살 투척 적중 (EncounterManager의 궤적 판정). */
+    /** Harpoon throw hit on a rig part (trajectory hit detection in EncounterManager). */
     void harpoonHit(Player p, ItemDef harpoon, String bone) {
         combat.harpoonHit(p, harpoon, bone);
     }
 
-    /** 조타륜·파손 지점 우클릭. */
+    /** Right-click on the helm or a damaged spot. */
     void click(Player p, ClickKind kind, int index) {
         stations.click(p, kind, index);
     }
 
-    /** 수리 지점이 없는 갑판: 손에 수리 키트를 들고 우클릭. */
+    /** Deck without repair spots: right-click with a repair kit in hand. */
     boolean freeRepair(Player p) {
         return stations.freeRepair(p);
     }
 
-    /** 보급관이 버프 요리를 먹음. */
+    /** Quartermaster ate buff food. */
     void supply(Player p) {
         stations.supply(p);
     }
 
-    /** 보급관이 있으면 드롭 보너스 (추가 제안). */
+    /** Drop bonus when there is a quartermaster (proposed). */
     boolean hasQuartermaster() {
         return stations.hasQuartermaster();
     }
 
-    /** 이동 입력 (QTE·선장). 새로 눌린 키만 넘긴다. */
+    /** Movement input (QTE, captain). Only newly pressed keys are passed on. */
     void input(Player p, Qte.InputState state) {
         Member m = members.get(p.getUniqueId());
         if (m == null) {
@@ -501,7 +513,7 @@ public final class Encounter {
         qte.press(p, m, pressed, now);
     }
 
-    /** 재접속 (슬롯 유지 시간 안). field는 갑판으로 돌려보낸다. */
+    /** Rejoin (within the slot hold time). field encounters send the player back to the deck. */
     void rejoin(Player p) {
         roster.rejoin(p);
     }
@@ -510,7 +522,9 @@ public final class Encounter {
         roster.quit(p);
     }
 
-    /** 경기장 안 사망 대신 '낙수' (아이템 보존, 5초 뒤 갑판 복귀). */
+    /**
+     * 'Falling into the water' instead of dying in the arena (items kept, back on deck after 5s).
+     */
     void fall(Member m, Player p) {
         roster.fall(m, p);
     }
@@ -523,24 +537,27 @@ public final class Encounter {
         return Optional.ofNullable(members.get(player));
     }
 
-    // ------------------------------------------------------------------ 월드 보스
+    // ------------------------------------------------------------------ World boss
 
     public int effectiveParticipants() {
         return worldBoss.effectiveParticipants();
     }
 
-    /** 25% 단위 단계 (0 시작, 1 = 75% 이하, 2 = 50% 이하, 3 = 25% 이하). */
+    /** 25% stage (0 start, 1 = 75% or less, 2 = 50% or less, 3 = 25% or less). */
     public int stage() {
         return worldBoss.stage();
     }
 
-    /** resume: 저장한 진행률·기여도·활동 시간(틱)으로 되살린다. */
+    /** resume: restores from saved progress, contributions and active time (ticks). */
     public void restore(
             double hpRatio, Map<UUID, Contribution> saved, Map<UUID, Long> activeTicks) {
         worldBoss.restore(hpRatio, saved, activeTicks);
     }
 
-    /** 참가자별 활동 시간 (틱). 월드 보스 resume 저장용 (Contribution에는 없어서 따로 남긴다). */
+    /**
+     * Active time per participant (ticks). Saved for world boss resume (kept separately since
+     * Contribution does not have it).
+     */
     public Map<UUID, Long> activeTicks() {
         Map<UUID, Long> out = new HashMap<>();
         for (Member m : members.values()) {
@@ -549,9 +566,11 @@ public final class Encounter {
         return out;
     }
 
-    // ------------------------------------------------------------------ 종료
+    // ------------------------------------------------------------------ End
 
-    /** 리그·Interaction·예고·보스바·텐션·경계·청크 티켓을 모두 걷는다. */
+    /**
+     * Removes the rig, Interactions, telegraphs, boss bars, tension, boundary and chunk tickets.
+     */
     void cleanup() {
         finished = true;
         patterns.clear();
@@ -568,7 +587,7 @@ public final class Encounter {
         mgr.chunkHold(this, false);
     }
 
-    /** 기여도 순위 (ContributionCalc). */
+    /** Contribution ranking (ContributionCalc). */
     public List<Contribution> contributions() {
         List<ContributionCalc.Stats> stats = new ArrayList<>();
         for (Member m : members.values()) {
@@ -602,7 +621,7 @@ public final class Encounter {
         return out;
     }
 
-    /** 모두 처음부터 참가했는지 (최단 기록 후보). */
+    /** Whether everyone took part from the start (fastest record candidate). */
     boolean allFromStart() {
         return members.values().stream().allMatch(m -> m.fromStart);
     }
@@ -651,7 +670,7 @@ public final class Encounter {
         return bossRig.instance();
     }
 
-    /** 리그 판정 상자 Interaction과 뼈 이름 (작살 궤적 판정용). */
+    /** Rig hitbox Interactions and bone names (for harpoon trajectory hits). */
     List<Map.Entry<Interaction, String>> hitboxes() {
         return bossRig.hitboxes();
     }
@@ -660,7 +679,10 @@ public final class Encounter {
         return patterns.entityCount();
     }
 
-    /** 표식·리그·Interaction을 보는 사람 (파티원, 월드 보스는 반경 안 플레이어). */
+    /**
+     * Who sees markers, the rig and Interactions (party members; for world bosses, players within
+     * the radius).
+     */
     List<Player> viewers() {
         if (!def.isWorld()) {
             return onlinePlayers();
@@ -690,7 +712,7 @@ public final class Encounter {
         return members.values();
     }
 
-    // ------------------------------------------------------------------ 문구 (EncounterHud)
+    // ------------------------------------------------------------------ Messages (EncounterHud)
 
     public Component bossName() {
         return hud.bossName();

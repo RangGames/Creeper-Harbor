@@ -4,16 +4,21 @@ import java.util.ArrayList;
 import java.util.List;
 import wiki.creeper.harbor.boss.content.BossDef;
 
-/** 판정 기하 (서버 API 없음): 작살 궤적 선분 ↔ 판정 상자(AABB), 패턴 예고 범위 안에 있는지. */
+/**
+ * Hit geometry (no server API): harpoon trajectory segment ↔ hitbox (AABB), and whether a point is
+ * inside a pattern telegraph area.
+ */
 public final class Geometry {
 
     private Geometry() {}
 
-    /** 축 정렬 상자. */
+    /** Axis-aligned box. */
     public record Aabb(
             double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
 
-        /** Interaction 엔티티 상자: 발밑 중심 (x, y, z), 가로·세로 width, 높이 height. */
+        /**
+         * Interaction entity box: bottom center (x, y, z), horizontal size width, height height.
+         */
         public static Aabb interaction(double x, double y, double z, double width, double height) {
             double h = width / 2;
             return new Aabb(x - h, y, z - h, x + h, y + height, z + h);
@@ -28,10 +33,11 @@ public final class Geometry {
         }
 
         /**
-         * 선분 A→B가 상자와 만나는지 (slab 방식). 투사체는 Interaction과 충돌하지 않으므로 매 틱 직전 위치→현재 위치 선분으로 직접 계산한다
-         * (docs 20 10.4 작살 궤적).
+         * Whether segment A→B meets the box (slab method). Projectiles do not collide with
+         * Interactions, so each tick the previous position → current position segment is computed
+         * directly (docs 20 10.4 harpoon trajectory).
          *
-         * @return 만나면 A에서의 비율 t (0~1), 아니면 −1
+         * @return the ratio t from A (0-1) if they meet, otherwise −1
          */
         public double intersect(double ax, double ay, double az, double bx, double by, double bz) {
             double t0 = 0;
@@ -66,12 +72,13 @@ public final class Geometry {
     }
 
     /**
-     * 바닥 예고 범위 (수평면). 방향 (dirX, dirZ)는 단위 벡터 (line·cone이 뻗는 쪽).
+     * Floor telegraph area (horizontal plane). Direction (dirX, dirZ) is a unit vector (where line
+     * and cone extend).
      *
-     * @param size circle·cone 반경, line 폭, ring 바깥 반경
-     * @param length line 길이
-     * @param halfAngle cone 반각 (라디안)
-     * @param inner ring 안쪽 반경
+     * @param size circle/cone radius, line width, ring outer radius
+     * @param length line length
+     * @param halfAngle cone half angle (radians)
+     * @param inner ring inner radius
      */
     public record Area(
             BossDef.Shape shape,
@@ -126,9 +133,10 @@ public final class Geometry {
         }
 
         /**
-         * 가장자리 파티클 점 (x, z). scale은 1 → 0으로 줄어드는 예고 진행 (중심 쪽으로 오므라든다).
+         * Edge particle points (x, z). scale is the telegraph progress shrinking from 1 → 0
+         * (contracting toward the center).
          *
-         * @param points 대략적인 점 개수
+         * @param points approximate number of points
          */
         public List<double[]> outline(int points, double scale) {
             List<double[]> out = new ArrayList<>();
@@ -184,7 +192,9 @@ public final class Geometry {
             return out;
         }
 
-        /** 바닥 판(BlockDisplay)을 깔 1×1 칸 중심들 (범위 안 칸). */
+        /**
+         * Centers of the 1×1 cells to lay floor tiles (BlockDisplay) on (cells inside the area).
+         */
         public List<double[]> cells(double step) {
             List<double[]> out = new ArrayList<>();
             double reach = shape == BossDef.Shape.LINE ? Math.max(length, size) : size;

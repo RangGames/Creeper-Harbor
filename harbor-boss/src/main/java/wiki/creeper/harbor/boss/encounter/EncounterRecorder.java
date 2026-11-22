@@ -13,8 +13,9 @@ import wiki.creeper.harbor.season.api.SeasonClock;
 import wiki.creeper.harbor.season.api.SeasonServices;
 
 /**
- * boss_encounter·참가 기록 (BossRepository): 시작·종료 기록, 재시작 복구, 서버 종료 때 ABORTED 기록. DB는 비동기로만 쓴다 (종료 중
- * 제외).
+ * boss_encounter and participation records (BossRepository): start/end records, restart recovery,
+ * ABORTED records on server shutdown. The DB is only written asynchronously (except during
+ * shutdown).
  */
 final class EncounterRecorder {
 
@@ -24,7 +25,10 @@ final class EncounterRecorder {
         this.mgr = mgr;
     }
 
-    /** boss_encounter RUNNING 행을 비동기로 쓴다. 결과 future는 메인 스레드에서 완료된다. */
+    /**
+     * Writes the boss_encounter RUNNING row asynchronously. The result future completes on the main
+     * thread.
+     */
     CompletableFuture<Void> recordStart(Encounter e) {
         SeasonClock clock = SeasonServices.clock();
         BossRepository.EncounterRow row =
@@ -57,7 +61,9 @@ final class EncounterRecorder {
         return done;
     }
 
-    /** 종료 결과와 참가 기록을 비동기로 쓴다 (실패는 로그만). */
+    /**
+     * Writes the end result and participation records asynchronously (failures are only logged).
+     */
     void recordEnd(
             Encounter e,
             EncounterState result,
@@ -92,7 +98,10 @@ final class EncounterRecorder {
                                 });
     }
 
-    /** 재시작 때 RUNNING 조우를 ABORTED로 닫고 미끼를 pending으로 돌려준다 (10.4 서버 비정상 종료). */
+    /**
+     * On restart, closes RUNNING encounters as ABORTED and refunds bait via pending (10.4 abnormal
+     * server shutdown).
+     */
     void recover() {
         String server = mgr.serverId();
         var _ =
@@ -100,7 +109,8 @@ final class EncounterRecorder {
                         .database()
                         .async(
                                 c -> {
-                                    // 닫기와 환급을 한 트랜잭션으로: 사이에서 실패하면 둘 다 되돌아가 다음 재시작에 다시 한다
+                                    // Close and refund in one transaction: if it fails in
+                                    // between, both roll back and the next restart retries
                                     List<BossRepository.Aborted> aborted =
                                             BossRepository.abortRunning(c, server);
                                     List<UUID> refunded = new ArrayList<>();
@@ -137,7 +147,10 @@ final class EncounterRecorder {
 
     private record Recovered(int aborted, List<UUID> refunded) {}
 
-    /** 서버 종료 중 ABORTED 기록 (미끼는 pending으로 돌려준다). 종료 중이라 최대 5초 기다린다. */
+    /**
+     * ABORTED records during server shutdown (bait refunded via pending). Waits up to 5 seconds
+     * since the server is shutting down.
+     */
     void abortOnShutdown(Encounter e) {
         try {
             var _ =
@@ -152,7 +165,8 @@ final class EncounterRecorder {
                                                 Instant.now(),
                                                 e.fight.elapsed() * 50L,
                                                 Math.max(1, e.members.size()));
-                                        // 출발 중(기록 전)이라도 미끼를 뺐으면 돌려준다
+                                        // Refund the bait if it was taken, even during departure
+                                        // (before recording)
                                         ItemId item = e.summonItem;
                                         if (e.baitTaken && item != null) {
                                             mgr.rewards().refundInTx(c, e.id, e.leader, item);

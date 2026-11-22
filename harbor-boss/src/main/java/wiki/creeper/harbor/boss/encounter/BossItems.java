@@ -24,25 +24,25 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborItem;
 
-/** 아이템·월드·PDC 도우미 (서버 API). */
+/** Item, world and PDC helpers (server API). */
 public final class BossItems {
 
-    /** 지급 완료 표시 (플레이어 PDC, 아이템과 같은 파일에 저장된다). */
+    /** Delivered marker (player PDC, saved in the same file as items). */
     public static final NamespacedKey DELIVERED = new NamespacedKey("harbor", "boss_delivered");
 
-    /** 보스 장비 고유 ID (추가 제안: fish_ledger item_id 연동 전까지 아이템 PDC에 둔다). */
+    /** Unique boss gear ID (proposed: kept in item PDC until fish_ledger item_id integration). */
     public static final NamespacedKey BOSS_UID = new NamespacedKey("harbor", "boss_uid");
 
-    /** PDC에 남기는 지급 완료 ID 수 (오래된 것부터 지운다, 제안값). */
+    /** Number of delivered IDs kept in PDC (oldest removed first, proposed value). */
     private static final int DELIVERED_KEEP = 200;
 
-    /** 작살 피해 스탯 키 (items/*.yml stats). */
+    /** Harpoon damage stat key (items/*.yml stats). */
     public static final String STAT_HARPOON = "harpoon_damage";
 
-    /** 약점 피해 보너스 (고래잡이 작살 +50%). */
+    /** Weak point damage bonus (whaler's harpoon +50%). */
     public static final String STAT_WEAK_BONUS = "weak_bonus";
 
-    /** 1이면 맞힌 뒤 회수 (인벤토리로 돌아옴). */
+    /** 1 means it is retrieved after hitting (returns to the inventory). */
     public static final String STAT_RECOVER = "recoverable";
 
     private final HarborApi api;
@@ -72,7 +72,7 @@ public final class BossItems {
         return idOf(stack).flatMap(this::def);
     }
 
-    /** 작살이면 아이템 정의 (stats에 harpoon_damage가 있는 아이템). */
+    /** Item definition if it is a harpoon (an item with harpoon_damage in stats). */
     public Optional<ItemDef> harpoon(@Nullable ItemStack stack) {
         return defOf(stack).filter(d -> d.stats().containsKey(STAT_HARPOON));
     }
@@ -82,7 +82,7 @@ public final class BossItems {
         return v == null ? fallback : v;
     }
 
-    /** 수리 키트 아이템 ID (balance.yml boss.items.repair_kit). */
+    /** Repair kit item ID (balance.yml boss.items.repair_kit). */
     public ItemId repairKit() {
         String raw = balance().string("boss.items.repair_kit").orElse("item/boat/repair_kit");
         return new ItemId(HarborId.parse(raw));
@@ -92,7 +92,7 @@ public final class BossItems {
         return idOf(stack).map(id -> id.equals(repairKit())).orElse(false);
     }
 
-    /** 인벤토리에서 아이템 하나를 뺀다. 없으면 false. */
+    /** Removes one item from the inventory. False if there is none. */
     public boolean takeOne(Player player, ItemId id) {
         ItemStack[] contents = player.getInventory().getStorageContents();
         for (int i = 0; i < contents.length; i++) {
@@ -116,7 +116,7 @@ public final class BossItems {
         return def(id).map(d -> api.items().create(d, amount));
     }
 
-    // ------------------------------------------------------------------ 지급 완료 표시 (PDC)
+    // ------------------------------------------------------------------ Delivered marker (PDC)
 
     public static Set<String> delivered(Player player) {
         PersistentDataContainer pdc = player.getPersistentDataContainer();
@@ -138,10 +138,11 @@ public final class BossItems {
                 .set(DELIVERED, PersistentDataType.STRING, String.join(",", list));
     }
 
-    // ------------------------------------------------------------------ 월드
+    // ------------------------------------------------------------------ World
 
     /**
-     * 콘텐츠 월드 ID(harbor_main 등) → Bukkit 월드. 개발 서버는 balance.yml world_alias (Fishing·NPC와 같은 규칙).
+     * Content world ID (harbor_main, etc.) → Bukkit world. Dev servers use balance.yml world_alias
+     * (same rule as Fishing and NPC).
      */
     public Optional<World> world(String contentWorld) {
         World direct = Bukkit.getWorld(contentWorld);
@@ -168,7 +169,7 @@ public final class BossItems {
         return api.content().snapshot().single(Balance.TYPE);
     }
 
-    /** Paper의 위치 조회는 null 가능으로 표시되어 있지만 살아 있는 엔티티는 항상 위치가 있다. */
+    /** Paper marks location lookup as nullable, but a living entity always has a location. */
     public static Location loc(Entity entity) {
         return Objects.requireNonNull(entity.getLocation());
     }

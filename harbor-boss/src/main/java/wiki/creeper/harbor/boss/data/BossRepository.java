@@ -22,13 +22,16 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/** Boss SQL (docs 20 10.3). 트랜잭션은 호출하는 쪽이 연다. 모든 메서드는 블로킹이라 가상 스레드에서 부른다. */
+/**
+ * Boss SQL (docs 20 10.3). Callers open transactions. All methods block, so call them on virtual
+ * threads.
+ */
 public final class BossRepository {
 
-    /** 기록을 남기는 시즌별 순위 수 (1~10위). */
+    /** Number of ranks kept per season (ranks 1-10). */
     public static final int RECORDS_KEPT = 10;
 
-    /** 시작할 때 쓰는 조우 행. */
+    /** Encounter row written at start. */
     public record EncounterRow(
             UUID id,
             BossId boss,
@@ -42,7 +45,7 @@ public final class BossRepository {
             @Nullable String summonItem,
             long seed) {}
 
-    /** 재시작 때 ABORTED로 닫은 조우 (미끼 환급 대상). */
+    /** Encounter closed as ABORTED on restart (eligible for bait refund). */
     public record Aborted(UUID id, @Nullable UUID leader, @Nullable String summonItem) {}
 
     private BossRepository() {}
@@ -75,7 +78,7 @@ public final class BossRepository {
         }
     }
 
-    /** RUNNING 행만 닫는다 (이미 닫혔으면 false). */
+    /** Closes only RUNNING rows (false if already closed). */
     public static boolean endEncounter(
             Connection c, UUID id, String state, Instant endedAt, long durationMs, int partySize)
             throws SQLException {
@@ -104,7 +107,10 @@ public final class BossRepository {
         }
     }
 
-    /** 이 서버에 남은 RUNNING 조우를 ABORTED로 닫는다 (서버 비정상 종료 뒤 재시작, 10.4). 월드 보스 행은 resume을 위해 남긴다. */
+    /**
+     * Closes RUNNING encounters left on this server as ABORTED (restart after an abnormal server
+     * shutdown, 10.4). World boss rows are kept for resume.
+     */
     public static List<Aborted> abortRunning(Connection c, String server) throws SQLException {
         List<Aborted> out = new ArrayList<>();
         try (PreparedStatement ps =
@@ -136,7 +142,7 @@ public final class BossRepository {
         return out;
     }
 
-    /** 월드 보스 RUNNING 행 (resume 대상, 가장 최근 것). */
+    /** World boss RUNNING row (resume target, the most recent one). */
     public static @Nullable UUID runningWorldBoss(Connection c, String bossId) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
@@ -177,7 +183,10 @@ public final class BossRepository {
         }
     }
 
-    /** 보상 표시 (0 → 1). 이미 1이면 false — 보상 트랜잭션에서 이것부터 해서 같은 보상이 두 번 들어가지 않게 한다. */
+    /**
+     * Marks rewards (0 → 1). False if already 1 — the reward transaction does this first so the
+     * same reward is not granted twice.
+     */
     public static boolean markRewarded(Connection c, UUID encounter, UUID player)
             throws SQLException {
         try (PreparedStatement ps =
@@ -190,7 +199,7 @@ public final class BossRepository {
         }
     }
 
-    /** 월드 보스 resume: 저장된 기여도. */
+    /** World boss resume: saved contributions. */
     public static List<Contribution> participation(Connection c, UUID encounter)
             throws SQLException {
         List<Contribution> out = new ArrayList<>();
@@ -224,7 +233,7 @@ public final class BossRepository {
 
     // ------------------------------------------------------------------ boss_records
 
-    /** members JSON (UUID 문자열 배열, 파티장 먼저). */
+    /** members JSON (array of UUID strings, party leader first). */
     public static String membersJson(List<UUID> members) {
         JsonArray array = new JsonArray();
         members.forEach(m -> array.add(m.toString()));
@@ -232,9 +241,9 @@ public final class BossRepository {
     }
 
     /**
-     * 기록을 넣고 그 시즌 10위 밖을 지운다.
+     * Inserts a record and deletes those outside the top 10 for that season.
      *
-     * @return 넣은 기록의 순위 (10위 밖이면 0)
+     * @return rank of the inserted record (0 if outside the top 10)
      */
     public static int insertRecord(Connection c, BossRecord record) throws SQLException {
         try (PreparedStatement ps =
@@ -317,7 +326,7 @@ public final class BossRepository {
                 out.add(UUID.fromString(e.getAsString()));
             }
         } catch (RuntimeException e) {
-            // 형식이 틀린 행은 빈 목록
+            // Malformed rows yield an empty list
         }
         return out;
     }
@@ -336,7 +345,9 @@ public final class BossRepository {
         }
     }
 
-    /** 이미 있으면 넣지 않는다 (미끼 환급처럼 재시작마다 다시 시도하는 보상). */
+    /**
+     * Skips insertion if it already exists (rewards retried on every restart, like bait refunds).
+     */
     public static boolean insertPendingIgnore(Connection c, PendingReward reward)
             throws SQLException {
         try (PreparedStatement ps =
@@ -495,7 +506,7 @@ public final class BossRepository {
         }
     }
 
-    /** 문자열 ID → 보스 ID (형식이 틀리면 null). */
+    /** String ID → boss ID (null if malformed). */
     public static @Nullable BossId bossId(@Nullable String raw) {
         if (raw == null) {
             return null;

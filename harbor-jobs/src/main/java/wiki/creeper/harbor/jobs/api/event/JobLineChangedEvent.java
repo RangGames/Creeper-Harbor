@@ -5,7 +5,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.model.JobLine;
 
-/** 계열 변경이 커밋된 뒤 발생한다. */
+/** Fired after a line change is committed. */
 public final class JobLineChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

@@ -30,8 +30,10 @@ import wiki.creeper.harbor.npc.api.DialogService;
 import wiki.creeper.harbor.npc.api.NpcService;
 
 /**
- * Harbor-Boss (docs 20 10장): 보스 정의, 조우 수명, 경기장(field·instance·world), 보스 리그·부위 판정, 패턴 예고, 페이즈 상태
- * 기계, 최후의 줄다리기 QTE, 파티(Core PartyService 구현), 기여도, 전리품, 최단 기록, 월드 보스, 레이드 인스턴스.
+ * Harbor-Boss (docs 20 chapter 10): boss definitions, encounter lifecycle, arenas (field, instance,
+ * world), boss rigs and part hit detection, pattern telegraphs, phase state machine, final
+ * tug-of-war QTE, parties (Core PartyService implementation), contribution, loot, fastest records,
+ * world bosses, raid instances.
  */
 public final class HarborBossPlugin extends HarborModule {
 
@@ -99,12 +101,13 @@ public final class HarborBossPlugin extends HarborModule {
                             partyCommands.register(event.registrar());
                         });
 
-        // NPC(선택): 보스전 중 NPC 클릭·컷씬 막기, 레이드 입장 대화 액션 boss:enter (인자 boss)
+        // NPC (optional): block NPC clicks and cutscenes during boss fights, raid entry dialog
+        // action boss:enter (argument boss)
         if (getServer().getPluginManager().getPlugin("Harbor-Npc") != null) {
             hookNpc(api, mgr, instances);
         }
-        // Shop(선택, Boss보다 뒤에 켜짐): 보스전 중에는 코스메틱 펫·선박 장식을 숨긴다
-        // 예약 작업은 서버 시작(모든 플러그인 enable)이 끝난 뒤 첫 틱에 돈다
+        // Shop (optional, enabled after Boss): hide cosmetic pets and ship decorations during boss
+        // fights. Scheduled tasks run on the first tick after server startup (all plugins enabled)
         var _ =
                 ctx.tasks()
                         .later(
@@ -118,7 +121,7 @@ public final class HarborBossPlugin extends HarborModule {
                                 });
     }
 
-    /** Shop 클래스는 Shop이 있을 때만 불러온다. */
+    /** Shop classes are loaded only when Shop is present. */
     private static final class ShopHook {
         static void register(HarborBossPlugin plugin, EncounterManager mgr) {
             var service =

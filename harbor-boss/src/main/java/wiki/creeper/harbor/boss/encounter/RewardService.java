@@ -54,21 +54,25 @@ import wiki.creeper.harbor.season.api.TitleId;
 import wiki.creeper.harbor.season.api.WeeklyLimitService;
 
 /**
- * 전리품·고유 ID·지급 (docs 20 10.4).
+ * Loot, unique IDs and delivery (docs 20 10.4).
  *
  * <ol>
- *   <li>CLEARED 즉시 주간 횟수 확인 (WeeklyLimitService.tryConsume, 키 boss:&lt;id&gt;). 한도를 넘으면 클리어 골드의
- *       20%만
- *   <li>드롭 굴리기 (조우 시드 + UUID, 레이드 천장)
- *   <li>한 트랜잭션: boss_participation.rewarded 0 → 1, boss_reward_pending, 골드(BOSS_REWARD 원장, 참조 ID
- *       boss:&lt;조우&gt;), 천장 카운터. 원장 참조 ID·rewarded 조건·pending PK가 같은 보상의 두 번째 지급을 막는다. 트랜잭션이 실패하면
- *       주간 횟수를 되돌린다
- *   <li>메인 스레드에서 pending을 인벤토리에 넣고 PDC harbor:boss_delivered에 ID를 적은 뒤 즉시 저장, 그 뒤 delivered_at
- *   <li>다음 접속 때 delivered_at이 빈 pending은 PDC를 먼저 보고, 있으면 행만 닫고 없으면 다시 지급
+ *   <li>On CLEARED, check the weekly count immediately (WeeklyLimitService.tryConsume, key
+ *       boss:&lt;id&gt;). Over the limit, only 20% of the clear gold
+ *   <li>Roll drops (encounter seed + UUID, raid pity)
+ *   <li>One transaction: boss_participation.rewarded 0 → 1, boss_reward_pending, gold (BOSS_REWARD
+ *       ledger, reference ID boss:&lt;encounter&gt;), pity counters. The ledger reference ID, the
+ *       rewarded condition and the pending PK block a second grant of the same reward. If the
+ *       transaction fails, the weekly count is rolled back
+ *   <li>On the main thread, put pending rewards into the inventory, write the ID to PDC
+ *       harbor:boss_delivered, save immediately, then set delivered_at
+ *   <li>On the next join, pending rows with empty delivered_at check the PDC first: if present,
+ *       only the row is closed, otherwise the reward is granted again
  * </ol>
  *
- * 원장 참조 ID는 문서의 boss:&lt;조우&gt;:&lt;uuid&gt; 대신 boss:&lt;조우&gt;를 쓴다 (원장 유니크 키에 플레이어가 이미 들어 있고, 참조
- * ID는 64자 제한이라 UUID 두 개가 들어가지 않는다).
+ * The ledger reference ID uses boss:&lt;encounter&gt; instead of the documented
+ * boss:&lt;encounter&gt;:&lt;uuid&gt; (the ledger unique key already includes the player, and the
+ * reference ID is limited to 64 characters, so two UUIDs do not fit).
  */
 public final class RewardService {
 
@@ -80,7 +84,7 @@ public final class RewardService {
         this.api = mgr.api();
     }
 
-    // ------------------------------------------------------------------ 정산
+    // ------------------------------------------------------------------ Settlement
 
     void settle(
             Encounter e,
@@ -138,8 +142,9 @@ public final class RewardService {
     }
 
     /**
-     * 같은 IP 다계정: 기여도가 가장 높은 계정만 보상, 나머지는 막고 로그. 처치 전에 나간 부계정도 걸리도록 입장 때 기억한 IP를 쓰고, 없으면 지금 접속 IP를
-     * 본다.
+     * Multiple accounts on the same IP: only the account with the highest contribution is rewarded;
+     * the rest are blocked and logged. Uses the IP remembered on entry so alt accounts that left
+     * before the kill are caught too, falling back to the current connection IP.
      */
     private Set<UUID> sameIpBlocked(Encounter e, List<Contribution> contributions) {
         Map<String, UUID> best = new HashMap<>();
@@ -193,7 +198,7 @@ public final class RewardService {
         return LootRoller.gold(min, max, random);
     }
 
-    /** CLEARED 파티 보스 보상. */
+    /** Rewards for a CLEARED party boss. */
     private void rewardClear(Encounter e, Contribution c, boolean releaseOnly) {
         BossDef def = e.def;
         BossBalance bb = e.bb;
@@ -261,7 +266,7 @@ public final class RewardService {
                         try {
                             pity.put(new ItemId(HarborId.parse(k)), v);
                         } catch (IllegalArgumentException ex) {
-                            // 형식이 틀린 행은 무시
+                            // Ignore malformed rows
                         }
                     });
             double bonus = e.hasQuartermaster() ? bb.quartermasterBonus() : 0;
@@ -302,8 +307,10 @@ public final class RewardService {
         int season = SeasonServices.clock().current().value();
         SqlConsumer extra =
                 con -> {
-                    // 참가 행은 recordEnd가 따로 비동기로 쓰므로 순서가 보장되지 않는다. 여기서 먼저 넣어 두어야 markRewarded가
-                    // 행이 없어서 실패하지 않는다 (이미 있으면 같은 값으로 덮고 rewarded는 그대로)
+                    // The participation row is written separately and asynchronously by recordEnd,
+                    // so ordering is not guaranteed. Insert it here first so markRewarded does not
+                    // fail for a missing row (if it exists, it is overwritten with the same values
+                    // and rewarded is left as is)
                     BossRepository.upsertParticipation(con, e.id, season, List.of(c));
                     if (!BossRepository.markRewarded(con, e.id, uuid)) {
                         throw new LedgerException(LedgerError.REJECTED, "이미 보상한 참가자");
@@ -320,7 +327,8 @@ public final class RewardService {
                                 ok -> {
                                     if (!ok) {
                                         if (limit.consumed()) {
-                                            // 쓴 주차의 횟수를 되돌린다 (그 사이 주가 바뀌어도 새 주 횟수를 건드리지 않게)
+                                            // Refund the count of the week it was consumed in (so a
+                                            // week change in between does not touch the new week)
                                             var _ =
                                                     SeasonServices.limits()
                                                             .refund(uuid, limitKey, limit.week());
@@ -350,7 +358,7 @@ public final class RewardService {
                                 });
     }
 
-    /** 보스 장비(낚싯줄·작살 등 gear·line)면 고유 ID를 붙인다 (추가 제안). */
+    /** Attaches a unique ID to boss gear (lines, harpoons, etc.; gear/line) (proposed). */
     private @Nullable String uidFor(ItemId item) {
         return mgr.items()
                 .def(item)
@@ -366,7 +374,10 @@ public final class RewardService {
                 .orElse(null);
     }
 
-    /** 실패 참여 보상: 보스 비늘 1개, 주간 횟수 boss_fail:&lt;id&gt; (보스별 주간 한도와 같은 수까지). */
+    /**
+     * Participation reward on failure: 1 boss scale, weekly count boss_fail:&lt;id&gt; (up to the
+     * same number as the per-boss weekly limit).
+     */
     private void rewardFail(Encounter e, Contribution c, String name, BossBalance bb) {
         BossDef.Drop drop = e.def.loot().participation();
         if (drop == null) {
@@ -403,7 +414,8 @@ public final class RewardService {
                                                             0,
                                                             null,
                                                             con -> {
-                                                                // 참가 행이 아직 없을 수 있다 (grantClear 참고)
+                                                                // The participation row may not
+                                                                // exist yet (see grantClear)
                                                                 BossRepository.upsertParticipation(
                                                                         con,
                                                                         e.id,
@@ -436,7 +448,10 @@ public final class RewardService {
                                 });
     }
 
-    /** 월드 보스 보상: '등대를 밝힌 자' 칭호(참조 ID worldboss:&lt;이벤트&gt;), 항구 평판, 골드. */
+    /**
+     * World boss rewards: 'Lighthouse Kindler' title (reference ID worldboss:&lt;event&gt;), harbor
+     * reputation, gold.
+     */
     private void rewardWorld(Encounter e, Contribution c) {
         BossDef def = e.def;
         UUID uuid = c.player();
@@ -459,9 +474,10 @@ public final class RewardService {
     }
 
     /**
-     * 골드(있으면)와 추가 SQL을 한 트랜잭션으로. 결과 future는 메인 스레드에서 성공 여부로 완료된다.
+     * Gold (if any) and extra SQL in one transaction. The result future completes on the main
+     * thread with whether it succeeded.
      *
-     * @param refId 원장 참조 ID (골드가 0이면 쓰지 않음)
+     * @param refId ledger reference ID (unused if gold is 0)
      */
     private CompletableFuture<Boolean> commit(
             UUID player, long gold, @Nullable String refId, SqlConsumer extra) {
@@ -510,7 +526,7 @@ public final class RewardService {
         return done;
     }
 
-    // ------------------------------------------------------------------ 기록·공지
+    // ------------------------------------------------------------------ Records and announcements
 
     private void record(Encounter e, EncounterInfo info, long durationMs, Instant clearedAt) {
         int season = SeasonServices.clock().current().value();
@@ -599,13 +615,15 @@ public final class RewardService {
                         new Channels.Announcement(MiniMessage.miniMessage().serialize(msg)));
     }
 
-    // ------------------------------------------------------------------ 미끼 환급
+    // ------------------------------------------------------------------ Bait refunds
 
     /**
-     * 재시작 복구: ABORTED로 닫는 트랜잭션 안에서 소환자에게 미끼를 pending으로 넣는다 (이미 넣었으면 다시 넣지 않음). 따로 하면 닫은 뒤 환급 전에
-     * 실패했을 때 다시 시도할 근거(RUNNING 행)가 사라진다. 블로킹이라 DB 스레드에서 부른다.
+     * Restart recovery: inside the transaction that closes the encounter as ABORTED, inserts the
+     * bait for the summoner as pending (not inserted again if already there). Done separately, a
+     * failure after closing but before the refund would remove the basis for a retry (the RUNNING
+     * row). Blocking, so call it on a DB thread.
      *
-     * @return 환급을 넣었으면 소환자, 아니면 null
+     * @return the summoner if a refund was inserted, otherwise null
      */
     @Nullable UUID refundBaitInTx(Connection c, BossRepository.Aborted a) throws SQLException {
         UUID leader = a.leader();
@@ -624,7 +642,7 @@ public final class RewardService {
         return leader;
     }
 
-    /** 미끼를 이미 뺐으면 pending으로 돌려준다 (출발 중 종료·ABORTED). */
+    /** Refunds the bait via pending if it was already taken (end during departure, ABORTED). */
     void refundIfTaken(Encounter e) {
         ItemId item = e.summonItem;
         if (e.baitTaken && item != null) {
@@ -632,7 +650,7 @@ public final class RewardService {
         }
     }
 
-    /** 재시작 복구 트랜잭션에서 넣은 환급을 알리고 지급한다 (접속 중일 때). */
+    /** Announces and delivers a refund inserted by the restart recovery transaction (if online). */
     void notifyRefund(UUID leader) {
         Player p = Bukkit.getPlayer(leader);
         if (p != null) {
@@ -668,12 +686,13 @@ public final class RewardService {
                         List.of(new PendingReward.Entry("item", item.toString(), 1, null))));
     }
 
-    // ------------------------------------------------------------------ 지급
+    // ------------------------------------------------------------------ Delivery
 
     /**
-     * 미지급 보상 지급 (4·5단계). PDC에 이미 있는 ID는 행만 닫는다. 인벤토리가 모자라면 남겨 두고 /boss claim으로 다시 받게 한다.
+     * Delivers unclaimed rewards (steps 4-5). IDs already in the PDC only close their row. If the
+     * inventory is short on space, the rest stays to be claimed again with /boss claim.
      *
-     * @param notifyEmpty 받을 것이 없을 때도 알릴지 (/boss claim)
+     * @param notifyEmpty whether to notify even when there is nothing to receive (/boss claim)
      */
     public void deliverPending(Player player, boolean notifyEmpty) {
         UUID uuid = player.getUniqueId();
@@ -753,9 +772,12 @@ public final class RewardService {
             api.messages().send(player, "boss.reward.inventory_full");
         }
         if (!close.isEmpty()) {
-            // 지급한 아이템과 PDC 표시를 먼저 저장한 뒤 DB 보상 행을 닫는다. 반대 순서면 닫은 뒤 서버가 죽었을 때 인벤토리가 지급 전으로
-            // 돌아가 보상이 사라진다. 저장이 실패하면 행을 열어 두고, 다음 지급 때 PDC 표시(메모리에 있으면)나 재지급으로 처리된다.
-            // 바닐라 saveData()는 Harbor 저장본이 원본이라 소용없다
+            // Save the delivered items and PDC marker first, then close the DB reward rows. In the
+            // reverse order, if the server died after closing, the inventory would roll back to
+            // before delivery and the rewards would be lost. If the save fails, the rows stay open
+            // and the next delivery handles them via the PDC marker (if in memory) or by granting
+            // again. Vanilla saveData() does not help because the Harbor save is the source of
+            // truth
             UUID uuid = player.getUniqueId();
             var _ =
                     api.players()
@@ -827,7 +849,7 @@ public final class RewardService {
         return out;
     }
 
-    /** 인벤토리에 다 들어가는지 (빈 칸 수로 보수적으로 본다). */
+    /** Whether everything fits in the inventory (judged conservatively by empty slot count). */
     private static boolean fits(Player player, List<ItemStack> stacks) {
         int empty = 0;
         for (ItemStack s : player.getInventory().getStorageContents()) {

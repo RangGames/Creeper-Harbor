@@ -4,7 +4,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.boss.api.WorldBossStatus;
 
-/** 월드 보스 25% 단위 단계 진입 (75·50·25%, 공지·하늘 연출). 실행 서버에서만, 메인 스레드. */
+/**
+ * World boss entered a 25% stage (75/50/25%, announcements and sky effects). Only on the running
+ * server, main thread.
+ */
 public final class WorldBossProgressEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -21,7 +24,7 @@ public final class WorldBossProgressEvent extends Event {
         return status;
     }
 
-    /** 1 = 75% 이하, 2 = 50% 이하, 3 = 25% 이하. */
+    /** 1 = 75% or less, 2 = 50% or less, 3 = 25% or less. */
     public int stage() {
         return stage;
     }

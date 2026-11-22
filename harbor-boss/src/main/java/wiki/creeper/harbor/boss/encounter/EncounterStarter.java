@@ -22,7 +22,10 @@ import wiki.creeper.harbor.common.id.BossId;
 import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.rig.Vec3;
 
-/** 조우 시작 (docs 20 10.4 1~2단계): 소환 조건 검사·슬롯 고르기·소환 쿨타임, 필드·인스턴스·월드 보스 조우 생성. 메인 스레드 전용. */
+/**
+ * Encounter start (docs 20 10.4 steps 1-2): summon checks, slot selection, summon cooldown, and
+ * creation of field, instance and world boss encounters. Main thread only.
+ */
 final class EncounterStarter {
 
     private final EncounterManager mgr;
@@ -48,7 +51,10 @@ final class EncounterStarter {
         return out;
     }
 
-    /** 소환 미끼 사용 (docs 20 10.4 1단계). 조건: 파티 인원 min~max, 전원 경기장 반경 안, 슬롯 여유, 점검 중 아님. */
+    /**
+     * Summon bait use (docs 20 10.4 step 1). Conditions: party size min-max, everyone within the
+     * arena radius, a free slot, not under maintenance.
+     */
     StartResult trySummon(Player leader, BossDef def) {
         if (def.arena().mode() != BossDef.ArenaMode.FIELD) {
             return StartResult.WRONG_SERVER;
@@ -101,7 +107,7 @@ final class EncounterStarter {
         if (world.isEmpty() || !world.get().equals(near.getWorld())) {
             return forced ? StartResult.WRONG_SERVER : StartResult.OUT_OF_RANGE;
         }
-        // 가장 가까운 빈 슬롯
+        // Nearest free slot
         int best = -1;
         double bestDist = Double.MAX_VALUE;
         List<BossDef.Slot> slots = def.arena().slots();
@@ -150,7 +156,7 @@ final class EncounterStarter {
         return r;
     }
 
-    /** 인스턴스 서버: 도착한 파티로 레이드 시작 (InstanceManager). */
+    /** Instance server: starts a raid with the arrived party (InstanceManager). */
     StartResult startInstance(
             BossDef def,
             int slot,
@@ -179,7 +185,7 @@ final class EncounterStarter {
         return r;
     }
 
-    /** 월드 보스 시작 (WorldBossManager). 준비 단계 없이 바로 등장. */
+    /** World boss start (WorldBossManager). Spawns immediately without a preparation stage. */
     @Nullable Encounter startWorld(BossDef def, UUID eventId, Location center, long seed) {
         BossBalance bb = mgr.balance();
         Encounter e =
@@ -258,7 +264,7 @@ final class EncounterStarter {
         return false;
     }
 
-    /** 인스턴스 칸 사용 중 여부. */
+    /** Whether an instance cell is in use. */
     boolean instanceSlotBusy(int slot) {
         for (Encounter e : mgr.active()) {
             if (e.def.arena().mode() == BossDef.ArenaMode.INSTANCE && e.slot == slot) {
@@ -268,7 +274,7 @@ final class EncounterStarter {
         return false;
     }
 
-    /** 지난 소환 쿨타임을 지운다 (1분마다). */
+    /** Clears expired summon cooldowns (every minute). */
     void purgeCooldowns(long now) {
         summonCooldown.values().removeIf(t -> t < now);
     }

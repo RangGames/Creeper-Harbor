@@ -41,10 +41,12 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.api.FishingService;
 
 /**
- * 조우 수명 관리 (docs 20 10.4 EncounterManager). 소환 조건 검사 → 준비 → 시작 기록 → 매 틱 진행 → 종료 판정 → 결과·보상 → 정리. 시작
- * 검사는 {@link EncounterStarter}, DB 기록은 {@link EncounterRecorder}, 결과 화면은 {@link EncounterResults},
- * 부위 판정(작살 궤적)은 {@link HarpoonTracker}, 입력(QTE·선장)·이탈·재접속·낙수 리스너는 {@link #listener()}에 있다. {@link
- * BossService} 구현. 메인 스레드 전용.
+ * Encounter lifecycle management (docs 20 10.4 EncounterManager). Summon checks → preparation →
+ * start record → per-tick progress → end detection → results and rewards → cleanup. Start checks
+ * live in {@link EncounterStarter}, DB records in {@link EncounterRecorder}, the result screen in
+ * {@link EncounterResults}, part hit detection (harpoon trajectory) in {@link HarpoonTracker}, and
+ * input (QTE, captain), leaving, rejoin and falling-into-water listeners in {@link #listener()}.
+ * Implements {@link BossService}. Main thread only.
  */
 public final class EncounterManager implements BossService {
 
@@ -53,7 +55,7 @@ public final class EncounterManager implements BossService {
             new PlayerComponent<>(
                     "boss_profile", BossRepository::loadProfile, BossRepository::saveProfile);
 
-    /** 클릭 대상 바인딩. */
+    /** Click target binding. */
     record Click(Encounter encounter, Encounter.ClickKind kind, int index) {}
 
     private final HarborApi api;
@@ -78,7 +80,7 @@ public final class EncounterManager implements BossService {
     private @Nullable InstanceHooks instanceHooks;
     private long tick;
 
-    /** 월드 보스 연결 (WorldBossManager). */
+    /** World boss link (WorldBossManager). */
     public interface WorldHooks {
         void stage(EncounterInfo info, int stage, int participants, double percent);
 
@@ -87,7 +89,7 @@ public final class EncounterManager implements BossService {
         void ended(EncounterInfo info, EncounterState result);
     }
 
-    /** 인스턴스 연결 (InstanceManager). */
+    /** Instance link (InstanceManager). */
     public interface InstanceHooks {
         void ended(UUID encounter, Map<UUID, String> origins, Collection<UUID> members);
 
@@ -120,7 +122,10 @@ public final class EncounterManager implements BossService {
         recorder.recover();
     }
 
-    /** 조우 이벤트 리스너 (작살 투척·소환·클릭·입력·낙수·접속·퇴장·리로드). 플러그인이 등록한다. */
+    /**
+     * Encounter event listener (harpoon throw, summon, click, input, falling into water, join,
+     * quit, reload). Registered by the plugin.
+     */
     public Listener listener() {
         return listener;
     }
@@ -133,8 +138,8 @@ public final class EncounterManager implements BossService {
         this.instanceHooks = hooks;
     }
 
-    // ------------------------------------------------------------------ 공용
-    // (Encounter·RewardService·협력 객체)
+    // ------------------------------------------------------------------ Shared
+    // (Encounter, RewardService, collaborators)
 
     HarborApi api() {
         return api;
@@ -188,12 +193,15 @@ public final class EncounterManager implements BossService {
         return new BossBalance(api.content().snapshot().single(Balance.TYPE));
     }
 
-    /** 진행 중 조우 (복사하지 않은 보기, 읽기 전용으로만 쓴다). */
+    /** Running encounters (an uncopied view, use read-only). */
     Collection<Encounter> active() {
         return byId.values();
     }
 
-    /** 새 조우를 등록한다 (EncounterStarter). 참가자 연결은 {@link #bind}로 따로 한다. */
+    /**
+     * Registers a new encounter (EncounterStarter). Participants are linked separately via {@link
+     * #bind}.
+     */
     void register(Encounter e) {
         byId.put(e.id, e);
     }
@@ -273,14 +281,17 @@ public final class EncounterManager implements BossService {
         return true;
     }
 
-    // ------------------------------------------------------------------ 시작 (EncounterStarter)
+    // ------------------------------------------------------------------ Start (EncounterStarter)
 
-    /** 소환 미끼 사용 (docs 20 10.4 1단계). 조건: 파티 인원 min~max, 전원 경기장 반경 안, 슬롯 여유, 점검 중 아님. */
+    /**
+     * Summon bait use (docs 20 10.4 step 1). Conditions: party size min-max, everyone within the
+     * arena radius, a free slot, not under maintenance.
+     */
     StartResult trySummon(Player leader, BossDef def) {
         return starter.trySummon(leader, def);
     }
 
-    /** 인스턴스 서버: 도착한 파티로 레이드 시작 (InstanceManager). */
+    /** Instance server: starts a raid with the arrived party (InstanceManager). */
     public StartResult startInstance(
             BossDef def,
             int slot,
@@ -291,17 +302,17 @@ public final class EncounterManager implements BossService {
         return starter.startInstance(def, slot, center, leader, party, origins);
     }
 
-    /** 월드 보스 시작 (WorldBossManager). 준비 단계 없이 바로 등장. */
+    /** World boss start (WorldBossManager). Spawns immediately without a preparation stage. */
     public @Nullable Encounter startWorld(BossDef def, UUID eventId, Location center, long seed) {
         return starter.startWorld(def, eventId, center, seed);
     }
 
-    /** 인스턴스 칸 사용 중 여부. */
+    /** Whether an instance cell is in use. */
     public boolean instanceSlotBusy(int slot) {
         return starter.instanceSlotBusy(slot);
     }
 
-    // ------------------------------------------------------------------ Encounter 콜백
+    // ------------------------------------------------------------------ Encounter callbacks
 
     void rememberRole(UUID player, BossRole role) {
         api.players()
@@ -309,7 +320,10 @@ public final class EncounterManager implements BossService {
                 .ifPresent(h -> h.set(PROFILE, h.get(PROFILE).withPreferred(role)));
     }
 
-    /** boss_encounter RUNNING 행을 비동기로 쓴다. 결과 future는 메인 스레드에서 완료된다. */
+    /**
+     * Writes the boss_encounter RUNNING row asynchronously. The result future completes on the main
+     * thread.
+     */
     CompletableFuture<Void> recordStart(Encounter e) {
         return recorder.recordStart(e);
     }
@@ -335,7 +349,10 @@ public final class EncounterManager implements BossService {
         clicks.remove(entity.getUniqueId());
     }
 
-    /** 조우 중 경기장 청크에 플러그인 청크 티켓을 건다 (언로드 방지, 10.4). 여러 조우가 같은 청크를 쓰면 센다. */
+    /**
+     * Adds plugin chunk tickets to arena chunks during an encounter (prevents unloading, 10.4).
+     * Counted when several encounters use the same chunk.
+     */
     void chunkHold(Encounter e, boolean hold) {
         chunkTickets.hold(e, hold);
     }
@@ -354,7 +371,10 @@ public final class EncounterManager implements BossService {
         }
     }
 
-    /** 출발 전에 끝남 (미끼 없음·관리자 종료). 보상·기록은 없고, 출발 중이라 미끼를 이미 뺐으면 돌려준다. */
+    /**
+     * Ended before departure (no bait, admin end). No rewards or records; if the bait was already
+     * taken during departure, it is refunded.
+     */
     void finishEarly(Encounter e, String messageKey) {
         rewards.refundIfTaken(e);
         e.broadcast(messageKey);
@@ -364,8 +384,8 @@ public final class EncounterManager implements BossService {
     }
 
     /**
-     * 종료 (docs 20 10.4 6단계): 결과 기록 → BossEncounterEndEvent → 결과 화면 → 보상 트랜잭션 → 리그·Interaction 제거 →
-     * 세계 경계 원복.
+     * End (docs 20 10.4 step 6): record the result → BossEncounterEndEvent → result screen → reward
+     * transaction → remove rig and Interactions → restore the world border.
      */
     void finish(Encounter e, EncounterState result, String cause) {
         if (e.finished()) {
@@ -401,7 +421,8 @@ public final class EncounterManager implements BossService {
                                 e.def.story()));
         int size = contributions.size();
         recorder.recordEnd(e, result, endedAt, durationMs, contributions);
-        // 결과 화면·연출은 꾸밈이라 예외가 나도 보상·후속 처리를 막지 않게 한다
+        // The result screen and effects are cosmetic, so an exception there must not block rewards
+        // or follow-up handling
         try {
             results.showResult(e, result, contributions);
             results.playOutro(e, result);
@@ -411,7 +432,8 @@ public final class EncounterManager implements BossService {
         try {
             rewards.settle(e, info, result, contributions, durationMs, endedAt, releaseOnly);
         } catch (RuntimeException ex) {
-            // 인스턴스 귀환·월드 보스 정리 훅은 그래도 돌려야 플레이어가 경기장에 남지 않는다
+            // The instance return and world boss cleanup hooks must still run so players are not
+            // left in the arena
             log.error("보스 보상 정산 오류 {}", e.id, ex);
         }
         if (e.def.isWorld()) {
@@ -441,7 +463,7 @@ public final class EncounterManager implements BossService {
         return String.format("%d:%02d.%d", s / 60, s % 60, (ms % 1000) / 100);
     }
 
-    // ------------------------------------------------------------------ 틱
+    // ------------------------------------------------------------------ Tick
 
     private void tick() {
         tick++;
@@ -465,13 +487,16 @@ public final class EncounterManager implements BossService {
         }
     }
 
-    // ------------------------------------------------------------------ 종료
+    // ------------------------------------------------------------------ End
 
-    /** 서버 종료 → ABORTED (미끼는 pending으로 돌려준다). 종료 중이라 DB를 바로 쓴다. */
+    /**
+     * Server shutdown → ABORTED (bait refunded via pending). Writes to the DB directly since the
+     * server is shutting down.
+     */
     public void shutdown() {
         for (Encounter e : List.copyOf(byId.values())) {
             if (e.def.isWorld()) {
-                // 월드 보스는 resume을 위해 RUNNING으로 남긴다
+                // World bosses are left RUNNING for resume
                 e.cleanup();
                 continue;
             }
@@ -484,13 +509,13 @@ public final class EncounterManager implements BossService {
         harpoons.clear();
     }
 
-    /** 준비 단계 역할 선택 (/보스 역할). 준비 중인 조우가 없으면 false. */
+    /** Role selection during preparation (/boss role). False if no encounter is in preparation. */
     public boolean chooseRole(UUID player, BossRole role) {
         Encounter e = byPlayer.get(player);
         return e != null && e.chooseRole(player, role);
     }
 
-    /** 이동 차단 (HandoffBlocker "encounter"). */
+    /** Move blocking (HandoffBlocker "encounter"). */
     public boolean blocksHandoff(Player p) {
         Encounter e = byPlayer.get(p.getUniqueId());
         if (e == null || e.finished()) {
