@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `20-plugin-modules.md`: 모듈별 상세 설계. 0장 "모듈 간 조정 사항"에 소유권, 0.2 Core 추가 API, 0.3 의존 방향, 결정 사항 D1~D14가 있다
 - `14-data-design.md`: ID 규칙, 콘텐츠 YAML 필드, DB 테이블, Redis 채널
 - `10-balance.md`: 수치. 코드에 수치를 박지 않고 `content/balance.yml`로 뺀다
-- 문서에 없는 테이블·필드·수치를 만들면 주석에 "(추가 제안)" 또는 "제안값"으로 표시한다 (docs 20의 관례)
+- 문서에 없는 테이블·필드·수치를 만들면 주석에 "(proposed)" 또는 "proposed value"로 표시한다 (docs 20의 "(추가 제안)"/"제안값" 관례를 영어 주석으로 옮긴 것)
 
 ## 빌드·실행
 
@@ -97,4 +97,6 @@ Purpur 게임 모듈 11개와 Common·Core·Proxy·tools가 모두 있고 전체
 ## 작업 규칙
 
 - 커밋 메시지는 영어로 쓴다.
+- 코드 주석(Java·Kotlin 스크립트·SQL·플러그인 리소스 YAML)은 영어로 쓴다. 문구(messages_ko.yml)·로그·검증 오류 문자열은 주석이 아니므로 그대로 둔다. content/*.yml의 디자이너용 주석은 한국어를 유지한다.
+- 한 파일이 600줄을 넘으면 성격이 같은 클래스로 나눈다 (같은 패키지의 package-private 도우미, 명령은 하위 명령 묶음별, 콘텐츠 정의는 파서 분리). 모듈 api 패키지의 공개 시그니처는 바꾸지 않는다.
 - 공개 저장소다. 로컬 경로, 개인 환경, 개인 정보를 코드·문서·커밋에 넣지 않는다.
