@@ -13,8 +13,10 @@ import org.bukkit.event.Event;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Lambda expression of any return type, with an optional changer (set · add · remove · reset ·
- * delete). Registered through {@link Ext#expr}.
+ * Lambda expression of any return type (Location, ItemStack, Number …), optionally a list, with an
+ * optional changer (set · add · remove · reset · delete) and access to the parse mark. Registered
+ * through {@link Ext#expr}. The getter and changer take either a {@link Ctx} or the raw {@code
+ * (event, exprs)} pair ({@link Spec.Getter}, {@link ValueChanger}).
  */
 public final class ExtExpr<T> extends SimpleExpression<T> {
 
@@ -38,6 +40,16 @@ public final class ExtExpr<T> extends SimpleExpression<T> {
     @FunctionalInterface
     public interface Changer {
         void change(Ctx ctx, Object @Nullable [] delta, ChangeMode mode);
+    }
+
+    /**
+     * Applies a change given the first delta value (null for reset and delete). See {@link
+     * Ext.ExprBuilder#valueChanger} and {@link Ext.ExprBuilder#valueChangerNullable} for when it is
+     * called without a value.
+     */
+    @FunctionalInterface
+    public interface ValueChanger {
+        void change(Event event, Expression<?>[] exprs, ChangeMode mode, @Nullable Object value);
     }
 
     /** Settings shared by every instance Skript creates for one registration. */

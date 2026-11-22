@@ -35,6 +35,11 @@ public final class Ctx {
         return event;
     }
 
+    /** The raw parsed arguments (for {@link Spec.Getter}-style lambdas). */
+    Expression<?>[] exprs() {
+        return exprs;
+    }
+
     /** Matched pattern index (for conditions: the positive/negative pair index). */
     public int pattern() {
         return pattern;

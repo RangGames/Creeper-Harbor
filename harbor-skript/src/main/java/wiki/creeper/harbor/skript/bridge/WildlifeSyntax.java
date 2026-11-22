@@ -20,9 +20,9 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.core.api.Harbor;
 import wiki.creeper.harbor.skript.Ids;
 import wiki.creeper.harbor.skript.lambda.Args;
+import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
-import wiki.creeper.harbor.skript.lambda.ValueExpr;
 import wiki.creeper.harbor.wildlife.api.ScriptedBehaviour;
 import wiki.creeper.harbor.wildlife.api.WildFish;
 import wiki.creeper.harbor.wildlife.api.WildHit;
@@ -126,7 +126,8 @@ public final class WildlifeSyntax {
                 (e, x) -> wildlife().map(w -> List.<Number>of(w.count())).orElse(List.of()),
                 "[the] harbor wild fish count",
                 "[the] (number|amount) of harbor wild fish");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.single("harbor wild fish near"),
                         (e, x) -> {
@@ -142,7 +143,6 @@ public final class WildlifeSyntax {
                         })
                 .list()
                 .register(
-                        r,
                         "[all] [the] harbor wild fish (near|around) %location% [within %-number%"
                                 + " [blocks]]");
         r.text(
@@ -197,11 +197,8 @@ public final class WildlifeSyntax {
                 Spec.of("harbor wild species entry"),
                 perFish(f -> f.species().toString()),
                 "[the] harbor wild species entry of %strings%");
-        ValueExpr.builder(
-                        Location.class,
-                        Spec.of("harbor wild location"),
-                        perFish(WildFish::location))
-                .register(r, "[the] harbor wild location of %strings%");
+        Ext.expr(r, Location.class, Spec.of("harbor wild location"), perFish(WildFish::location))
+                .register("[the] harbor wild location of %strings%");
         r.text(
                 Spec.of("harbor wild state"),
                 perFish(f -> f.state().name().toLowerCase(Locale.ROOT)),

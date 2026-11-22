@@ -36,7 +36,6 @@ import wiki.creeper.harbor.skript.lambda.Ctx;
 import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
-import wiki.creeper.harbor.skript.lambda.ValueExpr;
 
 /**
  * When Harbor-Quest is enabled: quest state, active quests and their objectives/progress, accept ·
@@ -47,7 +46,7 @@ import wiki.creeper.harbor.skript.lambda.ValueExpr;
  * type or one registered by another module). Scripts do not register new types: the content check
  * runs before Skript, so an unknown type fails the check.
  *
- * <p>Server progress comes from an async API and is eventually consistent ({@link LatestValues}).
+ * <p>Server progress comes from an async API and is eventually consistent ({@link AsyncCache}).
  * Admin mutations ({@code harbor admin complete · reset · set ...}) go through the QuestService
  * admin API (same rules as {@code /harbor quest}) and are awaiting effects.
  */
@@ -55,11 +54,11 @@ public final class QuestSyntax {
 
     private QuestSyntax() {}
 
-    private static final LatestValues<Integer, Long> CHAPTER_CLEARS =
-            new LatestValues<>(
+    private static final AsyncCache<Integer, Long> CHAPTER_CLEARS =
+            AsyncCache.every(
                     30_000, chapter -> progress().orElseThrow().chapterClearCount(chapter));
-    private static final LatestValues<Boolean, ServerProgressService.ClimaxStatus> CLIMAX =
-            new LatestValues<>(30_000, k -> progress().orElseThrow().climaxStatus());
+    private static final AsyncCache<Boolean, ServerProgressService.ClimaxStatus> CLIMAX =
+            AsyncCache.every(30_000, k -> progress().orElseThrow().climaxStatus());
 
     private static Optional<QuestService> quests() {
         return Harbor.api().service(QuestService.class);
@@ -101,7 +100,7 @@ public final class QuestSyntax {
 
     private static <T> Spec.Getter<T> climax(
             Function<ServerProgressService.ClimaxStatus, @Nullable T> value) {
-        return (e, x) -> CLIMAX.get(true).map(c -> Args.one(value.apply(c))).orElse(List.of());
+        return (e, x) -> CLIMAX.latest(true).map(c -> Args.one(value.apply(c))).orElse(List.of());
     }
 
     private static <T> Spec.Getter<T> rewards(Function<QuestRewardSummary, @Nullable T> value) {
@@ -155,7 +154,8 @@ public final class QuestSyntax {
                                                         p -> s.active(p.getUniqueId()).size()))
                                 .orElse(List.of()),
                 "[the] (number|amount) of active harbor quests of %players%");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.of("active harbor quests"),
                         (e, x) -> {
@@ -171,7 +171,7 @@ public final class QuestSyntax {
                             return out;
                         })
                 .list()
-                .register(r, "[all] [the] active harbor quests of %players%");
+                .register("[all] [the] active harbor quests of %players%");
         r.condition(
                 Spec.of("harbor quest completed"),
                 (e, x) -> {
@@ -195,7 +195,8 @@ public final class QuestSyntax {
                 Spec.of("harbor quest cycle"),
                 perView(QuestView::cycle),
                 "[the] harbor quest cycle of %players% for [quest] %string%");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.of("harbor quest objectives"),
                         (e, x) -> {
@@ -215,8 +216,7 @@ public final class QuestSyntax {
                             return out;
                         })
                 .list()
-                .register(
-                        r, "[all] [the] harbor quest objectives of %players% for [quest] %string%");
+                .register("[all] [the] harbor quest objectives of %players% for [quest] %string%");
         r.number(
                 Spec.of("harbor quest progress"),
                 (e, x) -> {
@@ -236,7 +236,8 @@ public final class QuestSyntax {
                 },
                 "[the] harbor quest progress of %players% for [quest] %string% [objective]"
                         + " %string%");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.single("harbor quest objective types"),
                         (e, x) ->
@@ -246,14 +247,14 @@ public final class QuestSyntax {
                                                 t -> t.types().stream().sorted().toList())
                                         .orElse(List.of()))
                 .list()
-                .register(r, "[all] [the] harbor quest objective types");
+                .register("[all] [the] harbor quest objective types");
 
         // Server progress (async, last fetched value)
         r.number(
                 Spec.single("harbor chapter clears"),
                 (e, x) ->
                         Args.number(e, x, 0)
-                                .flatMap(n -> CHAPTER_CLEARS.get(n.intValue()))
+                                .flatMap(n -> CHAPTER_CLEARS.latest(n.intValue()))
                                 .map(c -> List.<Number>of(c))
                                 .orElse(List.of()),
                 "[the] harbor chapter %number% clear count");
@@ -279,7 +280,7 @@ public final class QuestSyntax {
                 "[the] harbor climax active players");
         r.condition(
                 Spec.single("harbor climax ready"),
-                (e, x) -> CLIMAX.get(true).map(c -> c.ready() || c.flagged()).orElse(false),
+                (e, x) -> CLIMAX.latest(true).map(c -> c.ready() || c.flagged()).orElse(false),
                 "harbor climax is ready",
                 "harbor climax (isn't|is not) ready");
     }
@@ -362,7 +363,8 @@ public final class QuestSyntax {
     // ------------------------------------------------------------------ tracking · goals · admin
 
     private static void registerAdmin(Registrar r) {
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.of("harbor tracked quest"),
                         (e, x) ->
@@ -378,7 +380,7 @@ public final class QuestSyntax {
                                                                                                 ::toString)
                                                                                 .orElse(null)))
                                         .orElse(List.of()))
-                .changer(
+                .valueChanger(
                         String.class,
                         (e, x, mode, v) -> {
                             Optional<QuestService> s = quests();
@@ -398,7 +400,7 @@ public final class QuestSyntax {
                         ChangeMode.SET,
                         ChangeMode.DELETE,
                         ChangeMode.RESET)
-                .register(r, "[the] harbor tracked quest of %players%");
+                .register("[the] harbor tracked quest of %players%");
         r.number(
                 Spec.of("harbor quest goal"),
                 (e, x) -> {
@@ -590,7 +592,8 @@ public final class QuestSyntax {
     // ------------------------------------------------------------------ chronicle
 
     private static void registerChronicle(Registrar r) {
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.of("harbor chronicle pieces"),
                         (e, x) -> {
@@ -606,7 +609,7 @@ public final class QuestSyntax {
                             return out;
                         })
                 .list()
-                .register(r, "[all] [the] harbor chronicle pieces of %players%");
+                .register("[all] [the] harbor chronicle pieces of %players%");
         r.number(
                 Spec.of("harbor chronicle piece count"),
                 (e, x) ->
@@ -715,7 +718,8 @@ public final class QuestSyntax {
                 Spec.in("harbor quest reward chronicle", QuestCompletedEvent.class),
                 rewards(QuestRewardSummary::chronicle),
                 "[the] harbor quest reward chronicle [piece]");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.in("harbor quest reward items", QuestCompletedEvent.class),
                         (e, x) ->
@@ -723,7 +727,7 @@ public final class QuestSyntax {
                                         ? c.rewards().items()
                                         : List.of())
                 .list()
-                .register(r, "[all] [the] harbor quest reward items");
+                .register("[all] [the] harbor quest reward items");
 
         r.event(
                 "Harbor Quest Abandon",

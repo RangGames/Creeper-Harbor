@@ -68,7 +68,7 @@ public final class BossSyntax {
 
     /** Records: key = boss ID + "|" + season (0 = all seasons). */
     private static final AsyncCache<String, List<BossRecord>> RECORDS =
-            new AsyncCache<>(
+            AsyncCache.ttlFromBalance(
                     k -> {
                         int bar = k.indexOf('|');
                         BossId id = BossId.parse(k.substring(0, bar));
