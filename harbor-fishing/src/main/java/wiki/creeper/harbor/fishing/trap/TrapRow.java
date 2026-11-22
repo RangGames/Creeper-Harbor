@@ -6,7 +6,10 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RegionId;
 
-/** traps 행 (docs 14 3장 + 3.2 추가 열). 변경 불가 사본이라 어느 스레드에서 읽어도 된다. */
+/**
+ * traps row (docs 14 chapter 3 + 3.2 extra columns). An immutable copy, so it can be read from any
+ * thread.
+ */
 public record TrapRow(
         long id,
         UUID owner,

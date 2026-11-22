@@ -39,7 +39,8 @@ import wiki.creeper.harbor.fishing.roll.RollModifiers;
 import wiki.creeper.harbor.fishing.sea.SeaEventBook;
 
 /**
- * 낚시 판정 입력 (지역 키, 시간·날씨·달, 판정 보정, 낚싯대·미끼 수치). FishingManager가 등록받은 도감·지역 키 구현을 들고 있다. 메인 스레드 전용.
+ * Fishing roll inputs (region key, time/weather/moon, roll modifiers, rod and bait values). Holds
+ * the codex and region key implementations registered with FishingManager. Main thread only.
  */
 final class CastContext {
 
@@ -78,7 +79,8 @@ final class CastContext {
     }
 
     /**
-     * 위치의 지역 (regions.yml 경계). 월드 이름은 balance.yml world_alias로 harbor_main 등에 대응시킬 수 있다 (개발 서버용).
+     * Region of a location (regions.yml bounds). World names can be mapped to harbor_main etc. via
+     * balance.yml world_alias (for development servers).
      */
     Optional<RegionDef> regionAt(Location loc) {
         World world = loc.getWorld();
@@ -96,7 +98,10 @@ final class CastContext {
                 .findFirst();
     }
 
-    /** 찌 위치의 지역 키. World가 등록한 RegionKeyResolver가 먼저, 없으면 regions.yml. */
+    /**
+     * Region key at the bobber location. The RegionKeyResolver registered by World first, otherwise
+     * regions.yml.
+     */
     Optional<RegionKeyResolver.RegionKey> regionKey(Location bobber) {
         RegionKeyResolver resolver = regionResolver;
         if (resolver != null) {
@@ -152,7 +157,7 @@ final class CastContext {
                                         .filter(f -> f.grade() == Grade.MYTHIC)));
     }
 
-    /** 판정 보정 (범주 곱, '7. 밸런스 기획' 4.2). */
+    /** Roll modifiers (category product, "7. Balance design" 4.2). */
     RollModifiers modifiers(UUID uuid, Map<String, Double> gearStats, RegionId region) {
         GradeBonus.Sum rare = categorySum(uuid, "rare_weight");
         rare.add(GradeBonus.Category.BAIT, gearStats.getOrDefault("rare_weight", 0.0));
@@ -195,7 +200,7 @@ final class CastContext {
         return api.modifiers().value(uuid, StatKey.of(key));
     }
 
-    /** 왼손 미끼 (ItemDef type: bait). */
+    /** Off-hand bait (ItemDef type: bait). */
     @Nullable ItemId equippedBait(Player player) {
         return itemDef(player.getInventory().getItemInOffHand())
                 .filter(d -> d.type() == ItemDef.Type.BAIT)
@@ -214,7 +219,7 @@ final class CastContext {
                 .flatMap(p -> api.content().snapshot().get(ItemDef.TYPE, p.id().id()));
     }
 
-    /** 낚싯대(오른손) + 미끼(왼손)의 stats 합. */
+    /** Sum of the stats of the rod (main hand) + bait (off hand). */
     Map<String, Double> gearStats(Player player) {
         Map<String, Double> sum = new HashMap<>();
         itemDef(player.getInventory().getItemInMainHand())

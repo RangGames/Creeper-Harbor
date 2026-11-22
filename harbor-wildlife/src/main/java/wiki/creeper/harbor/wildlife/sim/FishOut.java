@@ -5,15 +5,16 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.wildlife.api.WildState;
 
 /**
- * 한 주기 계산 결과 (개체 하나). 메인 스레드가 리그에 반영한다.
+ * Result of one simulation step (one fish). The main thread applies it to the rig.
  *
- * @param animation 지금 이어서 재생할 기본 동작 (swim · idle)
- * @param animationSpeed 재생 속도 배율 (빨리 헤엄치면 빠르게)
- * @param oneShot 마지막으로 시작한 한 번 재생 동작 (oneShotSeq가 바뀌면 새로 재생)
- * @param teleportSeq 순간 이동 번호 (바뀌면 보간 없이 옮긴다)
- * @param hidden 찌 아래로 잠겨 Fishing 그림자가 이어받은 상태 (그리지 않음)
- * @param phaseOffset 애니메이션 박자 (틱). 다시 보일 때 (서버 틱 + 이 값)으로 현재 프레임을 맞춘다
- * @param nearest 가장 가까운 플레이어 거리
+ * @param animation base animation to keep playing (swim, idle)
+ * @param animationSpeed playback speed multiplier (faster when swimming fast)
+ * @param oneShot last started one-shot animation (replayed when oneShotSeq changes)
+ * @param teleportSeq teleport number (when it changes, moves without interpolation)
+ * @param hidden sunk under the bobber with the Fishing shadow taking over (not drawn)
+ * @param phaseOffset animation beat (ticks). When shown again, the current frame is aligned to
+ *     (server tick + this value)
+ * @param nearest distance to the nearest player
  */
 public record FishOut(
         UUID id,

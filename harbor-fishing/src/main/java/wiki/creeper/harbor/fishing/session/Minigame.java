@@ -8,30 +8,32 @@ import wiki.creeper.harbor.fishing.api.MinigameResult;
 import wiki.creeper.harbor.fishing.content.FishingBalance.MinigameSpec;
 
 /**
- * 파이팅 미니게임 계산 (docs 20 3.4, 20Hz). 서버 API를 쓰지 않는다 (단위 테스트).
+ * Fight minigame calculation (docs 20 3.4, 20Hz). Uses no server API (unit tests).
  *
  * <ul>
- *   <li>텐션 T(0~1, 1 = 한계)와 물고기 체력 H
- *   <li>감는 중: T 상승. 안전 구간 안이면 H −= reel × 방향 계수(일치 1.0, 불일치 0.4)
- *   <li>푸는 중: T 하강. T = 0으로 escape_ticks 지나면 도망
- *   <li>T ≥ 1이면 줄 끊김
- *   <li>패턴: 돌진(텐션 급상승), 잠수(감기 효율 −50%), 점프(예고 후 놓으면 큰 피해), 휴식(감기 효율 ×1.5)
- *   <li>전설은 H가 66%·33%에 닿으면 페이즈가 바뀌고 빨라진다
+ *   <li>Tension T (0..1, 1 = limit) and fish health H
+ *   <li>Reeling: T rises. Inside the safe zone, H −= reel × direction factor (match 1.0, mismatch
+ *       0.4)
+ *   <li>Letting out: T falls. If T = 0 for escape_ticks, the fish escapes
+ *   <li>T ≥ 1 snaps the line
+ *   <li>Patterns: rush (tension spike), dive (reel efficiency −50%), jump (big damage if released
+ *       after the warning), rest (reel efficiency ×1.5)
+ *   <li>Legendaries change phase and speed up when H reaches 66% and 33%
  * </ul>
  */
 public final class Minigame {
 
-    /** 플레이어 입력 (틱마다). left·right는 물고기 방향 따라가기. */
+    /** Player input (per tick). left/right follow the fish direction. */
     public record Input(boolean reeling, boolean left, boolean right) {}
 
-    /** 물고기가 끄는 방향. */
+    /** Direction the fish pulls. */
     public enum Direction {
         LEFT,
         CENTER,
         RIGHT
     }
 
-    /** 패턴. */
+    /** Pattern. */
     public enum Pattern {
         DASH,
         DIVE,
@@ -40,13 +42,13 @@ public final class Minigame {
     }
 
     /**
-     * 장비·스탯 보정.
+     * Gear and stat modifiers.
      *
-     * @param lineStrength 줄 강도 (1당 텐션 한계 +8%)
-     * @param reelSpeed reel_speed 스탯 (기본 1.0)
-     * @param safeZone tension_safe_zone 스탯 (기본 1.0)
-     * @param stability 낚싯대 안정성 (0~1, 흔들림 감소)
-     * @param warnTicks 패턴 예고 틱 (기본 + pattern_warn + 핑 보정)
+     * @param lineStrength line strength (+8% tension limit per point)
+     * @param reelSpeed reel_speed stat (default 1.0)
+     * @param safeZone tension_safe_zone stat (default 1.0)
+     * @param stability rod stability (0..1, reduces shaking)
+     * @param warnTicks pattern warning ticks (base + pattern_warn + ping compensation)
      */
     public record Gear(
             double lineStrength,
@@ -98,7 +100,7 @@ public final class Minigame {
         this.nextPatternTick = intervalTicks();
     }
 
-    /** 한 틱 진행. 끝나면 결과를 돌려준다. */
+    /** Advances one tick. Returns the result when finished. */
     public @Nullable MinigameResult tick(Input input) {
         if (result != null) {
             return result;
@@ -156,7 +158,10 @@ public final class Minigame {
         directionTicks = 30 + random.nextInt(31);
     }
 
-    /** 지금 입력이 물고기 방향을 따르고 있는지 (감기 효율이 깎이지 않는 입력). UI 표시용. */
+    /**
+     * Whether the current input follows the fish direction (input that does not reduce reel
+     * efficiency). For UI display.
+     */
     public boolean followsDirection(Input input) {
         return directionFactor(input) >= 1.0;
     }
@@ -178,7 +183,8 @@ public final class Minigame {
                 Pattern started = warning;
                 warning = null;
                 if (started == Pattern.JUMP) {
-                    // 점프: 예고가 끝나는 순간 풀고 있으면 큰 피해, 감고 있으면 텐션 급상승
+                    // Jump: big damage if letting out when the warning ends, tension spike if
+                    // reeling
                     if (input.reeling()) {
                         tension += JUMP_SPIKE;
                     } else {
@@ -220,7 +226,7 @@ public final class Minigame {
         return phase == 1 ? 1 : Math.pow(1.15, phase - 1);
     }
 
-    // ------------------------------------------------------------------ 상태 (UI)
+    // ------------------------------------------------------------------ State (UI)
 
     public double tension() {
         return Math.min(tension, 1);
@@ -266,14 +272,14 @@ public final class Minigame {
         return result;
     }
 
-    /** 외부 힘 (보스 패턴): 텐션을 더한다. */
+    /** External force (boss pattern): adds tension. */
     public void addTension(double delta) {
         if (result == null) {
             tension = Math.clamp(tension + delta, 0, 1.2);
         }
     }
 
-    /** 외부 피해 (작살): 최대 체력 대비 비율. */
+    /** External damage (harpoon): fraction of max health. */
     public void damage(double fraction) {
         if (result == null) {
             hp = Math.max(0, hp - spec.hp() * fraction);
@@ -281,12 +287,12 @@ public final class Minigame {
         }
     }
 
-    /** false면 체력이 0이 되어도 끝내지 않는다 (Boss가 직접 끝냄). */
+    /** If false, it does not end even when health reaches 0 (Boss ends it directly). */
     public void setEndOnCaught(boolean endOnCaught) {
         this.endOnCaught = endOnCaught;
     }
 
-    /** 외부 중단 (사망·이탈·접속 종료). */
+    /** External abort (death, leaving, disconnect). */
     public void abort(MinigameResult reason) {
         if (result == null) {
             result = reason;

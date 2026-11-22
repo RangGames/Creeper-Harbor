@@ -17,7 +17,7 @@ import wiki.creeper.harbor.wildlife.content.WildGroup;
 import wiki.creeper.harbor.wildlife.content.WildTemplate;
 import wiki.creeper.harbor.wildlife.content.WildlifeBalance;
 
-/** 테스트용 어종·매질. */
+/** Species and media for tests. */
 final class Fixtures {
 
     static final RegionId HARBOR = RegionId.parse("region/harbor");
@@ -100,12 +100,12 @@ final class Fixtures {
         return profile(fish(name), Medium.WATER, WildTemplate.FISH);
     }
 
-    /** y 범위 [lo, hi]가 매질인 무한 수평 판 (나머지는 막힘). */
+    /** Infinite horizontal slab whose y range [lo, hi] is medium (everything else blocked). */
     static MediumField slab(int bit, int lo, int hi) {
         return (x, y, z) -> y >= lo && y <= hi ? bit : 0;
     }
 
-    /** 상자 [x0,x1]×[y0,y1]×[z0,z1] 안만 매질. */
+    /** Medium only inside the box [x0,x1]×[y0,y1]×[z0,z1]. */
     static MediumField box(int bit, int x0, int x1, int y0, int y1, int z0, int z1) {
         return (x, y, z) ->
                 x >= x0 && x <= x1 && y >= y0 && y <= y1 && z >= z0 && z <= z1 ? bit : 0;

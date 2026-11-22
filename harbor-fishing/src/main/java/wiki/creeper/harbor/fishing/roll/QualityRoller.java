@@ -5,14 +5,15 @@ import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.model.Quality;
 
 /**
- * 크기·품질 판정 ('7. 밸런스 기획' 4.5, docs 20 3.4 결과 처리 1~3단계).
+ * Size and quality roll ("7. Balance design" 4.5, docs 20 3.4 result handling steps 1~3).
  *
- * <p>X = 균등(0, 1), X' = X^(1 / (1 + 행운)), 크기 = 최소 + (최대 − 최소) × X'. 품질 경계 0.40·0.70·0.90·0.98. 직업
- * 상한보다 높으면 상한 품질의 구간 최댓값으로 고정한다 ('놓친 대어').
+ * <p>X = uniform(0, 1), X' = X^(1 / (1 + luck)), size = min + (max − min) × X'. Quality thresholds
+ * 0.40, 0.70, 0.90, 0.98. If above the job cap, it is pinned to the top of the cap quality's range
+ * ("the big one that got away").
  */
 public final class QualityRoller {
 
-    /** 결과. capped면 직업 상한에 걸린 것. */
+    /** Result. capped means it hit the job cap. */
     public record Rolled(double sizeCm, Quality quality, boolean capped) {}
 
     private QualityRoller() {}
@@ -24,7 +25,7 @@ public final class QualityRoller {
         boolean capped = stars > cap.stars();
         if (capped) {
             stars = cap.stars();
-            // 상한 품질 구간의 최댓값 바로 아래 (★3이면 0.90 바로 아래)
+            // Just below the top of the cap quality's range (for ★3, just below 0.90)
             x = Math.nextDown(bounds[stars - 1]);
         }
         double size = fish.sizeMin() + (fish.sizeMax() - fish.sizeMin()) * x;

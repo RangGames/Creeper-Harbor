@@ -7,16 +7,20 @@ import wiki.creeper.harbor.common.redis.Channel;
 import wiki.creeper.harbor.common.redis.Channels;
 
 /**
- * harbor:event 해상 이벤트 시작·종료 메시지 (docs 20 3.2, '11. 데이터 설계' 4장). World의 해상 이벤트 스케줄러가 {@link
- * #CHANNEL}로 발행하고 Fishing이 구독해 fish_effects를 판정에 반영한다. 같은 채널에 다른 형식의 메시지를 보내도 된다 (봉투의 type으로 거른다).
+ * harbor:event sea event start/end message (docs 20 3.2, "11. Data design" chapter 4). World's sea
+ * event scheduler publishes it on {@link #CHANNEL} and Fishing subscribes to apply fish_effects to
+ * rolls. Messages of other formats may be sent on the same channel (filtered by the envelope type).
  *
- * <p>Redis가 끊기면 받은 마지막 상태로 계속 판정하고, 각 이벤트는 {@code endsAt}이 지나면 스스로 끝난다.
+ * <p>If Redis disconnects, rolls continue with the last received state, and each event ends on its
+ * own once {@code endsAt} passes.
  *
- * @param eventId 이벤트 실행 ID (예: great_migration). 같은 ID로 다시 START를 보내면 덮어쓴다
- * @param state START 또는 END
- * @param region 이벤트 해역 (null이면 서버 전체). 참가자 = 이 지역에서 낚시하는 플레이어
- * @param endsAt 끝나는 시각 (START에서만 의미)
- * @param fishEffects 판정 효과
+ * @param eventId event run ID (e.g. great_migration). Sending START again with the same ID
+ *     overwrites it
+ * @param state START or END
+ * @param region event sea area (null for the whole server). Participants = players fishing in this
+ *     region
+ * @param endsAt end time (meaningful only for START)
+ * @param fishEffects roll effects
  */
 public record SeaEventMessage(
         String eventId,
@@ -28,7 +32,7 @@ public record SeaEventMessage(
     public static final Channel<SeaEventMessage> CHANNEL =
             new Channel<>(Channels.EVENT, SeaEventMessage.class);
 
-    /** 시작·종료. */
+    /** Start/end. */
     public enum State {
         START,
         END
@@ -39,14 +43,15 @@ public record SeaEventMessage(
     }
 
     /**
-     * 판정 효과 하나 (추가 제안: {@code [{type: species_weight, fish, mult}, {type: mythic, fish, chance,
-     * cap}]}).
+     * One roll effect (proposed: {@code [{type: species_weight, fish, mult}, {type: mythic, fish,
+     * chance, cap}]}).
      *
-     * @param type species_weight(어종 단계 배율, 등급 상한과 별개) 또는 mythic(신화 창)
-     * @param fish 어종 ID (예: harbor:fish/migration_leader)
-     * @param mult species_weight 배율 (물고기 대이동 ×3)
-     * @param chance mythic 캐스팅당 확률 (0이면 balance.yml fishing.mythic.event_chance)
-     * @param cap mythic 이벤트당 서버 최대 마릿수
+     * @param type species_weight (species-step multiplier, separate from the grade cap) or mythic
+     *     (mythic window)
+     * @param fish species ID (e.g. harbor:fish/migration_leader)
+     * @param mult species_weight multiplier (great migration ×3)
+     * @param chance mythic chance per cast (0 means balance.yml fishing.mythic.event_chance)
+     * @param cap mythic server-wide maximum count per event
      */
     public record FishEffect(String type, String fish, double mult, double chance, int cap) {
 

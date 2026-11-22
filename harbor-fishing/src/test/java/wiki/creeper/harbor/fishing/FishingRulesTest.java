@@ -39,7 +39,10 @@ import wiki.creeper.harbor.fishing.sea.SeaEventBook;
 import wiki.creeper.harbor.fishing.trap.TrapMath;
 import wiki.creeper.harbor.fishing.trap.TrapRoller;
 
-/** 통발 상한(D1)·해상 이벤트 fish_effects·요리 버프 교체·전설의 미끼(D8)·보정 합성·잡템. */
+/**
+ * Trap cap (D1), sea event fish_effects, food buff replacement, legendary bait (D8), modifier
+ * combination, junk.
+ */
 class FishingRulesTest {
 
     private static final FishingBalance BALANCE = new FishingBalance(Balance.of(Map.of()));
@@ -71,20 +74,20 @@ class FishingRulesTest {
                 1);
     }
 
-    /** 늘 같은 가치를 내는 통발 판정. */
+    /** Trap roll that always yields the same value. */
     private static TrapMath.Roller fixedValue(double value) {
         FishDef f = fish("anchovy", Grade.COMMON, 5);
         return () -> new TrapMath.Rolled(f, 10, Quality.of(1), value);
     }
 
-    // ------------------------------------------------------------------ 통발 (D1)
+    // ------------------------------------------------------------------ Traps (D1)
 
     @Test
     void trapCycleUsesMultiplierRotationAndFloor() {
-        // 산호 0.9 → 7.2시간, 통발 회전 2랭크(−2) → 5.2시간
+        // Coral 0.9 → 7.2 hours, trap turnover rank 2 (−2) → 5.2 hours
         assertEquals(Duration.ofMinutes(432), TrapMath.cycle(8, 0.9, 0, 2));
         assertEquals(Duration.ofMinutes(312), TrapMath.cycle(8, 0.9, -2, 2));
-        // 하한
+        // Floor
         assertEquals(Duration.ofHours(2), TrapMath.cycle(8, 1, -10, 2));
     }
 
@@ -108,13 +111,14 @@ class FishingRulesTest {
         assertEquals(0.4, BALANCE.trapRevenueRatio(true, 1), 1e-9);
         assertEquals(0.5, BALANCE.trapRevenueRatio(true, 2), 1e-9);
         assertEquals(0.6, BALANCE.trapRevenueRatio(true, 3), 1e-9);
-        // 산호 군도 1,800G/h × 0.4 = 720G (계정 전체 하루 상한)
+        // Coral archipelago 1,800G/h × 0.4 = 720G (account-wide daily cap)
         assertEquals(720, TrapMath.accountCap(1800, 0.4), 1e-9);
     }
 
     @Test
     void productionStopsAtAccountCapWithoutUsingBait() {
-        // 슬롯 9 × 2주기, 미끼 충분, 한 마리 100G, 계정 상한 720G에 이미 다른 통발이 300G 사용
+        // 9 slots × 2 cycles, enough bait, 100G per fish, 300G of the 720G account cap already used
+        // by other traps
         TrapMath.Production p =
                 TrapMath.produce(
                         2, 9, 50, 1, 0, 300, 720, fixedValue(100), T0, new SplittableRandom(1));
@@ -150,7 +154,7 @@ class FishingRulesTest {
 
     @Test
     void slotBonusIsPerTrapAndTrapCountIsCapped() {
-        // 결정 D1: 통발 슬롯 +3은 통발 1개당
+        // Decision D1: trap slots +3 is per trap
         assertEquals(12, TrapMath.effectiveSlots(9, 0, 3));
         assertEquals(13, TrapMath.effectiveSlots(9, 1, 3.4));
         assertEquals(2, TrapMath.maxTraps(2, 0, 4));
@@ -216,7 +220,7 @@ class FishingRulesTest {
         assertTrue(sawRare);
     }
 
-    // ------------------------------------------------------------------ 해상 이벤트 fish_effects
+    // ------------------------------------------------------------------ Sea event fish_effects
 
     @Test
     void speciesWeightAppliesOnlyInsideEventRegionUntilEnd() {
@@ -289,7 +293,7 @@ class FishingRulesTest {
         assertTrue(book.mythicWindows(CORAL, T0, id -> Optional.of(mythic)).isEmpty(), "참가자만");
     }
 
-    // ------------------------------------------------------------------ 요리 버프 (1종만)
+    // ------------------------------------------------------------------ Food buffs (only one)
 
     @Test
     void newFoodReplacesPreviousBuffSource() {
@@ -310,13 +314,13 @@ class FishingRulesTest {
         assertEquals("food:spicy_stew", first.next().source());
         assertEquals(T0.plus(Duration.ofMinutes(10)), first.next().expiresAt());
 
-        // 요리사 2랭크 (+50%) 지속 시간
+        // Cook rank 2 (+50%) duration
         FoodRule.Replacement second =
                 FoodRule.replace(first.next(), tea, T0.plus(Duration.ofMinutes(1)), 0.5);
         assertEquals("food:spicy_stew", second.removeSource(), "앞 요리 버프를 지운다");
         assertEquals(T0.plus(Duration.ofMinutes(46)), second.next().expiresAt());
 
-        // 같은 요리를 다시 먹으면 시간을 새로 시작 (더하지 않음)
+        // Eating the same food again restarts the timer (does not add up)
         ActiveFood current = second.next();
         FoodRule.Replacement again =
                 FoodRule.replace(current, tea, T0.plus(Duration.ofMinutes(2)), 0);
@@ -324,7 +328,7 @@ class FishingRulesTest {
         assertEquals(T0.plus(Duration.ofMinutes(32)), again.next().expiresAt());
     }
 
-    // ------------------------------------------------------------------ 전설의 미끼 (D8)
+    // ------------------------------------------------------------------ Legendary bait (D8)
 
     @Test
     void legendBaitIsConsumedOnlyWhenLegendaryCaught() {
@@ -341,7 +345,7 @@ class FishingRulesTest {
         assertFalse(
                 BaitRule.consumeOnResult(false, MinigameResult.CAUGHT, Grade.LEGENDARY),
                 "일반 미끼는 챔질 때 이미 씀");
-        // 반환: 전설의 미끼는 차감하지 않았으므로 돌려줄 것도 없다
+        // Return: legendary bait was not deducted, so there is nothing to return
         assertFalse(BaitRule.refund(true, MinigameResult.ABORTED, 0, 1));
         assertTrue(BaitRule.refund(false, MinigameResult.ABORTED, 0.99, 0));
         assertTrue(BaitRule.refund(false, MinigameResult.CAUGHT, 0.05, 0.08), "미끼 절약");
@@ -349,7 +353,8 @@ class FishingRulesTest {
         assertFalse(BaitRule.refund(false, MinigameResult.LINE_BROKE, 0, 1));
     }
 
-    // ------------------------------------------------------------------ 희귀 이상 보정 합성
+    // ------------------------------------------------------------------ Rare-or-better modifier
+    // combination
 
     @Test
     void gradeBonusMultipliesCategoriesUsesBestFoodAndCaps() {
@@ -369,7 +374,7 @@ class FishingRulesTest {
         assertEquals(GradeBonus.Category.EVENT, GradeBonus.categoryOf("spot:school"));
     }
 
-    // ------------------------------------------------------------------ 잡템
+    // ------------------------------------------------------------------ Junk
 
     @Test
     void junkRollsEachEntryAndTreasureNeedsHook() {

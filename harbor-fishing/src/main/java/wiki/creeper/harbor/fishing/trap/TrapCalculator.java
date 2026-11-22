@@ -28,8 +28,9 @@ import wiki.creeper.harbor.fishing.session.FishingManager;
 import wiki.creeper.harbor.jobs.api.JobsService;
 
 /**
- * 통발 오프라인 계산 (docs 20 3.4): 열 때 한 번, 최대 주기 수·계정 수익 상한 안에서 어획을 굴려 조건부 갱신으로 저장한다. 입력은 메인 스레드에서 고정하고
- * 판정은 가상 스레드에서 한다.
+ * Trap offline calculation (docs 20 3.4): once on open, rolls catches within the maximum cycle
+ * count and the account income cap and saves them with a conditional update. Inputs are fixed on
+ * the main thread and rolls run on a virtual thread.
  */
 final class TrapCalculator {
 
@@ -55,7 +56,9 @@ final class TrapCalculator {
         this.traps = traps;
     }
 
-    /** 열 때 한 번 오프라인 계산 (docs 20 3.4). 주인이 접속해 있어야 한다 (직업 상한·스탯). */
+    /**
+     * Offline calculation once on open (docs 20 3.4). The owner must be online (job cap, stats).
+     */
     CompletableFuture<TrapManager.Calc> calculate(Player owner, long id) {
         UUID uuid = owner.getUniqueId();
         HarborPlayer hp = api.players().get(owner);
@@ -70,7 +73,8 @@ final class TrapCalculator {
         Predicate<String> flags = flagSnapshot(snapshot);
         int season = traps.season();
         SplittableRandom random = new SplittableRandom();
-        // 지역 어종 풀과 통발 스펙은 메인 스레드에서 미리 만든다 (판정은 가상 스레드)
+        // The region species pool and trap spec are built on the main thread beforehand (rolls run
+        // on a virtual thread)
         Map<String, TrapMath.Spec> specs = new HashMap<>();
         for (ItemDef def : snapshot.all(ItemDef.TYPE).values()) {
             if (def.type() == ItemDef.Type.TRAP) {
@@ -180,7 +184,7 @@ final class TrapCalculator {
                                                     value,
                                                     windowStart);
                                     if (!saved) {
-                                        // 다른 곳에서 먼저 계산했다: 그 결과를 그대로 쓴다
+                                        // Already calculated elsewhere first: use that result as is
                                         return new TrapManager.Calc(
                                                 TrapRepository.byId(c, id, false).orElse(row),
                                                 0,
@@ -225,7 +229,7 @@ final class TrapCalculator {
         return traps.track(uuid, future);
     }
 
-    /** 서버 플래그를 지금 값으로 고정한다 (가상 스레드에서 FlagService를 부르지 않게). */
+    /** Freezes server flags at their current values (so FlagService is not called off-thread). */
     private Predicate<String> flagSnapshot(ContentSnapshot snapshot) {
         Set<String> on = new HashSet<>();
         for (FishDef f : snapshot.all(FishDef.TYPE).values()) {

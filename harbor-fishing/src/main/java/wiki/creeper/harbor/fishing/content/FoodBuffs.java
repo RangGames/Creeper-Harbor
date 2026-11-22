@@ -13,18 +13,20 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 요리 버프 (fishing/food.yml, 추가 제안, docs 20 0.1 '요리 버프는 Fishing'). 요리 아이템(items의 type: food)을 먹으면
- * 보정자를 출처 {@code food:<이름>}으로 등록한다. 요리 버프는 1종만 적용되어, 다른 요리를 먹으면 앞의 버프를 지우고 바꾼다 ('7. 밸런스 기획' 4.2).
- * 지속 시간은 food_buff_duration(요리사 +25%·랭크) 만큼 늘어난다. 제작 레시피는 Economy.
+ * Food buffs (fishing/food.yml, proposed, docs 20 0.1 "food buffs belong to Fishing"). Eating a
+ * food item (items with type: food) registers its modifiers under the source {@code food:<name>}.
+ * Only one food buff applies at a time; eating another food removes the previous buff and replaces
+ * it ("7. Balance design" 4.2). The duration is extended by food_buff_duration (cook +25%, rank).
+ * Crafting recipes belong to Economy.
  *
- * @param buffs 요리 아이템 → 버프
+ * @param buffs food item → buff
  */
 public record FoodBuffs(Map<ItemId, Buff> buffs) {
 
     /**
-     * 요리 하나의 버프.
+     * Buff of one food.
      *
-     * @param shareable 연회 요리(feast_share)로 파티원에게 나눌 수 있는지
+     * @param shareable whether it can be shared with party members as a feast dish (feast_share)
      */
     public record Buff(ItemId item, Duration duration, List<Effect> effects, boolean shareable) {}
 

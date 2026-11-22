@@ -30,7 +30,9 @@ import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.session.FishingManager;
 
 /**
- * 통발 GUI 동작: 수확(트랜잭션 커밋 후 아이템 생성, trap 출처 표시), 미끼 넣기·반환, 철거. 수확물 아이템 생성은 자동 회수도 같이 쓴다. 메인 스레드 전용.
+ * Trap GUI actions: harvest (items created after the transaction commits, marked with the trap
+ * source), adding/returning bait, removal. Catch item creation is shared with auto-retrieval. Main
+ * thread only.
  */
 final class TrapHarvest {
 
@@ -69,7 +71,10 @@ final class TrapHarvest {
                 stack.getPersistentDataContainer().get(sourceKey, PersistentDataType.STRING));
     }
 
-    /** 항목을 수확한다 (트랜잭션 커밋 후 아이템 생성). 가방 빈칸 수만큼만 꺼낸다. */
+    /**
+     * Harvests entries (items created after the transaction commits). Takes out only as many as
+     * there are free inventory slots.
+     */
     void harvest(Player player, TrapRow row, List<TrapCatch> entries) {
         int free = 0;
         for (ItemStack s : player.getInventory().getStorageContents()) {
@@ -141,7 +146,9 @@ final class TrapHarvest {
                                 tasks.main());
     }
 
-    /** 통발 항목 → 어종 아이템 (trap 출처 표시). 콘텐츠에서 사라진 어종이면 null. */
+    /**
+     * Trap entry → species item (marked with the trap source). Null if the species left content.
+     */
     @Nullable ItemStack createCatch(Player owner, TrapCatch entry) {
         return createCatch(api.players().get(owner).ref(), entry);
     }
@@ -188,7 +195,7 @@ final class TrapHarvest {
                                 tasks.main());
     }
 
-    /** 가방의 미끼를 통발에 넣는다 (사용 횟수 미끼·전설의 미끼 제외). */
+    /** Puts bait from the inventory into the trap (excluding bait with uses and legendary bait). */
     void addBait(Player player, TrapRow row) {
         FishingBalance b = traps.balance();
         int room = b.trapBaitCapacity() - row.bait();
@@ -249,7 +256,10 @@ final class TrapHarvest {
                                 tasks.main());
     }
 
-    /** 미끼 반환 (어떤 미끼였는지 기록하지 않으므로 기본 미끼 fishing.trap.refund_bait_item, 제안값). */
+    /**
+     * Bait refund (which bait was used is not recorded, so the default bait
+     * fishing.trap.refund_bait_item, proposed value).
+     */
     private void refundBait(Player player, int amount) {
         if (amount <= 0) {
             return;
@@ -284,7 +294,7 @@ final class TrapHarvest {
         return result;
     }
 
-    /** 철거: 내용물이 비었을 때만. 통발 아이템과 남은 미끼를 돌려준다. */
+    /** Removal: only when empty. Returns the trap item and the remaining bait. */
     void remove(Player player, TrapRow row) {
         if (!row.contents().isEmpty()) {
             api.messages().send(player, "fishing.trap.not_empty");

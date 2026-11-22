@@ -6,7 +6,10 @@ import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.model.Quality;
 
-/** 크기·품질 확정 직전. 보스전 품질 보너스·이벤트가 바꿀 수 있다. capped면 직업 상한에 걸린 것. */
+/**
+ * Right before size and quality are finalized. Boss fight quality bonuses and events may change
+ * them. capped means it hit the job cap.
+ */
 public final class QualityRolledEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();

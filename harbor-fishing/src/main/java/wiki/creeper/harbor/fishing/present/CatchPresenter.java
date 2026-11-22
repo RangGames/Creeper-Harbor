@@ -33,9 +33,11 @@ import wiki.creeper.harbor.fishing.api.CatchPresentationOverride;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
 
 /**
- * 등급 연출 프리셋 재생 (fishing/presets.yml, '4. 낚시 연출 & 보스전' 1장). 입질과 포획 단계의 효과음·파티클·어둠·타이틀·빛기둥·근처 알림·결과
- * Dialog를 연출 강도 설정에 맞춰 보여 준다. 포획 연출은 Shop 코스메틱(CatchPresentationOverride)이 있으면 그쪽이 먼저 받는다. 메인 스레드
- * 전용.
+ * Plays grade presentation presets (fishing/presets.yml, "4. Fishing presentation & boss fights"
+ * chapter 1). Shows the sound, particles, darkness, title, light pillar, nearby notice and result
+ * Dialog of the bite and catch steps according to the presentation intensity setting. For the catch
+ * presentation, a Shop cosmetic (CatchPresentationOverride), if any, gets it first. Main thread
+ * only.
  */
 public final class CatchPresenter {
 
@@ -45,7 +47,7 @@ public final class CatchPresenter {
     private static final int FLOP_TICKS = 30;
     private static final double FLOP_VIEW_RADIUS = 16;
 
-    /** 표(sounds.yml)에 없는 바닐라 소리는 플레이어 분류로 낸다. */
+    /** Vanilla sounds not in the table (sounds.yml) play in the player category. */
     public static final HarborSounds.Options SOUND =
             HarborSounds.Options.DEFAULT.withSource(Sound.Source.PLAYER);
 
@@ -61,11 +63,12 @@ public final class CatchPresenter {
         return api.content().snapshot().single(FishingPresets.TYPE);
     }
 
-    /** 입질 연출 (찌 위치). */
+    /** Bite presentation (bobber location). */
     public void bite(Player player, FishDef fish, Location hook, int intensity) {
         FishingPresets presets = presets();
         FishingPresets.Stage stage = presets.of(fish.grade()).bite();
-        // 입질은 찌 위치에서 (근처 플레이어도 듣는다. 전설 입질은 sounds.yml 음량이 커서 멀리까지)
+        // The bite plays at the bobber (nearby players hear it too; legendary bites carry far
+        // because of their sounds.yml volume)
         HarborSounds.playAt(hook, stage.sound(), options(stage));
         particle(hook, stage.particle(), stage.particleCount());
         if (stage.has("darkness") && presets.shows(intensity, "darkness")) {
@@ -82,7 +85,8 @@ public final class CatchPresenter {
                             Duration.ofMillis(300));
         }
         if (stage.has("shake") && presets.shows(intensity, "shake")) {
-            // 클라이언트 화면 흔들림 API가 없어 피격 흔들림 대신 짧은 진동음으로 표시한다
+            // There is no client screen shake API, so a short rumble sound is used instead of the
+            // hurt shake
             player.playSound(
                     Sound.sound(
                             Key.key("minecraft:entity.warden.heartbeat"),
@@ -93,9 +97,9 @@ public final class CatchPresenter {
     }
 
     /**
-     * 포획 연출.
+     * Catch presentation.
      *
-     * @param override Shop 코스메틱 (null이면 없음)
+     * @param override Shop cosmetic (null if none)
      */
     public void caught(
             Player player,
@@ -115,7 +119,8 @@ public final class CatchPresenter {
                                 player,
                                 new CatchPresentationOverride.CatchPresentation(
                                         fish, sizeCm, quality, firstCatch, at, intensity));
-        // 낚아 올림(위치) + 등급 포획음(본인 2D). 코스메틱이 연출을 바꿔도 등급 소리는 낸다 ('4. 낚시 연출' 연출 원칙 1)
+        // Reel-in (at location) + grade catch sound (2D, self). The grade sound plays even if a
+        // cosmetic changes the presentation ("4. Fishing presentation" principle 1)
         step(at, "reel_in");
         HarborSounds.play(player, stage.sound(), options(stage));
         if (stage.has("flop") && presets.shows(intensity, "flop")) {
@@ -172,12 +177,15 @@ public final class CatchPresenter {
     }
 
     /**
-     * 손 위 퍼덕임 ('4. 낚시 연출 & 보스전' 1장 일반~고급 '물고기가 손 위로 튀어 오름'). 어종 리그 rig/fish/<이름>에 flop 동작이 있으면 플레이어
-     * 앞(손 높이)에 띄워 FLOP_TICKS 동안 재생하고 지운다. 리그·동작이 없으면 생략한다. 본인과 근처 플레이어에게만 보인다.
+     * Flopping in the hand ("4. Fishing presentation & boss fights" chapter 1, common~advanced "the
+     * fish jumps up onto your hand"). If the species rig rig/fish/<name> has a flop animation, it
+     * is spawned in front of the player (at hand height), played for FLOP_TICKS and removed.
+     * Skipped if there is no rig or animation. Visible only to the player and nearby players.
      */
     private void flop(Player player, FishDef fish, double sizeCm) {
         RigService rigs = api.rigs();
-        // 어종 리그는 모델 이름(FishDef.model)을 따른다. 없으면 예전 규칙(어종 ID 이름)
+        // The species rig follows the model name (FishDef.model). Otherwise the old rule (species
+        // ID name)
         RigId rig = FishRigs.rigOf(fish);
         if (rigs.definition(rig).isEmpty()) {
             rig = FishRigs.byId(fish);
@@ -186,7 +194,7 @@ public final class CatchPresenter {
         if (def.isEmpty() || def.get().animation(FLOP).isEmpty()) {
             return;
         }
-        // 잡은 크기에 맞춘 배율 (리소스팩 안내: 배율 = 크기(m) ÷ 모델 길이)
+        // Scale to the caught size (resource pack guide: scale = size (m) ÷ model length)
         double scale = FishRigs.fitScale(def.get(), sizeCm / 100.0);
         Location eye = player.getEyeLocation();
         Vector dir = eye.getDirection().setY(0);
@@ -195,7 +203,7 @@ public final class CatchPresenter {
         }
         dir.normalize();
         Location at = eye.clone().add(dir.multiply(0.6)).add(0, -0.45, 0);
-        at.setYaw(eye.getYaw() + 90f); // 몸을 옆으로 눕혀 보여준다
+        at.setYaw(eye.getYaw() + 90f); // Lay the body on its side for display
         at.setPitch(0);
         List<Player> viewers = new ArrayList<>();
         viewers.add(player);
@@ -216,11 +224,11 @@ public final class CatchPresenter {
                                     .withMoveTicks(0));
             var _ = tasks.later(FLOP_TICKS, instance::remove);
         } catch (IllegalArgumentException | IllegalStateException e) {
-            // 리그를 띄우지 못하면 생략
+            // Skip if the rig cannot be spawned
         }
     }
 
-    /** 점프 장면을 근처 플레이어에게도 보여 줄지. */
+    /** Whether to show the jump scene to nearby players too. */
     public boolean jumpViewers(int intensity) {
         return presets().shows(intensity, "jump_viewers");
     }
@@ -246,12 +254,12 @@ public final class CatchPresenter {
         var _ = tasks.later(PILLAR_TICKS, task::cancel);
     }
 
-    /** 낚시 단계 소리 (presets.yml sounds, '15. 사운드' 4.1)를 그 위치에서 낸다. */
+    /** Plays a fishing step sound (presets.yml sounds, "15. Sound" 4.1) at that location. */
     public void step(Location at, String step) {
         HarborSounds.playAt(at, presets().sound(step), SOUND);
     }
 
-    /** 단계 소리 키 (반복 소리 등 직접 다룰 때). */
+    /** Step sound key (for handling sounds directly, e.g. looping sounds). */
     public @Nullable String stepSound(String step) {
         return presets().sound(step);
     }
@@ -278,11 +286,11 @@ public final class CatchPresenter {
         try {
             world.spawnParticle(particle, at, count, spread, spread, spread, 0.02);
         } catch (IllegalArgumentException e) {
-            // 데이터가 필요한 파티클(dust 등)은 생략
+            // Skip particles that need data (dust etc.)
         }
     }
 
-    /** 파티클 이름 (소문자 키 또는 enum 이름). 없으면 null. */
+    /** Particle name (lowercase key or enum name). Null if not found. */
     public static @Nullable Particle resolve(String name) {
         try {
             return Particle.valueOf(name.toUpperCase(Locale.ROOT));

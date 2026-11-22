@@ -13,9 +13,11 @@ import wiki.creeper.harbor.fishing.content.FishingPresets;
 import wiki.creeper.harbor.fishing.present.ShadowPresenter;
 
 /**
- * 세션 하나의 그림자 진행 (docs 20 3.4). 대기 중에는 찌에서 6~10블록 떨어진 물속에서 출발해 대기 시간 동안 다가오고, 입질 때 찌 아래로, 미니게임 중에는
- * 물고기 방향에 맞춰 좌우로 움직이며 점프 패턴에서 뛰어오른다. Wildlife가 대행(ShadowDriver)하면 대기 중에는 그리지 않고, 입질 순간 그 개체 자리에서
- * 이어받는다. 메인 스레드 전용.
+ * Shadow progress for one session (docs 20 3.4). While waiting it starts underwater 6~10 blocks
+ * from the bobber and approaches over the wait time, goes under the bobber on the bite, moves left
+ * and right with the fish direction during the minigame and leaps on jump patterns. If Wildlife
+ * takes over (ShadowDriver), nothing is drawn while waiting and it takes over from that
+ * individual's position at the bite. Main thread only.
  */
 final class ShadowControl {
 
@@ -69,7 +71,10 @@ final class ShadowControl {
         return at.clone().add(0, -DEPTH, 0);
     }
 
-    /** 대행 개체를 받는다 (FishingService.claimShadow, 대기 중). 이미 기본 그림자가 있으면 지우고 넘긴다. */
+    /**
+     * Accepts a takeover individual (FishingService.claimShadow, while waiting). If a default
+     * shadow already exists, it is removed and handed over.
+     */
     boolean claim(ShadowDriver claimed, int remainingTicks) {
         if (driver != null) {
             return false;
@@ -88,7 +93,7 @@ final class ShadowControl {
         return driver != null;
     }
 
-    /** 대기 중 한 틱. */
+    /** One tick while waiting. */
     void tickWaiting() {
         elapsed++;
         if (elapsed % STEP_TICKS != 0) {
@@ -97,7 +102,7 @@ final class ShadowControl {
         ShadowDriver d = driver;
         if (d != null) {
             if (!d.isValid()) {
-                // 개체가 사라지면 즉시 기본 그림자로
+                // If the individual disappears, switch to the default shadow immediately
                 d.release(false);
                 driver = null;
                 start = d.location();
@@ -116,7 +121,7 @@ final class ShadowControl {
         own.moveTo(from.clone().add(delta), STEP_TICKS);
     }
 
-    /** 입질: 대행 개체는 잠기고 기본 그림자가 그 자리에서 이어받는다. */
+    /** Bite: the takeover individual dives and the default shadow takes over at that spot. */
     void bite() {
         ShadowDriver d = driver;
         if (d != null) {
@@ -133,7 +138,7 @@ final class ShadowControl {
         }
     }
 
-    /** 미니게임 중: 물고기 방향으로 좌우 이동 (10틱마다). */
+    /** During the minigame: moves left/right toward the fish direction (every 10 ticks). */
     void tickFight(Minigame.Direction direction, int ticks) {
         ShadowPresenter.Shadow own = shadow;
         if (own == null || ticks % 10 != 0) {
@@ -162,7 +167,7 @@ final class ShadowControl {
         }
     }
 
-    /** 끝: 그림자를 지우고 대행 개체를 풀어 준다. */
+    /** End: removes the shadow and releases the takeover individual. */
     void close(boolean caught) {
         ShadowPresenter.Shadow own = shadow;
         if (own != null) {

@@ -17,7 +17,10 @@ import wiki.creeper.harbor.fishing.roll.RollContext;
 import wiki.creeper.harbor.fishing.roll.RollEngine;
 import wiki.creeper.harbor.fishing.sea.MythicCounter;
 
-/** 신화 서버 마릿수 예약·반환과 보류 판정 정리 (DB 카운터는 MythicCounter). 메인 스레드 전용. */
+/**
+ * Mythic server count reservation/return and pending roll cleanup (the DB counter is
+ * MythicCounter). Main thread only.
+ */
 final class MythicHolds {
 
     private final HarborApi api;
@@ -45,7 +48,7 @@ final class MythicHolds {
         this.random = random;
     }
 
-    /** 신화 서버 마릿수를 예약한다. 한도를 넘었으면 일반 판정으로 바꾼다. */
+    /** Reserves a mythic server count. Falls back to a normal roll if over the limit. */
     FishingSession.MythicHold reserveMythic(
             Player player,
             FishingSession s,
@@ -64,7 +67,7 @@ final class MythicHolds {
                                         log.warn("신화 예약 실패: {}", String.valueOf(error));
                                     }
                                     if (reserved && hold.released) {
-                                        // 기다리는 사이 캐스팅이 끝났으면 바로 돌려준다
+                                        // If the cast ended while waiting, return it right away
                                         var _ = mythicCounter.release(hold.eventId, hold.fishId);
                                         return;
                                     }
@@ -121,7 +124,7 @@ final class MythicHolds {
         }
     }
 
-    /** 서버 종료용: 기다려서 반납한다. */
+    /** For server shutdown: waits and returns the reservation. */
     void releaseMythicNow(FishingSession.MythicHold hold) {
         if (hold.released) {
             return;
@@ -132,7 +135,7 @@ final class MythicHolds {
         }
     }
 
-    /** 보류 판정을 모두 버린다 (신화 예약 반납). */
+    /** Discards all pending rolls (returns mythic reservations). */
     void discardPending(FishingSession s) {
         for (FishingSession.PendingRoll pending : s.pendings.values()) {
             releasePending(pending);
@@ -140,7 +143,7 @@ final class MythicHolds {
         s.pendings.clear();
     }
 
-    /** 만료된 보류 판정만 버린다. */
+    /** Discards only expired pending rolls. */
     void discardExpired(FishingSession s, Instant now) {
         var it = s.pendings.values().iterator();
         while (it.hasNext()) {

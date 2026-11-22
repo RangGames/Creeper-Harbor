@@ -12,7 +12,10 @@ import wiki.creeper.harbor.wildlife.sim.FishOut;
 import wiki.creeper.harbor.wildlife.sim.Frame;
 import wiki.creeper.harbor.world.api.RegionInfo;
 
-/** 지역 경계: 자기 지역을 벗어난 개체를 계산 스레드에 되돌리라고 알린다. 메인 스레드 전용. */
+/**
+ * Region fence: tells the simulation thread to turn back fish that left their region. Main thread
+ * only.
+ */
 final class RegionFence {
 
     private final WildlifeKit kit;
@@ -25,7 +28,9 @@ final class RegionFence {
         this.engine = engine;
     }
 
-    /** 지역 경계를 넘은 개체는 방향을 돌린다 (틱당 일부만 차례로 확인). */
+    /**
+     * Turns fish that crossed the region boundary around (checks a portion per tick in rotation).
+     */
     void check(Frame applied, long tick) {
         List<FishOut> list = applied.fish();
         int size = list.size();
@@ -57,7 +62,7 @@ final class RegionFence {
         regionCursor = (regionCursor + n) % size;
     }
 
-    /** 10초 넘게 지난 되돌림 기록을 지운다. */
+    /** Clears turn-back records older than 10 seconds. */
     void prune(long tick) {
         turnedBack.values().removeIf(t -> tick - t > 200);
     }

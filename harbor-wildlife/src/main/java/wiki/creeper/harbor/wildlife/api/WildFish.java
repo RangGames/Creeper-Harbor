@@ -7,15 +7,15 @@ import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
 
 /**
- * 야생 개체 하나의 읽기 전용 모습 (마지막 계산 주기 기준, 최대 100ms 늦음). 개체는 엔티티가 아니라 계산 스레드의 가상 개체이고, 보이는 동안만 Core 리그로
- * 그린다.
+ * Read-only view of one wild fish (as of the last simulation step, up to 100ms stale). Fish are not
+ * entities but virtual objects on the simulation thread, drawn with Core rigs only while visible.
  *
- * @param id 개체 ID (리그·엔티티 UUID와 다름)
- * @param species wildlife/species.yml 항목 ID
- * @param school 무리 ID (혼자면 null)
- * @param radius 몸 반지름 (블록, raycast 판정용)
- * @param visible 지금 누군가에게 보이는지
- * @param scripted spawnScripted·spawnSchool로 만든 개체인지
+ * @param id fish ID (different from the rig/entity UUID)
+ * @param species wildlife/species.yml entry ID
+ * @param school school ID (null if solitary)
+ * @param radius body radius (blocks, for raycast hits)
+ * @param visible whether anyone can see it right now
+ * @param scripted whether it was created by spawnScripted/spawnSchool
  */
 public record WildFish(
         UUID id,

@@ -3,25 +3,27 @@ package wiki.creeper.harbor.wildlife.sim;
 import java.util.UUID;
 import wiki.creeper.harbor.wildlife.api.Medium;
 
-/** 계산 스레드가 한 주기 동안 만든 알림. 메인 스레드가 반영한다. */
+/**
+ * Notifications produced by the simulation thread during one step. The main thread applies them.
+ */
 public sealed interface SimEvent {
 
-    /** 플레이어 때문에 처음 놀란 개체 (무리 전파분은 없음). */
+    /** A fish first startled by a player (not those reached by school spread). */
     record Startle(UUID fish, UUID player) implements SimEvent {}
 
     /**
-     * 동작 파티클 (16블록 이하 시청자에게만, '17-3' 9.4 LOD 표).
+     * Action particle (only for viewers within 16 blocks, '17-3' 9.4 LOD table).
      *
-     * @param key 바닐라 파티클 키 (용암이면 메인이 lava·smoke로 바꾼다)
+     * @param key vanilla particle key (in lava, main swaps it for lava/smoke)
      */
     record Particle(
             UUID fish, String world, double x, double y, double z, String key, Medium medium)
             implements SimEvent {}
 
-    /** 개체가 없어졌다. */
+    /** The fish is gone. */
     record Removed(UUID fish, Reason reason) implements SimEvent {}
 
-    /** 없어진 이유. */
+    /** Why it is gone. */
     enum Reason {
         DESPAWN,
         EXPIRED,

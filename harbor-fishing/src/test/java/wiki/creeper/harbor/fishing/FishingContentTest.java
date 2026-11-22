@@ -27,8 +27,9 @@ import wiki.creeper.harbor.fishing.content.SeaEventPresets;
 import wiki.creeper.harbor.fishing.trap.TrapMath;
 
 /**
- * 저장소의 content/를 서버와 같은 로더(Core 형식 + Fishing 형식)로 읽어 Fishing이 쓰는 파일에 오류가 없는지 본다. 다른 모듈이 작업 중인 파일의
- * 오류는 이 테스트의 대상이 아니라서 Fishing 파일 위치의 오류만 실패로 본다.
+ * Reads the repository content/ with the same loader as the server (Core types + Fishing types) and
+ * checks that the files Fishing uses have no errors. Errors in files other modules are working on
+ * are not this test's concern, so only errors located in Fishing files count as failures.
  */
 class FishingContentTest {
 
@@ -64,7 +65,8 @@ class FishingContentTest {
                                         })
                                 .toList();
                 assertTrue(mine.isEmpty(), () -> "Fishing 콘텐츠 오류: " + mine);
-                // 다른 모듈 파일 오류로 스냅샷을 못 만들면 나머지 확인은 건너뛴다
+                // If the snapshot cannot be built because of errors in other modules' files, skip
+                // the remaining checks
                 assumeTrue(false, "다른 콘텐츠 오류로 건너뜀: " + errors.size() + "건");
             }
             case Result.Ok<ContentSnapshot, ValidationErrors>(ContentSnapshot snapshot) -> {

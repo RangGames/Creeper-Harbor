@@ -1,11 +1,17 @@
 package wiki.creeper.harbor.wildlife.sim;
 
-/** 광선 ↔ 구 판정 ('17-3' 9.2 raycast: 작살 투척·보스 연출이 야생 개체 명중 확인). 순수 계산. */
+/**
+ * Ray ↔ sphere test ('17-3' 9.2 raycast: harpoon throws and boss cinematics check wild fish hits).
+ * Pure math.
+ */
 public final class Raycast {
 
     private Raycast() {}
 
-    /** 광선 o + t·d (d는 단위 벡터)가 구(c, r)에 처음 닿는 t. 시점이 구 안이면 0. 맞지 않거나 maxDistance보다 멀면 −1. */
+    /**
+     * The t at which ray o + t·d (d a unit vector) first touches sphere (c, r). 0 if the origin is
+     * inside the sphere. −1 on a miss or if farther than maxDistance.
+     */
     public static double sphere(
             double ox,
             double oy,

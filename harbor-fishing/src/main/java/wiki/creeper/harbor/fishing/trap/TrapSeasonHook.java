@@ -11,9 +11,12 @@ import wiki.creeper.harbor.season.api.SeasonHookContext;
 import wiki.creeper.harbor.season.api.SeasonServices;
 
 /**
- * 시즌 전환 때 통발 블록·외형을 지운다 (docs 20 3.4 '자동 회수' 마지막 줄). 내용물은 시즌 초기화 대상이라 우편으로 보내지 않고, traps 행은 Season
- * reset_plan(archive_reset)이 정리한다. onArchive(원본 삭제 전)에서 위치를 읽어 이 서버에 있는 월드의 블록을 메인 스레드에서 지운다. 다른
- * 서버의 통발 블록은 누가 열 때(행 없음) 정리된다. 여러 번 불려도 결과가 같다. Harbor-Season이 켜져 있을 때만 이 클래스를 불러온다.
+ * Removes trap blocks and looks on season transition (docs 20 3.4 "auto-retrieval" last line).
+ * Contents are subject to the season reset, so they are not mailed, and traps rows are cleaned up
+ * by the Season reset_plan (archive_reset). Reads locations in onArchive (before the originals are
+ * deleted) and removes blocks in worlds on this server on the main thread. Trap blocks on other
+ * servers are cleaned up when someone opens them (no row). Idempotent. This class is loaded only
+ * when Harbor-Season is enabled.
  */
 final class TrapSeasonHook implements SeasonHook {
 

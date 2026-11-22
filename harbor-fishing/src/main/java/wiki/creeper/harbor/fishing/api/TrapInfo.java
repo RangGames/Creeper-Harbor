@@ -7,11 +7,12 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * 통발 하나의 상태 (조회용 사본).
+ * State of one trap (read-only copy).
  *
- * @param slots 통발 기본 슬롯 + 구매한 확장 슬롯 (직업 보너스 trap_slots는 계산할 때 더한다)
- * @param stored 아직 수확하지 않은 어획 수
- * @param nextCycleAt 다음 주기가 차는 시각 (주인 스탯 기준, 알 수 없으면 null)
+ * @param slots base trap slots + purchased extra slots (the job bonus trap_slots is added when
+ *     computing)
+ * @param stored number of catches not yet harvested
+ * @param nextCycleAt time the next cycle completes (based on the owner's stats, null if unknown)
  */
 public record TrapInfo(
         long id,

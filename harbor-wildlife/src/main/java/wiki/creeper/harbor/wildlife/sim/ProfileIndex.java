@@ -21,8 +21,9 @@ import wiki.creeper.harbor.wildlife.content.WildSpecies;
 import wiki.creeper.harbor.wildlife.content.WildlifeBalance;
 
 /**
- * 콘텐츠 스냅샷에서 만든 실행용 어종 표 (species.yml × fish/*.yml × rigs/*.yml × behaviours.yml). 변경 불가. 어종 정의나 리그가
- * 없는 항목은 빼고 problems에 적는다 (리로드 로그).
+ * Runtime species table built from a content snapshot (species.yml × fish/*.yml × rigs/*.yml ×
+ * behaviours.yml). Immutable. Entries without a species definition or rig are dropped and recorded
+ * in problems (reload log).
  */
 public record ProfileIndex(
         Map<HarborId, SpeciesProfile> bySpecies,
@@ -86,7 +87,10 @@ public record ProfileIndex(
         return new ProfileIndex(bySpecies, byFish, frozen, problems);
     }
 
-    /** behaviours.yml (형식이 아직 로드되지 않은 스냅샷이면 빈 표: 모듈 enable 직후). */
+    /**
+     * behaviours.yml (empty table if the snapshot doesn't have the type loaded yet: right after
+     * module enable).
+     */
     public static BehaviourBook book(ContentSnapshot snapshot) {
         try {
             return snapshot.single(BehaviourBook.TYPE);
@@ -99,7 +103,7 @@ public record ProfileIndex(
         return byRegion.getOrDefault(region, List.of());
     }
 
-    /** 지역 어종이 쓰는 매질 (자연 스폰 가능한 어종만). */
+    /** Media used by a region's species (only naturally spawnable species). */
     public Set<Medium> mediums(RegionId region) {
         Set<Medium> m = EnumSet.noneOf(Medium.class);
         for (SpeciesProfile p : region(region)) {
@@ -110,7 +114,7 @@ public record ProfileIndex(
         return m;
     }
 
-    /** 매질 격자에 담을 비트 (바닥 개체는 물 칸). */
+    /** Bits to store in the medium grid (floor fish use water cells). */
     public int gridMask(RegionId region) {
         int mask = 0;
         for (SpeciesProfile p : region(region)) {

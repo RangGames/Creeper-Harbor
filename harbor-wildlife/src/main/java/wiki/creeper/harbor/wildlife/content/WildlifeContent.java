@@ -4,12 +4,16 @@ import java.util.List;
 import wiki.creeper.harbor.common.content.ContentCheck;
 import wiki.creeper.harbor.common.content.ContentType;
 
-/** Wildlife 콘텐츠 형식. 서버 API를 쓰지 않아 harbor-tools(CI)도 같은 코드로 검사한다. */
+/**
+ * Wildlife content types. Uses no server API, so harbor-tools (CI) validates with the same code.
+ */
 public final class WildlifeContent {
 
     public static final List<ContentType<?>> TYPES = List.of(BehaviourBook.TYPE, WildSpecies.TYPE);
 
-    /** 고유 동작이 behaviours.yml에 있는지 (서버 API 없이 할 수 있는 교차 검사). */
+    /**
+     * Whether special actions exist in behaviours.yml (a cross-check possible without server API).
+     */
     public static final ContentCheck<WildSpecies> SPECIAL_CHECK =
             (s, check) -> {
                 String special = s.special();
@@ -22,7 +26,7 @@ public final class WildlifeContent {
                 }
             };
 
-    /** 어종 하나에 species 항목 하나. */
+    /** One species entry per fish species. */
     public static final ContentCheck<WildSpecies> FISH_UNIQUE =
             (s, check) -> {
                 for (WildSpecies other : check.snapshot().all(WildSpecies.TYPE).values()) {

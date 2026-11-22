@@ -1,12 +1,17 @@
 package wiki.creeper.harbor.wildlife.sim;
 
 /**
- * 청크 하나의 매질 비트 배열 ('17-3' 9.4). 섹션(16×16×16)마다 물·용암·공기 비트 4,096개씩, 매질이 하나도 없는 섹션은 비워 둔다. 만든 뒤에는 바뀌지
- * 않으므로 계산 스레드가 잠금 없이 읽는다. 블록이 바뀌면 그 섹션만 새로 만든 객체로 교체한다 ({@link #withSection}).
+ * Medium bit arrays for one chunk ('17-3' 9.4). 4,096 water/lava/air bits per section (16×16×16);
+ * sections with no medium at all are left empty. Immutable once built, so the simulation thread
+ * reads it without locking. When blocks change, only that section is replaced with a newly built
+ * object ({@link #withSection}).
  */
 public final class ChunkCells {
 
-    /** 칸 하나의 매질 비트 (MediumField.WATER · LAVA · AIR, 없으면 0). 청크 안 좌표 (x, z 0~15, y는 월드 높이). */
+    /**
+     * Medium bits of one cell (MediumField.WATER, LAVA, AIR; 0 if none). Chunk-local coordinates
+     * (x, z 0~15, y is world height).
+     */
     @FunctionalInterface
     public interface CellSource {
         int cell(int localX, int y, int localZ);
@@ -27,11 +32,12 @@ public final class ChunkCells {
     }
 
     /**
-     * 만든다.
+     * Builds it.
      *
-     * @param minY 서식지 높이 범위 아래 (포함)
-     * @param maxY 위 (포함)
-     * @param mask 담을 매질 비트 (이 지역 어종이 쓰는 매질만, 공기는 비행 어종이 있을 때만)
+     * @param minY bottom of the habitat height range (inclusive)
+     * @param maxY top (inclusive)
+     * @param mask medium bits to store (only media used by this region's species; air only when
+     *     there are flying species)
      */
     public static ChunkCells build(int minY, int maxY, int mask, CellSource source) {
         int lo = Math.floorDiv(minY, 16);
@@ -99,7 +105,10 @@ public final class ChunkCells {
         a[s] = as;
     }
 
-    /** 섹션 하나만 다시 만든 새 객체 (블록 변경). 범위 밖 섹션이면 그대로. */
+    /**
+     * New object with only one section rebuilt (block change). Unchanged if the section is out of
+     * range.
+     */
     public ChunkCells withSection(int section, int minY, int maxY, int mask, CellSource source) {
         int s = section - minSection;
         if (s < 0 || s >= water.length) {
@@ -112,7 +121,7 @@ public final class ChunkCells {
         return new ChunkCells(minSection, w, l, a);
     }
 
-    /** 청크 안 좌표 (x, z 0~15)의 매질 비트. */
+    /** Medium bits at chunk-local coordinates (x, z 0~15). */
     public int cell(int localX, int y, int localZ) {
         int s = Math.floorDiv(y, 16) - minSection;
         if (s < 0 || s >= water.length) {
@@ -137,7 +146,7 @@ public final class ChunkCells {
         return result;
     }
 
-    /** 담긴 섹션 비트 배열 바이트 수 (/harbor wildlife stats). */
+    /** Bytes of stored section bit arrays (/harbor wildlife stats). */
     public int bytes() {
         int n = 0;
         for (int s = 0; s < water.length; s++) {

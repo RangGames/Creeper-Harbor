@@ -6,13 +6,15 @@ import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.wildlife.api.Medium;
 
 /**
- * 자체 조향 계산 ('17-3' 9.4 뇌 방식 결정). 서버 API 없는 순수 함수라 단위 테스트한다. 단위는 블록·초·라디안 (도는 이름에 Deg).
+ * Custom steering math ('17-3' 9.4 brain approach decision). Pure functions with no server API, so
+ * unit tested. Units are blocks, seconds and radians (degrees carry Deg in the name).
  *
  * <ul>
- *   <li>목표 추종: seek · arrive · flee · wander
- *   <li>무리: separation · alignment · cohesion
- *   <li>매질: 탐침(앞·위·아래·좌·우 5점) 회피, 수면 아래 유지, 높이 띠, 매질 밖으로 나가지 않는 이동
- *   <li>방향: 최대 회전 속도 제한, 진행 방향 → 마인크래프트 yaw·pitch
+ *   <li>Target following: seek, arrive, flee, wander
+ *   <li>School: separation, alignment, cohesion
+ *   <li>Medium: probe avoidance (5 points: ahead, up, down, left, right), staying below the
+ *       surface, height band, movement that never leaves the medium
+ *   <li>Heading: max turn rate limit, direction of travel → Minecraft yaw/pitch
  * </ul>
  */
 public final class Steer {
@@ -22,7 +24,7 @@ public final class Steer {
 
     private Steer() {}
 
-    // ------------------------------------------------------------------ 벡터 도우미
+    // ------------------------------------------------------------------ vector helpers
 
     public static double length(Vec3 v) {
         return Math.sqrt(v.x() * v.x() + v.y() * v.y() + v.z() * v.z());
@@ -49,7 +51,7 @@ public final class Steer {
         return dx * dx + dy * dy + dz * dz;
     }
 
-    /** 두 방향 사이 각 (라디안). 0벡터가 있으면 0. */
+    /** Angle between two directions (radians). 0 if either is the zero vector. */
     public static double angle(Vec3 a, Vec3 b) {
         Vec3 na = normalize(a);
         Vec3 nb = normalize(b);
@@ -59,7 +61,10 @@ public final class Steer {
         return Math.acos(Math.clamp(na.dot(nb), -1.0, 1.0));
     }
 
-    /** 현재 방향을 원하는 방향 쪽으로 최대 maxAngle만큼 돌린 단위 벡터 (로드리게스 회전). 반대 방향이면 위쪽 축(수평 회전)으로 돈다. */
+    /**
+     * Unit vector of the current direction turned toward the desired direction by at most maxAngle
+     * (Rodrigues rotation). If exactly opposite, turns about the up axis (horizontal turn).
+     */
     public static Vec3 rotateToward(Vec3 current, Vec3 desired, double maxAngle) {
         Vec3 c = normalize(current);
         Vec3 d = normalize(desired);
@@ -75,7 +80,7 @@ public final class Steer {
         }
         Vec3 axis = c.cross(d);
         if (length(axis) < 1e-6) {
-            // 정반대: 수평으로 돌도록 위쪽 축 (진행 방향이 수직이면 X축)
+            // exactly opposite: up axis so it turns horizontally (X axis if travelling vertically)
             axis = Math.abs(c.y()) < 0.99 ? UP : new Vec3(1, 0, 0);
         }
         Vec3 k = normalize(axis);
@@ -85,7 +90,10 @@ public final class Steer {
         return normalize(rotated);
     }
 
-    /** 진행 방향 → 마인크래프트 yaw (도, 남쪽 +Z가 0, 서쪽 −X가 90). 수평 성분이 없으면 fallback. */
+    /**
+     * Direction of travel → Minecraft yaw (degrees, south +Z is 0, west −X is 90). fallback if
+     * there is no horizontal component.
+     */
     public static float yawDeg(Vec3 dir, float fallback) {
         if (horizontal(dir) < 1e-6) {
             return fallback;
@@ -94,8 +102,9 @@ public final class Steer {
     }
 
     /**
-     * 기울기 = atan2(수직 속도, 수평 속도), ±limit로 제한 ('17-3' 9.4). 마인크래프트 pitch는 아래가 +라서 부호를 뒤집는다 (오르면 음수).
-     * 모델 머리 방향 보정은 Core setHeading이 한다.
+     * Tilt = atan2(vertical speed, horizontal speed), clamped to ±limit ('17-3' 9.4). Minecraft
+     * pitch is positive downward, so the sign is flipped (negative when rising). Model head
+     * direction correction is done by Core setHeading.
      */
     public static float pitchDeg(Vec3 velocity, double limitDeg) {
         double h = horizontal(velocity);
@@ -106,13 +115,13 @@ public final class Steer {
         return (float) -Math.clamp(deg, -limitDeg, limitDeg);
     }
 
-    // ------------------------------------------------------------------ 목표 추종
+    // ------------------------------------------------------------------ target following
 
     public static Vec3 seek(Vec3 pos, Vec3 target, double speed) {
         return normalize(target.sub(pos)).mul(speed);
     }
 
-    /** 목표 근처(slowRadius 안)에서 속도를 줄인다. */
+    /** Slows down near the target (within slowRadius). */
     public static Vec3 arrive(Vec3 pos, Vec3 target, double speed, double slowRadius) {
         Vec3 to = target.sub(pos);
         double d = length(to);
@@ -131,7 +140,10 @@ public final class Steer {
         return normalize(away).mul(speed);
     }
 
-    /** 지금 방향을 수평 ±yawJitter, 수직 ±pitchJitter 안에서 무작위로 튼다 (라디안). */
+    /**
+     * Randomly turns the current direction within ±yawJitter horizontally and ±pitchJitter
+     * vertically (radians).
+     */
     public static Vec3 wander(
             Vec3 heading, double yawJitter, double pitchJitter, RandomGenerator random) {
         Vec3 h = normalize(heading);
@@ -149,9 +161,12 @@ public final class Steer {
         return new Vec3(Math.sin(yaw) * c, Math.sin(pitch), Math.cos(yaw) * c);
     }
 
-    // ------------------------------------------------------------------ 무리
+    // ------------------------------------------------------------------ school
 
-    /** 가까운 이웃에게서 멀어지는 방향 (가까울수록 강하게). minDist 밖 이웃은 무시. */
+    /**
+     * Direction away from close neighbours (stronger when closer). Neighbours beyond minDist are
+     * ignored.
+     */
     public static Vec3 separation(Vec3 pos, List<Vec3> neighbors, double minDist) {
         Vec3 sum = Vec3.ZERO;
         double min2 = minDist * minDist;
@@ -166,7 +181,7 @@ public final class Steer {
         return normalize(sum);
     }
 
-    /** 이웃 평균 진행 방향. */
+    /** Average direction of travel of neighbours. */
     public static Vec3 alignment(List<Vec3> neighborVelocities) {
         Vec3 sum = Vec3.ZERO;
         for (Vec3 v : neighborVelocities) {
@@ -175,7 +190,7 @@ public final class Steer {
         return normalize(sum);
     }
 
-    /** 이웃 중심 쪽. */
+    /** Toward the neighbours' center. */
     public static Vec3 cohesion(Vec3 pos, List<Vec3> neighbors) {
         if (neighbors.isEmpty()) {
             return Vec3.ZERO;
@@ -187,14 +202,15 @@ public final class Steer {
         return normalize(sum.mul(1.0 / neighbors.size()).sub(pos));
     }
 
-    // ------------------------------------------------------------------ 매질
+    // ------------------------------------------------------------------ medium
 
     /**
-     * 매질 탐침 회피 ('17-3' 9.4: 앞·위·아래·좌·우 5점, 앞은 속도 × 1.5초 거리). 막힌 탐침의 반대쪽으로 미는 벡터를 돌려준다. 앞이 막혔으면 열린 옆
-     * 방향 중 하나로 크게 꺾는다.
+     * Medium probe avoidance ('17-3' 9.4: 5 points ahead, up, down, left, right; ahead is speed ×
+     * 1.5 seconds away). Returns a vector pushing away from blocked probes. If ahead is blocked,
+     * turns sharply toward one of the open sides.
      *
-     * @param ahead 앞 탐침 거리 (블록)
-     * @param side 옆·위·아래 탐침 거리 (블록)
+     * @param ahead forward probe distance (blocks)
+     * @param side side/up/down probe distance (blocks)
      */
     public static Vec3 avoid(
             MediumField field, Medium medium, Vec3 pos, Vec3 heading, double ahead, double side) {
@@ -227,7 +243,8 @@ public final class Steer {
             push = push.add(right);
         }
         if (frontBlocked) {
-            // 열린 쪽으로 꺾는다: 좌·우·위·아래 순으로 앞쪽 대각 탐침을 본다
+            // turn toward the open side: check forward diagonal probes in order left, right, up,
+            // down
             Vec3[] options = {
                 f.add(right).mul(0.5), f.sub(right).mul(0.5), f.add(UP).mul(0.5), f.sub(UP).mul(0.5)
             };
@@ -247,7 +264,10 @@ public final class Steer {
         return field.is(medium, p.x(), p.y(), p.z());
     }
 
-    /** 수면 아래 gap 블록 유지 (물·용암). 위로 gap만큼 올라간 자리가 매질 밖이면 아래로 미는 값 (블록/초), 아니면 0. 공중·바닥은 0. */
+    /**
+     * Keeps gap blocks below the surface (water/lava). If the spot gap above is outside the medium,
+     * returns a downward push (blocks/second), otherwise 0. 0 for air and floor.
+     */
     public static double surfaceKeep(MediumField field, Medium medium, Vec3 pos, double gap) {
         if (medium != Medium.WATER && medium != Medium.LAVA) {
             return 0;
@@ -255,7 +275,7 @@ public final class Steer {
         return open(field, medium, pos.add(new Vec3(0, gap, 0))) ? 0 : -1.0;
     }
 
-    /** 높이 띠 [lo, hi] 밖이면 띠 쪽으로 미는 수직 값 (블록/초). */
+    /** Vertical push toward the height band [lo, hi] when outside it (blocks/second). */
     public static double band(double y, double lo, double hi) {
         if (y < lo) {
             return Math.min(1.0, lo - y);
@@ -266,7 +286,10 @@ public final class Steer {
         return 0;
     }
 
-    /** 수면 높이 (pos 위로 매질이 끝나는 첫 칸의 바닥 y). maxScan 안에서 못 찾으면 pos.y + maxScan. */
+    /**
+     * Surface height (bottom y of the first cell above pos where the medium ends). pos.y + maxScan
+     * if not found within maxScan.
+     */
     public static double surfaceY(MediumField field, Medium medium, Vec3 pos, int maxScan) {
         int x = MediumField.floor(pos.x());
         int z = MediumField.floor(pos.z());
@@ -279,12 +302,13 @@ public final class Steer {
         return y0 + maxScan;
     }
 
-    /** 결과 위치와, 원래 이동이 막혔는지. */
+    /** Resulting position, and whether the original move was blocked. */
     public record Move(Vec3 pos, boolean blocked) {}
 
     /**
-     * 매질 안에서만 움직인다 ('17-3' 9.6 용암·공중 어종이 매질 밖으로 나가지 않음). 전체 이동이 막히면 축별로 미끄러지고(수평 → 수직), 그래도 막히면
-     * 제자리.
+     * Moves only within the medium ('17-3' 9.6 lava/air species never leave their medium). If the
+     * full move is blocked, slides per axis (horizontal → vertical); if still blocked, stays in
+     * place.
      */
     public static Move move(MediumField field, Medium medium, Vec3 pos, Vec3 velocity, double dt) {
         Vec3 delta = velocity.mul(dt);

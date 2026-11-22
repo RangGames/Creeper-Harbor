@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** 위협 감지·표시 예산·광선 판정 ('17-3' 9.4). */
+/** Threat detection, display budget and ray tests ('17-3' 9.4). */
 class RulesTest {
 
     @Test
@@ -22,7 +22,7 @@ class RulesTest {
 
     @Test
     void threatTriggersOnSpeedOrInnerRadius() {
-        // 반경 8: 빠르게 다가오면 발동, 천천히면 35%(2.8블록) 안에서만
+        // radius 8: triggers when approached fast, otherwise only within 35% (2.8 blocks)
         assertTrue(ThreatRules.triggered(7, 3.0, 8, 2.5, 0.35));
         assertFalse(ThreatRules.triggered(7, 1.0, 8, 2.5, 0.35));
         assertTrue(ThreatRules.triggered(2.5, 0.0, 8, 2.5, 0.35));
@@ -102,7 +102,7 @@ class RulesTest {
 
     @Test
     void raycastSphere() {
-        // 원점에서 +X로 쏜 광선, 중심 (5, 0, 0) 반지름 1 → t = 4
+        // ray cast from the origin along +X, center (5, 0, 0) radius 1 → t = 4
         assertEquals(4, Raycast.sphere(0, 0, 0, 1, 0, 0, 5, 0, 0, 1, 10), 1e-9);
         assertEquals(-1, Raycast.sphere(0, 0, 0, 1, 0, 0, 5, 3, 0, 1, 10), 1e-9);
         assertEquals(-1, Raycast.sphere(0, 0, 0, -1, 0, 0, 5, 0, 0, 1, 10), 1e-9, "뒤쪽");

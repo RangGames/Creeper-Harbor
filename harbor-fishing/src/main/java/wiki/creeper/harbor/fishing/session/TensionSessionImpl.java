@@ -11,7 +11,10 @@ import wiki.creeper.harbor.fishing.api.MinigameResult;
 import wiki.creeper.harbor.fishing.api.TensionSession;
 import wiki.creeper.harbor.fishing.api.TensionSpec;
 
-/** Boss 앵커용 텐션 세션 (FishingManager가 20Hz로 진행하고 UI를 그린다). 메인 스레드 전용. */
+/**
+ * Tension session for the Boss anchor (FishingManager advances it at 20Hz and draws the UI). Main
+ * thread only.
+ */
 final class TensionSessionImpl implements TensionSession {
 
     private final UUID player;
@@ -23,7 +26,7 @@ final class TensionSessionImpl implements TensionSession {
     boolean borderWarn;
     float baseYaw;
 
-    /** 릴 감기 반복 소리 (Shift 감는 동안). */
+    /** Reel looping sound (while reeling with Shift). */
     HarborSounds.Loop reel = HarborSounds.Loop.NONE;
 
     private @Nullable MinigameResult finished;
@@ -100,7 +103,7 @@ final class TensionSessionImpl implements TensionSession {
         finish(result);
     }
 
-    /** 끝 처리 (한 번만). */
+    /** End handling (once only). */
     void finish(MinigameResult result) {
         if (finished != null) {
             return;

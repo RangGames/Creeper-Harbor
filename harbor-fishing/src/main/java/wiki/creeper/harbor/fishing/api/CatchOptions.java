@@ -1,11 +1,13 @@
 package wiki.creeper.harbor.fishing.api;
 
 /**
- * {@link FishingService#createCatch} 설정 (Boss 보스 어종 확정 포획).
+ * Settings for {@link FishingService#createCatch} (Boss guaranteed catch of a boss species).
  *
- * @param qualityBonusStars 판정된 품질에 더하는 별 수 (보스전 품질 보너스). 직업 상한은 넘지 않는다
- * @param extraLuck 크기 판정 행운에 더하는 값
- * @param fireCaughtEvent FishCaughtEvent(source BOSS)를 보낼지 (Collection 도감·Quest 목표 처리)
+ * @param qualityBonusStars stars added to the rolled quality (boss fight quality bonus). Never
+ *     exceeds the job cap
+ * @param extraLuck value added to the size roll luck
+ * @param fireCaughtEvent whether to fire FishCaughtEvent (source BOSS) (Collection codex, Quest
+ *     objectives)
  */
 public record CatchOptions(int qualityBonusStars, double extraLuck, boolean fireCaughtEvent) {
 

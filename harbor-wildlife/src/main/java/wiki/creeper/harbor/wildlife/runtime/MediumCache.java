@@ -35,12 +35,14 @@ import wiki.creeper.harbor.wildlife.sim.MediumGrid;
 import wiki.creeper.harbor.world.api.RegionInfo;
 
 /**
- * 매질 격자 관리 ('17-3' 9.4). 서식지 지역 청크가 적재되면 ChunkSnapshot을 (메인 스레드에서 틱당 몇 개씩) 떠서 가상 스레드에서 섹션마다 물·용암·공기
- * 비트 배열을 만든다. 서식지 높이 범위의 섹션만 만든다. 블록 설치·파괴·액체 흐름이 서식지 안에서 일어나면 그 섹션만 다시 만든다 (1초에 한 번 묶어서).
+ * Medium grid management ('17-3' 9.4). When habitat region chunks load, takes ChunkSnapshots (a few
+ * per tick on the main thread) and builds per-section water/lava/air bit arrays on a virtual
+ * thread. Only sections within the habitat height range are built. When block placement, breaking
+ * or fluid flow happens inside a habitat, only that section is rebuilt (batched once per second).
  */
 final class MediumCache implements Listener {
 
-    /** 청크 언로드 알림 (그 안의 개체를 지운다). */
+    /** Chunk unload notification (removes the fish inside). */
     interface UnloadHook {
         void unloaded(World world, int cx, int cz);
     }
@@ -52,7 +54,10 @@ final class MediumCache implements Listener {
     private final Map<ChunkKey, Integer> queue = new LinkedHashMap<>();
     private final Map<ChunkKey, Set<Integer>> dirty = new HashMap<>();
 
-    /** 청크마다 적재 세대. 언로드 뒤 늦게 끝난 빌드가 격자를 되살리지 않게 한다. */
+    /**
+     * Load generation per chunk. Keeps a build that finishes late after unload from reviving the
+     * grid.
+     */
     private final Map<ChunkKey, Long> generation = new ConcurrentHashMap<>();
 
     private final AtomicLong gen = new AtomicLong();
@@ -73,7 +78,10 @@ final class MediumCache implements Listener {
         rescan();
     }
 
-    /** 적재된 청크를 모두 다시 본다 (시작·콘텐츠 리로드). 이미 있는 격자는 새로 만들 때까지 그대로 둬서 개체가 멈추지 않게 한다. */
+    /**
+     * Rescans all loaded chunks (startup, content reload). Existing grids are kept until rebuilt so
+     * fish don't freeze.
+     */
     void rescan() {
         for (World w : Bukkit.getWorlds()) {
             for (Chunk c : w.getLoadedChunks()) {
@@ -86,7 +94,7 @@ final class MediumCache implements Listener {
         return queue.size();
     }
 
-    // ------------------------------------------------------------------ 적재·언로드
+    // ------------------------------------------------------------------ load and unload
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onLoad(ChunkLoadEvent event) {
@@ -116,7 +124,10 @@ final class MediumCache implements Listener {
         generation.keySet().removeIf(k -> k.world().equals(name));
     }
 
-    /** 서식지 지역(어종이 있는 지역)에 걸친 청크면 줄에 넣는다. 가운데와 네 모서리 중 하나라도 지역 안이면 서식지로 본다. */
+    /**
+     * Queues the chunk if it overlaps a habitat region (a region with species). It counts as
+     * habitat if the center or any of the four corners is inside the region.
+     */
     private void consider(World world, int cx, int cz) {
         int mask = maskAt(world, cx, cz);
         if (mask == 0) {
@@ -143,7 +154,10 @@ final class MediumCache implements Listener {
         return mask;
     }
 
-    /** 틱당 몇 개씩 스냅샷을 떠 가상 스레드로 넘긴다 (메인 스레드 복사 비용 제한). */
+    /**
+     * Takes a few snapshots per tick and hands them to a virtual thread (limits main-thread copy
+     * cost).
+     */
     private void drain() {
         int budget = kit.balance().gridChunksPerTick();
         Iterator<Map.Entry<ChunkKey, Integer>> it = queue.entrySet().iterator();
@@ -180,7 +194,10 @@ final class MediumCache implements Listener {
         }
     }
 
-    /** 칸 하나의 매질. 물풀·켈프·거품 기둥은 물, 물에 잠긴 단단하지 않은 블록도 물로 본다. */
+    /**
+     * Medium of one cell. Seagrass, kelp and bubble columns count as water, as do waterlogged
+     * non-solid blocks.
+     */
     static int classify(ChunkSnapshot snap, int x, int y, int z) {
         Material m = snap.getBlockType(x, y, z);
         switch (m) {
@@ -202,7 +219,7 @@ final class MediumCache implements Listener {
         return data instanceof Waterlogged w && w.isWaterlogged() ? MediumField.WATER : 0;
     }
 
-    // ------------------------------------------------------------------ 블록 변경
+    // ------------------------------------------------------------------ block changes
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
@@ -230,7 +247,7 @@ final class MediumCache implements Listener {
                 .add(block.getY() >> 4);
     }
 
-    /** 바뀐 섹션만 다시 만든다 (섹션당 초당 1회). */
+    /** Rebuilds only changed sections (once per second per section). */
     private void rebuildDirty() {
         if (dirty.isEmpty()) {
             return;

@@ -16,17 +16,19 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.fishing.api.SeaEventMessage.FishEffect;
 
 /**
- * 해상 이벤트의 낚시 효과 정의 (fishing/sea_events.yml, 추가 제안). 신화 어종이 나오는 이벤트(첫 물고기의 귀환, 유령선, 물고기 대이동)의
- * fish_effects를 미리 적어 둔다. World 스케줄러는 이 정의를 그대로 harbor:event 메시지에 실어 보내도 되고({@code FishingService}와
- * 무관하게 메시지에 직접 적어도 된다), 운영자는 /harbor fishing event start로 시험한다. 일정은 World의 events.yml.
+ * Fishing effect definitions of sea events (fishing/sea_events.yml, proposed). Pre-declares the
+ * fish_effects of events that bring mythic species (return of the first fish, ghost ship, great
+ * migration). The World scheduler may send these definitions as is in the harbor:event message (or
+ * write them directly into the message, independent of {@code FishingService}), and operators test
+ * with /harbor fishing event start. The schedule is World's events.yml.
  *
- * @param events 이벤트 ID → 정의
+ * @param events event ID → definition
  */
 public record SeaEventPresets(Map<String, Preset> events) {
 
     /**
-     * @param region 이벤트 해역 (null이면 서버 전체)
-     * @param duration 기본 지속 시간
+     * @param region event sea area (null for the whole server)
+     * @param duration default duration
      */
     public record Preset(
             String id, @Nullable String region, Duration duration, List<FishEffect> fishEffects) {}

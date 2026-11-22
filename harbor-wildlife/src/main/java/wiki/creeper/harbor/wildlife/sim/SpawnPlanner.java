@@ -8,22 +8,23 @@ import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.wildlife.api.Medium;
 
 /**
- * 자연 스폰 자리 ('17-3' 9.4): 플레이어 기준 16~40블록 고리에서 무작위 점, 매질 깊이(물·용암 2칸 이상, 공중 여유 3칸) 확인, 다른 무리 중심과 8블록
- * 이상. 순수 계산.
+ * Natural spawn spot ('17-3' 9.4): a random point in a 16~40 block ring around the player, checks
+ * medium depth (water/lava at least 2 cells, 3 free cells for air), and at least 8 blocks from
+ * other school centers. Pure math.
  */
 public final class SpawnPlanner {
 
     /**
-     * 찾은 자리.
+     * A found spot.
      *
-     * @param depth 수면 아래 깊이 (공중이면 0)
-     * @param floorY 그 기둥의 바닥 (매질이 끝나는 칸 위 y, 바닥 개체 자리)
+     * @param depth depth below the surface (0 for air)
+     * @param floorY floor of that column (y just above where the medium ends; floor fish spot)
      */
     public record Spot(Vec3 pos, Medium medium, double depth, int floorY) {}
 
     private SpawnPlanner() {}
 
-    /** 고리 안 무작위 점 (넓이 기준 균일). */
+    /** Random point in the ring (uniform by area). */
     public static double[] ringPoint(
             double cx, double cz, double rMin, double rMax, RandomGenerator random) {
         double a = random.nextDouble() * Math.PI * 2;
@@ -32,10 +33,11 @@ public final class SpawnPlanner {
     }
 
     /**
-     * 한 기둥(x, z)에서 yTop부터 yBottom까지 내려가며 매질 구간을 찾고, 조건에 맞는 구간 안 무작위 높이를 고른다.
+     * Walks one column (x, z) down from yTop to yBottom to find medium runs, and picks a random
+     * height within a run that meets the conditions.
      *
-     * @param minDepth 물·용암 구간의 최소 두께 (칸)
-     * @param clearance 공중 구간의 최소 두께 (칸)
+     * @param minDepth minimum thickness of a water/lava run (cells)
+     * @param clearance minimum thickness of an air run (cells)
      */
     public static Optional<Spot> column(
             MediumField field,
@@ -70,7 +72,8 @@ public final class SpawnPlanner {
             return Optional.empty();
         }
         Segment s = segments.get(random.nextInt(segments.size()));
-        // 수면: 구간 꼭대기 위 칸이 매질이 아니면 그 칸의 바닥이 수면 (yTop에서 잘렸으면 위로 더 본다)
+        // surface: if the cell above the run's top is not medium, its bottom is the surface (if cut
+        // off at yTop, look further up)
         int surface = s.top() + 1;
         while (surface <= yTop + 32 && field.is(cellMedium, x, surface, z)) {
             surface++;
@@ -87,7 +90,7 @@ public final class SpawnPlanner {
         if (cellMedium == Medium.AIR) {
             py = s.bottom() + 1 + random.nextDouble() * Math.max(0, s.top() - s.bottom() - 1);
         } else {
-            // 수면 바로 아래 칸은 피한다 (수면 아래 0.5블록 유지)
+            // avoid the cell right below the surface (stay 0.5 blocks under the surface)
             int hi = Math.max(s.bottom(), s.top() - 1);
             py = s.bottom() + 0.5 + random.nextDouble() * Math.max(0, hi - s.bottom());
         }
@@ -95,7 +98,7 @@ public final class SpawnPlanner {
         return Optional.of(new Spot(new Vec3(x + 0.5, py, z + 0.5), medium, depth, s.bottom()));
     }
 
-    /** 다른 무리 중심과 gap 이상 떨어졌는지. */
+    /** Whether it is at least gap away from other school centers. */
     public static boolean farFrom(Vec3 p, List<Vec3> centers, double gap) {
         double g2 = gap * gap;
         for (Vec3 c : centers) {

@@ -6,7 +6,7 @@ import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.fishing.api.MinigameResult;
 
-/** 미니게임이 끝났을 때 (성공·실패 모두). */
+/** When the minigame ends (success or failure). */
 public final class MinigameEndEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -30,7 +30,7 @@ public final class MinigameEndEvent extends PlayerEvent {
         return result;
     }
 
-    /** 걸린 시간 (틱). */
+    /** Time taken (ticks). */
     public int ticks() {
         return ticks;
     }

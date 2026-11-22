@@ -9,8 +9,9 @@ import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.fishing.api.CatchSource;
 
 /**
- * 포획 처리 후 (아이템 생성 뒤). Collection(도감·최대어), Quest(목표), Season(랭킹)이 듣는다. release_only 어종은 아이템 없이
- * released = true로 보낸다 (도감·EXP는 정상).
+ * After a catch is processed (after the item is created). Collection (codex, biggest fish), Quest
+ * (objectives) and Season (rankings) listen. release_only species are sent without an item with
+ * released = true (codex and EXP still apply).
  */
 public final class FishCaughtEvent extends PlayerEvent {
 
@@ -54,7 +55,7 @@ public final class FishCaughtEvent extends PlayerEvent {
         this.source = source;
     }
 
-    /** 낚싯대 미니게임(ROD) 또는 보스전 확정 포획(BOSS). */
+    /** Rod minigame (ROD) or guaranteed boss fight catch (BOSS). */
     public CatchSource source() {
         return source;
     }
@@ -79,7 +80,7 @@ public final class FishCaughtEvent extends PlayerEvent {
         return firstCatch;
     }
 
-    /** 직업 품질 상한에 걸렸는지 ('놓친 대어'). */
+    /** Whether it hit the job quality cap ("the big one that got away"). */
     public boolean capped() {
         return capped;
     }

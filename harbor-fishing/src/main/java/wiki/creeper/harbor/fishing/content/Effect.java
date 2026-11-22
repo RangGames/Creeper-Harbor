@@ -7,7 +7,7 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.StatKey;
 
-/** 보정자 하나 (요리 버프 등). op 기본 ADD. */
+/** One modifier (food buffs etc.). op defaults to ADD. */
 public record Effect(StatKey stat, Modifier.Op op, double value) {
 
     static List<Effect> parseList(List<YamlNode> nodes) {

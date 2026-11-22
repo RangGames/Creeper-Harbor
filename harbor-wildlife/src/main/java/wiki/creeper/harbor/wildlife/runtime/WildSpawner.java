@@ -35,12 +35,14 @@ import wiki.creeper.harbor.world.api.FishingSpot;
 import wiki.creeper.harbor.world.api.RegionInfo;
 
 /**
- * 야생 개체 생성 ('17-3' 9.4 자연 스폰). 플레이어당 목표 마릿수까지 초당 무리 수·틱당 마릿수·전체 상한 안에서 자연 스폰하고, 물고기 떼 포인트에 무리를 하나 더
- * 두며, 명령·API의 생성 주문을 계산 스레드에 낸다. 메인 스레드 전용.
+ * Wild fish spawning ('17-3' 9.4 natural spawns). Spawns naturally up to the per-player target
+ * within the schools-per-second, fish-per-tick and global caps, places one extra school at fish
+ * school spots, and submits spawn orders from commands/API to the simulation thread. Main thread
+ * only.
  */
 final class WildSpawner {
 
-    /** 주문했지만 아직 면에 나오지 않은 무리 (중복 스폰 방지용). */
+    /** Schools ordered but not yet in a frame (prevents duplicate spawns). */
     private record Recent(String world, Vec3 pos, int count, long seq, @Nullable String tag) {}
 
     private final WildlifeKit kit;
@@ -60,7 +62,7 @@ final class WildSpawner {
         this.boosts = boosts;
     }
 
-    /** 숨기지 않은 물고기 떼 포인트를 모두 기준점으로 둔다. */
+    /** Uses every non-hidden fish school spot as an anchor. */
     void loadAnchors() {
         for (RegionInfo r : kit.regions.regions()) {
             for (FishingSpot s : kit.spots.spots(r.id())) {
@@ -71,7 +73,7 @@ final class WildSpawner {
         }
     }
 
-    // ---------------------------------------------------------------- 자연 스폰
+    // ---------------------------------------------------------------- natural spawns
 
     void refillCredits(WildlifeBalance bal) {
         credits.clear();
@@ -80,7 +82,7 @@ final class WildSpawner {
         }
     }
 
-    /** 두 면보다 오래된 주문 기록을 지운다. */
+    /** Clears order records older than two frames. */
     void pruneRecent() {
         long seq = manager.frame().seq();
         recent.removeIf(r -> r.seq() < seq - 2);
@@ -241,7 +243,7 @@ final class WildSpawner {
         return 0;
     }
 
-    /** 바닥 개체: 해저 모래·자갈 위, 청크당 2개 이하. */
+    /** Floor fish: on seabed sand/gravel, at most 2 per chunk. */
     private boolean floorOk(World w, SpawnPlanner.Spot spot, WildlifeBalance bal) {
         int x = MediumField.floor(spot.pos().x());
         int z = MediumField.floor(spot.pos().z());
@@ -291,9 +293,9 @@ final class WildSpawner {
     }
 
     /**
-     * 생성 주문을 낸다 (WildFishSpawnEvent 취소 시 빈 목록).
+     * Places a spawn order (empty list if WildFishSpawnEvent is cancelled).
      *
-     * @return 만든 개체 ID (첫 번째가 대장)
+     * @return IDs of the created fish (the first is the leader)
      */
     List<UUID> order(
             SpeciesProfile p,
@@ -341,7 +343,10 @@ final class WildSpawner {
         return ids;
     }
 
-    /** 위치가 매질 밖이면 위아래 3칸 안에서 매질 칸을 찾아 띄운다. */
+    /**
+     * If the location is outside the medium, finds a medium cell within 3 cells up/down to spawn
+     * in.
+     */
     List<UUID> spawnAt(
             SpeciesProfile p,
             Location at,
@@ -370,7 +375,7 @@ final class WildSpawner {
         return order(p, spot, count, behaviour, reason, null, region, path);
     }
 
-    /** 경로를 따라 헤엄치는 무리 (count가 0 이하이면 어종의 무리 크기에서 고른다). */
+    /** School swimming along a path (count of 0 or less picks from the species' school size). */
     List<UUID> spawnSchool(SpeciesProfile p, List<Location> path, int count) {
         List<Vec3> points = new ArrayList<>();
         for (Location l : path.subList(1, path.size())) {
@@ -380,7 +385,7 @@ final class WildSpawner {
         return spawnAt(p, path.getFirst(), n, null, WildFishSpawnEvent.Reason.PATH, points);
     }
 
-    // ---------------------------------------------------------------- 물고기 떼
+    // ---------------------------------------------------------------- fish schools
 
     void spotMoved(FishingSpot spot, @Nullable FishingSpot previous) {
         if (previous != null) {
@@ -391,7 +396,10 @@ final class WildSpawner {
         }
     }
 
-    /** 물고기 떼 자리에 그 지역 어종 무리를 하나 더 둔다 (가까이 플레이어가 있을 때만). */
+    /**
+     * Places one extra school of the region's species at a fish school spot (only when a player is
+     * nearby).
+     */
     void spotPass(WildlifeBalance bal) {
         if (anchors.isEmpty()) {
             return;

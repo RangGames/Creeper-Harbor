@@ -10,7 +10,7 @@ import wiki.creeper.harbor.wildlife.api.WildlifeService;
 import wiki.creeper.harbor.wildlife.sim.ProfileIndex;
 import wiki.creeper.harbor.wildlife.sim.SimWorld;
 
-/** 실행 부품 조립 (모듈 메인 클래스가 만든다). */
+/** Assembles the runtime parts (created by the module main class). */
 public final class WildlifeRuntime implements Listener {
 
     private final WildlifeKit kit;
@@ -43,7 +43,7 @@ public final class WildlifeRuntime implements Listener {
         ctx.listen(fishing);
         ctx.listen(new WorldLink(manager));
         ctx.adminCommand(new WildCommands(kit, manager, media, fishing, debug).adminCommand());
-        // 모듈 형식이 들어간 콘텐츠는 enable 뒤 다시 읽히므로 다음 틱에 한 번 더 만든다
+        // content with module types is re-read after enable, so build once more on the next tick
         var _ =
                 ctx.tasks()
                         .sync(

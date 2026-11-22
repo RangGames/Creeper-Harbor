@@ -3,10 +3,11 @@ package wiki.creeper.harbor.wildlife.api;
 import org.bukkit.Location;
 
 /**
- * {@link WildlifeService#raycast} 명중 결과. 무엇을 줄지는 호출한 모듈이 정한다 (작살 투척·보스 연출).
+ * Hit result of {@link WildlifeService#raycast}. The calling module decides what to grant (harpoon
+ * throw, boss cinematic).
  *
- * @param point 광선이 몸 구에 처음 닿은 지점
- * @param distance 시점에서 명중 지점까지 거리
+ * @param point the point where the ray first touched the body sphere
+ * @param distance distance from the origin to the hit point
  */
 public record WildHit(WildFish fish, Location point, double distance) {
 

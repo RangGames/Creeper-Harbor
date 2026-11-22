@@ -11,17 +11,21 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.Grade;
 
 /**
- * Harbor-Fishing 공개 API (docs 20 3.2). ServicesManager에서 찾는다. 메인 스레드에서 쓴다.
+ * Harbor-Fishing public API (docs 20 3.2). Look it up in the ServicesManager. Use on the main
+ * thread.
  *
- * <p>확장 지점 (Fishing은 등록된 구현만 부르고 그 모듈에 의존하지 않는다):
+ * <p>Extension points (Fishing only calls registered implementations and does not depend on their
+ * modules):
  *
  * <ul>
- *   <li>{@link CodexProvider}: Collection (도감 등록 여부)
- *   <li>{@link ShadowDriver}: Wildlife (대기 중 그림자 대행, FishingCastEvent에서 claimShadow)
- *   <li>{@link RegionKeyResolver}, {@link TreasureDropHook}: World (지역 키, 보물 지도)
- *   <li>{@link CatchPresentationOverride}: Shop (포획 연출 코스메틱)
- *   <li>{@link #openTension}, {@link #createCatch}: Boss (앵커 텐션, 보스 어종 확정 포획)
- *   <li>{@link SeaEventMessage}: World가 harbor:event로 보내는 fish_effects
+ *   <li>{@link CodexProvider}: Collection (codex registration status)
+ *   <li>{@link ShadowDriver}: Wildlife (shadow takeover while waiting, claimShadow in
+ *       FishingCastEvent)
+ *   <li>{@link RegionKeyResolver}, {@link TreasureDropHook}: World (region key, treasure maps)
+ *   <li>{@link CatchPresentationOverride}: Shop (catch presentation cosmetics)
+ *   <li>{@link #openTension}, {@link #createCatch}: Boss (anchor tension, guaranteed boss species
+ *       catch)
+ *   <li>{@link SeaEventMessage}: fish_effects that World sends over harbor:event
  * </ul>
  */
 public interface FishingService {
@@ -30,55 +34,65 @@ public interface FishingService {
 
     boolean isFishing(UUID player);
 
-    /** 전설 천장 카운터 (조건을 만족한 캐스팅 수). */
+    /** Legendary pity counter (number of casts that met the conditions). */
     int pity(UUID player, FishId fish);
 
-    /** 직업 품질 상한에 걸려 놓친 대어 수 (이번 접속). */
+    /** Number of big fish lost to the job quality cap (this session). */
     int missedBigCount(UUID player);
 
-    /** 도감 조회 SPI 등록 (Collection). */
+    /** Registers the codex lookup SPI (Collection). */
     void registerCodex(CodexProvider provider);
 
-    /** 지역 키 확장 지점 등록 (World). 다시 부르면 바꾼다. */
+    /** Registers the region key extension point (World). Calling again replaces it. */
     void registerRegionResolver(RegionKeyResolver resolver);
 
-    /** 보물 지도 드롭 확장 지점 등록 (World). */
+    /** Registers the treasure map drop extension point (World). */
     void registerTreasureHook(TreasureDropHook hook);
 
-    /** 포획 연출 코스메틱 등록 (Shop). */
+    /** Registers a catch presentation cosmetic (Shop). */
     void registerPresentation(CatchPresentationOverride override);
 
     /**
-     * 대기 중인 캐스팅의 그림자를 대행한다 (Wildlife). WAITING 상태일 때만 받아들이고, 이미 다른 드라이버가 있으면 false. 보통은 {@code
-     * FishingCastEvent#claimShadow}를 쓴다.
+     * Takes over the shadow of a waiting cast (Wildlife). Accepted only in the WAITING state; false
+     * if another driver already has it. Normally use {@code FishingCastEvent#claimShadow}.
      */
     boolean claimShadow(UUID player, ShadowDriver driver);
 
-    /** 통발. */
+    /** Traps. */
     TrapService traps();
 
-    /** 몬테카를로 판정 (가상 스레드). 보정 없는 기본 조건으로 count회 판정해 등급별 비율과 전설 첫 포획까지 평균 캐스팅 수를 돌려준다. */
+    /**
+     * Monte Carlo roll (virtual thread). Rolls count times under the base conditions without
+     * modifiers and returns the per-grade ratios and the average number of casts until the first
+     * legendary catch.
+     */
     CompletableFuture<SimulationResult> simulate(RegionId region, int count);
 
     /**
-     * 지역별 기대 출현 비율 (추가 제안, Economy 시세 S₀용). 보정 없는 기본 가중치로 계산하고, 미끼·이벤트가 필요한 어종과 전설·신화는 0이다. 시간·날씨
-     * 조건은 무시한다 (하루 평균에 가깝게).
+     * Expected spawn ratios per region (proposed, for the Economy price S₀). Computed from the base
+     * weights without modifiers; species that need bait or an event, and legendaries and mythics,
+     * are 0. Time and weather conditions are ignored (close to a daily average).
      */
     double expectedShare(RegionId region, FishId fish);
 
-    /** 텐션 미니게임을 연다 (추가 제안, Boss 앵커). 플레이어가 낚시 중이면 그 세션을 중단(ABORTED)하고 연다. 이미 텐션 세션이 있으면 빈 값. */
+    /**
+     * Opens a tension minigame (proposed, Boss anchor). If the player is fishing, that session is
+     * aborted (ABORTED) first. Empty if a tension session already exists.
+     */
     Optional<TensionSession> openTension(Player player, TensionSpec spec);
 
     /**
-     * 보스 어종 아이템을 만든다 (추가 제안, Boss 확정 포획 + 품질 보너스). 크기·품질 판정과 직업 상한, QualityRolledEvent, ★5·전설·신화 장부
-     * 기록을 일반 포획과 같이 처리한다. EXP·미끼·내구도는 다루지 않고, 아이템 지급은 호출한 쪽이 한다. 없는 어종이면 빈 값.
+     * Creates a boss species item (proposed, Boss guaranteed catch + quality bonus). Size and
+     * quality rolls, the job cap, QualityRolledEvent and the ★5/legendary/mythic ledger records are
+     * handled as for a normal catch. EXP, bait and durability are not handled, and the caller hands
+     * out the item. Empty for an unknown species.
      */
     Optional<CatchResult> createCatch(Player player, FishId fish, CatchOptions options);
 
-    /** 진행 중인 해상 이벤트 ID (harbor:event로 받은 것). */
+    /** IDs of active sea events (received over harbor:event). */
     Set<String> activeSeaEvents();
 
-    /** 시뮬레이션 결과. */
+    /** Simulation result. */
     record SimulationResult(
             int casts,
             Map<Grade, Integer> grades,

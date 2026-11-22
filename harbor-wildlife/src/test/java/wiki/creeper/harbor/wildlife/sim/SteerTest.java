@@ -21,7 +21,7 @@ class SteerTest {
         Vec3 r = Steer.rotateToward(east, north, Math.toRadians(30));
         assertEquals(30, Math.toDegrees(Steer.angle(east, r)), 1e-4);
         assertEquals(1, Steer.length(r), EPS);
-        // 한계 안이면 그대로 도착
+        // within the limit, arrives as-is
         assertEquals(north, Steer.rotateToward(east, north, Math.toRadians(100)));
     }
 
@@ -34,10 +34,13 @@ class SteerTest {
 
     @Test
     void yawFollowsMinecraftConvention() {
-        assertEquals(0, Steer.yawDeg(new Vec3(0, 0, 1), 7), 1e-4); // 남쪽 +Z
-        assertEquals(90, Steer.yawDeg(new Vec3(-1, 0, 0), 7), 1e-4); // 서쪽 −X
+        assertEquals(0, Steer.yawDeg(new Vec3(0, 0, 1), 7), 1e-4); // south +Z
+        assertEquals(90, Steer.yawDeg(new Vec3(-1, 0, 0), 7), 1e-4); // west −X
         assertEquals(-90, Steer.yawDeg(new Vec3(1, 0, 0), 7), 1e-4);
-        assertEquals(7, Steer.yawDeg(new Vec3(0, 1, 0), 7), 1e-4); // 수평 성분 없음 → 이전 값
+        assertEquals(
+                7,
+                Steer.yawDeg(new Vec3(0, 1, 0), 7),
+                1e-4); // no horizontal component → previous value
     }
 
     @Test
@@ -56,7 +59,7 @@ class SteerTest {
         assertEquals(new Vec3(2, 0, 0), Steer.seek(pos, target, 2));
         assertEquals(new Vec3(-2, 0, 0), Steer.flee(pos, target, 2));
         Vec3 slow = Steer.arrive(new Vec3(9, 0, 0), target, 2, 4);
-        assertEquals(0.5, Steer.length(slow), EPS); // 1블록 남음 / 감속 반경 4 × 속도 2
+        assertEquals(0.5, Steer.length(slow), EPS); // 1 block left / slow radius 4 × speed 2
         assertEquals(Vec3.ZERO, Steer.arrive(target, target, 2, 4));
     }
 
@@ -87,14 +90,14 @@ class SteerTest {
 
     @Test
     void avoidTurnsAwayFromWall() {
-        // x ≥ 3은 벽
+        // x ≥ 3 is a wall
         MediumField field = Fixtures.box(MediumField.WATER, -50, 2, 0, 20, -50, 50);
         Vec3 push =
                 Steer.avoid(field, Medium.WATER, new Vec3(1.5, 10, 0.5), new Vec3(1, 0, 0), 3, 1);
         assertTrue(Steer.length(push) > 0);
         Vec3 next = Steer.normalize(new Vec3(1, 0, 0).add(push.mul(1.5)));
         assertTrue(next.x() < 0.9, "앞이 막히면 크게 꺾는다");
-        // 열린 물에서는 밀지 않는다
+        // no push in open water
         assertEquals(
                 Vec3.ZERO,
                 Steer.avoid(field, Medium.WATER, new Vec3(-20, 10, 0), new Vec3(1, 0, 0), 3, 1));

@@ -20,7 +20,9 @@ import wiki.creeper.harbor.wildlife.api.ScriptedBehaviour;
 import wiki.creeper.harbor.wildlife.api.WildState;
 import wiki.creeper.harbor.wildlife.content.WildTemplate;
 
-/** 개체 상태 기계·조향 통합 ('17-3' 9.4). 서버 없이 가짜 매질로 돌린다. */
+/**
+ * Fish state machine + steering integration ('17-3' 9.4). Runs without a server on a fake medium.
+ */
 class SimWorldTest {
 
     private static final double DT = 0.1;
@@ -69,7 +71,7 @@ class SimWorldTest {
             }
         }
         assertEquals(5, w.size());
-        // 같은 무리라도 위상이 다르다
+        // phases differ even within the same school
         Frame f = w.step(DT, players, System.nanoTime());
         Set<Integer> phases = new HashSet<>();
         f.fish().forEach(o -> phases.add(o.phaseOffset()));
@@ -97,7 +99,7 @@ class SimWorldTest {
 
     @Test
     void airFishStayInBandAndAvoidSolids() {
-        // 공기 칸 (섬 기준 64: 띠 54~84), y < 60은 섬(막힘)
+        // air cells (island base 64: band 54~84), y < 60 is the island (blocked)
         MediumField field = (x, y, z) -> y >= 60 && y <= 120 ? MediumField.AIR : 0;
         SimWorld w = world(field);
         SpeciesProfile flyer =
@@ -123,7 +125,7 @@ class SimWorldTest {
                                 1,
                                 ScriptedBehaviour.show(null, 0))
                         .getFirst();
-        // hold 개체라도 ignoreThreat=true면 놀라지 않는다
+        // even a hold fish is not startled with ignoreThreat=true
         UUID p = UUID.randomUUID();
         w.step(DT, List.of(player(p, new Vec3(9, 56, 0.5), false)), System.nanoTime());
         w.step(DT, List.of(player(p, new Vec3(6, 56, 0.5), false)), System.nanoTime());
@@ -138,14 +140,14 @@ class SimWorldTest {
                                 1,
                                 new ScriptedBehaviour(null, true, 0, false))
                         .getFirst();
-        // 웅크리고 천천히 (초당 1블록) 다가가면 반경 ×0.5 = 5블록, 35% = 1.75블록까지 괜찮다
+        // sneaking slowly (1 block/second): radius ×0.5 = 5 blocks, fine down to 35% = 1.75 blocks
         double x = 9;
         for (int i = 0; i < 40; i++) {
             x -= 0.1;
             w2.step(DT, List.of(player(p, new Vec3(x, 55.5, 0.5), true)), System.nanoTime());
         }
         assertNotEquals(WildState.FLEE, w2.state(f2));
-        // 뛰어서 (초당 5블록) 다가가면 도망
+        // running (5 blocks/second) toward it makes it flee
         for (int i = 0; i < 5; i++) {
             x -= 0.5;
             w2.step(DT, List.of(player(p, new Vec3(x, 55.5, 0.5), false)), System.nanoTime());
@@ -173,7 +175,7 @@ class SimWorldTest {
                             .anyMatch(e -> e instanceof SimEvent.Startle s && s.player().equals(p));
         }
         assertTrue(startled);
-        // 다음 주기에 무리 전파
+        // school spread on the next step
         w.step(DT, List.of(player(p, new Vec3(x, 55.5, 0.5), false)), System.nanoTime());
         w.step(DT, List.of(player(p, new Vec3(x, 55.5, 0.5), false)), System.nanoTime());
         long fleeing = school.stream().filter(id -> w.state(id) == WildState.FLEE).count();
@@ -250,7 +252,7 @@ class SimWorldTest {
         w.release(fish, false, null);
         f = w.step(DT, ps, System.nanoTime());
         assertFalse(f.get(fish).hidden());
-        // 낚이면 지운다
+        // removed once caught
         w.approach(fish, hook, 1, true, angler);
         w.release(fish, true, null);
         w.step(DT, ps, System.nanoTime());

@@ -14,22 +14,26 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 등급별 낚시 연출 프리셋 (fishing/presets.yml, docs 20 3.3 FishingPreset, '4. 낚시 연출 & 보스전' 1장). 연출 강도(0 최소 ·
- * 1 보통 · 2 최대, /낚시 설정)마다 생략할 항목을 {@code intensity}에 적는다. 파일이 없으면 연출 없이(문구만) 진행한다.
+ * Per-grade fishing presentation presets (fishing/presets.yml, docs 20 3.3 FishingPreset, "4.
+ * Fishing presentation & boss fights" chapter 1). For each presentation intensity (0 minimum · 1
+ * normal · 2 maximum, /낚시 설정) the items to skip are listed in {@code intensity}. Without the file
+ * it proceeds with no presentation (text only).
  *
- * <p>생략 항목 이름: darkness(전설 입질 어둠), title(입질 타이틀), shake(화면 흔들림 대신 짧은 흔들림 사운드), pillar(빛기둥),
- * firework(폭죽), dialog(포획 결과 Dialog), nearby(근처 플레이어 알림), jump_viewers(근처 플레이어에게 점프 장면),
- * shadow(그림자), flop(포획 때 손 위에서 퍼덕이는 어종 리그).
+ * <p>Skippable item names: darkness (legendary bite darkness), title (bite title), shake (a short
+ * shake sound instead of screen shake), pillar (light pillar), firework (fireworks), dialog (catch
+ * result Dialog), nearby (nearby player notice), jump_viewers (jump scene for nearby players),
+ * shadow (shadow), flop (species rig flopping in the hand on catch).
  *
- * <p>{@code sounds}: 등급과 상관없는 낚시 단계 소리 ('15. 사운드' 4.1, 추가 제안). 키는 {@link #SOUND_STEPS}, 값은 소리 키
- * (harbor:… 또는 바닐라). 비운 단계는 {@link #DEFAULT_SOUNDS}를 쓰고, 빈 문자열이면 소리를 내지 않는다.
+ * <p>{@code sounds}: fishing step sounds independent of grade ("15. Sound" 4.1, proposed). Keys are
+ * {@link #SOUND_STEPS}, values are sound keys (harbor:… or vanilla). Omitted steps use {@link
+ * #DEFAULT_SOUNDS}; an empty string plays no sound.
  */
 public record FishingPresets(
         Map<Grade, GradePreset> grades,
         Map<Integer, Set<String>> skip,
         Map<String, String> sounds) {
 
-    /** 단계 소리 기본값 ('15. 사운드' 4.1). 대체 바닐라 소리는 sounds.yml에 있다. */
+    /** Default step sounds ("15. Sound" 4.1). Fallback vanilla sounds are in sounds.yml. */
     public static final Map<String, String> DEFAULT_SOUNDS =
             Map.ofEntries(
                     Map.entry("cast", "harbor:fishing.cast"),
@@ -53,20 +57,21 @@ public record FishingPresets(
         sounds = Map.copyOf(sounds);
     }
 
-    /** 단계 소리 키. 없으면 null (소리 없음). */
+    /** Step sound key. Null if none (no sound). */
     public @Nullable String sound(String step) {
         String key = sounds.getOrDefault(step, DEFAULT_SOUNDS.get(step));
         return key == null || key.isBlank() ? null : key;
     }
 
     /**
-     * 한 등급의 연출.
+     * Presentation for one grade.
      *
-     * @param shadowRig 어종 리그(rig/fish/<이름>)가 없을 때 쓰는 등급 기본 그림자 리그 (예: rig/fish/shadow_small, 비우면
-     *     없음)
-     * @param shadowModel 리그를 쓸 수 없을 때 ItemDisplay 하나로 그리는 그림자 아이템 모델 (예: harbor:shadow/rare)
-     * @param shadowScale 그림자 크기 배율 (전설은 배보다 크게)
-     * @param glowColor 그림자 감별 글로우 색 (#RRGGBB, 비우면 없음)
+     * @param shadowRig grade default shadow rig used when there is no species rig (rig/fish/<name>)
+     *     (e.g. rig/fish/shadow_small, empty for none)
+     * @param shadowModel shadow item model drawn as a single ItemDisplay when no rig can be used
+     *     (e.g. harbor:shadow/rare)
+     * @param shadowScale shadow size multiplier (legendaries are bigger than the boat)
+     * @param glowColor shadow identification glow color (#RRGGBB, empty for none)
      */
     public record GradePreset(
             @Nullable String shadowRig,
@@ -77,13 +82,14 @@ public record FishingPresets(
             Stage caught) {}
 
     /**
-     * 입질·포획 단계 연출.
+     * Presentation for the bite or catch step.
      *
-     * @param sound 효과음 키 (예: harbor:fishing.bite, 비우면 없음). harbor 소리는 Core HarborSounds가 팩 사용 여부에
-     *     따라 고른다
-     * @param soundFallback 팩 소리를 못 쓸 때 낼 바닐라 소리 (비우면 sounds.yml의 fallback, 추가 제안)
-     * @param particle 파티클 이름 (org.bukkit.Particle, 예: splash)
-     * @param particleCount 파티클 수
+     * @param sound sound key (e.g. harbor:fishing.bite, empty for none). For harbor sounds, Core
+     *     HarborSounds picks based on whether the pack is in use
+     * @param soundFallback vanilla sound played when the pack sound can't be used (empty means the
+     *     fallback in sounds.yml, proposed)
+     * @param particle particle name (org.bukkit.Particle, e.g. splash)
+     * @param particleCount particle count
      * @param flags darkness · title · shake · pillar · firework · dialog · nearby
      */
     public record Stage(
@@ -126,7 +132,7 @@ public record FishingPresets(
         return grades.getOrDefault(grade, NONE);
     }
 
-    /** 이 연출 강도에서 그 항목을 보여 주는지. */
+    /** Whether that item is shown at this presentation intensity. */
     public boolean shows(int intensity, String flag) {
         return !skip.getOrDefault(intensity, Set.of()).contains(flag);
     }
@@ -228,7 +234,7 @@ public record FishingPresets(
                 flags(node.list("flags")));
     }
 
-    /** 소리 키 (빈 문자열 = 소리 없음). 형식이 틀리면 오류를 기록하고 빈 문자열. */
+    /** Sound key (empty string = no sound). On a bad format, records an error and returns "". */
     private static String soundKey(YamlNode node) {
         String key = node.isNull() ? "" : node.asString();
         if (!key.isEmpty() && !SoundTable.KEY.matcher(key).matches()) {

@@ -15,10 +15,10 @@ import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.fishing.api.SessionState;
 
-/** 플레이어 한 명의 낚시 세션 (메인 스레드 전용). */
+/** One player's fishing session (main thread only). */
 final class FishingSession {
 
-    /** 신화 서버 마릿수 예약 (DB 카운터, confirmed가 될 때까지 기다린다). */
+    /** Mythic server count reservation (DB counter, waits until confirmed). */
     static final class MythicHold {
         final String eventId;
         final String fishId;
@@ -32,8 +32,10 @@ final class FishingSession {
     }
 
     /**
-     * 결과가 나오기 전에 끝난 캐스팅의 판정 (60초 보관, 같은 지역·미끼로 다시 던지면 그대로 씀). 지역·미끼 조합마다 따로 보관한다: 하나만 두면 미끼를 번갈아 바꿔
-     * 던질 때마다 앞 판정이 버려지고 새로 굴려져 재판정 방지가 무력해졌다.
+     * Rolls of casts that ended before a result (kept 60 seconds, reused as is when cast again with
+     * the same region and bait). Kept separately per region and bait combination: with only one,
+     * alternating baits on every cast discarded the previous roll and rerolled, defeating the
+     * reroll prevention.
      */
     record PendingRoll(
             RegionId region,
@@ -69,24 +71,24 @@ final class FishingSession {
     @Nullable MythicHold mythic;
     @Nullable ShadowControl shadow;
 
-    // 미니게임
+    // Minigame
     boolean legendBait;
     float baseYaw;
     int lastPhase = 1;
     boolean borderWarn;
 
-    /** 릴 감기 반복 소리 (Shift 감는 동안, '15. 사운드' fishing.reel_loop). */
+    /** Reel looping sound (while reeling with Shift, "15. Sound" fishing.reel_loop). */
     HarborSounds.Loop reel = HarborSounds.Loop.NONE;
 
     Minigame.@Nullable Pattern lastActive;
     FishingSettings settings = FishingSettings.DEFAULT;
 
-    // 최신 입력 (PlayerInputEvent)
+    // Latest input (PlayerInputEvent)
     boolean inputSneak;
     boolean inputLeft;
     boolean inputRight;
 
-    // 관리자 강제 판정 (/harbor fishing force)
+    // Admin forced roll (/harbor fishing force)
     @Nullable FishDef forcedFish;
     @Nullable Quality forcedQuality;
 

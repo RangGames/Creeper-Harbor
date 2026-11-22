@@ -4,14 +4,15 @@ import java.util.Map;
 import wiki.creeper.harbor.common.model.Grade;
 
 /**
- * 판정에 쓰는 보정 값 (메인 스레드에서 Core 보정자로 미리 계산해 넘긴다).
+ * Modifier values used in rolls (precomputed from Core modifiers on the main thread and passed in).
  *
- * @param gradeBonus 희귀 이상 등급별 보정 배율 − 1 (범주 곱, {@link GradeBonus}). 상한은 RollEngine이 한 번 더 적용
- * @param uncaughtWeight 도감 미등록 어종 가중치 보정 (도감 사냥꾼)
- * @param legendPityStartOffset 전설 천장 시작점 보정 (전설의 숨결 −30·−60)
- * @param legendChanceMult 전설 확률 배율 (전설의 기척 ×2)
- * @param speciesMult 이벤트 어종 배율 (물고기 대이동 ×3, 어종 ID 문자열 → 배율)
- * @param mythicChanceBonus 신화 확률에 더하는 값 (신화의 예감 +0.5%p)
+ * @param gradeBonus per-grade modifier multiplier − 1 for rare-or-better (category product, {@link
+ *     GradeBonus}). RollEngine applies the cap once more
+ * @param uncaughtWeight weight modifier for species not in the codex (codex hunter)
+ * @param legendPityStartOffset legendary pity start offset (breath of legends −30, −60)
+ * @param legendChanceMult legendary chance multiplier (sign of legends ×2)
+ * @param speciesMult event species multipliers (great migration ×3, species ID string → multiplier)
+ * @param mythicChanceBonus value added to the mythic chance (mythic premonition +0.5%p)
  */
 public record RollModifiers(
         Map<Grade, Double> gradeBonus,

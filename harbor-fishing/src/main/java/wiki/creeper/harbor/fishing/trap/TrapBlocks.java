@@ -19,7 +19,10 @@ import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.content.type.RegionDef;
 import wiki.creeper.harbor.core.api.HarborApi;
 
-/** 통발의 월드 표현: 배럴 블록(PDC에 통발 ID)과 위의 ItemDisplay 외형, 부표 자리 찾기. 메인 스레드 전용. */
+/**
+ * World representation of a trap: barrel block (trap ID in PDC) with an ItemDisplay look on top,
+ * and buoy spot lookup. Main thread only.
+ */
 final class TrapBlocks {
 
     private final HarborApi api;
@@ -56,7 +59,7 @@ final class TrapBlocks {
         return best;
     }
 
-    /** 배럴 블록 + 위에 통발 외형 ItemDisplay. */
+    /** Barrel block + trap look ItemDisplay on top. */
     void build(Block spot, long id, ItemDef def) {
         spot.setType(Material.BARREL);
         BlockState state = spot.getState();
@@ -79,7 +82,10 @@ final class TrapBlocks {
                                 });
     }
 
-    /** 블록과 외형을 지운다 (청크가 로드되어 있을 때만, 아니면 다음에 누가 열 때 정리). */
+    /**
+     * Removes the block and look (only if the chunk is loaded; otherwise cleaned up the next time
+     * someone opens it).
+     */
     void demolish(String worldName, int x, int y, int z, long id) {
         World world = Bukkit.getWorld(worldName);
         if (world == null || !world.isChunkLoaded(x >> 4, z >> 4)) {

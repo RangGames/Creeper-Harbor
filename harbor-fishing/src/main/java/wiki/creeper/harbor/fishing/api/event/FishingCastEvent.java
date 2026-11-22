@@ -12,8 +12,9 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.fishing.api.ShadowDriver;
 
 /**
- * 캐스팅 판정이 끝나 찌가 대기에 들어갈 때 (docs 20 3.2). Wildlife가 같은 어종의 야생 개체를 찾아 {@link #claimShadow}로 그림자를 대행하면
- * Fishing은 대기 중 기본 그림자를 만들지 않는다. 핸들러가 끝난 뒤에 대행 여부를 본다.
+ * When the cast roll is done and the bobber starts waiting (docs 20 3.2). If Wildlife finds a wild
+ * individual of the same species and takes over the shadow via {@link #claimShadow}, Fishing does
+ * not create the default shadow while waiting. The takeover is checked after the handlers finish.
  */
 public final class FishingCastEvent extends PlayerEvent {
 
@@ -56,7 +57,7 @@ public final class FishingCastEvent extends PlayerEvent {
         return bait;
     }
 
-    /** 판정된 어종 (그림자 등급·리그 선택용). */
+    /** The rolled species (for shadow grade and rig selection). */
     public FishDef fish() {
         return fish;
     }
@@ -65,20 +66,20 @@ public final class FishingCastEvent extends PlayerEvent {
         return fish.grade();
     }
 
-    /** 입질까지 틱. */
+    /** Ticks until the bite. */
     public int waitTicks() {
         return waitTicks;
     }
 
-    /** 물고기 떼 위에서 던졌는지 (RegionKeyResolver가 알려 준 값). */
+    /** Whether the cast was over a fish school (value reported by RegionKeyResolver). */
     public boolean school() {
         return school;
     }
 
     /**
-     * 그림자를 대행한다 (Wildlife). 먼저 부른 드라이버만 받아들인다.
+     * Takes over the shadow (Wildlife). Only the first driver to call is accepted.
      *
-     * @return 받아들였으면 true
+     * @return true if accepted
      */
     public boolean claimShadow(ShadowDriver driver) {
         if (shadow != null) {

@@ -28,7 +28,10 @@ import wiki.creeper.harbor.core.api.WorldBorderService;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.present.CatchPresenter;
 
-/** 미니게임 입력 해석과 화면·소리 (텐션 게이지, 보스바 색, 릴 소리, 경고 테두리, 전설 하늘 연출, 이동 잠금). 메인 스레드 전용. */
+/**
+ * Minigame input interpretation and screen/sound (tension gauge, boss bar color, reel sound,
+ * warning border, legendary sky presentation, movement lock). Main thread only.
+ */
 final class MinigameDisplay {
 
     private static final int GAUGE_CELLS = 20;
@@ -51,8 +54,10 @@ final class MinigameDisplay {
     }
 
     /**
-     * 방향 입력: 이동 키 또는 시점 회전 (설정). 배 위에서도 A·D 입력이 그대로 오므로 키를 쓴다 (예전에는 배 위를 시점 회전으로 바꿨는데, 배가 돌면 시점도 같이
-     * 돌아 시작 방향과의 차이가 계속 남아 한쪽으로 굳었다).
+     * Direction input: movement keys or camera rotation (setting). A/D input arrives as is even on
+     * a boat, so keys are used (previously boats switched to camera rotation, but when the boat
+     * turned the camera turned with it, so the difference from the starting direction persisted and
+     * the input got stuck to one side).
      */
     Minigame.Input input(
             Player player,
@@ -79,8 +84,8 @@ final class MinigameDisplay {
     }
 
     /**
-     * 릴 감기 반복 소리: Shift를 누르고 있는 동안 켜고, 떼면 끊는다 ('15. 사운드' 2장 fishing.reel_loop). 플레이어를 따라가며 근처에도
-     * 들린다.
+     * Reel looping sound: on while Shift is held, cut when released ("15. Sound" chapter 2
+     * fishing.reel_loop). Follows the player and is audible nearby.
      */
     HarborSounds.Loop reelSound(Player player, boolean reeling, HarborSounds.Loop current) {
         if (reeling && !current.active()) {
@@ -94,7 +99,10 @@ final class MinigameDisplay {
         return current;
     }
 
-    /** 찌가 떨어진 곳: 용암이면 용암 착수, 얼음 구멍(옆이나 위가 얼음)이면 얼음 구멍 착수, 아니면 일반 착수 ('15. 사운드' 4.1). */
+    /**
+     * Where the bobber landed: lava landing for lava, ice hole landing for an ice hole (ice beside
+     * or above), otherwise a normal landing ("15. Sound" 4.1).
+     */
     static String landStep(Location at) {
         Block block = at.getBlock();
         if (block.getType() == Material.LAVA) {
@@ -114,7 +122,10 @@ final class MinigameDisplay {
         return "land";
     }
 
-    /** 텐션 0.85 이상이면 Core WorldBorderService에 경고를 요청해 화면 가장자리를 붉게 한다. */
+    /**
+     * At tension 0.85 or above, requests a warning from Core WorldBorderService to redden the
+     * screen edges.
+     */
     void warnBorder(
             Player player,
             double tension,
@@ -135,7 +146,7 @@ final class MinigameDisplay {
         }
     }
 
-    /** 전설 3페이즈 하늘 연출 (개인 날씨·시간). */
+    /** Legendary phase 3 sky presentation (personal weather and time). */
     void phaseSky(Player player, int phase, int intensity, FishDef fish) {
         if (!fish.grade().isAtLeast(Grade.LEGENDARY)
                 || !ctx.presets().shows(intensity, "darkness")) {
@@ -166,8 +177,9 @@ final class MinigameDisplay {
     }
 
     /**
-     * 텐션 게이지 (20칸): 안전 구간 초록, 위험(0.85+) 빨강, 바늘 ▼. 물고기가 도망치는 쪽에 ◀◀ / ▶▶ (따라가고 있으면 초록, 아니면 빨강). 가운데로
-     * 버틸 때 A·D를 누르고 있으면 누른 쪽에 빨간 화살표. 커스텀 폰트 글리프가 준비되면 Ui 글리프로 바꾼다.
+     * Tension gauge (20 cells): safe zone green, danger (0.85+) red, needle ▼. ◀◀ / ▶▶ on the side
+     * the fish is fleeing to (green if following, red otherwise). While holding center, a red arrow
+     * on the pressed side if A/D is held. Switch to Ui glyphs once custom font glyphs are ready.
      */
     static Component gauge(Minigame game, Minigame.Input input) {
         int needle = (int) Math.min(GAUGE_CELLS - 1, Math.floor(game.tension() * GAUGE_CELLS));

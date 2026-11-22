@@ -18,7 +18,10 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.task.Tasks;
 
-/** 미끼 차감·반환, 낚싯대 내구도, 아이템 지급 (가득 차면 발밑에). 메인 스레드 전용. */
+/**
+ * Bait deduction and return, rod durability, item delivery (dropped at the feet when full). Main
+ * thread only.
+ */
 final class FishingGear {
 
     private final HarborApi api;
@@ -33,7 +36,7 @@ final class FishingGear {
         this.baitUses = new NamespacedKey(plugin, "bait_uses");
     }
 
-    // ------------------------------------------------------------------ 미끼 · 낚싯대
+    // ------------------------------------------------------------------ Bait · rod
 
     boolean isLegendBait(@Nullable ItemId bait) {
         if (bait == null) {
@@ -46,7 +49,10 @@ final class FishingGear {
                 .orElse(false);
     }
 
-    /** 왼손 미끼 1개 차감. 사용 횟수가 있는 미끼(반짝이 루어 uses)는 남은 횟수를 1 줄이고 0이 되면 1개를 없앤다. */
+    /**
+     * Deducts 1 off-hand bait. For bait with uses (shiny lure uses), decrements the remaining uses
+     * by 1 and removes 1 item when it reaches 0.
+     */
     void consumeBait(Player player, @Nullable ItemId bait) {
         if (bait == null) {
             return;
@@ -86,7 +92,7 @@ final class FishingGear {
                 .ifPresent(def -> give(player, api.items().create(def, 1)));
     }
 
-    /** 내구도가 1 이하면 낚시 불가 (수리 안내). */
+    /** Fishing is not allowed when durability is 1 or less (repair notice). */
     static boolean rodBroken(ItemStack rod) {
         if (rod.isEmpty()) {
             return false;
@@ -96,7 +102,7 @@ final class FishingGear {
         return max != null && max > 0 && damage != null && damage >= max - 1;
     }
 
-    /** 내구도 −1 (0이 되기 전에 멈춘다: 부서지지 않고 수리 안내). */
+    /** Durability −1 (stops before reaching 0: it does not break, a repair notice is shown). */
     void damageRod(Player player) {
         ItemStack rod = player.getInventory().getItemInMainHand();
         if (rod.isEmpty() || rod.getType().getMaxDurability() <= 0 || rodBroken(rod)) {
@@ -112,7 +118,10 @@ final class FishingGear {
         player.damageItemStack(EquipmentSlot.HAND, 1);
     }
 
-    /** 인벤토리가 가득 차면 발밑에 떨어뜨리고 60초 동안 본인만 주울 수 있게 한다. */
+    /**
+     * If the inventory is full, drops it at the feet and lets only the owner pick it up for 60
+     * seconds.
+     */
     void give(Player player, ItemStack stack) {
         for (ItemStack left : player.getInventory().addItem(stack).values()) {
             Item dropped = player.getWorld().dropItem(loc(player), left);
