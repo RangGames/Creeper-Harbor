@@ -11,7 +11,9 @@ import io.papermc.paper.registry.data.dialog.type.DialogType;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
 import org.bukkit.entity.Player;
@@ -29,6 +31,27 @@ public final class DialogManager implements Dialogs {
 
     public DialogManager(Tasks tasks) {
         this.tasks = tasks;
+    }
+
+    private volatile Predicate<UUID> frozen = uuid -> false;
+
+    /** 서버 이동 저장본을 뜬 플레이어 판정 (PlayerManager.frozen). Core 시작 때 넣는다. */
+    public void setFrozen(Predicate<UUID> frozen) {
+        this.frozen = frozen;
+    }
+
+    /**
+     * 버튼 결과를 메인 스레드에서 실행한다. 서버 이동 저장본을 뜬 뒤면 버리고, 나간 플레이어도 버린다. 버튼 콜백은 창을 닫은 뒤에도 5분 동안 살아 있어서 이동 잠금
+     * 중에 (변조 클라이언트가) 누르면 판매·경매 등록 같은 거래가 저장본 밖에서 실행돼 복제된다.
+     */
+    private void onMain(Player player, Runnable action) {
+        tasks.main()
+                .execute(
+                        () -> {
+                            if (player.isOnline() && !frozen.test(player.getUniqueId())) {
+                                action.run();
+                            }
+                        });
     }
 
     @Override
@@ -53,7 +76,7 @@ public final class DialogManager implements Dialogs {
                         .action(
                                 DialogAction.customClick(
                                         (response, audience) ->
-                                                tasks.main().execute(() -> result.accept(true)),
+                                                onMain(player, () -> result.accept(true)),
                                         ONCE))
                         .build();
         ActionButton noButton =
@@ -61,7 +84,7 @@ public final class DialogManager implements Dialogs {
                         .action(
                                 DialogAction.customClick(
                                         (response, audience) ->
-                                                tasks.main().execute(() -> result.accept(false)),
+                                                onMain(player, () -> result.accept(false)),
                                         ONCE))
                         .build();
         Dialog dialog =
@@ -91,8 +114,7 @@ public final class DialogManager implements Dialogs {
                             .action(
                                     DialogAction.customClick(
                                             (response, audience) ->
-                                                    tasks.main()
-                                                            .execute(() -> result.accept(index)),
+                                                    onMain(player, () -> result.accept(index)),
                                             ONCE))
                             .build());
         }
@@ -135,7 +157,7 @@ public final class DialogManager implements Dialogs {
                                         (response, audience) -> {
                                             String value = response.getText(INPUT_KEY);
                                             String v = value == null ? "" : value.strip();
-                                            tasks.main().execute(() -> result.accept(v));
+                                            onMain(player, () -> result.accept(v));
                                         },
                                         ONCE))
                         .build();

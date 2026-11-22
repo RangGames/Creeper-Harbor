@@ -55,6 +55,29 @@ public final class MythicCounter {
                 });
     }
 
+    /** 서버 종료용: 기다려서 한 마리를 반납한다. 실패는 기록만 한다. */
+    public void releaseNow(String eventId, String fishId) {
+        try {
+            database.txVoid(
+                    c -> {
+                        try (PreparedStatement ps =
+                                c.prepareStatement(
+                                        "UPDATE fishing_mythic_counter SET count = count - 1"
+                                                + " WHERE event_id = ? AND fish_id = ? AND count > 0")) {
+                            ps.setString(1, eventId);
+                            ps.setString(2, fishId);
+                            ps.executeUpdate();
+                        }
+                    });
+        } catch (java.sql.SQLException e) {
+            System.getLogger("Harbor/Fishing")
+                    .log(
+                            System.Logger.Level.WARNING,
+                            "신화 예약 반납 실패 (종료 중): " + eventId + " " + fishId,
+                            e);
+        }
+    }
+
     /** 현재 마릿수 (관리 명령). */
     public CompletableFuture<Integer> count(String eventId, String fishId) {
         return database.async(

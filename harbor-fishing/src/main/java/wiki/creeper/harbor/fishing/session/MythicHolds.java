@@ -120,6 +120,17 @@ final class MythicHolds {
         }
     }
 
+    /** 서버 종료용: 기다려서 반납한다. */
+    void releaseMythicNow(FishingSession.MythicHold hold) {
+        if (hold.released) {
+            return;
+        }
+        hold.released = true;
+        if (hold.confirmed) {
+            mythicCounter.releaseNow(hold.eventId, hold.fishId);
+        }
+    }
+
     void discardPending(FishingSession s) {
         FishingSession.PendingRoll pending = s.pending;
         if (pending != null) {

@@ -6,6 +6,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 
@@ -45,16 +46,23 @@ public final class TradeGuard implements HandoffBlocker {
 
     private final Map<UUID, Ticket> inFlight = new ConcurrentHashMap<>();
     private final Consumer<UUID> afterTrade;
+    private final Predicate<UUID> frozen;
 
     /**
      * @param afterTrade 거래가 끝날 때 (성공·실패 모두, 아무 스레드). 보통 {@code PlayerService::saveSoon}
+     * @param frozen 서버 이동 저장본을 뜬 플레이어인지 (메인 스레드). 보통 {@code PlayerService::frozen}
      */
-    public TradeGuard(Consumer<UUID> afterTrade) {
+    public TradeGuard(Consumer<UUID> afterTrade, Predicate<UUID> frozen) {
         this.afterTrade = afterTrade;
+        this.frozen = frozen;
     }
 
     /** 거래를 시작한다. 이미 진행 중인 거래가 있으면 빈 값. */
     public Optional<Ticket> begin(UUID player) {
+        // 서버 이동 저장본을 뜬 뒤 시작한 거래는 저장본 밖에서 아이템을 옮겨 복제된다
+        if (frozen.test(player)) {
+            return Optional.empty();
+        }
         Ticket ticket = new Ticket(this, player);
         return inFlight.putIfAbsent(player, ticket) == null
                 ? Optional.of(ticket)

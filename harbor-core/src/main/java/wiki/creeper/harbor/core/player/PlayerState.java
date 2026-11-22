@@ -50,6 +50,8 @@ final class PlayerState implements HarborPlayer {
     private boolean baseDirty;
     private volatile @Nullable String handoffRequest;
     private volatile boolean handoffSaved;
+    private volatile boolean handoffLocked;
+    private volatile boolean abortRequested;
     private volatile boolean left;
 
     PlayerState(PlayerRepository.Row row, Map<String, Object> loadedComponents) {
@@ -89,7 +91,26 @@ final class PlayerState implements HarborPlayer {
         handoffRequest = requestId;
         if (requestId == null) {
             handoffSaved = false;
+            handoffLocked = false;
+            abortRequested = false;
         }
+    }
+
+    /** 잠금을 handoff로 넘겼다 (beginHandoff 성공). 이 전에 온 취소는 {@link #requestAbort}로 미룬다. */
+    boolean handoffLocked() {
+        return handoffLocked;
+    }
+
+    void markHandoffLocked() {
+        handoffLocked = true;
+    }
+
+    boolean abortRequested() {
+        return abortRequested;
+    }
+
+    void requestAbort() {
+        abortRequested = true;
     }
 
     /**

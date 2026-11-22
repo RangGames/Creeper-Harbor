@@ -124,6 +124,11 @@ final class CastHandler {
         if (distance > 0 && Math.abs(distance - 1) > 1e-6) {
             hook.setVelocity(hook.getVelocity().multiply(distance));
         }
+        if (s.state != SessionState.IDLE) {
+            // 앞 캐스팅이 이벤트 없이 끝났다 (손에 든 칸 바꾸기·멀리 이동·텔레포트로 바닐라가 찌를 지움). clearCast만 하면 확정된 신화
+            // 예약과 그림자가 반납되지 않아 서버 한도가 영구히 줄어든다: 보통의 이른 종료로 처리한다 (판정은 보류로 남는다)
+            endEarly(player, s, FishingSessionEndEvent.Reason.INTERRUPTED);
+        }
         s.clearCast();
         s.state = SessionState.CAST;
         s.hook = hook;

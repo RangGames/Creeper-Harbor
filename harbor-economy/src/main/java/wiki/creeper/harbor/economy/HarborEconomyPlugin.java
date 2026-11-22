@@ -57,7 +57,7 @@ public final class HarborEconomyPlugin extends HarborModule {
         ctx.contentCheck(ShopDef.TYPE, ServerChecks.SHOP_VANILLA);
         ctx.contentCheck(Balance.TYPE, ServerChecks.BALANCE);
 
-        TradeGuard guard = new TradeGuard(api.players()::saveSoon);
+        TradeGuard guard = new TradeGuard(api.players()::saveSoon, api.players()::frozen);
         AdminAlerts alerts = new AdminAlerts(api, ctx.tasks());
         MarketEngine market = new MarketEngine(api, ctx.tasks(), getSLF4JLogger(), alerts);
         MailManager mail = new MailManager(api, ctx.tasks(), getSLF4JLogger(), guard);

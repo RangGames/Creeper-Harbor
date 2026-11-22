@@ -84,7 +84,8 @@ public final class PlayerManager implements PlayerService, Listener {
 
     private record Pending(PlayerState state, long createdNanos) {}
 
-    private final Map<UUID, PlayerState> online = new HashMap<>();
+    // 메인 스레드에서 고치지만 frozen()은 다른 스레드에서도 읽는다
+    private final Map<UUID, PlayerState> online = new ConcurrentHashMap<>();
     private final Map<UUID, Pending> pending = new ConcurrentHashMap<>();
     private final Map<String, PlayerComponent<?>> components = new ConcurrentHashMap<>();
     private final InfraConfig infra;
@@ -96,6 +97,17 @@ public final class PlayerManager implements PlayerService, Listener {
     private final Tasks tasks;
     private final Logger log;
     private volatile boolean acceptingLogins = true;
+
+    /** 이 서버에 접속해 있는 플레이어 (접속 전 이벤트 스레드에서도 읽는다). */
+    private final Set<UUID> onlineIds = ConcurrentHashMap.newKeySet();
+
+    /** 진행 중인 퇴장 처리 (저장·잠금 해제). 같은 서버 재접속이 끝날 때까지 기다린다. */
+    private final Map<UUID, CompletableFuture<Void>> quitting = new ConcurrentHashMap<>();
+
+    /** 퇴장 저장이 실패해 큐에 남은 플레이어. 저장될 때까지 잠금을 연장한다. */
+    private final Set<UUID> unsavedQuits = ConcurrentHashMap.newKeySet();
+
+    private static final long PREVIOUS_SESSION_WAIT_NANOS = TimeUnit.SECONDS.toNanos(5);
     private final Set<UUID> saveSoonPending = ConcurrentHashMap.newKeySet();
     private volatile LongSupplier saveSoonDelay = () -> 10;
 
@@ -248,6 +260,13 @@ public final class PlayerManager implements PlayerService, Listener {
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("server.closing"));
             return;
         }
+        // 같은 서버에 다시 들어오는 경우: 이전 접속의 퇴장 저장이 끝나기 전에 읽으면 저장 전 데이터를 불러오고 (마지막 자동 저장 이후가
+        // 되돌아가 복제된다), 이전 접속의 잠금 해제가 새 접속의 잠금을 지운다 (잠금은 "owned:이 서버"로 값이 같다)
+        if (!awaitPreviousSession(uuid)) {
+            event.disallow(
+                    AsyncPlayerPreLoginEvent.Result.KICK_OTHER, messages.get("session.busy"));
+            return;
+        }
         ClaimResult claim = locks.awaitClaim(uuid, infra.serverId(), SessionLocks.HANDOFF_WAIT);
         if (!claim.isClaimed()) {
             String key = claim == ClaimResult.BUSY ? "session.busy" : "session.unavailable";
@@ -273,9 +292,56 @@ public final class PlayerManager implements PlayerService, Listener {
         var _ = db.asyncVoid(c -> SessionAudit.recordOwner(c, uuid, infra.serverId(), until));
     }
 
+    /**
+     * 접속 전 (블로킹 가능한 스레드): 이 서버에 남은 이전 접속을 정리할 때까지 기다린다. 이전 접속이 아직 있으면 내보내고 (Paper는 접속 전 단계 뒤에야 중복
+     * 접속을 끊으므로 기다리기만 하면 끝나지 않는다), 퇴장 저장·잠금 해제가 끝나기를 기다린다. 퇴장 저장이 실패해 남아 있으면 지금 다시 쓴다. 제한 시간 안에 못
+     * 끝내면 false (접속 거부).
+     */
+    private boolean awaitPreviousSession(UUID uuid) {
+        long deadline = System.nanoTime() + PREVIOUS_SESSION_WAIT_NANOS;
+        if (onlineIds.contains(uuid)) {
+            tasks.main()
+                    .execute(
+                            () -> {
+                                Player old = Bukkit.getPlayer(uuid);
+                                if (old != null) {
+                                    old.kick(messages.get("session.moved"));
+                                }
+                            });
+        }
+        try {
+            while (onlineIds.contains(uuid)) {
+                if (System.nanoTime() >= deadline) {
+                    return false;
+                }
+                Thread.sleep(50);
+            }
+            CompletableFuture<Void> quit = quitting.get(uuid);
+            if (quit != null) {
+                quit.get(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (ExecutionException | TimeoutException e) {
+            return false;
+        }
+        if (unsavedQuits.contains(uuid)) {
+            try {
+                queue.flushNow(prefix(uuid));
+                unsavedQuits.remove(uuid);
+            } catch (SQLException e) {
+                log.warn("이전 접속 데이터를 아직 저장하지 못해 접속을 미룹니다: {}", uuid);
+                return false;
+            }
+        }
+        return true;
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        onlineIds.add(player.getUniqueId());
         Pending loaded = pending.remove(player.getUniqueId());
         if (loaded == null) {
             player.kick(messages.get("player.load_failed"));
@@ -291,6 +357,7 @@ public final class PlayerManager implements PlayerService, Listener {
         Sequence.cancelAll(uuid);
         PlayerState state = online.get(uuid);
         if (state == null) {
+            onlineIds.remove(uuid);
             return;
         }
         state.markLeft();
@@ -302,7 +369,7 @@ public final class PlayerManager implements PlayerService, Listener {
             online.remove(uuid);
             // 도착 서버가 아직 가져가지 않았으면 (이동 중 접속 끊김·프록시 종료) 그 요청의 잠금만 지운다. beginHandoff가
             // 이보다 늦게 끝나면 beginTransfer 쪽에서 left()를 보고 한 번 더 지운다
-            var _ = tasks.async(() -> locks.releaseHandoff(uuid, handoff));
+            trackQuit(uuid, tasks.async(() -> locks.releaseHandoff(uuid, handoff)));
             return;
         }
         if (handoff != null) {
@@ -311,17 +378,28 @@ public final class PlayerManager implements PlayerService, Listener {
         // 저장 훅이 Bukkit 상태를 뜰 수 있게 목록에서 빼기 전에 큐에 넣는다
         enqueueSave(state, false, SaveReason.QUIT);
         online.remove(uuid);
-        var _ =
+        trackQuit(
+                uuid,
                 tasks.async(
                         () -> {
                             try {
                                 queue.flushNow(prefix(uuid));
                                 locks.release(uuid, infra.serverId());
                             } catch (SQLException e) {
-                                // 큐에 남아 있다가 다시 쓴다. 잠금은 해제하지 않고 30초 뒤 만료되게 둔다
-                                log.error("퇴장 저장 실패, 지연 쓰기로 다시 시도합니다: {}", uuid, e);
+                                // 큐에 남아 있다. 저장할 때까지 잠금을 계속 연장해서 다른 서버가 저장 전 데이터를 읽지 못하게 하고,
+                                // refreshLocks가 다시 써 본다 (예전에는 30초 뒤 잠금이 풀려 다른 서버가 옛 데이터를 읽고, 뒤늦은
+                                // 재시도가 그 세션을 덮어썼다)
+                                unsavedQuits.add(uuid);
+                                log.error("퇴장 저장 실패, 저장될 때까지 잠금을 유지합니다: {}", uuid, e);
                             }
-                        });
+                        }));
+    }
+
+    /** 퇴장 처리(저장·잠금 해제)를 기록한다. 퇴장 이벤트 안에서 부르고, 그다음 접속 중 표시를 지운다 (재접속이 이 순서로 기다린다). */
+    private void trackQuit(UUID uuid, CompletableFuture<Void> work) {
+        quitting.put(uuid, work);
+        onlineIds.remove(uuid);
+        var _ = work.whenComplete((v, e) -> quitting.remove(uuid, work));
     }
 
     // ------------------------------------------------------------------ 서버 이동 (출발 서버)
@@ -456,10 +534,34 @@ public final class PlayerManager implements PlayerService, Listener {
                                                 request.destination(),
                                                 request.requestId());
                                 reason = ok ? "ok" : "lock_lost";
+                                boolean abortNow = false;
+                                if (ok) {
+                                    // 잠금을 넘긴 표시와 취소 요청 확인을 한 번에 (abortTransfer와 엇갈리지 않게)
+                                    synchronized (state) {
+                                        state.markHandoffLocked();
+                                        abortNow = state.abortRequested();
+                                    }
+                                }
                                 if (ok && state.left()) {
                                     // 저장하는 사이에 접속이 끊겼다 (프록시 종료 등): 퇴장 쪽 해제가 먼저 돌았을 수 있으므로
                                     // 남은 handoff 잠금을 지운다. 데이터는 방금 썼다
                                     locks.releaseHandoff(uuid, request.requestId());
+                                } else if (abortNow) {
+                                    // 저장하는 사이 프록시가 이동을 취소했다: 잠금을 되돌리고 계속 플레이한다
+                                    boolean restored =
+                                            locks.abortHandoff(
+                                                    uuid, infra.serverId(), request.requestId());
+                                    tasks.main()
+                                            .execute(
+                                                    () -> {
+                                                        if (restored) {
+                                                            clearHandoff(
+                                                                    state, request.requestId());
+                                                        } else {
+                                                            kickMoved(uuid);
+                                                        }
+                                                    });
+                                    return;
                                 }
                             } catch (SQLException e) {
                                 log.error("서버 이동 저장 실패: {}", uuid, e);
@@ -485,6 +587,18 @@ public final class PlayerManager implements PlayerService, Listener {
         PlayerState state = online.get(uuid);
         if (state == null || !requestId.equals(state.handoffRequest())) {
             return;
+        }
+        if (!state.handoffSaved()) {
+            // 이동 전 훅 지연 중: 아직 저장도 잠금 넘김도 안 했다. 요청만 지우면 지연 뒤 이어하기가 멈춘다
+            clearHandoff(state, requestId);
+            return;
+        }
+        synchronized (state) {
+            if (!state.handoffLocked()) {
+                // 저장 중 (잠금은 아직 이 서버 것): 지금 강퇴하면 안 된다. beginTransfer가 잠금을 넘긴 뒤 되돌린다
+                state.requestAbort();
+                return;
+            }
         }
         var _ =
                 tasks.supplyAsync(() -> locks.abortHandoff(uuid, infra.serverId(), requestId))
@@ -551,7 +665,8 @@ public final class PlayerManager implements PlayerService, Listener {
     @Override
     public CompletableFuture<Void> saveNow(UUID uuid) {
         PlayerState state = online.get(uuid);
-        if (state == null) {
+        if (state == null || state.handoffSaved()) {
+            // 이동 저장본을 뜬 뒤면 잠금이 도착 서버로 넘어간다: 다시 쓰면 도착 서버 데이터를 덮을 수 있다
             return CompletableFuture.completedFuture(null);
         }
         enqueueSave(state, false, SaveReason.NOW);
@@ -662,14 +777,27 @@ public final class PlayerManager implements PlayerService, Listener {
                 log.error("종료 저장 실패: {}", uuid, e);
             }
         }
+        // 앞서 퇴장 저장에 실패한 플레이어도 마지막으로 써 본다 (실패하면 잠금이 만료될 때까지 다른 서버가 기다린다)
+        for (UUID uuid : List.copyOf(unsavedQuits)) {
+            try {
+                queue.flushNow(prefix(uuid));
+                unsavedQuits.remove(uuid);
+                locks.release(uuid, infra.serverId());
+            } catch (SQLException e) {
+                log.error("종료 저장 실패 (이전 퇴장): {}", uuid, e);
+            }
+        }
         online.clear();
     }
 
     private void refreshLocks() {
-        if (online.isEmpty()) {
+        if (!unsavedQuits.isEmpty()) {
+            retryUnsavedQuits();
+        }
+        if (online.isEmpty() && unsavedQuits.isEmpty()) {
             return;
         }
-        List<UUID> owned = new ArrayList<>();
+        List<UUID> owned = new ArrayList<>(unsavedQuits);
         for (PlayerState state : online.values()) {
             // 이동 전 훅 지연을 기다리는 동안에도 잠금은 아직 이 서버 것(owned)이라 연장한다
             if (!state.handoffSaved()) {
@@ -677,6 +805,31 @@ public final class PlayerManager implements PlayerService, Listener {
             }
         }
         var _ = tasks.async(() -> locks.refresh(owned, infra.serverId()));
+    }
+
+    /**
+     * 퇴장 저장에 실패한 플레이어: 다시 써 보고, 되면 잠금 연장을 멈춘다 (그동안 잠금은 refreshLocks가 연장한다). 잠금을 직접 풀지 않는다: 그 사이 같은
+     * 서버에 다시 들어와 같은 값("owned:이 서버")으로 잡은 잠금을 지울 수 있다. 30초 안에 만료된다.
+     */
+    private void retryUnsavedQuits() {
+        List<UUID> targets = List.copyOf(unsavedQuits);
+        var _ =
+                tasks.async(
+                        () -> {
+                            for (UUID uuid : targets) {
+                                if (quitting.containsKey(uuid) || onlineIds.contains(uuid)) {
+                                    continue;
+                                }
+                                try {
+                                    queue.flushNow(prefix(uuid));
+                                    if (unsavedQuits.remove(uuid)) {
+                                        log.info("퇴장 저장을 마쳤습니다: {}", uuid);
+                                    }
+                                } catch (SQLException e) {
+                                    log.warn("퇴장 저장 재시도 실패: {}", uuid);
+                                }
+                            }
+                        });
     }
 
     /** 접속 전 로드는 했지만 접속하지 않은 플레이어 정리. */

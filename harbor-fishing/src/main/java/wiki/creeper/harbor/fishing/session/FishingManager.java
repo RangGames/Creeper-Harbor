@@ -12,6 +12,7 @@ import java.util.random.RandomGenerator;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.FishHook;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -395,6 +396,12 @@ public final class FishingManager implements FishingService, Listener {
             switch (s.state) {
                 case CAST -> casts.tickCast(player, s);
                 case WAITING, BITE -> {
+                    FishHook hook = s.hook;
+                    if (hook == null || !hook.isValid()) {
+                        // 바닐라가 이벤트 없이 찌를 지웠다: 끝내야 신화 예약·그림자가 반납되고 낚는 중 표시가 풀린다
+                        casts.endEarly(player, s, FishingSessionEndEvent.Reason.INTERRUPTED);
+                        continue;
+                    }
                     s.castTicks++;
                     ShadowControl shadow = s.shadow;
                     if (shadow != null && s.state == SessionState.WAITING) {
@@ -508,7 +515,20 @@ public final class FishingManager implements FishingService, Listener {
             if (player != null) {
                 abort(player, MinigameResult.ABORTED);
             }
-            CastHandler.closeShadow(e.getValue(), false);
+            FishingSession s = e.getValue();
+            CastHandler.closeShadow(s, false);
+            // 종료 때는 퇴장 이벤트가 오지 않으므로 신화 예약을 여기서 반납한다 (DB 연결이 곧 닫히므로 기다려서 쓴다).
+            // 안 하면 재시작마다 그 이벤트의 서버 한도가 줄어든다
+            FishingSession.MythicHold hold = s.mythic;
+            if (hold != null) {
+                mythic.releaseMythicNow(hold);
+            }
+            FishingSession.PendingRoll pending = s.pending;
+            FishingSession.MythicHold pendingHold = pending == null ? null : pending.mythic();
+            if (pendingHold != null) {
+                mythic.releaseMythicNow(pendingHold);
+            }
+            s.pending = null;
         }
         for (TensionSessionImpl t : List.copyOf(tensions.values())) {
             t.close(MinigameResult.ABORTED);

@@ -223,6 +223,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         tasks,
                         log);
         players = playerManager;
+        dialogs.setFrozen(playerManager::frozen);
         FlagManager flags =
                 new FlagManager(database, messageBus, playerManager, tasks, infra.season());
         flags.start();

@@ -92,6 +92,10 @@ public final class Reconciler {
                 }
                 Optional<Long> local = localAmount(p.txId());
                 Optional<Long> amount = PaymentRules.won(new java.math.BigDecimal(p.amount()));
+                if (local.isPresent() && local.get() == IN_INBOX) {
+                    // 수신함에 이미 있다 (처리 대기·재시도 대기·실패). 여기서 또 넣으면 원래 웹훅이 재처리될 때 두 번 지급된다
+                    continue;
+                }
                 if (local.isEmpty()) {
                     if (inbox.insertIfAbsent(synthetic(p))) {
                         missing++;
@@ -139,13 +143,16 @@ public final class Reconciler {
                                 ps.setString(1, tx);
                                 try (ResultSet rs = ps.executeQuery()) {
                                     // 수신함에 이미 있으면(처리 중) 누락이 아니다
-                                    return rs.next() ? Optional.of(-1L) : Optional.<Long>empty();
+                                    return rs.next()
+                                            ? Optional.of(IN_INBOX)
+                                            : Optional.<Long>empty();
                                 }
                             }
-                        })
-                .filter(v -> v >= 0)
-                .or(() -> Optional.empty());
+                        });
     }
+
+    /** {@link #localAmount}: 지급 기록은 없지만 수신함에 이미 있음. 예전에는 필터가 이 값을 "누락"으로 바꿔 진주를 두 번 지급할 수 있었다. */
+    private static final long IN_INBOX = -1L;
 
     /** 원격 결제 → 웹훅 형식 본문 (품목 하나로 본다). */
     static WebhookIntake.InboxRow synthetic(RemotePayment p) {

@@ -60,7 +60,17 @@ final class ChatButtons {
                                                 if (audience instanceof Player clicker
                                                         && clicker.getUniqueId()
                                                                 .equals(player.getUniqueId())) {
-                                                    onMain(() -> onClick.accept(index));
+                                                    // 서버 이동 저장본을 뜬 뒤 누른 버튼은 버린다 (대화 보상이 저장본 밖에서
+                                                    // 실행됨)
+                                                    onMain(
+                                                            () -> {
+                                                                if (!api.players()
+                                                                        .frozen(
+                                                                                clicker
+                                                                                        .getUniqueId())) {
+                                                                    onClick.accept(index);
+                                                                }
+                                                            });
                                                 }
                                             },
                                             options));

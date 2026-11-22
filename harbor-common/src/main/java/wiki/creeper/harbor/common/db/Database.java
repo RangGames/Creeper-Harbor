@@ -94,10 +94,19 @@ public final class Database implements AutoCloseable {
                     connection.commit();
                     return result;
                 } catch (SQLException | RuntimeException e) {
-                    connection.rollback();
+                    // 끊긴 연결에서 롤백이 실패해도 원래 예외(잔액 부족·중복·교착 판단의 근거)를 그대로 던진다
+                    try {
+                        connection.rollback();
+                    } catch (SQLException rollbackError) {
+                        e.addSuppressed(rollbackError);
+                    }
                     throw e;
                 } finally {
-                    connection.setAutoCommit(true);
+                    try {
+                        connection.setAutoCommit(true);
+                    } catch (SQLException ignored) {
+                        // 연결을 풀에 돌려줄 때 HikariCP가 정리한다
+                    }
                 }
             } catch (SQLException e) {
                 if (!isDeadlock(e) || attempt >= MAX_DEADLOCK_RETRIES) {

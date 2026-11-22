@@ -10,7 +10,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationErrors;
@@ -84,6 +86,8 @@ public final class EditorStore {
     private synchronized CompletableFuture<Outcome> write(
             String file, java.util.function.UnaryOperator<String> change) {
         Path path = questsDir().resolve(file).normalize();
+        // 되돌릴 원래 상태: 쓰기 전에는 null, 쓴 뒤에는 원래 글(파일이 없었으면 빈 Optional = 되돌릴 때 지운다)
+        AtomicReference<@Nullable Optional<String>> before = new AtomicReference<>();
         CompletableFuture<Outcome> next =
                 chain.handle((r, e) -> null)
                         .thenCompose(
@@ -94,9 +98,12 @@ public final class EditorStore {
                                                         throw new IllegalArgumentException(
                                                                 "quests 폴더 밖 파일: " + file);
                                                     }
-                                                    String old =
-                                                            Files.exists(path) ? read(path) : "";
-                                                    writeText(path, change.apply(old));
+                                                    Optional<String> old =
+                                                            Files.exists(path)
+                                                                    ? Optional.of(read(path))
+                                                                    : Optional.empty();
+                                                    writeText(path, change.apply(old.orElse("")));
+                                                    before.set(old);
                                                     return old;
                                                 }))
                         .thenCompose(
@@ -104,19 +111,31 @@ public final class EditorStore {
                                         content.reload(Set.of(QuestDef.TYPE.name()), true)
                                                 .thenCompose(result -> settle(path, old, result)))
                         .exceptionally(
-                                e -> new Outcome(false, String.valueOf(rootCause(e).getMessage())))
+                                e -> {
+                                    // 리로드가 예외로 끝나도 (검사기 오류 등) 깨진 글을 디스크에 남기지 않는다
+                                    Optional<String> old = before.get();
+                                    if (old != null) {
+                                        try {
+                                            restore(path, old);
+                                        } catch (RuntimeException restoreError) {
+                                            e.addSuppressed(restoreError);
+                                        }
+                                    }
+                                    return new Outcome(
+                                            false, String.valueOf(rootCause(e).getMessage()));
+                                })
                         .thenApplyAsync(r -> r, tasks.main());
         chain = next;
         return next;
     }
 
     private CompletableFuture<Outcome> settle(
-            Path path, String old, Result<ContentSnapshot, ValidationErrors> result) {
+            Path path, Optional<String> old, Result<ContentSnapshot, ValidationErrors> result) {
         if (result instanceof Result.Err<ContentSnapshot, ValidationErrors> err) {
             String errors = err.error().format();
             return tasks.supplyAsync(
                     () -> {
-                        writeText(path, old);
+                        restore(path, old);
                         return new Outcome(false, errors);
                     });
         }
@@ -141,6 +160,22 @@ public final class EditorStore {
         }
         try (Stream<Path> s = Files.list(dir)) {
             return s.filter(p -> p.getFileName().toString().endsWith(".yml")).sorted().toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * 저장 실패를 되돌린다. 원래 없던 파일은 지운다: 빈 글로 되돌리면 빈 파일이 남고, 빈 파일은 "빈 파일입니다" 오류라 그 뒤 모든 퀘스트 리로드(와 다음 시작 때
+     * 로드)가 거부된다.
+     */
+    private static void restore(Path path, Optional<String> old) {
+        if (old.isPresent()) {
+            writeText(path, old.get());
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

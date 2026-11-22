@@ -107,12 +107,14 @@ public final class WriteBehindQueue implements AutoCloseable {
                             }
                         });
                 written.addAndGet(batch.size());
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
+                // 한 항목의 런타임 예외(직렬화 오류 등)도 묶음 전체를 롤백한다. 예전에는 SQLException만 잡아서 이미 큐에서
+                // 꺼낸 묶음(다른 플레이어 저장 포함)이 통째로 사라졌다
                 LOG.log(
                         Level.WARNING,
                         "묶음 쓰기 실패, 한 건씩 다시 씁니다 ({0}건): {1}",
                         batch.size(),
-                        e.getMessage());
+                        String.valueOf(e.getMessage()));
                 flushOneByOne(batch);
             }
         } finally {
@@ -152,6 +154,18 @@ public final class WriteBehindQueue implements AutoCloseable {
             } catch (SQLException e) {
                 batch.forEach(this::requeue);
                 throw e;
+            } catch (RuntimeException e) {
+                // 한 항목의 데이터 오류: 되돌려 놓으면 이 플레이어 저장이 영원히 실패하므로 한 건씩 써서 그 항목만 버린다.
+                // 연결 문제로 다시 큐에 들어간 것이 있으면 저장하지 못한 것으로 알린다
+                LOG.log(Level.WARNING, "즉시 쓰기 실패, 한 건씩 다시 씁니다: " + keyPrefix, e);
+                flushOneByOne(batch);
+                synchronized (pendingLock) {
+                    for (String key : batch.keySet()) {
+                        if (pending.containsKey(key)) {
+                            throw new SQLException("즉시 쓰기 일부 실패: " + key, e);
+                        }
+                    }
+                }
             }
         } finally {
             flushLock.unlock();
@@ -176,6 +190,10 @@ public final class WriteBehindQueue implements AutoCloseable {
                     dropped.incrementAndGet();
                     LOG.log(Level.ERROR, "지연 쓰기 실패로 버립니다: " + entry.getKey(), e);
                 }
+            } catch (RuntimeException e) {
+                // 그 항목의 데이터 오류: 다시 해도 같으므로 그 항목만 버리고 나머지는 계속 쓴다
+                dropped.incrementAndGet();
+                LOG.log(Level.ERROR, "지연 쓰기 오류로 버립니다: " + entry.getKey(), e);
             }
         }
     }

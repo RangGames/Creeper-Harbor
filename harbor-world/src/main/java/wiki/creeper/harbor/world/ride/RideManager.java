@@ -354,7 +354,12 @@ public final class RideManager implements Listener {
                 to.setDirection(flat);
                 to.setPitch(0);
             }
-            var _ = f.ghast.teleport(to);
+            // 텔레포트가 거부되면 (월드 경계·이벤트 취소 등) 비행선이 제자리에 멈추고 탑승자는 내릴 수도 이동할 수도 없다:
+            // 그 자리에 내려 준다
+            if (!f.ghast.teleport(to)) {
+                land(f);
+                return;
+            }
             ticket(f, to, flat);
         }
     }
