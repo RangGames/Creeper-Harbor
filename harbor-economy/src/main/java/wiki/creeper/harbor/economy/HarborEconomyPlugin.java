@@ -12,6 +12,7 @@ import wiki.creeper.harbor.economy.api.AuctionService;
 import wiki.creeper.harbor.economy.api.CraftService;
 import wiki.creeper.harbor.economy.api.PriceService;
 import wiki.creeper.harbor.economy.api.RepairService;
+import wiki.creeper.harbor.economy.api.SaleService;
 import wiki.creeper.harbor.economy.api.ShopService;
 import wiki.creeper.harbor.economy.content.EconomyContent;
 import wiki.creeper.harbor.economy.content.RecipeDef;
@@ -26,6 +27,7 @@ import wiki.creeper.harbor.economy.service.FraudMonitor;
 import wiki.creeper.harbor.economy.service.MailManager;
 import wiki.creeper.harbor.economy.service.MarketEngine;
 import wiki.creeper.harbor.economy.service.RepairManager;
+import wiki.creeper.harbor.economy.service.SaleApi;
 import wiki.creeper.harbor.economy.service.SellMenu;
 import wiki.creeper.harbor.economy.service.SellService;
 import wiki.creeper.harbor.economy.service.ShopManager;
@@ -117,6 +119,8 @@ public final class HarborEconomyPlugin extends HarborModule {
         services.register(CraftService.class, craft, this, ServicePriority.Normal);
         services.register(AuctionService.class, auction, this, ServicePriority.Normal);
         services.register(RepairService.class, repair, this, ServicePriority.Normal);
+        services.register(
+                SaleService.class, new SaleApi(sell, sellMenu), this, ServicePriority.Normal);
     }
 
     @Override

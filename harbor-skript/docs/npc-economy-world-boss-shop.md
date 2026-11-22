@@ -74,6 +74,35 @@ harbor admin force wanderer %string% to [candidate] %string%  # 강제 이동 (�
 harbor admin reset wanderer %string%                          # 강제 이동 해제
 ```
 
+### NPC 배치 · 시선
+
+```
+harbor admin spawn npc %string% [at %-location%] [for %-timespan%] [and (store|save) [the] result in %-objects%]
+harbor admin (despawn|hide) npc[s] %strings%
+harbor admin (teleport|move) npc %string% to %location%
+harbor admin (release|reset) npc[s] %strings%        # 스크립트 배치를 풀고 npcs.yml·떠돌이 일정으로 돌아감
+harbor npc %string% is script[-]controlled           harbor npc %string% (isn't|is not) script[-]controlled
+make harbor npc %string% look at %location%
+make harbor npc %string% (follow|keep looking at) %player%
+reset harbor npc gaze of %strings%                   make harbor npc[s] %strings% stop looking
+```
+
+- `spawn`: 위치를 빼면 설정된 자리(npcs.yml `location`, 떠돌이는 지금 후보지)에 세웁니다. `spawn_flag` · `hide_flag` · 떠돌이 일정을 무시합니다. 결과는 true/false (NPC가 없거나, 이 서버가 NPC를 세우지 않거나, 세울 자리가 없으면 false).
+- `for %timespan%`을 주면 임시 소환입니다. 시간이 지나면 저절로 `release`됩니다. `teleport`는 남은 시간을 유지합니다.
+- 스크립트 배치는 **메모리에만** 있습니다. `release`, Harbor-Npc 꺼짐, 서버 재시작 때 사라지고 NPC는 콘텐츠 배치로 돌아갑니다. 계속 유지할 배치는 npcs.yml에 쓰세요.
+- NPC 엔티티는 본 서버(role main)에만 섭니다. 다른 서버에서는 아무 일도 하지 않습니다.
+- 위치를 바꾸면 NPC 엔티티를 그 자리에 다시 만듭니다 (청크가 안 불러와졌으면 불러올 때 생김).
+- 시선: `look at`은 그 위치를, `follow`는 그 플레이어를 계속 봅니다 (같은 월드에 있을 때만, 나가면 풀림). `stop looking` · `release`까지 가장 가까운 플레이어 보기가 멈춥니다.
+
+```
+command /바위등장:
+    permission: harbor.admin
+    trigger:
+        harbor admin spawn npc "bawi" at player's location for 5 minutes and store the result in {_ok}
+        if {_ok} is true:
+            make harbor npc "bawi" follow player
+```
+
 ### 대화
 
 ```
@@ -189,7 +218,7 @@ stop harbor cutscene (of|for) %players%
 [the] harbor broken repair cost of [price] %number% for %player%  # 내구도 0일 때
 ```
 
-물고기가 아니거나 팔 수 없는 아이템(신화·방생 전용)은 값이 없습니다. **판매 자체는 스크립트로 하지 않습니다** (판매 API가 없음). 플레이어가 판매 화면에서 팝니다.
+물고기가 아니거나 팔 수 없는 아이템(신화·방생 전용)은 값이 없습니다. 판매는 아래 "대신 거래하기"로 합니다.
 
 ### 화면 열기
 
@@ -198,6 +227,47 @@ open harbor shop %string% (to|for) %players%                    # shop/…
 open harbor craft[ing] station %string% (to|for) %players%      # station/…
 open harbor craft[ing] (kind|menu) %string% (to|for) %players%  # workshop · cooking · shipyard
 ```
+
+### 대신 거래하기 (판매 · 구매 · 경매 · 제작 · 수리)
+
+플레이어가 자기 화면에서 하는 것과 **같은 흐름**으로 처리합니다 (거래 중 표시로 서버 이동 보류, 원장 한 트랜잭션, 실패하면 맡긴 아이템 반환, 끝나면 인벤토리 곧 저장). 확인 창만 건너뛰고, 플레이어에게 가는 안내 문구는 평소와 같습니다. 결과가 DB 처리 뒤에 오므로 **트리거가 `wait`처럼 기다렸다가** 다음 줄로 갑니다.
+
+```
+make %player% sell [the] held harbor fish [and (store|save) [the] result in %-objects%] [with [the] gold in %-objects%]
+make %player% sell all [[of] [the]] harbor fish [of species %-string%] [… 위와 같음]
+make %player% sell [the] [contents of [the]] harbor sell (box|chest) [… 위와 같음]
+make %player% buy %number% [of] harbor shop entry %string% from [shop] %string% [… 위와 같음]
+make %player% list [the] held item on [the] harbor auction for %number% [gold] [and (store|save) [the] result in %-objects%] [with [the] listing id in %-objects%]
+make %player% buy harbor auction listing %number% [… result · gold]
+make %player% craft harbor recipe %string% [… result · gold]
+make %player% repair [the] held harbor (gear|item) [… result · gold]
+```
+
+| 문법 | 같은 흐름 | 비고 |
+|---|---|---|
+| `sell … held harbor fish` | `/판매 손` | 귀한 물고기(잠금·고유 번호·★5)도 팝니다 |
+| `sell all … harbor fish` | `/판매 전부` | 귀한 물고기는 건너뜀. `of species "fish/…"`로 한 어종만 |
+| `sell … harbor sell box` | `/판매` 판매 상자의 판매 버튼 | 판매 상자가 열려 있어야 함. 귀한 물고기는 상자에 남김 |
+| `buy … harbor shop entry` | 상점 화면에서 클릭 | 해금 조건·NPC 호감도 할인·일일 한도 그대로. 개수는 1~한 묶음. 빈 칸 하나 필요 |
+| `list … harbor auction` | `/경매 등록` | 경매 게시판 근처·신규 계정·가격 범위·슬롯 검사 그대로. 결과 gold 대신 새 매물 번호 |
+| `buy harbor auction listing` | `/경매` 화면에서 구매 | 아이템은 우편으로 와서 자동 수령 |
+| `craft harbor recipe` | 제작 화면에서 선택 | 제작대 근처일 필요는 없음. 해금·재료·주간 한도 그대로 |
+| `repair … held harbor gear` | `/수리` | 손에 든 장비 |
+
+결과 값 (`result`): `ok` · `nothing`(팔 것·고칠 것 없음) · `unknown`(없는 상점 항목·레시피·매물) · `locked` · `busy`(다른 거래 중 또는 서버 이동 중) · `no_gold` · `inventory_full` · `limit`(일일·주간 한도) · `missing`(재료 부족) · `not_tradeable` · `price_range` · `new_account` · `not_near`(경매 게시판에서 멂) · `slots_full` · `gone`(끝났거나 가격이 바뀐 매물) · `own`(자기 매물) · `failed`. 모듈이 꺼졌거나 인자가 잘못되면 값이 없습니다.
+
+`gold`는 판매 합계 · 구매가 · 낙찰가 · 제작비 · 수리비입니다 (실패면 0).
+
+```
+command /고등어팔기:
+    trigger:
+        make player sell all harbor fish of species "fish/harbor_mackerel" and store the result in {_r} with the gold in {_g}
+        if {_r} is "ok":
+            send "&a고등어를 %{_g}%G에 팔았습니다"
+```
+
+- 이 문법들은 정상 거래 경로이므로 `harbor admin`이 붙지 않습니다. 대신 **플레이어가 직접 하는 것과 같은 결과**만 냅니다 (재화를 공짜로 주려면 `harbor gold`).
+- 거래가 이미 진행 중이면 `busy`입니다. 한 플레이어에게 거래를 연달아 걸 때는 앞 결과를 기다린 뒤 거세요 (이 문법은 기다리므로 순서대로 쓰면 됩니다).
 
 ### 경매 · 우편 (DB, 결과가 늦게 옴)
 
@@ -217,7 +287,7 @@ open harbor craft[ing] (kind|menu) %string% (to|for) %players%  # workshop · co
 ```
 
 - 매물 정보(`… of %number%`)는 전체 목록(`harbor auction listings`, 분류 없음)을 한 번 읽은 뒤에 나옵니다.
-- 경매 등록·구매는 플레이어의 `/경매` 화면에서만 합니다.
+- 경매 등록·구매는 위 "대신 거래하기"를 쓰세요.
 - 아이템 우편은 README의 `send harbor mail`을 쓰세요. 골드 우편은 열지 않았습니다 (스크립트 재화는 `harbor gold` = 원장 `SCRIPT_*`로만).
 
 ```
@@ -260,7 +330,7 @@ every 5 minutes:
 harbor admin travel %players% to region %string%  # 입장 조건 무시, 다른 서버면 서버 이동
 ```
 
-지역 **해금 자체**는 레벨·퀘스트·플래그 조건으로 정해집니다. 조건 중 플래그는 README의 `harbor set flag`로 줄 수 있습니다.
+지역 **해금 자체**는 레벨·퀘스트·플래그 조건으로 정해집니다. 따로 해금 API는 없고, 조건 중 플래그는 README의 `harbor set flag`로 줄 수 있습니다 (지역 `requires`에 플래그 조건을 넣어 두고 스크립트가 플래그를 세움). 조건을 무시하고 보내려면 `harbor admin travel`을 씁니다.
 
 ### 배
 
@@ -277,6 +347,19 @@ harbor admin travel %players% to region %string%  # 입장 조건 무시, 다른
 `afloat` = 그 플레이어가 띄운 배, `boarded` = 지금 타고 있는 배(주인 무관). 상태는 `stored` · `afloat` · `wrecked`.
 (패턴은 실제로 `harbor afloat ship type of …`처럼 한 단어씩 따로 등록돼 있습니다.)
 
+**배 띄우기 · 회수 · 내구도**
+
+```
+make %player% summon [(their|his|her)] harbor ship [%-number%] [and (store|save) [the] result in %-objects%]
+harbor admin summon [harbor] ship [%-number%] for %player% [and (store|save) [the] result in %-objects%]
+make %players% recall [(their|his|her)] harbor ship[s]
+harbor admin set [the] durability of harbor ship %number% of %offlineplayer% to %number%
+```
+
+- `summon`: 증서를 쓴 것과 같습니다 (근처 물 찾기, `on harbor ship summon` 발생·취소 가능, 띄워 둔 배는 회수). 번호를 빼면 부서지지 않은 가장 최근 배입니다. 결과는 true/false. `harbor admin summon`은 소환 대기 시간만 무시합니다.
+- `recall`: `/선박 회수`와 같습니다 (탑승자 내림, 내구도 저장).
+- 내구도는 1~최대 내구도로 맞춥니다. 보관 중인 부서진 배는 다시 쓸 수 있게 됩니다. 주인이 이 서버에 접속해 있어야 합니다.
+
 ### 하우징
 
 ```
@@ -291,6 +374,35 @@ harbor admin travel %players% to region %string%  # 입장 조건 무시, 다른
 ```
 
 `of %offlineplayer%`는 불러온 부지만 됩니다 (주인이 접속 중이거나 누가 방문 중). 방문 정책은 `public` · `members` · `private`.
+
+**방문 · 공동 건축자 · 방문 정책** (DB를 거치므로 트리거가 결과를 기다림)
+
+```
+make %player% visit [the] harbor plot of %offlineplayer% [and (store|save) [the] result in %-objects%]
+harbor admin send %player% to [the] harbor plot of %offlineplayer% [and (store|save) [the] result in %-objects%]
+harbor admin add %offlineplayer% to [the] harbor plot members of %offlineplayer% [and (store|save) [the] result in %-objects%]
+harbor admin remove %offlineplayer% from [the] harbor plot members of %offlineplayer% [and (store|save) [the] result in %-objects%]
+harbor admin set [the] harbor plot visit policy of %offlineplayer% to %string% [and (store|save) [the] result in %-objects%]
+```
+
+- `visit`: `/부두 방문`과 같습니다 (부지를 불러오고 방문 정책 검사, 하우징이 다른 서버면 서버 이동). 결과는 `sent` · `no_plot` · `closed`. `harbor admin send`는 방문 정책을 무시합니다.
+- 공동 건축자·방문 정책: `/부두 건축자` · `/부두 설정`과 같은 처리입니다 (DB 기록 뒤 다른 서버에 부지 변경 알림). 공동 건축자 외의 역할은 없습니다. 결과는 true/false (부지가 없거나, 주인을 건축자로 넣으려 하면 false). 주인이 오프라인이어도 됩니다.
+
+### 비행선
+
+```
+make %player% board [a] harbor airship to [region] %string% [and (store|save) [the] result in %-objects%]
+harbor admin launch [a] harbor airship from [region] %string% to [region] %string% (with|for) %players%
+harbor admin (stop|end) [the] harbor airship ride of %players%
+%players% (is|are) (riding|on) [a] harbor airship          # 비행 중
+%players% (is|are) waiting for [a] harbor airship          # 출발 대기 중
+[the] harbor airship destination of %players%              # 타고 있는 비행선의 도착 지역 ID
+```
+
+- `board`: `/비행선 <지역>`과 같습니다 (비행선 정류장 근처, 배로 한 번 가 본 지역, 입장 조건). 결과는 `queued` · `not_at_stop` · `no_route` · `locked`. 다음 정시 출발 때 탑니다.
+- `harbor admin launch`: 두 지역의 비행선 정류장 사이를 **바로** 출발시킵니다 (대기·방문·입장 조건 무시). 탈 사람은 출발 정류장으로 먼저 옮깁니다. 다른 월드에 있거나 이미 비행 중인 사람은 빠집니다.
+- `harbor admin stop`: 대기열에서 빼거나, 비행 중이면 도착 지점으로 옮겨 내립니다 (비행 중 내리기 금지를 건너뜀).
+- 노틸러스 대여는 `/노틸러스`로만 합니다.
 
 ### 보물 지도 · 해도 · 물고기 떼
 
@@ -475,13 +587,8 @@ harbor admin give %number% [season] pass (exp|experience) unit[s] (from|of) sour
 
 | 원하는 것 | 막힌 이유 |
 |---|---|
-| NPC 소환 · 제거 · 순간이동 · 바라보기 | `NpcService`가 조회와 바쁨 검사만 있음. NPC는 `npcs.yml`·떠돌이 일정으로만 움직임 |
-| 물고기 대신 팔기 · 상점 대신 사기 · 경매 등록·구매 | Economy api에 판매·구매 함수가 없음 (`PriceService`는 견적만, `ShopService.charge`는 다른 모듈용 결제) |
-| 대신 제작하기 · 수리비 결제 | `CraftService`는 화면 열기만, `RepairService.pay`는 장비·배 갱신 SQL을 같이 넘겨야 함 |
-| 지역 해금 관리 | 해금 = 레벨·퀘스트·플래그 조건이라 별도 API 없음 (플래그 조건은 `harbor set flag`) |
-| 배 띄우기 · 회수 · 내구도 변경 | `ShipService`가 조회 전용 |
-| 하우징 방문 이동 · 권한(공동 건축자) 변경 | `HousingService`가 조회·권한 검사만 있음 (`harbor plot spawn`으로 위치는 얻을 수 있음) |
-| 비행선 · 탈것 | World api에 비행선 서비스가 없음 |
+| 노틸러스 대여 | `RideService`는 비행선만 다룸 (`/노틸러스`로만 대여) |
+| 스크립트 NPC 배치 유지 | 스크립트 배치는 메모리에만 있음. 재시작 뒤에도 남길 자리는 `npcs.yml`에 씀 |
 | 보스 주간 입장 횟수 | Boss api에 주간 제한 조회가 없음 |
 | 파티 만들기 · 초대 · 탈퇴 | Core `PartyService`가 조회 전용 |
 | 진주 잔액·지급·사용, 패스 레벨 구매 여부 | README 규칙: 유료 재화는 스크립트에서 다루지 않음 |
@@ -492,3 +599,7 @@ harbor admin give %number% [season] pass (exp|experience) unit[s] (from|of) sour
 - `present` 선택 결과가 정확히 한 번 오는지 (닫기·멀어짐 -1)
 - DB 식의 첫 읽기 "값 없음" 뒤 다음 읽기에서 값이 채워지는지
 - `harbor afloat ship …` 같은 반복 등록 패턴과 Skript 기본 문법(`amount of …`)의 해석 충돌 여부
+- 결과를 두 변수에 담는 패턴(`… result in {_r} with the gold in {_g}`)의 해석
+- `make harbor npc … look at %location%`에 플레이어를 넘겼을 때 위치로 바뀌는지 (플레이어를 따라보려면 `follow`)
+- 스크립트로 옮긴 NPC가 청크를 다시 불러올 때 제자리에 생기는지, 임시 소환 시간이 지나면 원래 자리로 돌아가는지
+- `harbor admin launch`로 멀리 있는 플레이어를 정류장으로 옮긴 직후 해피 가스트에 태우기

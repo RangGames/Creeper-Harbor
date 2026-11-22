@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -80,6 +81,18 @@ final class PlotActions {
         if (s == null) {
             return;
         }
+        var _ = applyPolicy(s, policy);
+        kit.send(
+                player,
+                "world.housing.policy_set",
+                Placeholder.unparsed("policy", plain("world.housing.policy." + policy.key())));
+    }
+
+    /**
+     * Changes the visit policy of a loaded plot: cache right away, then the DB row and the
+     * cross-server plot-changed notice. Main thread.
+     */
+    CompletableFuture<Void> applyPolicy(PlotState s, VisitPolicy policy) {
         PlotInfo o = s.info;
         s.info =
                 new PlotInfo(
@@ -103,15 +116,57 @@ final class PlotActions {
                         o.spawnYaw(),
                         o.members());
         long plotId = o.plotId();
-        var _ =
-                kit.api()
-                        .database()
-                        .asyncVoid(c -> HousingRepository.updatePolicy(c, plotId, policy))
-                        .thenRun(() -> store.publishChanged(plotId, false));
-        kit.send(
-                player,
-                "world.housing.policy_set",
-                Placeholder.unparsed("policy", plain("world.housing.policy." + policy.key())));
+        return kit.api()
+                .database()
+                .asyncVoid(c -> HousingRepository.updatePolicy(c, plotId, policy))
+                .thenRun(() -> store.publishChanged(plotId, false));
+    }
+
+    /**
+     * Adds or removes a co-builder of a loaded plot: DB row, then (main thread) the cross-server
+     * plot-changed notice and the cache. The future completes on the main thread.
+     */
+    CompletableFuture<Void> applyMember(PlotState s, UUID target, boolean add) {
+        long plotId = s.info.plotId();
+        return kit.api()
+                .database()
+                .asyncVoid(c -> HousingRepository.member(c, plotId, target, add))
+                .thenRunAsync(() -> memberChanged(s, target, add), kit.tasks().main());
+    }
+
+    /** After the member row committed: sync other servers' caches and this one. */
+    private void memberChanged(PlotState s, UUID target, boolean add) {
+        // After commit: sync other servers' caches too (so a removed builder cannot keep
+        // building there)
+        store.publishChanged(s.info.plotId(), false);
+        Set<UUID> members = new HashSet<>(s.info.members());
+        if (add) {
+            members.add(target);
+        } else {
+            members.remove(target);
+        }
+        PlotInfo o = s.info;
+        s.info =
+                new PlotInfo(
+                        o.plotId(),
+                        o.owner(),
+                        o.ownerName(),
+                        o.gridX(),
+                        o.gridZ(),
+                        o.size(),
+                        o.theme(),
+                        o.visitPolicy(),
+                        o.likes(),
+                        o.world(),
+                        o.minX(),
+                        o.minZ(),
+                        o.maxX(),
+                        o.maxZ(),
+                        o.spawnX(),
+                        o.spawnY(),
+                        o.spawnZ(),
+                        o.spawnYaw(),
+                        members);
     }
 
     /** /부두 건축자 추가·제거 &lt;name&gt; (add/remove builder). */
@@ -142,37 +197,7 @@ final class PlotActions {
                                                 Placeholder.unparsed("name", name));
                                         return;
                                     }
-                                    // After commit: sync other servers' caches too (so a removed
-                                    // builder cannot keep building there)
-                                    store.publishChanged(plotId, false);
-                                    Set<UUID> members = new HashSet<>(s.info.members());
-                                    if (add) {
-                                        members.add(target.get());
-                                    } else {
-                                        members.remove(target.get());
-                                    }
-                                    PlotInfo o = s.info;
-                                    s.info =
-                                            new PlotInfo(
-                                                    o.plotId(),
-                                                    o.owner(),
-                                                    o.ownerName(),
-                                                    o.gridX(),
-                                                    o.gridZ(),
-                                                    o.size(),
-                                                    o.theme(),
-                                                    o.visitPolicy(),
-                                                    o.likes(),
-                                                    o.world(),
-                                                    o.minX(),
-                                                    o.minZ(),
-                                                    o.maxX(),
-                                                    o.maxZ(),
-                                                    o.spawnX(),
-                                                    o.spawnY(),
-                                                    o.spawnZ(),
-                                                    o.spawnYaw(),
-                                                    members);
+                                    memberChanged(s, target.get(), add);
                                     kit.send(
                                             player,
                                             add

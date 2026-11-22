@@ -2,6 +2,7 @@ package wiki.creeper.harbor.world.ride;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,6 +37,7 @@ import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.world.WorldKit;
+import wiki.creeper.harbor.world.api.RideService;
 import wiki.creeper.harbor.world.content.RegionExt;
 import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.region.RegionManager;
@@ -59,7 +61,7 @@ import wiki.creeper.harbor.world.region.WorldIndex;
  * No entity is saved (setPersistent false); leftovers are removed by their PDC tag. Main thread
  * only.
  */
-public final class RideManager implements Listener {
+public final class RideManager implements RideService, Listener {
 
     private static final String AIRSHIP_SOUND = "harbor:travel.airship";
 
@@ -74,16 +76,18 @@ public final class RideManager implements Listener {
         final HappyGhast ghast;
         final List<Location> path;
         final Location arrival;
+        final RegionId dest;
         int segment;
         final Set<Long> tickets = new java.util.HashSet<>();
 
         /** Looping flight sound (travel.airship, '15. sound' 4.4). */
         HarborSounds.Loop sound = HarborSounds.Loop.NONE;
 
-        Flight(HappyGhast ghast, List<Location> path, Location arrival) {
+        Flight(HappyGhast ghast, List<Location> path, Location arrival, RegionId dest) {
             this.ghast = ghast;
             this.path = path;
             this.arrival = arrival;
+            this.dest = dest;
         }
     }
 
@@ -189,7 +193,11 @@ public final class RideManager implements Listener {
     }
 
     /** /비행선 [region]: picks a route near a station and waits for the next departure. */
-    public void board(Player player, @Nullable RegionId target) {
+    public void boardOrChoose(Player player, @Nullable RegionId target) {
+        if (target != null) {
+            var _ = board(player, target);
+            return;
+        }
         Optional<Stop> from = nearStop(player, RegionExt.DockKind.AIRSHIP);
         if (from.isEmpty()) {
             kit.send(player, "world.airship.not_at_stop");
@@ -200,29 +208,135 @@ public final class RideManager implements Listener {
             kit.send(player, "world.airship.no_route");
             return;
         }
-        if (target == null) {
-            List<Dialogs.Choice> choices = new ArrayList<>();
-            for (WorldIndex.Entry e : options) {
-                choices.add(new Dialogs.Choice(Component.text(e.def().name()), Component.empty()));
-            }
-            kit.api()
-                    .dialogs()
-                    .choose(
-                            player,
-                            kit.api().messages().get("world.airship.title"),
-                            List.of(kit.api().messages().get("world.airship.choose")),
-                            choices,
-                            2,
-                            i -> enqueue(player, from.get(), options.get(i)));
-            return;
+        List<Dialogs.Choice> choices = new ArrayList<>();
+        for (WorldIndex.Entry e : options) {
+            choices.add(new Dialogs.Choice(Component.text(e.def().name()), Component.empty()));
+        }
+        kit.api()
+                .dialogs()
+                .choose(
+                        player,
+                        kit.api().messages().get("world.airship.title"),
+                        List.of(kit.api().messages().get("world.airship.choose")),
+                        choices,
+                        2,
+                        i -> enqueue(player, from.get(), options.get(i)));
+    }
+
+    @Override
+    public BoardResult board(Player player, RegionId target) {
+        Optional<Stop> from = nearStop(player, RegionExt.DockKind.AIRSHIP);
+        if (from.isEmpty()) {
+            kit.send(player, "world.airship.not_at_stop");
+            return BoardResult.NOT_AT_STOP;
+        }
+        List<WorldIndex.Entry> options = destinations(player, from.get());
+        if (options.isEmpty()) {
+            kit.send(player, "world.airship.no_route");
+            return BoardResult.NO_ROUTE;
         }
         Optional<WorldIndex.Entry> dest =
                 options.stream().filter(e -> e.id().equals(target)).findFirst();
         if (dest.isEmpty()) {
             kit.send(player, "world.airship.locked");
-            return;
+            return BoardResult.LOCKED;
         }
         enqueue(player, from.get(), dest.get());
+        return BoardResult.QUEUED;
+    }
+
+    private Optional<Stop> airshipStop(RegionId region) {
+        return stops(RegionExt.DockKind.AIRSHIP).stream()
+                .filter(s -> s.region().id().equals(region))
+                .findFirst();
+    }
+
+    @Override
+    public boolean launch(Collection<Player> riders, RegionId fromId, RegionId toId) {
+        Optional<Stop> from = airshipStop(fromId);
+        Optional<Stop> to = airshipStop(toId);
+        if (from.isEmpty()
+                || to.isEmpty()
+                || fromId.equals(toId)
+                || !from.get().region().def().world().equals(to.get().region().def().world())) {
+            return false;
+        }
+        World world = kit.bukkitWorld(from.get().region().def().world());
+        if (world == null) {
+            return false;
+        }
+        RegionExt.Point o = from.get().dock().at();
+        Location origin = new Location(world, o.x(), o.y(), o.z(), o.yaw(), 0);
+        List<Player> boarding = new ArrayList<>();
+        for (Player p : riders) {
+            if (!p.isOnline() || !p.getWorld().equals(world) || riding(p)) {
+                continue;
+            }
+            UUID uuid = p.getUniqueId();
+            queue.values().forEach(m -> m.values().forEach(l -> l.remove(uuid)));
+            p.leaveVehicle();
+            if (p.teleport(origin)) {
+                boarding.add(p);
+            }
+        }
+        if (boarding.isEmpty()) {
+            return false;
+        }
+        WorldBalance b = kit.balance();
+        int capacity = Math.max(1, b.airshipCapacity());
+        for (int i = 0; i < boarding.size(); i += capacity) {
+            launch(
+                    origin,
+                    to.get(),
+                    boarding.subList(i, Math.min(boarding.size(), i + capacity)),
+                    b);
+        }
+        return true;
+    }
+
+    private Optional<Flight> flightOf(Player player) {
+        return flights.stream().filter(f -> f.ghast.getPassengers().contains(player)).findFirst();
+    }
+
+    @Override
+    public boolean riding(Player player) {
+        return flightOf(player).isPresent();
+    }
+
+    @Override
+    public boolean queued(Player player) {
+        UUID uuid = player.getUniqueId();
+        return queue.values().stream()
+                .anyMatch(m -> m.values().stream().anyMatch(l -> l.contains(uuid)));
+    }
+
+    @Override
+    public Optional<RegionId> destination(Player player) {
+        return flightOf(player).map(f -> f.dest);
+    }
+
+    @Override
+    public boolean stop(Player player) {
+        UUID uuid = player.getUniqueId();
+        boolean wasQueued = queued(player);
+        queue.values().forEach(m -> m.values().forEach(l -> l.remove(uuid)));
+        Optional<Flight> flight = flightOf(player);
+        if (flight.isEmpty()) {
+            return wasQueued;
+        }
+        Flight f = flight.get();
+        leaving.add(uuid);
+        try {
+            f.ghast.removePassenger(player);
+        } finally {
+            leaving.remove(uuid);
+        }
+        var _ = player.teleport(f.arrival);
+        kit.send(player, "world.airship.arrived");
+        if (f.ghast.getPassengers().isEmpty()) {
+            land(f);
+        }
+        return true;
     }
 
     private void enqueue(Player player, Stop from, WorldIndex.Entry dest) {
@@ -327,7 +441,7 @@ public final class RideManager implements Listener {
                     "world.airship.departed",
                     Placeholder.parsed("name", dest.region().def().name()));
         }
-        Flight flight = new Flight(ghast, path, arrival);
+        Flight flight = new Flight(ghast, path, arrival, dest.region().id());
         flight.sound =
                 HarborSounds.loopFrom(
                         kit.tasks(),

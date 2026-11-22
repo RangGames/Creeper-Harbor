@@ -26,6 +26,7 @@ import wiki.creeper.harbor.world.api.DisplayAnchor;
 import wiki.creeper.harbor.world.api.HousingService;
 import wiki.creeper.harbor.world.api.PlotInfo;
 import wiki.creeper.harbor.world.api.PlotPermission;
+import wiki.creeper.harbor.world.api.VisitPolicy;
 import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.region.ServerRouter;
 
@@ -247,6 +248,45 @@ public final class HousingManager implements HousingService, Listener {
                                     }
                                     go(player, s.get().info);
                                 });
+    }
+
+    @Override
+    public CompletableFuture<VisitResult> visit(Player player, UUID owner, boolean bypassPolicy) {
+        return loadOwner(owner)
+                .thenApply(
+                        s -> {
+                            if (s.isEmpty() || !player.isOnline()) {
+                                return VisitResult.NO_PLOT;
+                            }
+                            if (!bypassPolicy && !can(player, s.get().info, PlotPermission.VISIT)) {
+                                kit.send(player, "world.housing.closed");
+                                return VisitResult.CLOSED;
+                            }
+                            go(player, s.get().info);
+                            return VisitResult.SENT;
+                        });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> setMember(UUID owner, UUID member, boolean add) {
+        return loadOwner(owner)
+                .thenCompose(
+                        s ->
+                                s.isEmpty() || s.get().info.owner().equals(member)
+                                        ? CompletableFuture.completedFuture(false)
+                                        : actions.applyMember(s.get(), member, add)
+                                                .thenApply(v -> true));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> setVisitPolicy(UUID owner, VisitPolicy policy) {
+        return loadOwner(owner)
+                .thenCompose(
+                        s ->
+                                s.isEmpty()
+                                        ? CompletableFuture.completedFuture(false)
+                                        : actions.applyPolicy(s.get(), policy)
+                                                .thenApplyAsync(v -> true, kit.tasks().main()));
     }
 
     /** Admin command: goes to the plot regardless of the visit policy. */

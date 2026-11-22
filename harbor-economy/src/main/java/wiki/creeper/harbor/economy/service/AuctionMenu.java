@@ -434,7 +434,7 @@ final class AuctionMenu {
                         api.messages().get("economy.auction.no"),
                         ok -> {
                             if (ok) {
-                                settlement.buy(player, row);
+                                var _ = settlement.buy(player, row);
                             }
                         });
     }

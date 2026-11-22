@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.ToLongFunction;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -28,6 +29,7 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.item.FishLedger;
+import wiki.creeper.harbor.economy.api.TradeResult;
 import wiki.creeper.harbor.economy.api.event.FishSoldEvent;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
 import wiki.creeper.harbor.jobs.api.CapstoneState;
@@ -209,9 +211,17 @@ public final class SellService {
      *     returns the items)
      */
     boolean sellTaken(Player player, List<Line> lines) {
+        return sellTakenResult(player, lines) != null;
+    }
+
+    /**
+     * {@link #sellTaken} with the result. Null if the trade did not start (empty or one in
+     * progress), in which case the caller returns the items.
+     */
+    @Nullable CompletableFuture<TradeResult> sellTakenResult(Player player, List<Line> lines) {
         long total = lines.stream().mapToLong(Line::price).sum();
         if (lines.isEmpty() || total <= 0) {
-            return false;
+            return null;
         }
         return commit(
                 player,
@@ -223,7 +233,38 @@ public final class SellService {
                 false);
     }
 
+    /**
+     * Api sale (SaleService): the /판매 손 · 전부 flow without the confirmation dialog.
+     *
+     * @param species only this species (null = all)
+     */
+    CompletableFuture<TradeResult> sellNow(
+            Player player, boolean heldOnly, @Nullable FishId species) {
+        List<Line> lines = collect(player, heldOnly, species);
+        long total = lines.stream().mapToLong(Line::price).sum();
+        if (lines.isEmpty() || total <= 0) {
+            api.messages().send(player, "economy.sell.nothing");
+            return CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.NOTHING));
+        }
+        CompletableFuture<TradeResult> started =
+                commit(
+                        player,
+                        lines,
+                        total,
+                        LedgerReason.FISH_SELL,
+                        "sell:" + UUID.randomUUID(),
+                        false,
+                        true);
+        return started != null
+                ? started
+                : CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.BUSY));
+    }
+
     private List<Line> collect(Player player, boolean heldOnly) {
+        return collect(player, heldOnly, null);
+    }
+
+    private List<Line> collect(Player player, boolean heldOnly, @Nullable FishId species) {
         PlayerInventory inv = player.getInventory();
         int from = heldOnly ? inv.getHeldItemSlot() : 0;
         int to = heldOnly ? inv.getHeldItemSlot() + 1 : 36;
@@ -233,6 +274,9 @@ public final class SellService {
             // Sell-all skips valuable fish (they are sold only when placed in the sell screen and
             // confirmed)
             lines = lines.stream().filter(l -> !l.protection().protects()).toList();
+        }
+        if (species != null) {
+            lines = lines.stream().filter(l -> l.fish().species().equals(species)).toList();
         }
         return slip(uuid, lines);
     }
@@ -314,9 +358,9 @@ public final class SellService {
      *
      * @param fromInventory if true, take from inventory slots. If false, the caller (sell chest)
      *     already took them
-     * @return true if the trade started
+     * @return the result once committed, or null if the trade did not start (one in progress)
      */
-    private boolean commit(
+    private @Nullable CompletableFuture<TradeResult> commit(
             Player player,
             List<Line> lines,
             long total,
@@ -328,7 +372,7 @@ public final class SellService {
         Optional<TradeGuard.Ticket> ticket = guard.begin(uuid);
         if (ticket.isEmpty()) {
             api.messages().send(player, "economy.busy");
-            return false;
+            return null;
         }
         // Hold: take it out of the inventory
         PlayerInventory inv = player.getInventory();
@@ -350,80 +394,70 @@ public final class SellService {
                         }
                     }
                 };
-        var _ =
-                ticket.get()
-                        .track(
-                                api.currency()
-                                        .atomic(
-                                                List.of(
-                                                        new LedgerEntry(
-                                                                uuid,
-                                                                Currency.GOLD,
-                                                                total,
-                                                                reason,
-                                                                ref)),
-                                                ledger))
-                        .thenAccept(
-                                result -> {
-                                    LedgerError error = Tx.error(result);
-                                    if (error != null) {
-                                        log.warn("판매 실패 {} ({}): {}", player.getName(), ref, error);
-                                        mail.giveOrMail(uuid, custody, "sell_return", ref);
-                                        if (player.isOnline()) {
-                                            api.messages()
-                                                    .send(
-                                                            player,
-                                                            bigDeal
-                                                                            && error
-                                                                                    == LedgerError
-                                                                                            .DUPLICATE
-                                                                    ? "economy.big_deal.used"
-                                                                    : "economy.sell.failed");
-                                        }
-                                        return;
-                                    }
-                                    List<FishSoldEvent.Line> sold = new ArrayList<>();
-                                    for (Line line : lines) {
-                                        market.recordSale(
-                                                line.fish().species(), line.stack().getAmount());
-                                        sold.add(
-                                                new FishSoldEvent.Line(
-                                                        line.fish().species(),
-                                                        line.fish().quality(),
-                                                        line.fish().sizeCm(),
-                                                        line.price()));
-                                    }
-                                    log.info(
-                                            "{} {} {}마리 {}G ({})",
-                                            bigDeal ? "큰손 거래" : "판매",
-                                            player.getName(),
-                                            count(lines),
-                                            total,
-                                            ref);
-                                    if (bigDeal) {
-                                        api.service(JobsService.class)
-                                                .ifPresent(
-                                                        jobs -> {
-                                                            var _ = jobs.consumeWeeklyUse(uuid);
-                                                        });
-                                    }
-                                    Bukkit.getPluginManager()
-                                            .callEvent(new FishSoldEvent(uuid, sold, total));
-                                    if (player.isOnline()) {
-                                        api.messages()
-                                                .send(
-                                                        player,
-                                                        bigDeal
-                                                                ? "economy.big_deal.done"
-                                                                : "economy.sell.done",
-                                                        Placeholder.unparsed(
-                                                                "count",
-                                                                String.valueOf(count(lines))),
-                                                        Placeholder.unparsed(
-                                                                "total", String.valueOf(total)));
-                                    }
-                                });
-        return true;
+        return ticket.get()
+                .track(
+                        api.currency()
+                                .atomic(
+                                        List.of(
+                                                new LedgerEntry(
+                                                        uuid, Currency.GOLD, total, reason, ref)),
+                                        ledger))
+                .thenApply(
+                        result -> {
+                            LedgerError error = Tx.error(result);
+                            if (error != null) {
+                                log.warn("판매 실패 {} ({}): {}", player.getName(), ref, error);
+                                mail.giveOrMail(uuid, custody, "sell_return", ref);
+                                if (player.isOnline()) {
+                                    api.messages()
+                                            .send(
+                                                    player,
+                                                    bigDeal && error == LedgerError.DUPLICATE
+                                                            ? "economy.big_deal.used"
+                                                            : "economy.sell.failed");
+                                }
+                                return TradeResult.of(TradeResult.Status.FAILED);
+                            }
+                            List<FishSoldEvent.Line> sold = new ArrayList<>();
+                            for (Line line : lines) {
+                                market.recordSale(line.fish().species(), line.stack().getAmount());
+                                sold.add(
+                                        new FishSoldEvent.Line(
+                                                line.fish().species(),
+                                                line.fish().quality(),
+                                                line.fish().sizeCm(),
+                                                line.price()));
+                            }
+                            log.info(
+                                    "{} {} {}마리 {}G ({})",
+                                    bigDeal ? "큰손 거래" : "판매",
+                                    player.getName(),
+                                    count(lines),
+                                    total,
+                                    ref);
+                            if (bigDeal) {
+                                api.service(JobsService.class)
+                                        .ifPresent(
+                                                jobs -> {
+                                                    var _ = jobs.consumeWeeklyUse(uuid);
+                                                });
+                            }
+                            Bukkit.getPluginManager()
+                                    .callEvent(new FishSoldEvent(uuid, sold, total));
+                            if (player.isOnline()) {
+                                api.messages()
+                                        .send(
+                                                player,
+                                                bigDeal
+                                                        ? "economy.big_deal.done"
+                                                        : "economy.sell.done",
+                                                Placeholder.unparsed(
+                                                        "count", String.valueOf(count(lines))),
+                                                Placeholder.unparsed(
+                                                        "total", String.valueOf(total)));
+                            }
+                            return TradeResult.ok(total, count(lines));
+                        });
     }
 
     // ------------------------------------------------------------------ Bulk-buyer trade

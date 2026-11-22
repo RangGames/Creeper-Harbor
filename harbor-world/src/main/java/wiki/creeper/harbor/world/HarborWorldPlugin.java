@@ -27,6 +27,7 @@ import wiki.creeper.harbor.world.api.FishingSpot;
 import wiki.creeper.harbor.world.api.FishingSpotService;
 import wiki.creeper.harbor.world.api.HousingService;
 import wiki.creeper.harbor.world.api.RegionService;
+import wiki.creeper.harbor.world.api.RideService;
 import wiki.creeper.harbor.world.api.SeaEventService;
 import wiki.creeper.harbor.world.api.ShipService;
 import wiki.creeper.harbor.world.api.TreasureService;
@@ -200,6 +201,7 @@ public final class HarborWorldPlugin extends HarborModule {
         sm.register(SeaEventService.class, sea, this, ServicePriority.Normal);
         sm.register(FishingSpotService.class, spots, this, ServicePriority.Normal);
         sm.register(HousingService.class, housing, this, ServicePriority.Normal);
+        sm.register(RideService.class, ride, this, ServicePriority.Normal);
 
         if (npc) {
             NpcBridge.registerActions(
@@ -207,7 +209,7 @@ public final class HarborWorldPlugin extends HarborModule {
                     commands::yard,
                     housing::home,
                     decor::openShop,
-                    p -> ride.board(p, null),
+                    p -> ride.boardOrChoose(p, null),
                     p -> commands.chartDialog(p, null));
         }
         if (getServer().getPluginManager().getPlugin("Harbor-Season") != null) {

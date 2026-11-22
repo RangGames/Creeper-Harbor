@@ -39,6 +39,7 @@ import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.gui.PagedMenu;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.economy.api.ShopService;
+import wiki.creeper.harbor.economy.api.TradeResult;
 import wiki.creeper.harbor.economy.api.event.ShopPurchaseEvent;
 import wiki.creeper.harbor.economy.content.ShopDef;
 import wiki.creeper.harbor.npc.api.AffinityService;
@@ -289,7 +290,7 @@ public final class ShopManager implements ShopService {
                                                 : ShopQuantity.Click.OTHER;
         OptionalInt now = ShopQuantity.amount(kind, maxStack);
         if (now.isPresent()) {
-            buy(player, shop, entry, now.getAsInt(), unit);
+            var _ = buy(player, shop, entry, now.getAsInt(), unit);
             return;
         }
         if (kind != ShopQuantity.Click.RIGHT) {
@@ -324,25 +325,59 @@ public final class ShopManager implements ShopService {
                                                         "max", String.valueOf(maxStack)));
                                 return;
                             }
-                            buy(player, shop, entry, amount.getAsInt(), unit);
+                            var _ = buy(player, shop, entry, amount.getAsInt(), unit);
                         });
     }
 
-    private void buy(Player player, ShopDef shop, ShopDef.Entry entry, int amount, long unit) {
+    @Override
+    public CompletableFuture<TradeResult> buy(
+            Player player, HarborId shopId, String entryKey, int amount) {
+        Optional<ShopDef> shop = api.content().snapshot().get(ShopDef.TYPE, shopId);
+        Optional<ShopDef.Entry> entry =
+                shop.flatMap(
+                        s ->
+                                s.entries().stream()
+                                        .filter(x -> x.key().equals(entryKey))
+                                        .findFirst());
+        Optional<ItemStack> sample = entry.flatMap(x -> create(x, 1));
+        if (shop.isEmpty() || entry.isEmpty() || sample.isEmpty()) {
+            return done(TradeResult.Status.UNKNOWN);
+        }
+        if (!meets(api.players().get(player), entry.get())) {
+            api.messages()
+                    .send(
+                            player,
+                            entry.get().jobTier() > 0
+                                    ? "economy.shop.locked"
+                                    : "economy.shop.locked_flag",
+                            Placeholder.unparsed("tier", String.valueOf(entry.get().jobTier())));
+            return done(TradeResult.Status.LOCKED);
+        }
+        int n = Math.clamp(amount, 1, Math.max(1, sample.get().getMaxStackSize()));
+        long unit = unitPrice(player.getUniqueId(), entry.get(), shop.get().npc());
+        return buy(player, shop.get(), entry.get(), n, unit);
+    }
+
+    private static CompletableFuture<TradeResult> done(TradeResult.Status status) {
+        return CompletableFuture.completedFuture(TradeResult.of(status));
+    }
+
+    private CompletableFuture<TradeResult> buy(
+            Player player, ShopDef shop, ShopDef.Entry entry, int amount, long unit) {
         UUID uuid = player.getUniqueId();
         long price = unit * amount;
         if (price <= 0) {
             api.messages().send(player, "economy.shop.failed");
-            return;
+            return done(TradeResult.Status.FAILED);
         }
         if (player.getInventory().firstEmpty() < 0) {
             api.messages().send(player, "economy.mail.full");
-            return;
+            return done(TradeResult.Status.INVENTORY_FULL);
         }
         Optional<TradeGuard.Ticket> ticket = guard.begin(uuid);
         if (ticket.isEmpty()) {
             api.messages().send(player, "economy.busy");
-            return;
+            return done(TradeResult.Status.BUSY);
         }
         String entryKey = shop.id().path() + "|" + entry.key();
         LocalDate day = api.time().gameDay();
@@ -373,78 +408,80 @@ public final class ShopManager implements ShopService {
                             }
                         };
         String ref = "buy:" + UUID.randomUUID();
-        var _ =
-                ticket.get()
-                        .track(
-                                api.currency()
-                                        .atomic(
-                                                List.of(
-                                                        new LedgerEntry(
-                                                                uuid,
-                                                                Currency.GOLD,
-                                                                -price,
-                                                                LedgerReason.SHOP_BUY,
-                                                                ref)),
-                                                limit))
-                        .thenAccept(
-                                result -> {
-                                    if (result
-                                            instanceof
-                                            Result.Err<List<Long>, LedgerError>(
-                                                    LedgerError error)) {
-                                        if (player.isOnline()) {
-                                            api.messages()
-                                                    .send(
-                                                            player,
-                                                            switch (error) {
-                                                                case INSUFFICIENT_FUNDS ->
-                                                                        "economy.shop.no_gold";
-                                                                case REJECTED ->
-                                                                        "economy.shop.limit";
-                                                                default -> "economy.shop.failed";
-                                                            });
-                                            // Denied sound ("15. Sound" 4.5 ui.error). The future
-                                            // finishes on the main thread
-                                            HarborSounds.play(player, "harbor:ui.error");
-                                        }
-                                        return;
-                                    }
-                                    Optional<ItemStack> items = create(entry, amount);
-                                    if (items.isEmpty()) {
-                                        log.error("상점 아이템을 만들지 못했습니다: {} ({})", entry.key(), ref);
-                                        return;
-                                    }
-                                    // Inventory if online; mailbox if slots filled up or they left
-                                    // between commits
-                                    mail.giveOrMail(
-                                            uuid, List.of(items.get()), "shop_overflow", ref);
-                                    log.info(
-                                            "상점 구매 {} {} x{} {}G",
-                                            player.getName(),
-                                            entry.key(),
-                                            amount,
-                                            price);
-                                    Bukkit.getPluginManager()
-                                            .callEvent(
-                                                    new ShopPurchaseEvent(
-                                                            uuid,
-                                                            shop.id(),
-                                                            entry.item(),
-                                                            entry.key(),
-                                                            amount,
-                                                            price));
-                                    if (player.isOnline()) {
-                                        api.messages()
-                                                .send(
-                                                        player,
-                                                        "economy.shop.bought",
-                                                        Placeholder.component("name", name(entry)),
-                                                        Placeholder.unparsed(
-                                                                "amount", String.valueOf(amount)),
-                                                        Placeholder.unparsed(
-                                                                "price", String.valueOf(price)));
-                                    }
-                                });
+        return ticket.get()
+                .track(
+                        api.currency()
+                                .atomic(
+                                        List.of(
+                                                new LedgerEntry(
+                                                        uuid,
+                                                        Currency.GOLD,
+                                                        -price,
+                                                        LedgerReason.SHOP_BUY,
+                                                        ref)),
+                                        limit))
+                .thenApply(
+                        result -> {
+                            if (result
+                                    instanceof
+                                    Result.Err<List<Long>, LedgerError>(LedgerError error)) {
+                                if (player.isOnline()) {
+                                    api.messages()
+                                            .send(
+                                                    player,
+                                                    switch (error) {
+                                                        case INSUFFICIENT_FUNDS ->
+                                                                "economy.shop.no_gold";
+                                                        case REJECTED -> "economy.shop.limit";
+                                                        default -> "economy.shop.failed";
+                                                    });
+                                    // Denied sound ("15. Sound" 4.5 ui.error). The future
+                                    // finishes on the main thread
+                                    HarborSounds.play(player, "harbor:ui.error");
+                                }
+                                return TradeResult.of(
+                                        switch (error) {
+                                            case INSUFFICIENT_FUNDS -> TradeResult.Status.NO_GOLD;
+                                            case REJECTED -> TradeResult.Status.LIMIT;
+                                            default -> TradeResult.Status.FAILED;
+                                        });
+                            }
+                            Optional<ItemStack> items = create(entry, amount);
+                            if (items.isEmpty()) {
+                                log.error("상점 아이템을 만들지 못했습니다: {} ({})", entry.key(), ref);
+                                return TradeResult.of(TradeResult.Status.FAILED);
+                            }
+                            // Inventory if online; mailbox if slots filled up or they left
+                            // between commits
+                            mail.giveOrMail(uuid, List.of(items.get()), "shop_overflow", ref);
+                            log.info(
+                                    "상점 구매 {} {} x{} {}G",
+                                    player.getName(),
+                                    entry.key(),
+                                    amount,
+                                    price);
+                            Bukkit.getPluginManager()
+                                    .callEvent(
+                                            new ShopPurchaseEvent(
+                                                    uuid,
+                                                    shop.id(),
+                                                    entry.item(),
+                                                    entry.key(),
+                                                    amount,
+                                                    price));
+                            if (player.isOnline()) {
+                                api.messages()
+                                        .send(
+                                                player,
+                                                "economy.shop.bought",
+                                                Placeholder.component("name", name(entry)),
+                                                Placeholder.unparsed(
+                                                        "amount", String.valueOf(amount)),
+                                                Placeholder.unparsed(
+                                                        "price", String.valueOf(price)));
+                            }
+                            return TradeResult.ok(price, amount);
+                        });
     }
 
     @Override

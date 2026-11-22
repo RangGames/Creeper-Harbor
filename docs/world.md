@@ -107,7 +107,8 @@
 
 ## 다른 모듈과의 연결
 
-- **제공 서비스:** `RegionService`, `ChartService`, `ShipService`, `HousingService`, `FishingSpotService`, `TreasureService`, `SeaEventService`
+- **제공 서비스:** `RegionService`, `ChartService`, `ShipService`, `HousingService`, `FishingSpotService`, `TreasureService`, `SeaEventService`, `RideService`
+- **제어 API:** `ShipService.summon`(증서 사용과 같음, 대기 시간 무시 선택) · `recall` · `setDurability`(관리자, 1~최대), `HousingService.visit`(방문 정책 검사, 무시 선택) · `setMember` · `setVisitPolicy`(`/부두` 명령과 같은 DB 기록 + 서버 간 부지 변경 알림), `RideService.board`(`/비행선 <지역>`) · `launch`(관리자, 바로 출발) · `riding` · `queued` · `destination` · `stop`. 지역 해금은 따로 API가 없고 입장 조건의 플래그로 한다. Skript 문법은 harbor-skript 문서의 월드 절.
 - **확장 지점:** `DisplayAnchor`(Collection 개인 어항 자리), `ShipSkinProvider`(Shop 선박 스킨)
 - **이벤트:** `RegionEnterEvent`, `RegionLeaveEvent`, `RegionFirstVisitEvent`, `RegionBlockedEvent`, `ChartProgressEvent`, `ShipSummonEvent`, `ShipWreckedEvent`, `FishingSpotMovedEvent`, `TreasureClaimedEvent`, `SeaEventWarnEvent`, `SeaEventStartEvent`, `SeaEventEndEvent`, `PlotLoadedEvent`, `PlotUnloadedEvent`, `PlotLikedEvent`, `DisplayAnchorChangedEvent`
 - **Fishing 확장 지점 구현:** `RegionKeyResolver`(세부 구역 판정), `TreasureDropHook`(보물 지도 드롭). 해상 이벤트의 낚시 효과는 `harbor:event` 메시지로 Fishing에 보낸다.

@@ -219,7 +219,7 @@ public final class WorldCommands {
         commands.register(
                 Commands.literal("비행선")
                         .requires(src -> src.getSender().hasPermission("harbor.world.travel"))
-                        .executes(ctx -> player(ctx, p -> rides.board(p, null)))
+                        .executes(ctx -> player(ctx, p -> rides.boardOrChoose(p, null)))
                         .then(
                                 regionArg()
                                         .executes(
@@ -227,7 +227,7 @@ public final class WorldCommands {
                                                         player(
                                                                 ctx,
                                                                 p ->
-                                                                        rides.board(
+                                                                        rides.boardOrChoose(
                                                                                 p,
                                                                                 region(ctx)
                                                                                         .orElse(

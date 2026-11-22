@@ -4,9 +4,11 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.npc.Worlds;
 
 /** NPC gaze: each NPC looks at the nearest player within its look radius (main thread). */
@@ -14,8 +16,13 @@ final class NpcLook {
 
     private NpcLook() {}
 
+    /**
+     * @param forced gaze override per NPC (null = look at the nearest player)
+     */
     static void tick(
-            Collection<SpawnedNpc> spawned, Map<String, Map<Long, List<SpawnedNpc>>> index) {
+            Collection<SpawnedNpc> spawned,
+            Map<String, Map<Long, List<SpawnedNpc>>> index,
+            Function<SpawnedNpc, @Nullable Location> forced) {
         if (spawned.isEmpty()) {
             return;
         }
@@ -47,6 +54,11 @@ final class NpcLook {
             }
         }
         for (SpawnedNpc npc : spawned) {
+            Location fixed = forced.apply(npc);
+            if (fixed != null) {
+                npc.body().lookAt(fixed);
+                continue;
+            }
             Player target = nearest.get(npc);
             if (target != null) {
                 npc.body().lookAt(Worlds.eye(target));

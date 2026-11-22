@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -42,6 +43,7 @@ import wiki.creeper.harbor.core.gui.PagedMenu;
 import wiki.creeper.harbor.core.item.FishLedger;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.economy.api.CraftService;
+import wiki.creeper.harbor.economy.api.TradeResult;
 import wiki.creeper.harbor.economy.api.event.ItemCraftedEvent;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
 import wiki.creeper.harbor.economy.content.RecipeDef;
@@ -398,26 +400,49 @@ public final class CraftManager implements CraftService {
                         api.messages().get("economy.craft.no"),
                         ok -> {
                             if (ok) {
-                                craft(player, recipe, def.get());
+                                var _ = craft(player, recipe, def.get());
                             }
                         });
     }
 
-    private void craft(Player player, RecipeDef recipe, ItemDef result) {
+    @Override
+    public CompletableFuture<TradeResult> craft(Player player, HarborId recipeId) {
+        Optional<RecipeDef> recipe = api.content().snapshot().get(RecipeDef.TYPE, recipeId);
+        Optional<ItemDef> def = recipe.flatMap(this::resultDef);
+        if (recipe.isEmpty() || def.isEmpty()) {
+            return done(TradeResult.Status.UNKNOWN);
+        }
+        String locked = lockReason(player, recipe.get());
+        if (locked != null) {
+            api.messages().send(player, locked, unlockTags(recipe.get()));
+            return done(TradeResult.Status.LOCKED);
+        }
+        if (api.players().get(player).balance(Currency.GOLD) < recipe.get().gold()) {
+            api.messages().send(player, "economy.craft.no_gold");
+            return done(TradeResult.Status.NO_GOLD);
+        }
+        return craft(player, recipe.get(), def.get());
+    }
+
+    private static CompletableFuture<TradeResult> done(TradeResult.Status status) {
+        return CompletableFuture.completedFuture(TradeResult.of(status));
+    }
+
+    private CompletableFuture<TradeResult> craft(Player player, RecipeDef recipe, ItemDef result) {
         UUID uuid = player.getUniqueId();
         if (lockReason(player, recipe) != null) {
-            return;
+            return done(TradeResult.Status.LOCKED);
         }
         Optional<Map<Integer, Integer>> plan =
                 CraftMath.allocate(needs(uuid, recipe), slots(player), this::fish);
         if (plan.isEmpty()) {
             api.messages().send(player, "economy.craft.missing");
-            return;
+            return done(TradeResult.Status.MISSING);
         }
         Optional<TradeGuard.Ticket> ticket = guard.begin(uuid);
         if (ticket.isEmpty()) {
             api.messages().send(player, "economy.busy");
-            return;
+            return done(TradeResult.Status.BUSY);
         }
         // Hold: take from the assigned slots
         PlayerInventory inv = player.getInventory();
@@ -458,7 +483,7 @@ public final class CraftManager implements CraftService {
             mail.giveOrMail(uuid, custody, "craft_return", "craft_fail:" + UUID.randomUUID());
             ticket.get().done();
             api.messages().send(player, "economy.craft.failed.season");
-            return;
+            return done(TradeResult.Status.FAILED);
         }
         String limitKey = WeeklyLimitService.craftKey(recipe.limitName());
         SqlConsumer extra =
@@ -488,59 +513,64 @@ public final class CraftManager implements CraftService {
                                         LedgerReason.CRAFT_COST,
                                         ref))
                         : List.of();
-        var _ =
-                ticket.get()
-                        .track(Tx.run(api, tasks, entries, extra))
-                        .thenAccept(
-                                r -> {
-                                    LedgerError error = Tx.error(r);
-                                    if (error != null) {
-                                        mail.giveOrMail(uuid, custody, "craft_return", ref);
-                                        if (player.isOnline()) {
-                                            api.messages()
-                                                    .send(
-                                                            player,
-                                                            error == LedgerError.INSUFFICIENT_FUNDS
-                                                                    ? "economy.craft.no_gold"
-                                                                    : "economy.craft.failed."
-                                                                            + reason.get());
-                                        }
-                                        return;
-                                    }
-                                    List<ItemStack> results = new ArrayList<>();
-                                    int left = amount;
-                                    while (left > 0) {
-                                        ItemStack one = api.items().create(result, 1);
-                                        int n = Math.min(left, one.getMaxStackSize());
-                                        results.add(api.items().create(result, n));
-                                        left -= n;
-                                    }
-                                    mail.giveOrMail(uuid, results, "craft_overflow", ref);
-                                    log.info(
-                                            "제작 {} {} x{} {}G ({})",
-                                            player.getName(),
-                                            recipe.id(),
-                                            amount,
-                                            recipe.gold(),
-                                            ref);
-                                    Bukkit.getPluginManager()
-                                            .callEvent(
-                                                    new ItemCraftedEvent(
-                                                            uuid,
-                                                            recipe.id(),
-                                                            recipe.result(),
-                                                            amount,
-                                                            recipe.gold()));
-                                    if (player.isOnline()) {
-                                        api.messages()
-                                                .send(
-                                                        player,
-                                                        "economy.craft.done",
-                                                        Placeholder.unparsed("name", result.name()),
-                                                        Placeholder.unparsed(
-                                                                "amount", String.valueOf(amount)));
-                                    }
-                                });
+        return ticket.get()
+                .track(Tx.run(api, tasks, entries, extra))
+                .thenApply(
+                        r -> {
+                            LedgerError error = Tx.error(r);
+                            if (error != null) {
+                                mail.giveOrMail(uuid, custody, "craft_return", ref);
+                                if (player.isOnline()) {
+                                    api.messages()
+                                            .send(
+                                                    player,
+                                                    error == LedgerError.INSUFFICIENT_FUNDS
+                                                            ? "economy.craft.no_gold"
+                                                            : "economy.craft.failed."
+                                                                    + reason.get());
+                                }
+                                return TradeResult.of(
+                                        error == LedgerError.INSUFFICIENT_FUNDS
+                                                ? TradeResult.Status.NO_GOLD
+                                                : "weekly".equals(reason.get())
+                                                        ? TradeResult.Status.LIMIT
+                                                        : TradeResult.Status.FAILED);
+                            }
+                            List<ItemStack> results = new ArrayList<>();
+                            int left = amount;
+                            while (left > 0) {
+                                ItemStack one = api.items().create(result, 1);
+                                int n = Math.min(left, one.getMaxStackSize());
+                                results.add(api.items().create(result, n));
+                                left -= n;
+                            }
+                            mail.giveOrMail(uuid, results, "craft_overflow", ref);
+                            log.info(
+                                    "제작 {} {} x{} {}G ({})",
+                                    player.getName(),
+                                    recipe.id(),
+                                    amount,
+                                    recipe.gold(),
+                                    ref);
+                            Bukkit.getPluginManager()
+                                    .callEvent(
+                                            new ItemCraftedEvent(
+                                                    uuid,
+                                                    recipe.id(),
+                                                    recipe.result(),
+                                                    amount,
+                                                    recipe.gold()));
+                            if (player.isOnline()) {
+                                api.messages()
+                                        .send(
+                                                player,
+                                                "economy.craft.done",
+                                                Placeholder.unparsed("name", result.name()),
+                                                Placeholder.unparsed(
+                                                        "amount", String.valueOf(amount)));
+                            }
+                            return TradeResult.ok(recipe.gold(), amount);
+                        });
     }
 
     /**

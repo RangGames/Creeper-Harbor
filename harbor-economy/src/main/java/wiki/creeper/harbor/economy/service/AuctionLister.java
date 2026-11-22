@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -36,6 +37,7 @@ import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.item.FishLedger;
 import wiki.creeper.harbor.core.task.Tasks;
+import wiki.creeper.harbor.economy.api.TradeResult;
 import wiki.creeper.harbor.economy.api.event.AuctionListedEvent;
 import wiki.creeper.harbor.economy.content.AuctionRefs;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
@@ -169,21 +171,37 @@ final class AuctionLister {
                 balance().auctionSlots(tier), api.modifiers().apply(player, SLOTS, 0));
     }
 
-    /** /경매 등록 <price>: lists the held item as a whole stack (confirmation screen). */
-    void startListing(Player player, long price) {
+    /** A listing that passed the checks (held item, board, account age, price range). */
+    private record Prepared(
+            int slot,
+            ItemStack snapshot,
+            Candidate cand,
+            int amount,
+            long price,
+            long ref,
+            long fee,
+            AuctionMath.Settlement settle,
+            double saleRate,
+            int slots) {}
+
+    /** Check result: prepared is null when status says why it was refused. */
+    private record Check(@Nullable Prepared prepared, TradeResult.Status status) {}
+
+    /** Listing checks; a refusal sends its notice to the player. */
+    private Check prepare(Player player, long price) {
         UUID uuid = player.getUniqueId();
         ItemStack held = player.getInventory().getItemInMainHand();
         if (held.isEmpty()) {
             api.messages().send(player, "economy.auction.hold_item");
-            return;
+            return new Check(null, TradeResult.Status.NOTHING);
         }
         if (ItemLock.locked(held)) {
             api.messages().send(player, "economy.auction.locked");
-            return;
+            return new Check(null, TradeResult.Status.NOT_TRADEABLE);
         }
         if (!house.nearBoard(player)) {
             api.messages().send(player, "economy.auction.board_only");
-            return;
+            return new Check(null, TradeResult.Status.NOT_NEAR);
         }
         EconomyBalance b = balance();
         HarborPlayer hp = api.players().get(player);
@@ -194,12 +212,12 @@ final class AuctionLister {
                             "economy.auction.new_account",
                             Placeholder.unparsed(
                                     "hours", String.valueOf(b.auctionNewAccountHours())));
-            return;
+            return new Check(null, TradeResult.Status.NEW_ACCOUNT);
         }
         Optional<Candidate> found = candidate(held);
         if (found.isEmpty()) {
             api.messages().send(player, "economy.auction.not_tradeable");
-            return;
+            return new Check(null, TradeResult.Status.NOT_TRADEABLE);
         }
         Candidate cand = found.get();
         int amount = held.getAmount();
@@ -213,7 +231,7 @@ final class AuctionLister {
                             "economy.auction.price_range",
                             Placeholder.unparsed("min", String.valueOf(bounds.min())),
                             Placeholder.unparsed("max", String.valueOf(bounds.max())));
-            return;
+            return new Check(null, TradeResult.Status.PRICE_RANGE);
         }
         int slots = slots(uuid);
         double listRate =
@@ -222,13 +240,32 @@ final class AuctionLister {
                 AuctionMath.clampRate(api.modifiers().apply(uuid, SALE_FEE, b.auctionSaleFee()));
         long fee = AuctionMath.listFee(price, listRate);
         AuctionMath.Settlement settle = AuctionMath.settle(price, saleRate);
-        ItemStack snapshot = held.clone();
-        int slot = player.getInventory().getHeldItemSlot();
+        return new Check(
+                new Prepared(
+                        player.getInventory().getHeldItemSlot(),
+                        held.clone(),
+                        cand,
+                        amount,
+                        price,
+                        ref,
+                        fee,
+                        settle,
+                        saleRate,
+                        slots),
+                TradeResult.Status.OK);
+    }
+
+    /** /경매 등록 <price>: lists the held item as a whole stack (confirmation screen). */
+    void startListing(Player player, long price) {
+        Prepared p = prepare(player, price).prepared();
+        if (p == null) {
+            return;
+        }
         // Read reference prices before listing (lowest unit price, recent sale average), then show
         // the confirmation screen
         var _ =
                 listings.priceInfo(
-                                cand.itemId(),
+                                p.cand().itemId(),
                                 house.balance()
                                         .balance()
                                         .integer("economy.auction.price_info_days", 7))
@@ -243,10 +280,42 @@ final class AuctionLister {
                                 info -> {
                                     if (player.isOnline()) {
                                         confirmListing(
-                                                player, slot, snapshot, cand, amount, price, ref,
-                                                fee, settle, saleRate, slots, info);
+                                                player,
+                                                p.slot(),
+                                                p.snapshot(),
+                                                p.cand(),
+                                                p.amount(),
+                                                p.price(),
+                                                p.ref(),
+                                                p.fee(),
+                                                p.settle(),
+                                                p.saleRate(),
+                                                p.slots(),
+                                                info);
                                     }
                                 });
+    }
+
+    /**
+     * Api listing (AuctionService.listHeld): the same checks and transaction as /경매 등록, without the
+     * reference price screen and confirmation.
+     */
+    CompletableFuture<TradeResult> listNow(Player player, long price) {
+        Check check = prepare(player, price);
+        Prepared p = check.prepared();
+        if (p == null) {
+            return CompletableFuture.completedFuture(TradeResult.of(check.status()));
+        }
+        return list(
+                player,
+                p.slot(),
+                p.snapshot(),
+                p.cand(),
+                p.price(),
+                p.ref(),
+                p.fee(),
+                p.saleRate(),
+                p.slots());
     }
 
     private void confirmListing(
@@ -314,14 +383,15 @@ final class AuctionLister {
                         api.messages().get("economy.auction.no"),
                         ok -> {
                             if (ok) {
-                                list(
-                                        player, slot, snapshot, cand, price, ref, fee, saleRate,
-                                        slots);
+                                var _ =
+                                        list(
+                                                player, slot, snapshot, cand, price, ref, fee,
+                                                saleRate, slots);
                             }
                         });
     }
 
-    private void list(
+    private CompletableFuture<TradeResult> list(
             Player player,
             int slot,
             ItemStack expected,
@@ -339,12 +409,12 @@ final class AuctionLister {
                 || !now.isSimilar(expected)
                 || inv.getHeldItemSlot() != slot) {
             api.messages().send(player, "economy.auction.changed");
-            return;
+            return CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.NOTHING));
         }
         Optional<TradeGuard.Ticket> ticket = guard.begin(uuid);
         if (ticket.isEmpty()) {
             api.messages().send(player, "economy.busy");
-            return;
+            return CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.BUSY));
         }
         // Hold: take it out of the inventory
         ItemStack custody = now.clone();
@@ -424,57 +494,66 @@ final class AuctionLister {
                                         LedgerReason.AUCTION_LIST_FEE,
                                         "alist:" + UUID.randomUUID()))
                         : List.of();
-        var _ =
-                ticket.get()
-                        .track(Tx.run(api, tasks, entries, work))
-                        .thenAccept(
-                                result -> {
-                                    LedgerError error = Tx.error(result);
-                                    if (error != null) {
-                                        mail.giveOrMail(
-                                                uuid,
-                                                List.of(custody),
-                                                "auction_fail",
-                                                "alist_fail:" + UUID.randomUUID());
-                                        if (player.isOnline()) {
-                                            api.messages()
-                                                    .send(
-                                                            player,
-                                                            error == LedgerError.INSUFFICIENT_FUNDS
-                                                                    ? "economy.auction.no_gold"
-                                                                    : "economy.auction.list_failed."
-                                                                            + reason.get());
-                                        }
-                                        return;
-                                    }
-                                    listings.invalidate();
-                                    log.info(
-                                            "경매 등록 #{} {} {} x{} {}G (등록비 {}G)",
-                                            listingId.get(),
-                                            name,
-                                            cand.itemId(),
-                                            custody.getAmount(),
-                                            price,
-                                            fee);
-                                    Bukkit.getPluginManager()
-                                            .callEvent(
-                                                    new AuctionListedEvent(
-                                                            uuid,
-                                                            listingId.get(),
-                                                            cand.itemId(),
-                                                            custody.getAmount(),
-                                                            price,
-                                                            fee));
-                                    if (player.isOnline()) {
-                                        api.messages()
-                                                .send(
-                                                        player,
-                                                        "economy.auction.listed",
-                                                        Placeholder.unparsed("name", cand.name()),
-                                                        Placeholder.unparsed(
-                                                                "price", String.valueOf(price)));
-                                    }
-                                });
+        return ticket.get()
+                .track(Tx.run(api, tasks, entries, work))
+                .thenApply(
+                        result -> {
+                            LedgerError error = Tx.error(result);
+                            if (error != null) {
+                                mail.giveOrMail(
+                                        uuid,
+                                        List.of(custody),
+                                        "auction_fail",
+                                        "alist_fail:" + UUID.randomUUID());
+                                if (player.isOnline()) {
+                                    api.messages()
+                                            .send(
+                                                    player,
+                                                    error == LedgerError.INSUFFICIENT_FUNDS
+                                                            ? "economy.auction.no_gold"
+                                                            : "economy.auction.list_failed."
+                                                                    + reason.get());
+                                }
+                                return TradeResult.of(
+                                        error == LedgerError.INSUFFICIENT_FUNDS
+                                                ? TradeResult.Status.NO_GOLD
+                                                : "slots".equals(reason.get())
+                                                        ? TradeResult.Status.SLOTS_FULL
+                                                        : TradeResult.Status.FAILED);
+                            }
+                            listings.invalidate();
+                            log.info(
+                                    "경매 등록 #{} {} {} x{} {}G (등록비 {}G)",
+                                    listingId.get(),
+                                    name,
+                                    cand.itemId(),
+                                    custody.getAmount(),
+                                    price,
+                                    fee);
+                            Bukkit.getPluginManager()
+                                    .callEvent(
+                                            new AuctionListedEvent(
+                                                    uuid,
+                                                    listingId.get(),
+                                                    cand.itemId(),
+                                                    custody.getAmount(),
+                                                    price,
+                                                    fee));
+                            if (player.isOnline()) {
+                                api.messages()
+                                        .send(
+                                                player,
+                                                "economy.auction.listed",
+                                                Placeholder.unparsed("name", cand.name()),
+                                                Placeholder.unparsed(
+                                                        "price", String.valueOf(price)));
+                            }
+                            return new TradeResult(
+                                    TradeResult.Status.OK,
+                                    fee,
+                                    custody.getAmount(),
+                                    listingId.get());
+                        });
     }
 
     private static String truncate(String s, int max) {

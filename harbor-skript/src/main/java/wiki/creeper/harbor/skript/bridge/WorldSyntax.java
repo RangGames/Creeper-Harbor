@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.bukkit.Bukkit;
@@ -18,9 +19,11 @@ import org.bukkit.event.Event;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.RegionId;
+import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.core.api.Harbor;
 import wiki.creeper.harbor.skript.Ids;
 import wiki.creeper.harbor.skript.lambda.Args;
+import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 import wiki.creeper.harbor.world.api.ActiveSeaEvent;
@@ -32,12 +35,14 @@ import wiki.creeper.harbor.world.api.PlotInfo;
 import wiki.creeper.harbor.world.api.PlotPermission;
 import wiki.creeper.harbor.world.api.RegionInfo;
 import wiki.creeper.harbor.world.api.RegionService;
+import wiki.creeper.harbor.world.api.RideService;
 import wiki.creeper.harbor.world.api.SeaEventService;
 import wiki.creeper.harbor.world.api.ShipInfo;
 import wiki.creeper.harbor.world.api.ShipService;
 import wiki.creeper.harbor.world.api.TreasureService;
 import wiki.creeper.harbor.world.api.UnlockStatus;
 import wiki.creeper.harbor.world.api.UpgradePath;
+import wiki.creeper.harbor.world.api.VisitPolicy;
 import wiki.creeper.harbor.world.api.event.ChartProgressEvent;
 import wiki.creeper.harbor.world.api.event.DisplayAnchorChangedEvent;
 import wiki.creeper.harbor.world.api.event.FishingSpotMovedEvent;
@@ -57,9 +62,11 @@ import wiki.creeper.harbor.world.api.event.TreasureClaimedEvent;
 
 /**
  * When Harbor-World is enabled: regions (region at a location, visits, entry conditions, admin
- * travel), ships (owned, afloat, boarded), housing plots (plot at a location, owner, members,
- * permission checks), treasure maps, sea charts, fish school spots, sea events, and all world api
- * events. All calls are World main-thread lookups (online players and loaded plots only).
+ * travel), ships (owned, afloat, boarded; summon, recall, admin durability), housing plots (plot at
+ * a location, owner, members, permission checks; visits, co-builders, visit policy), airship rides,
+ * treasure maps, sea charts, fish school spots, sea events, and all world api events. Lookups read
+ * World main-thread state (online players and loaded plots only); plot changes go through
+ * HousingService and arrive after the DB write.
  */
 public final class WorldSyntax {
 
@@ -100,7 +107,10 @@ public final class WorldSyntax {
     public static void register(Registrar r) {
         regions(r);
         ships(r);
+        shipControl(r);
         housing(r);
+        housingControl(r);
+        rides(r);
         treasureAndCharts(r);
         seaEvents(r);
         events(r);
@@ -483,6 +493,220 @@ public final class WorldSyntax {
                             + verb
                             + " [the] harbor plot at %location%");
         }
+    }
+
+    // ------------------------------------------------------------------ ship control
+
+    /** Launch, recall and durability through ShipService (online owners on this server). */
+    private static void shipControl(Registrar r) {
+        // pattern 0 normal (cooldown), pattern 1 admin (no cooldown)
+        Ext.await(
+                r,
+                "harbor summon ship",
+                new int[] {2},
+                c -> {
+                    Optional<ShipService> s = service(ShipService.class);
+                    Optional<Player> p = c.pattern() == 0 ? c.player(0) : c.player(1);
+                    Optional<Number> id = c.pattern() == 0 ? c.number(1) : c.number(0);
+                    if (s.isEmpty() || p.isEmpty()) {
+                        return null;
+                    }
+                    boolean ok =
+                            s.get()
+                                    .summon(
+                                            p.get(),
+                                            id.map(Number::longValue).orElse(0L),
+                                            c.pattern() == 1);
+                    return Ext.value(CompletableFuture.completedFuture(ok));
+                },
+                "make %player% summon [(their|his|her)] harbor ship [%-number%] [and (store|save)"
+                        + " [the] result in %-objects%]",
+                "harbor admin summon [harbor] ship [%-number%] for %player% [and (store|save)"
+                        + " [the] result in %-objects%]");
+        Ext.effect(
+                r,
+                "harbor recall ship",
+                c -> {
+                    Optional<ShipService> s = service(ShipService.class);
+                    if (s.isPresent()) {
+                        for (Player p : c.players(0)) {
+                            s.get().recall(p.getUniqueId());
+                        }
+                    }
+                },
+                "make %players% recall [(their|his|her)] harbor ship[s]");
+        Ext.effect(
+                r,
+                "harbor admin set ship durability",
+                c -> {
+                    Optional<ShipService> s = service(ShipService.class);
+                    Optional<Number> id = c.number(0);
+                    Optional<OfflinePlayer> owner = c.offlinePlayer(1);
+                    Optional<Number> value = c.number(2);
+                    if (s.isPresent() && id.isPresent() && owner.isPresent() && value.isPresent()) {
+                        s.get()
+                                .setDurability(
+                                        owner.get().getUniqueId(),
+                                        id.get().longValue(),
+                                        value.get().intValue());
+                    }
+                },
+                "harbor admin set [the] durability of harbor ship %number% of %offlineplayer% to"
+                        + " %number%");
+    }
+
+    // ------------------------------------------------------------------ housing control
+
+    /** Visits, co-builders and visit policy through HousingService (DB, results arrive later). */
+    private static void housingControl(Registrar r) {
+        // pattern 0 normal (visit policy applies), pattern 1 admin (policy ignored)
+        Ext.await(
+                r,
+                "harbor visit plot",
+                new int[] {2},
+                c -> {
+                    Optional<HousingService> h = service(HousingService.class);
+                    Optional<Player> p = c.player(0);
+                    Optional<OfflinePlayer> owner = c.offlinePlayer(1);
+                    if (h.isEmpty() || p.isEmpty() || owner.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(
+                            h.get()
+                                    .visit(p.get(), owner.get().getUniqueId(), c.pattern() == 1)
+                                    .thenApply(WorldSyntax::key));
+                },
+                "make %player% visit [the] harbor plot of %offlineplayer% [and (store|save) [the]"
+                        + " result in %-objects%]",
+                "harbor admin send %player% to [the] harbor plot of %offlineplayer% [and"
+                        + " (store|save) [the] result in %-objects%]");
+        // pattern 0 add, pattern 1 remove
+        Ext.await(
+                r,
+                "harbor admin plot member",
+                new int[] {2},
+                c -> {
+                    Optional<HousingService> h = service(HousingService.class);
+                    Optional<OfflinePlayer> member = c.offlinePlayer(0);
+                    Optional<OfflinePlayer> owner = c.offlinePlayer(1);
+                    if (h.isEmpty() || member.isEmpty() || owner.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(
+                            h.get()
+                                    .setMember(
+                                            owner.get().getUniqueId(),
+                                            member.get().getUniqueId(),
+                                            c.pattern() == 0));
+                },
+                "harbor admin add %offlineplayer% to [the] harbor plot members of %offlineplayer%"
+                        + " [and (store|save) [the] result in %-objects%]",
+                "harbor admin remove %offlineplayer% from [the] harbor plot members of"
+                        + " %offlineplayer% [and (store|save) [the] result in %-objects%]");
+        Ext.await(
+                r,
+                "harbor admin plot visit policy",
+                new int[] {2},
+                c -> {
+                    Optional<HousingService> h = service(HousingService.class);
+                    Optional<OfflinePlayer> owner = c.offlinePlayer(0);
+                    Optional<VisitPolicy> policy =
+                            c.string(1)
+                                    .flatMap(
+                                            s ->
+                                                    Keyed.fromKey(
+                                                            VisitPolicy.class,
+                                                            s.strip().toLowerCase(Locale.ROOT)));
+                    if (h.isEmpty() || owner.isEmpty() || policy.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(
+                            h.get().setVisitPolicy(owner.get().getUniqueId(), policy.get()));
+                },
+                "harbor admin set [the] harbor plot visit policy of %offlineplayer% to %string%"
+                        + " [and (store|save) [the] result in %-objects%]");
+    }
+
+    // ------------------------------------------------------------------ airship rides
+
+    private static Optional<RideService> rideService() {
+        return service(RideService.class);
+    }
+
+    private static void rides(Registrar r) {
+        Ext.await(
+                r,
+                "make player board harbor airship",
+                new int[] {2},
+                c -> {
+                    Optional<RideService> s = rideService();
+                    Optional<Player> p = c.player(0);
+                    Optional<RegionId> to = c.string(1).flatMap(WorldSyntax::region);
+                    if (s.isEmpty() || p.isEmpty() || to.isEmpty()) {
+                        return null;
+                    }
+                    return Ext.value(
+                            CompletableFuture.completedFuture(
+                                    key(s.get().board(p.get(), to.get()))));
+                },
+                "make %player% board [a] harbor airship to [region] %string% [and (store|save)"
+                        + " [the] result in %-objects%]");
+        Ext.effect(
+                r,
+                "harbor admin launch airship",
+                c -> {
+                    Optional<RideService> s = rideService();
+                    Optional<RegionId> from = c.string(0).flatMap(WorldSyntax::region);
+                    Optional<RegionId> to = c.string(1).flatMap(WorldSyntax::region);
+                    if (s.isPresent() && from.isPresent() && to.isPresent()) {
+                        s.get().launch(c.players(2), from.get(), to.get());
+                    }
+                },
+                "harbor admin launch [a] harbor airship from [region] %string% to [region] %string%"
+                        + " (with|for) %players%");
+        Ext.effect(
+                r,
+                "harbor admin stop airship ride",
+                c -> {
+                    Optional<RideService> s = rideService();
+                    if (s.isPresent()) {
+                        for (Player p : c.players(0)) {
+                            s.get().stop(p);
+                        }
+                    }
+                },
+                "harbor admin (stop|end) [the] harbor airship ride of %players%");
+        r.condition(
+                Spec.of("harbor riding airship"),
+                (e, x) -> {
+                    Optional<RideService> s = rideService();
+                    return s.isPresent() && Args.all(e, x, p -> s.get().riding(p));
+                },
+                "%players% (is|are) (riding|on) [a] harbor airship",
+                "%players% (isn't|is not|aren't|are not) (riding|on) [a] harbor airship");
+        r.condition(
+                Spec.of("harbor waiting airship"),
+                (e, x) -> {
+                    Optional<RideService> s = rideService();
+                    return s.isPresent() && Args.all(e, x, p -> s.get().queued(p));
+                },
+                "%players% (is|are) waiting for [a] harbor airship",
+                "%players% (isn't|is not|aren't|are not) waiting for [a] harbor airship");
+        r.text(
+                Spec.of("harbor airship destination"),
+                (e, x) ->
+                        rideService()
+                                .map(
+                                        s ->
+                                                Args.perPlayer(
+                                                        e,
+                                                        x,
+                                                        p ->
+                                                                s.destination(p)
+                                                                        .map(RegionId::toString)
+                                                                        .orElse(null)))
+                                .orElse(List.of()),
+                "[the] harbor airship destination of %players%");
     }
 
     private static Optional<PlotInfo> plotAt(@Nullable Location l) {

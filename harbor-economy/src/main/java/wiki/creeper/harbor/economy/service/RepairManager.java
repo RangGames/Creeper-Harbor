@@ -23,6 +23,7 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.economy.api.RepairService;
+import wiki.creeper.harbor.economy.api.TradeResult;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
 
 /**
@@ -123,77 +124,96 @@ public final class RepairManager implements RepairService {
                         api.messages().get("economy.repair.no"),
                         ok -> {
                             if (ok) {
-                                repair(player, cost.getAsLong());
+                                var _ = repair(player, cost.getAsLong());
                             }
                         });
     }
 
-    private void repair(Player player, long quoted) {
+    @Override
+    public CompletableFuture<TradeResult> repairHeld(Player player) {
+        OptionalLong cost = cost(player, player.getInventory().getItemInMainHand());
+        if (cost.isEmpty()) {
+            api.messages().send(player, "economy.repair.nothing");
+            return CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.NOTHING));
+        }
+        return repair(player, cost.getAsLong());
+    }
+
+    private static TradeResult outcome(Result<Long, LedgerError> result, long cost, int amount) {
+        if (result instanceof Result.Err<Long, LedgerError>(LedgerError error)) {
+            return TradeResult.of(
+                    error == LedgerError.INSUFFICIENT_FUNDS
+                            ? TradeResult.Status.NO_GOLD
+                            : TradeResult.Status.FAILED);
+        }
+        return TradeResult.ok(cost, amount);
+    }
+
+    private CompletableFuture<TradeResult> repair(Player player, long quoted) {
         int slot = player.getInventory().getHeldItemSlot();
         ItemStack held = player.getInventory().getItemInMainHand();
         OptionalLong cost = cost(player, held);
         if (cost.isEmpty() || cost.getAsLong() != quoted) {
             api.messages().send(player, "economy.repair.changed");
-            return;
+            return CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.NOTHING));
         }
         UUID uuid = player.getUniqueId();
         var ticket = guard.begin(uuid);
         if (ticket.isEmpty()) {
             api.messages().send(player, "economy.busy");
-            return;
+            return CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.BUSY));
         }
         ItemStack custody = held.clone();
         player.getInventory().setItem(slot, null);
-        var _ =
-                ticket.get()
-                        .track(
-                                api.currency()
-                                        .take(
-                                                uuid,
-                                                Currency.GOLD,
-                                                quoted,
-                                                LedgerReason.REPAIR,
-                                                "repair:" + UUID.randomUUID()))
-                        .thenAccept(
-                                result -> {
-                                    if (result.isOk()) {
-                                        custody.setData(DataComponentTypes.DAMAGE, 0);
-                                    }
-                                    if (!player.isOnline()) {
-                                        // If they left between commits, send to the mailbox
-                                        api.mail()
-                                                .ifPresent(
-                                                        m -> {
-                                                            var _ =
-                                                                    m.sendItem(
-                                                                            uuid,
-                                                                            custody,
-                                                                            "repair_return",
-                                                                            "repair:"
-                                                                                    + uuid
-                                                                                    + ":"
-                                                                                    + System
-                                                                                            .nanoTime());
-                                                        });
-                                        return;
-                                    }
-                                    player.getInventory()
-                                            .addItem(custody)
-                                            .values()
-                                            .forEach(
-                                                    left ->
-                                                            player.getWorld()
-                                                                    .dropItem(
-                                                                            Objects.requireNonNull(
-                                                                                    player
-                                                                                            .getLocation()),
-                                                                            left));
-                                    api.messages()
-                                            .send(
-                                                    player,
-                                                    result.isOk()
-                                                            ? "economy.repair.done"
-                                                            : "economy.repair.failed");
-                                });
+        return ticket.get()
+                .track(
+                        api.currency()
+                                .take(
+                                        uuid,
+                                        Currency.GOLD,
+                                        quoted,
+                                        LedgerReason.REPAIR,
+                                        "repair:" + UUID.randomUUID()))
+                .thenApply(
+                        result -> {
+                            TradeResult outcome = outcome(result, quoted, custody.getAmount());
+                            if (result.isOk()) {
+                                custody.setData(DataComponentTypes.DAMAGE, 0);
+                            }
+                            if (!player.isOnline()) {
+                                // If they left between commits, send to the mailbox
+                                api.mail()
+                                        .ifPresent(
+                                                m -> {
+                                                    var _ =
+                                                            m.sendItem(
+                                                                    uuid,
+                                                                    custody,
+                                                                    "repair_return",
+                                                                    "repair:"
+                                                                            + uuid
+                                                                            + ":"
+                                                                            + System.nanoTime());
+                                                });
+                                return outcome;
+                            }
+                            player.getInventory()
+                                    .addItem(custody)
+                                    .values()
+                                    .forEach(
+                                            left ->
+                                                    player.getWorld()
+                                                            .dropItem(
+                                                                    Objects.requireNonNull(
+                                                                            player.getLocation()),
+                                                                    left));
+                            api.messages()
+                                    .send(
+                                            player,
+                                            result.isOk()
+                                                    ? "economy.repair.done"
+                                                    : "economy.repair.failed");
+                            return outcome;
+                        });
     }
 }
