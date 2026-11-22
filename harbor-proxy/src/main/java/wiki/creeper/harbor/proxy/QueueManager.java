@@ -65,7 +65,6 @@ final class QueueManager {
 
     private final Deque<Instant> recentAdmissions = new ArrayDeque<>();
     private boolean paused;
-    private @Nullable Integer capOverride;
     private @Nullable Instant healthySince;
     private boolean frozen;
     private long ticks;
@@ -307,8 +306,8 @@ final class QueueManager {
         paused = value;
     }
 
-    synchronized void setCap(@Nullable Integer cap) {
-        capOverride = cap;
+    void setCap(@Nullable Integer cap) {
+        directory.setCapOverride(cap);
     }
 
     /** 1초마다 실행한다. 메모리 연산만 한다. */
@@ -341,23 +340,38 @@ final class QueueManager {
                 return;
             }
             Optional<Player> player = proxy.getPlayer(next);
-            if (player.isEmpty()) {
+            if (player.isEmpty() || !inLobby(player.get())) {
+                // 다른 길로 로비를 떠난 사람: 인스턴스에서 끌어내거나 already_there로 되돌아오지 않게 버린다
+                hideBar(next, player);
                 continue;
             }
             admitted++;
             recentAdmissions.addLast(Instant.now());
-            BossBar bar = bars.remove(next);
-            if (bar != null) {
-                player.get().hideBossBar(bar);
-            }
+            hideBar(next, player);
             var _ =
                     mover.move(player.get(), server.get(), "queue")
                             .thenAccept(
                                     result -> {
-                                        if (!result.ok()) {
+                                        // 이미 본 서버에 있으면 다시 세울 필요가 없다 (매 틱 맨 앞을 막는다)
+                                        if (!result.ok()
+                                                && !"already_there".equals(result.reason())) {
                                             requeueFront(next);
                                         }
                                     });
+        }
+    }
+
+    private boolean inLobby(Player player) {
+        return player.getCurrentServer()
+                .map(s -> s.getServerInfo().getName())
+                .filter(config.lobby()::equals)
+                .isPresent();
+    }
+
+    private void hideBar(UUID uuid, Optional<Player> player) {
+        BossBar bar = bars.remove(uuid);
+        if (bar != null) {
+            player.ifPresent(p -> p.hideBossBar(bar));
         }
     }
 
@@ -369,10 +383,7 @@ final class QueueManager {
             return 0;
         }
         var beat = entry.get().beat();
-        int capacity =
-                capOverride != null
-                        ? capOverride
-                        : config.mainServers().getOrDefault(server, beat.capacity());
+        int capacity = directory.capacity(server, beat);
         // TPS 보호: 18 아래면 현재 인원으로 동결, 19.5 이상 1분 유지되면 해제
         Instant now = Instant.now();
         if (beat.tps() < config.queue().tpsFreeze()) {
@@ -388,8 +399,9 @@ final class QueueManager {
         if (frozen) {
             return 0;
         }
-        // 인스턴스에 간 사람의 자리는 비워 둔다
-        return Math.max(0, capacity - beat.online() - seats.reservedOn(server));
+        // 인스턴스에 간 사람의 자리는 비워 둔다. 하트비트(5초) 뒤에 보낸 사람은 아직 online에 없으므로 뺀다
+        return Math.max(
+                0, capacity - beat.online() - directory.pending(server) - seats.reservedOn(server));
     }
 
     private Optional<String> mainServer() {

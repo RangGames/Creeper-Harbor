@@ -137,6 +137,21 @@ class ContentLoaderTest {
         assertEquals(1, second.all(FishDef.TYPE).size());
     }
 
+    @Test
+    void partialReloadRechecksReferencesFromOtherTypes() throws IOException {
+        write("fish/harbor.yml", fish("fish/harbor_mackerel", 1, "[20, 45]", "region/harbor"));
+        ContentSnapshot first = loader.load(root).orThrow();
+
+        // 어종이 가리키는 해역을 지우고 해역만 다시 읽는다
+        write("regions.yml", "[]");
+        Result<ContentSnapshot, ValidationErrors> result =
+                loader.reload(root, Set.of("region"), first);
+
+        assertFalse(result.isOk());
+        String errors = ((Result.Err<ContentSnapshot, ValidationErrors>) result).error().format();
+        assertTrue(errors.contains("region 'harbor:region/harbor'를 찾을 수 없습니다"), errors);
+    }
+
     private static String fish(String id, int no, String size, String region) {
         return """
                 - id: %s

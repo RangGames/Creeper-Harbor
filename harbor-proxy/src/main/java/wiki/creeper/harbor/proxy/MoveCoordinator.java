@@ -179,6 +179,7 @@ final class MoveCoordinator {
         if (!inProgress.add(uuid)) {
             return done(requestId, uuid, false, "busy");
         }
+        directory.moveStarted(uuid, destination);
         CompletableFuture<Boolean> prepared =
                 needsHandoff(origin)
                         ? prepare(origin, uuid, destination, requestId)
@@ -225,7 +226,11 @@ final class MoveCoordinator {
                             }
                             return new MoveResult(requestId, uuid, false, "error");
                         })
-                .whenComplete((r, e) -> inProgress.remove(uuid));
+                .whenComplete(
+                        (r, e) -> {
+                            directory.moveFinished(uuid, destination, r != null && r.ok());
+                            inProgress.remove(uuid);
+                        });
     }
 
     /** 예약 자리로의 귀환은 수용 한도를 넘어도 받는다 (하트비트·입장 허용만 확인). */

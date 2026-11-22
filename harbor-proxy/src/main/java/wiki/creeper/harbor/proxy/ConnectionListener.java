@@ -188,12 +188,17 @@ final class ConnectionListener {
         }
     }
 
-    /** 본 서버에 다시 들어오면 인스턴스 귀환 자리 예약을 푼다. */
+    /** 본 서버에 다시 들어오면 인스턴스 귀환 자리 예약을 푼다. 로비 밖으로 나가면 대기열에서 뺀다 (다른 길로 떠난 사람). */
     @Subscribe
     public void onConnected(ServerConnectedEvent event) {
-        if (config.mainServers().containsKey(event.getServer().getServerInfo().getName())) {
-            var _ = seats.release(event.getPlayer().getUniqueId());
-            queue.leaveStay(event.getPlayer().getUniqueId());
+        UUID uuid = event.getPlayer().getUniqueId();
+        String server = event.getServer().getServerInfo().getName();
+        if (config.mainServers().containsKey(server)) {
+            var _ = seats.release(uuid);
+            queue.leaveStay(uuid);
+        }
+        if (!server.equals(config.lobby())) {
+            queue.remove(uuid);
         }
     }
 

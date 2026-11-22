@@ -63,7 +63,8 @@ public final class ContentLoader {
     }
 
     /**
-     * 일부 형식만 다시 읽고, 나머지는 이전 스냅샷 값을 그대로 쓴다. 참조 검사는 합친 결과 전체로 한다.
+     * 일부 형식만 다시 읽고, 나머지는 이전 스냅샷 값을 그대로 쓴다. 참조 검사는 합친 결과 전체로 한다 (안 읽은 형식이 다시 읽은 형식을 가리키는 참조도 이전 스냅샷에
+     * 남겨 둔 참조로 다시 검사한다: 퀘스트를 지웠는데 NPC가 그 퀘스트를 가리키는 경우 등).
      *
      * @param only 다시 읽을 형식 이름들
      */
@@ -86,33 +87,39 @@ public final class ContentLoader {
         Map<String, Object> singles = new HashMap<>();
         Map<String, Map<HarborId, SourcePos>> positions = new HashMap<>();
         Map<String, SourcePos> singlePositions = new HashMap<>();
-        ParseContext ctx = new ParseContext();
+        Map<String, List<ParseContext.Reference>> references = new HashMap<>();
 
         for (ContentType<?> type : types.values()) {
             if (!only.contains(type.name())) {
                 copyPrevious(type, previous, entries, singles);
+                references.put(
+                        type.name(), previous.rawReferences().getOrDefault(type.name(), List.of()));
                 continue;
             }
+            ParseContext ctx = new ParseContext();
             switch (type) {
                 case ContentType.Entries<?> e ->
                         parseEntries(root, files, e, ctx, errors, entries, positions);
                 case ContentType.Single<?> s ->
                         parseSingle(root, files, s, ctx, errors, singles, singlePositions);
             }
+            references.put(type.name(), ctx.references());
         }
 
-        // 3단계: 참조 검사 (대상 형식이 등록된 경우만)
-        for (ParseContext.Reference ref : ctx.references()) {
-            if (!types.containsKey(ref.targetType())) {
-                continue;
-            }
-            Map<HarborId, Object> target = entries.get(ref.targetType());
-            if (target == null || !target.containsKey(ref.id())) {
-                errors.add(ref.pos(), ref.targetType() + " '" + ref.id() + "'를 찾을 수 없습니다");
+        // 3단계: 참조 검사 (대상 형식이 등록된 경우만). 모든 형식의 참조를 합친 결과로 검사한다
+        for (ContentType<?> type : types.values()) {
+            for (ParseContext.Reference ref : references.getOrDefault(type.name(), List.of())) {
+                if (!types.containsKey(ref.targetType())) {
+                    continue;
+                }
+                Map<HarborId, Object> target = entries.get(ref.targetType());
+                if (target == null || !target.containsKey(ref.id())) {
+                    errors.add(ref.pos(), ref.targetType() + " '" + ref.id() + "'를 찾을 수 없습니다");
+                }
             }
         }
 
-        ContentSnapshot snapshot = new ContentSnapshot(entries, singles);
+        ContentSnapshot snapshot = new ContentSnapshot(entries, singles, references);
 
         // 4단계: 추가 검사 (다시 읽은 형식만)
         if (errors.isEmpty()) {
