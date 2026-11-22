@@ -50,3 +50,11 @@
 
 - 접속 중인 플레이어 자료는 지연 쓰기 때문에 몇 분 늦을 수 있다.
 - REST는 5초 안에 답하지 못하면 503을 준다.
+
+## 기술 명세
+
+웹 팀용 상세 명세 (코드 기준):
+
+- [harbor-web/docs/api.md](../harbor-web/docs/api.md): REST API 설명
+- [harbor-web/docs/openapi.yaml](../harbor-web/docs/openapi.yaml): OpenAPI 3.1 명세
+- [harbor-web/docs/events.md](../harbor-web/docs/events.md): 이벤트 형식·카탈로그, 웹훅 서명·재시도

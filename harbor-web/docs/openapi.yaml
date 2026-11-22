@@ -1,0 +1,1129 @@
+openapi: 3.1.0
+info:
+  title: Harbor-Web REST API
+  version: "1"
+  summary: 크리퍼 항구 읽기 전용 REST API (Harbor-Web 모듈)
+  description: |
+    Harbor-Web 모듈이 여는 읽기 전용 REST API다. 코드(harbor-web/src/main/java/wiki/creeper/harbor/web/http)를
+    기준으로 작성했다. 설명 문서는 api.md, 이벤트 형식은 events.md를 본다.
+
+    - 모든 응답은 `Content-Type: application/json; charset=utf-8`이고 봉투 형식이다.
+      성공 `{"ok":true,"data":…}`, 실패 `{"ok":false,"error":{"code":"…","message":"…"}}`.
+    - **null인 필드는 응답에서 빠진다** (Gson 기본 설정, serializeNulls 꺼짐). 스키마에서 required에 없는 필드는
+      값이 없으면 키 자체가 없다.
+    - 인증·속도 제한·메서드 검사 순서: `OPTIONS` → 204 / `/v1/health` → 200 (인증 없음) / 토큰 없음·틀림 → 401 /
+      분당 한도 초과 → 429 / GET이 아님 → 405 / 경로 없음 → 404.
+    - 숫자 쿼리 파라미터는 숫자가 아니면 기본값을 쓰고(400 아님), 범위를 벗어나면 최소·최대로 잘라 쓴다.
+    - 캐시 헤더(Cache-Control, ETag 등)와 속도 제한 헤더(Retry-After, X-RateLimit-*)는 보내지 않는다.
+    - 모듈 라우트는 그 모듈 플러그인이 Harbor-Web 시작 시점에 켜져 있을 때만 등록된다. 없으면 404 not_found.
+servers:
+  - url: http://127.0.0.1:8765/v1
+    description: 기본 bind·port (config.yml http.bind / http.port). 운영에서는 앞단 HTTPS 리버스 프록시 주소를 쓴다.
+security:
+  - bearerAuth: []
+tags:
+  - name: meta
+    description: 상태 확인과 경로 목록
+  - name: core
+    description: Harbor-Core만 있으면 항상 있는 경로
+  - name: players
+    description: 플레이어 자료 (DB 읽기 전용, 접속 중인 플레이어는 지연 쓰기 때문에 몇 분 늦을 수 있다)
+  - name: economy
+    description: Harbor-Economy가 켜져 있을 때만
+  - name: collection
+    description: Harbor-Collection이 켜져 있을 때만
+  - name: season
+    description: Harbor-Season이 켜져 있을 때만
+paths:
+  /health:
+    get:
+      tags: [meta]
+      operationId: getHealth
+      summary: 살아 있는지 확인 (토큰 불필요)
+      description: |
+        인증·속도 제한을 거치지 않는다. 구현상 메서드도 검사하지 않아 GET이 아닌 요청에도 200을 준다.
+        경로 끝 `/`는 허용한다 (`/v1/health/`).
+      security: []
+      responses:
+        "200":
+          description: 항상 같은 응답
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: object
+                        required: [status]
+                        properties:
+                          status:
+                            type: string
+                            const: up
+              example: {"ok": true, "data": {"status": "up"}}
+  /:
+    get:
+      tags: [meta]
+      operationId: listRoutes
+      summary: 등록된 경로 목록
+      description: |
+        `GET /v1` (또는 `/v1/`). 이 서버에서 실제로 등록된 경로만 나온다 (켜진 모듈에 따라 다르다).
+        `/v1`과 `/v1/health` 자신은 목록에 없다. description은 코드에 박힌 한국어 설명이다.
+      responses:
+        "200":
+          description: 경로 목록 (등록 순서)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RouteInfo"
+              example:
+                ok: true
+                data:
+                  - {path: "/v1/server", description: "서버 ID·시즌·접속 인원"}
+                  - {path: "/v1/players/{id}", description: "플레이어 요약 (id = UUID 또는 이름): 레벨·직업·골드·물비늘·평판·접속 시각"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "405": {$ref: "#/components/responses/MethodNotAllowed"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /server:
+    get:
+      tags: [core]
+      operationId: getServer
+      summary: 서버 ID·시즌·접속 인원
+      description: online은 **REST를 연 그 서버 한 대**의 접속 인원이다 (네트워크 전체가 아니다).
+      responses:
+        "200":
+          description: 서버 정보
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data: {$ref: "#/components/schemas/ServerInfo"}
+              example: {"ok": true, "data": {"server": "lobby-1", "season": 1, "online": 12}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+  /players/{id}:
+    get:
+      tags: [players]
+      operationId: getPlayer
+      summary: 플레이어 요약
+      description: |
+        players 행과 이번 시즌 player_season 행을 읽는다. 이번 시즌 행이 없으면 `season` 키가 없다.
+        players 행이 없으면 404 player_not_found.
+      parameters:
+        - $ref: "#/components/parameters/PlayerId"
+      responses:
+        "200":
+          description: 플레이어 요약
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data: {$ref: "#/components/schemas/PlayerSummary"}
+              example:
+                ok: true
+                data:
+                  uuid: "069a79f4-44e9-4726-a5be-fca90e38aaf5"
+                  name: "Steve"
+                  first_join: "2026-10-01T09:12:44.120Z"
+                  last_join: "2026-11-20T11:58:03Z"
+                  playtime_seconds: 183920
+                  season:
+                    season: 1
+                    job_line: "collect"
+                    job_tier: 2
+                    level: 34
+                    exp: 1820
+                    gold: 125400
+                    mulbineul: 37
+                    reputation: 410
+        "400": {$ref: "#/components/responses/BadId"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/PlayerNotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+  /players/{id}/ledger:
+    get:
+      tags: [players]
+      operationId: getPlayerLedger
+      summary: 재화 원장 최근 기록
+      description: |
+        CurrencyService.history를 그대로 돌려준다. 최신순(원장 id 내림차순), 시즌 구분 없음.
+        **이 응답의 필드 이름은 camelCase**이고 currency는 대문자 enum 이름이다 (다른 플레이어 경로와 다르다).
+        UUID로 부르면 플레이어 존재 여부를 확인하지 않으므로, 없는 UUID는 빈 배열이다.
+      parameters:
+        - $ref: "#/components/parameters/PlayerId"
+        - name: currency
+          in: query
+          description: 재화 종류. 빈 값이면 gold. 그 밖의 값은 400 bad_currency.
+          schema:
+            type: string
+            enum: [gold, mulbineul]
+            default: gold
+        - name: limit
+          in: query
+          description: 최대 행 수. 1~200으로 잘라 쓴다. 숫자가 아니면 50.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: 원장 행 (최신순)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items: {$ref: "#/components/schemas/LedgerRecord"}
+              example:
+                ok: true
+                data:
+                  - id: 99812
+                    currency: GOLD
+                    delta: 1520
+                    balanceAfter: 125400
+                    reason: FISH_SELL
+                    refId: "sell:4f1c2a"
+                    createdAt: "2026-11-20T11:57:41.302Z"
+                  - id: 99790
+                    currency: GOLD
+                    delta: -300
+                    balanceAfter: 123880
+                    reason: SHOP_BUY
+                    createdAt: "2026-11-20T11:40:02Z"
+        "400":
+          description: bad_id 또는 bad_currency
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+              examples:
+                bad_currency:
+                  value: {"ok": false, "error": {"code": "bad_currency", "message": "currency는 gold 또는 mulbineul"}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/PlayerNotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+  /players/{id}/collection:
+    get:
+      tags: [players, collection]
+      operationId: getPlayerCollection
+      summary: 플레이어 도감 (Harbor-Collection 필요)
+      description: |
+        codex_total(누적) 또는 codex_season(이번 시즌) 테이블을 읽는다. 항목 순서는 정하지 않는다 (ORDER BY 없음).
+        UUID로 부르면 존재 여부를 확인하지 않으므로 없는 UUID는 registered 0이다.
+      parameters:
+        - $ref: "#/components/parameters/PlayerId"
+        - name: scope
+          in: query
+          description: "`season`이면 이번 시즌, 그 밖의 값(빈 값 포함)은 모두 `total`로 처리한다 (400 없음)."
+          schema:
+            type: string
+            enum: [total, season]
+            default: total
+      responses:
+        "200":
+          description: 도감
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data: {$ref: "#/components/schemas/PlayerCollection"}
+              example:
+                ok: true
+                data:
+                  scope: total
+                  registered: 2
+                  total: 120
+                  percent: 1.7
+                  entries:
+                    - fish: "harbor:fish/harbor_mackerel"
+                      first_caught: "2026-10-01T09:30:00Z"
+                      max_size: 41.2
+                      best_quality: 4
+                      catch_count: 57
+                      fish_name: "항구 고등어"
+                    - fish: "harbor:fish/silver_anchovy"
+                      first_caught: "2026-10-03T20:01:12.500Z"
+                      max_size: 33.0
+                      best_quality: 2
+                      catch_count: 3
+                      fish_name: "은빛 멸치"
+        "400": {$ref: "#/components/responses/BadId"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/PlayerNotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+  /players/{id}/quests:
+    get:
+      tags: [players]
+      operationId: getPlayerQuests
+      summary: 플레이어 퀘스트 (Harbor-Quest 필요)
+      description: |
+        quest_progress에서 이번 시즌 행과, 시즌과 관계없이 `harbor:quest/main/` 으로 시작하는 메인 퀘스트 행을 모두 읽는다
+        (그래서 같은 메인 퀘스트가 시즌별로 여러 행 나올 수 있다). 포기한 퀘스트는 행이 지워지므로 나오지 않는다.
+      parameters:
+        - $ref: "#/components/parameters/PlayerId"
+      responses:
+        "200":
+          description: 퀘스트 목록
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: object
+                        required: [quests]
+                        properties:
+                          quests:
+                            type: array
+                            items: {$ref: "#/components/schemas/QuestRow"}
+              example:
+                ok: true
+                data:
+                  quests:
+                    - quest: "harbor:quest/main/ch1_first_cast"
+                      season: 1
+                      state: completed
+                      updated_at: "2026-10-01T10:02:11Z"
+                      name: "첫 캐스팅"
+        "400": {$ref: "#/components/responses/BadId"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/PlayerNotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+  /events:
+    get:
+      tags: [core]
+      operationId: getRecentEvents
+      summary: 최근 외부 이벤트 (커서 방식)
+      description: |
+        REST 서버가 Redis `harbor:events`에서 받은 이벤트를 메모리에 최근 `http.recent_events`개(최소 10, 기본 500)까지 들고 있다.
+        받은 순서대로 seq(1부터, 서버 재시작 시 0부터 다시)를 붙인다. `after`보다 큰 seq를 오래된 것부터 `limit`개 준다.
+        다음 요청에는 받은 마지막 item의 seq(또는 응답의 `last`)를 `after`로 넣는다.
+
+        - 응답의 `last`가 보낸 `after`보다 작으면 REST 서버가 재시작된 것이다. `after=0`부터 다시 읽는다.
+        - 버퍼에서 밀려난 이벤트는 다시 받을 수 없다 (빈틈이 생겨도 알려 주지 않는다).
+        - `event.data`의 숫자는 Redis에서 다시 읽은 값이라 **정수도 실수로 나온다** (예: `"online": 3.0`). events.md 참고.
+      parameters:
+        - name: after
+          in: query
+          description: 이 seq보다 큰 것만. 0 ~ 2147483647로 잘라 쓴다. 숫자가 아니면 0.
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: type
+          in: query
+          description: type glob (`*`만 와일드카드, 나머지는 글자 그대로). 예 `fishing.*`, `*.record_broken`. 빈 값이면 전부.
+          schema:
+            type: string
+            default: ""
+        - name: limit
+          in: query
+          description: 최대 개수. 1~500으로 잘라 쓴다. 숫자가 아니면 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: 이벤트 목록
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data: {$ref: "#/components/schemas/RecentEventsPage"}
+              example:
+                ok: true
+                data:
+                  last: 1042
+                  items:
+                    - seq: 1041
+                      event:
+                        id: "3f0c1e9a-5a1d-4f0e-9a51-7c2a0c0b9d11"
+                        type: "server.player_join"
+                        version: 1
+                        server: "main-1"
+                        occurredAt: "2026-11-20T12:00:00.123456Z"
+                        player: "069a79f4-44e9-4726-a5be-fca90e38aaf5"
+                        playerName: "Steve"
+                        data: {online: 13.0}
+                    - seq: 1042
+                      event:
+                        id: "a8d2b7c4-0f7e-4b39-8a51-1b6f2d3e4c55"
+                        type: "collection.record_broken"
+                        version: 1
+                        server: "main-1"
+                        occurredAt: "2026-11-20T12:00:05.901Z"
+                        player: "069a79f4-44e9-4726-a5be-fca90e38aaf5"
+                        data:
+                          fish: "harbor:fish/harbor_mackerel"
+                          fish_name: "항구 고등어"
+                          league: "all"
+                          player: "069a79f4-44e9-4726-a5be-fca90e38aaf5"
+                          previous: 39.8
+                          scope: "server"
+                          size: 41.2
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+  /content/fish:
+    get:
+      tags: [core]
+      operationId: listFish
+      summary: 어종 목록
+      description: 현재 콘텐츠 스냅샷의 어종 전체를 도감 번호(no) 오름차순으로 준다.
+      responses:
+        "200":
+          description: 어종 목록
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items: {$ref: "#/components/schemas/FishSummary"}
+              example:
+                ok: true
+                data:
+                  - {id: "harbor:fish/harbor_mackerel", "no": 1, name: "항구 고등어", grade: "common", region: "harbor:region/harbor"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+  /market:
+    get:
+      tags: [economy]
+      operationId: getMarket
+      summary: 어종 시세 계수 (Harbor-Economy 필요)
+      description: |
+        모든 어종(도감 번호순)의 현재 시세 계수와 다음 시간 예측. 계수 1.0 = 기준가. 소수 셋째 자리로 반올림.
+        시세를 한 번도 계산하지 않은 어종은 coefficient 1.0이고 next가 없다.
+      responses:
+        "200":
+          description: 시세 목록
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items: {$ref: "#/components/schemas/MarketEntry"}
+              example:
+                ok: true
+                data:
+                  - {fish: "harbor:fish/harbor_mackerel", name: "항구 고등어", coefficient: 0.874, next: 0.902}
+                  - {fish: "harbor:fish/silver_anchovy", name: "은빛 멸치", coefficient: 1.0}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+  /auctions:
+    get:
+      tags: [economy]
+      operationId: listAuctions
+      summary: 진행 중인 경매 (Harbor-Economy 필요)
+      description: |
+        AuctionService.active를 그대로 돌려준다. 최신 등록순(created_at DESC, id DESC), 만료되지 않은 ACTIVE 목록.
+        **필드 이름은 camelCase**다.
+
+        - 내부적으로 경매 화면의 첫 페이지(45개)를 읽은 뒤 limit으로 자르므로, limit을 200까지 받아도 **실제로는 최대 45개**다.
+          다음 페이지를 읽는 방법은 없다.
+        - 카테고리별 첫 페이지는 balance.yml `economy.auction.cache_s`(기본 30초) 동안 캐시된다.
+        - category는 검사하지 않는다. 목록에 없는 값이면 빈 배열이다.
+      parameters:
+        - name: category
+          in: query
+          description: 빈 값이면 전체.
+          schema:
+            type: string
+            enum: ["", fish, gear, bait, material, food, other]
+            default: ""
+        - name: limit
+          in: query
+          description: 1~200으로 잘라 쓴다 (숫자가 아니면 50). 실제 최대는 45.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: 경매 목록
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items: {$ref: "#/components/schemas/AuctionListing"}
+              example:
+                ok: true
+                data:
+                  - id: 5120
+                    seller: "069a79f4-44e9-4726-a5be-fca90e38aaf5"
+                    sellerName: "Steve"
+                    itemId: "harbor:fish/silver_anchovy"
+                    itemName: "은빛 멸치"
+                    category: "fish"
+                    amount: 1
+                    price: 4200
+                    expiresAt: "2026-11-22T11:00:00Z"
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+  /records:
+    get:
+      tags: [collection]
+      operationId: getRecords
+      summary: 어종별 이번 시즌 서버 최대어 기록 (Harbor-Collection 필요)
+      description: |
+        RecordService.serverTop. 각 서버가 메모리에 들고 있는 상위 10개 캐시(다른 서버와 Redis로 동기화)를 읽는다.
+        크기 내림차순. **필드 이름은 camelCase**다.
+      parameters:
+        - name: fish
+          in: query
+          required: true
+          description: |
+            어종 ID. `harbor:fish/<이름>` 또는 네임스페이스를 뺀 `fish/<이름>`. 없거나 형식이 틀리거나 콘텐츠에 없으면 404 fish_not_found.
+          schema:
+            type: string
+            pattern: "^([a-z0-9_]+:)?fish/[a-z0-9_]+(/[a-z0-9_]+)*$"
+          example: "harbor:fish/harbor_mackerel"
+        - name: league
+          in: query
+          description: 그 밖의 값은 400 bad_league.
+          schema:
+            type: string
+            enum: [tier1, tier2, all]
+            default: all
+        - name: limit
+          in: query
+          description: 1~10으로 잘라 쓴다. 숫자가 아니면 10.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 10
+      responses:
+        "200":
+          description: 기록 목록
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items: {$ref: "#/components/schemas/RecordEntry"}
+              example:
+                ok: true
+                data:
+                  - {player: "069a79f4-44e9-4726-a5be-fca90e38aaf5", name: "Steve", size: 41.2, caughtAt: "2026-11-20T12:00:05.901Z"}
+        "400":
+          description: bad_league
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+              example: {"ok": false, "error": {"code": "bad_league", "message": "league는 [tier1, tier2, all] 중 하나"}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404":
+          description: fish_not_found
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+              example: {"ok": false, "error": {"code": "fish_not_found", "message": "없는 어종입니다: harbor:fish/nope"}}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+  /rankings:
+    get:
+      tags: [season]
+      operationId: listRankingBoards
+      summary: 랭킹 보드 목록 (Harbor-Season 필요)
+      description: content/season/rankings.yml의 보드 정의. name은 MiniMessage 원문 그대로다 (태그를 지워 쓸 것).
+      responses:
+        "200":
+          description: 보드 목록
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items: {$ref: "#/components/schemas/RankingBoardSummary"}
+              example:
+                ok: true
+                data:
+                  - {id: "level", name: "<gold>시즌 레벨", leagues: ["all", "tier1", "tier2"], size: 100}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+  /rankings/{board}:
+    get:
+      tags: [season]
+      operationId: getRankingBoard
+      summary: 랭킹 순위표 (Harbor-Season 필요)
+      description: |
+        랭킹 집계 서버가 보드마다 refresh_minutes(기본 10분)마다 계산해 Redis로 뿌린 캐시를 읽는다 (DB를 읽지 않는다).
+        아직 집계되지 않았거나 그 보드가 이 리그를 집계하지 않으면 entries가 빈 배열이고 computedAt이
+        `1970-01-01T00:00:00Z`다. **필드 이름은 camelCase, league는 대문자 enum 이름**(`ALL`·`TIER1`·`TIER2`)이다.
+      parameters:
+        - name: board
+          in: path
+          required: true
+          description: 보드 ID (`GET /v1/rankings`의 id). 없으면 404 board_not_found.
+          schema:
+            type: string
+            pattern: "^[a-z0-9_]+$"
+        - name: league
+          in: query
+          description: 소문자 리그 키. 그 밖의 값은 400 bad_league.
+          schema:
+            type: string
+            enum: [tier1, tier2, all]
+            default: all
+      responses:
+        "200":
+          description: 순위표
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data: {$ref: "#/components/schemas/RankingBoard"}
+              example:
+                ok: true
+                data:
+                  board: "level"
+                  league: "ALL"
+                  season: 1
+                  computedAt: "2026-11-20T12:00:00.004Z"
+                  entries:
+                    - rank: 1
+                      uuid: "069a79f4-44e9-4726-a5be-fca90e38aaf5"
+                      name: "Steve"
+                      value: 52.0
+                      secondary: 18200.0
+                      achievedAt: "2026-11-19T22:41:10Z"
+                      members: 1
+        "400":
+          description: bad_league
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+              example: {"ok": false, "error": {"code": "bad_league", "message": "없는 리그입니다: tier9"}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404":
+          description: board_not_found
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+              example: {"ok": false, "error": {"code": "board_not_found", "message": "없는 보드입니다: nope"}}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        `Authorization: Bearer <token>` 헤더. 접두사 `Bearer `(B 대문자, 공백 하나)는 대소문자까지 정확히 맞아야 하고,
+        뒤의 토큰은 앞뒤 공백을 지운 뒤 config.yml `http.tokens[].token`과 고정 시간 비교한다. 빈 토큰은 어떤 요청과도 맞지 않는다.
+        토큰이 하나도 없으면 /v1/health 말고는 모두 401이다. 속도 제한은 토큰의 `name` 단위다.
+  parameters:
+    PlayerId:
+      name: id
+      in: path
+      required: true
+      description: |
+        플레이어 UUID(하이픈 포함 형식) 또는 마인크래프트 이름(`[A-Za-z0-9_]{1,16}`). 이름은 players 테이블에서
+        마지막 접속이 가장 최근인 행으로 찾는다. 둘 다 아니면 400 bad_id, 이름을 못 찾으면 404 player_not_found.
+      schema:
+        type: string
+      examples:
+        uuid: {value: "069a79f4-44e9-4726-a5be-fca90e38aaf5"}
+        name: {value: "Steve"}
+  responses:
+    Unauthorized:
+      description: 토큰이 없거나 틀림
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+          example: {"ok": false, "error": {"code": "unauthorized", "message": "Authorization: Bearer <token>이 필요합니다"}}
+    RateLimited:
+      description: |
+        토큰별 분당 한도(`http.rate_limit_per_minute`, 기본 120, 0 이하이면 무제한) 초과. 고정 창(유닉스 시각 기준 매 분 0초에 초기화)이다.
+        거절된 요청도 횟수에 들어간다. Retry-After 헤더는 없다.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+          example: {"ok": false, "error": {"code": "rate_limited", "message": "요청이 너무 많습니다"}}
+    MethodNotAllowed:
+      description: GET이 아닌 메서드 (인증·속도 제한 뒤에 검사한다. 모든 경로 공통). Allow 헤더는 없다.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+          example: {"ok": false, "error": {"code": "method_not_allowed", "message": "GET만 받습니다"}}
+    BadId:
+      description: id가 UUID도 마인크래프트 이름도 아님
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+          example: {"ok": false, "error": {"code": "bad_id", "message": "UUID 또는 마인크래프트 이름이어야 합니다"}}
+    PlayerNotFound:
+      description: 이름으로 플레이어를 찾지 못함 (요약 경로는 UUID여도 players 행이 없으면 이 응답)
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+          example: {"ok": false, "error": {"code": "player_not_found", "message": "플레이어를 찾지 못했습니다: Steve"}}
+    Internal:
+      description: 처리 중 예외 (원인은 서버 로그에만 남기고 응답에는 넣지 않는다)
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+          example: {"ok": false, "error": {"code": "internal", "message": "처리하지 못했습니다"}}
+    Unavailable:
+      description: |
+        `timeout`: DB 읽기나 메인 스레드 읽기가 5초 안에 끝나지 않음. `interrupted`: 처리 스레드가 중단됨.
+        `unavailable`: 모듈 서비스가 ServicesManager에 없음 (메시지에 서비스 이름).
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorEnvelope"}
+          examples:
+            timeout:
+              value: {"ok": false, "error": {"code": "timeout", "message": "서버가 바빠 답하지 못했습니다"}}
+            unavailable:
+              value: {"ok": false, "error": {"code": "unavailable", "message": "PriceService 서비스가 없습니다"}}
+  schemas:
+    OkEnvelope:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        data:
+          description: 경로마다 다르다
+    ErrorEnvelope:
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: 기계가 읽는 오류 코드. 분기는 이 값으로 한다.
+              enum:
+                - bad_request
+                - bad_id
+                - bad_currency
+                - bad_league
+                - unauthorized
+                - not_found
+                - player_not_found
+                - fish_not_found
+                - board_not_found
+                - method_not_allowed
+                - rate_limited
+                - internal
+                - timeout
+                - interrupted
+                - unavailable
+            message:
+              type: string
+              description: 사람이 읽는 한국어 문구. 바뀔 수 있으므로 분기에 쓰지 않는다.
+    RouteInfo:
+      type: object
+      required: [path, description]
+      properties:
+        path:
+          type: string
+          examples: ["/v1/players/{id}/collection"]
+        description:
+          type: string
+    ServerInfo:
+      type: object
+      required: [server, season, online]
+      properties:
+        server:
+          type: string
+          description: harbor-infra.yml의 서버 ID
+        season:
+          type: integer
+          description: 현재 시즌 번호
+        online:
+          type: integer
+          description: 이 서버의 접속 인원
+    PlayerSummary:
+      type: object
+      required: [uuid, name, first_join, last_join, playtime_seconds]
+      properties:
+        uuid: {type: string, format: uuid}
+        name:
+          type: string
+          description: 마지막으로 기록된 이름
+        first_join: {$ref: "#/components/schemas/Timestamp"}
+        last_join: {$ref: "#/components/schemas/Timestamp"}
+        playtime_seconds:
+          type: integer
+          format: int64
+          description: 누적 플레이 시간 (초)
+        season:
+          $ref: "#/components/schemas/PlayerSeason"
+    PlayerSeason:
+      type: object
+      description: 이번 시즌 player_season 행. 행이 없으면 이 객체 자체가 없다.
+      required: [season, job_tier, level, exp, gold, mulbineul, reputation]
+      properties:
+        season: {type: integer}
+        job_line:
+          type: string
+          enum: [explore, collect, produce, economy]
+          description: 2차 전직 때 고른 계열. 아직 없으면 키가 없다.
+        job_tier:
+          type: integer
+          minimum: 1
+          maximum: 3
+        level: {type: integer}
+        exp:
+          type: integer
+          format: int64
+        gold:
+          type: integer
+          format: int64
+          description: 골드 잔액 (정수, 단위 G)
+        mulbineul:
+          type: integer
+          format: int64
+          description: 물비늘 잔액 (mulbineul_earned − mulbineul_spent)
+        reputation: {type: integer}
+    LedgerRecord:
+      type: object
+      description: Core LedgerRecord 레코드를 Gson이 그대로 쓴 것 (camelCase)
+      required: [id, currency, delta, balanceAfter, reason, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: 원장 행 ID (단조 증가)
+        currency:
+          type: string
+          enum: [GOLD, MULBINEUL]
+        delta:
+          type: integer
+          format: int64
+          description: 증감 (지급 +, 차감 −)
+        balanceAfter:
+          type: integer
+          format: int64
+          description: 처리 후 잔액
+        reason:
+          type: string
+          description: |
+            LedgerReason 이름 (대문자, 예 FISH_SELL, QUEST_REWARD). 예전에 enum에서 빠진 사유도 글로 남아 있을 수 있으므로
+            열린 문자열로 다룬다. 현재 목록은 harbor-common LedgerReason.java.
+        refId:
+          type: string
+          description: 참조 ID (중복 지급 차단용). 없으면 키가 없다.
+        createdAt: {$ref: "#/components/schemas/Timestamp"}
+    PlayerCollection:
+      type: object
+      required: [scope, registered, total, percent, entries]
+      properties:
+        scope:
+          type: string
+          enum: [total, season]
+        registered:
+          type: integer
+          description: entries 개수
+        total:
+          type: integer
+          description: 현재 콘텐츠의 어종 수
+        percent:
+          type: number
+          description: registered/total×100, 소수 첫째 자리 반올림. total이 0이면 정수 0.
+        entries:
+          type: array
+          items: {$ref: "#/components/schemas/CollectionEntry"}
+    CollectionEntry:
+      type: object
+      required: [fish, first_caught, max_size, best_quality, catch_count]
+      properties:
+        fish:
+          $ref: "#/components/schemas/HarborId"
+        fish_name:
+          type: string
+          description: 콘텐츠에서 찾은 어종 이름. 콘텐츠에서 빠진 어종이면 키가 없다.
+        first_caught: {$ref: "#/components/schemas/Timestamp"}
+        max_size:
+          type: number
+          description: 최대 크기 (cm, 소수 첫째 자리)
+        best_quality:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: 최고 품질 (별 개수)
+        catch_count: {type: integer}
+    QuestRow:
+      type: object
+      required: [quest, season, state, updated_at]
+      properties:
+        quest: {$ref: "#/components/schemas/HarborId"}
+        name:
+          type: string
+          description: 퀘스트 이름 (콘텐츠에 있을 때만)
+        season: {type: integer}
+        state:
+          type: string
+          enum: [active, ready, completed, failed]
+          description: quest_progress.state 소문자
+        updated_at: {$ref: "#/components/schemas/Timestamp"}
+    RecentEventsPage:
+      type: object
+      required: [last, items]
+      properties:
+        last:
+          type: integer
+          format: int64
+          description: 이 REST 서버가 지금까지 붙인 마지막 seq (필터와 무관)
+        items:
+          type: array
+          items:
+            type: object
+            required: [seq, event]
+            properties:
+              seq:
+                type: integer
+                format: int64
+              event: {$ref: "#/components/schemas/ExternalEvent"}
+    ExternalEvent:
+      type: object
+      description: Common ExternalEvent 레코드. 자세한 내용과 type별 data는 events.md.
+      required: [id, type, version, server, occurredAt, data]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: 이벤트 고유 ID
+        type:
+          type: string
+          pattern: "^[a-z0-9_]+(\\.[a-z0-9_]+)+$"
+        version:
+          type: integer
+          description: data 형식 버전 (현재 모두 1)
+        server:
+          type: string
+          description: 이벤트가 난 서버 ID
+        occurredAt:
+          type: string
+          description: ISO-8601 UTC (Instant.toString, 소수 초 자릿수는 0~9자리로 달라진다)
+        player:
+          type: string
+          format: uuid
+          description: 관련 플레이어. 없으면 키가 없다.
+        playerName:
+          type: string
+          description: 플레이어 이름. 원본 이벤트가 Player 객체를 줄 때만 있다 (events.md 참고).
+        data:
+          type: object
+          additionalProperties: true
+    FishSummary:
+      type: object
+      required: [id, "no", name, grade, region]
+      properties:
+        id: {$ref: "#/components/schemas/HarborId"}
+        "no":
+          type: integer
+          description: 도감 번호
+        name: {type: string}
+        grade: {$ref: "#/components/schemas/Grade"}
+        region:
+          $ref: "#/components/schemas/HarborId"
+    MarketEntry:
+      type: object
+      required: [fish, name, coefficient]
+      properties:
+        fish: {$ref: "#/components/schemas/HarborId"}
+        name: {type: string}
+        coefficient:
+          type: number
+          description: 현재 시세 계수 M (1.0 = 기준가, 소수 셋째 자리)
+        next:
+          type: number
+          description: 다음 시간 예측 계수. 아직 계산한 적 없으면 키가 없다.
+    AuctionListing:
+      type: object
+      description: Economy AuctionListingInfo 레코드 (camelCase)
+      required: [id, seller, sellerName, itemId, itemName, category, amount, price, expiresAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        seller: {type: string, format: uuid}
+        sellerName: {type: string}
+        itemId:
+          type: string
+          description: "어종 ID(`harbor:fish/…`) 또는 아이템 ID(`harbor:item/…`)"
+        itemName: {type: string}
+        category:
+          type: string
+          enum: [fish, gear, bait, material, food, other]
+        amount: {type: integer}
+        price:
+          type: integer
+          format: int64
+          description: 묶음 전체 가격 (골드)
+        expiresAt: {$ref: "#/components/schemas/Timestamp"}
+    RecordEntry:
+      type: object
+      description: Collection RecordEntry 레코드 (camelCase)
+      required: [player, name, size, caughtAt]
+      properties:
+        player: {type: string, format: uuid}
+        name: {type: string}
+        size:
+          type: number
+          description: 크기 (cm)
+        caughtAt: {$ref: "#/components/schemas/Timestamp"}
+    RankingBoardSummary:
+      type: object
+      required: [id, name, leagues, size]
+      properties:
+        id: {type: string}
+        name:
+          type: string
+          description: 표시 이름 (MiniMessage 원문)
+        leagues:
+          type: array
+          description: 집계하는 리그 (첫째가 기본 리그). 소문자 키.
+          items:
+            type: string
+            enum: [tier1, tier2, all]
+        size:
+          type: integer
+          description: 집계하는 상위 인원 수
+    RankingBoard:
+      type: object
+      description: Season RankingBoard 레코드 (camelCase)
+      required: [board, league, season, computedAt, entries]
+      properties:
+        board: {type: string}
+        league:
+          type: string
+          enum: [TIER1, TIER2, ALL]
+          description: 대문자 enum 이름 (쿼리 파라미터와 대소문자가 다르다)
+        season: {type: integer}
+        computedAt:
+          $ref: "#/components/schemas/Timestamp"
+        entries:
+          type: array
+          items: {$ref: "#/components/schemas/RankEntry"}
+    RankEntry:
+      type: object
+      required: [rank, name, value, secondary, achievedAt, members]
+      properties:
+        rank:
+          type: integer
+          description: 1부터. 동점이면 먼저 달성한 사람이 위 (공동 순위 없음)
+        uuid:
+          type: string
+          format: uuid
+          description: 플레이어 (파티 기록은 파티장). 없으면 키가 없다.
+        name: {type: string}
+        value:
+          type: number
+          description: 점수 (보드에 따라 cm·레벨·도감 수·처치 시간 ms 등)
+        secondary:
+          type: number
+          description: 보조 값 (레벨 보드의 경험치 등, 없으면 0)
+        achievedAt: {$ref: "#/components/schemas/Timestamp"}
+        members:
+          type: integer
+          description: 파티 기록의 인원 (개인 기록은 1)
+    HarborId:
+      type: string
+      description: "`<namespace>:<path>` 형식 Harbor ID. 보통 `harbor:<종류>/<이름>` (소문자·숫자·밑줄). 바뀌지 않는다."
+      pattern: "^[a-z0-9_]+:[a-z0-9_]+(/[a-z0-9_]+)*$"
+      examples: ["harbor:fish/harbor_mackerel"]
+    Grade:
+      type: string
+      enum: [common, uncommon, rare, epic, legendary, mythic]
+    Timestamp:
+      type: string
+      description: |
+        ISO-8601 UTC, `Z`로 끝난다 (Java Instant.toString). 소수 초는 없거나 3자리 등으로 달라질 수 있으니
+        고정 길이로 자르지 말고 ISO 파서로 읽는다.
+      examples: ["2026-11-20T12:00:00Z", "2026-11-20T12:00:00.123Z"]

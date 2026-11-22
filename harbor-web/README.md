@@ -120,3 +120,11 @@ webhooks:
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/v1/players/Steve
 ```
+
+## 기술 명세
+
+웹 프런트엔드·백엔드 팀용 상세 명세는 `docs/`에 있다 (코드 기준, 바꾸면 같이 고친다).
+
+- [docs/api.md](docs/api.md): REST API 설명 (인증, 속도 제한, 오류, 표기 규칙, 경로별 설명, Open questions)
+- [docs/openapi.yaml](docs/openapi.yaml): REST API OpenAPI 3.1 명세
+- [docs/events.md](docs/events.md): Redis `harbor:events` 메시지 형식, 이벤트 카탈로그, 웹훅 형식·서명·재시도
