@@ -35,13 +35,17 @@ import wiki.creeper.harbor.core.item.FishLedger;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 방류 (docs 20 4.4 '방류', Phase 3). 서버 플래그 climax_done(release.yml flag)이 서면 열린다.
+ * Release (docs 20 4.4 "release", Phase 3). Opens once server flag climax_done (release.yml flag)
+ * is set.
  *
  * <ol>
- *   <li>메인: 어종 아이템 판정 → 확인 화면 → 확인 직후 아이템이 그대로인지 다시 보고 한 마리를 뺀다
- *   <li>가상 스레드 한 트랜잭션: 고유 ID는 장부 ACTIVE → RELEASED, release_log 기록 (추가 제안)
- *   <li>메인: FishReleasedEvent, 희귀 이상이면 평판(NPC RELEASE, 하루 상한은 NPC)과 행운 버프(size_luck, 겹치지 않고 시간만
- *       새로). 판매 대신이라 골드는 없다. 실패하면 아이템을 돌려준다 (오프라인·인벤토리가 차 있으면 우편함)
+ *   <li>Main: fish item check → confirmation screen → right after confirming, re-check the item is
+ *       unchanged and remove one fish
+ *   <li>One transaction on a virtual thread: unique-ID items go ACTIVE → RELEASED in the ledger,
+ *       release_log record (proposed)
+ *   <li>Main: FishReleasedEvent; for rare and above, reputation (NPC RELEASE, daily cap applied by
+ *       NPC) and luck buff (size_luck, not stacked, duration restarts). It replaces selling, so no
+ *       gold. On failure the item is returned (to the mailbox if offline or inventory is full)
  * </ol>
  */
 public final class ReleaseManager implements ReleaseService, Listener {
@@ -73,7 +77,7 @@ public final class ReleaseManager implements ReleaseService, Listener {
         return api.flags().hasServer(rules().flag());
     }
 
-    /** 손에 든 아이템 방류 (/방류). */
+    /** Releases the item in hand (/방류). */
     public CompletableFuture<Result> releaseHeld(Player player) {
         return release(player, player.getInventory().getItemInMainHand());
     }
@@ -136,7 +140,8 @@ public final class ReleaseManager implements ReleaseService, Listener {
                                 result.complete(Result.CANCELLED);
                                 return;
                             }
-                            // 확인 화면 사이에 아이템이 바뀌었거나 옮겨졌으면 취소
+                            // Cancel if the item changed or moved while the confirmation screen was
+                            // open
                             if (stack.getAmount() <= 0
                                     || !fishOf(stack).map(held::equals).orElse(false)
                                     || !player.getInventory().contains(stack)) {
@@ -178,8 +183,10 @@ public final class ReleaseManager implements ReleaseService, Listener {
                         })
                 .handleAsync(
                         (v, error) -> {
-                            // 방류 기록은 즉시 커밋, 인벤토리는 지연 쓰기다: 곧 저장한다. 서버가 죽으면 물고기가 돌아오고 방류 평판을
-                            // 다시 받을 수 있다
+                            // The release record commits immediately, the inventory is
+                            // write-behind: save soon. If the server crashes, the fish comes back
+                            // and release reputation
+                            // can be earned again
                             api.players().saveSoon(uuid);
                             if (error != null) {
                                 log.warn(
@@ -224,7 +231,7 @@ public final class ReleaseManager implements ReleaseService, Listener {
                             Placeholder.unparsed("name", fish.name()));
             return;
         }
-        // 행운 버프: 겹치지 않고 시간만 새로 (출처 release_luck)
+        // Luck buff: not stacked, duration restarts (source release_luck)
         api.modifiers().removeSource(uuid, BUFF_SOURCE);
         api.modifiers()
                 .add(
@@ -259,7 +266,10 @@ public final class ReleaseManager implements ReleaseService, Listener {
                                 tasks.main());
     }
 
-    /** climax_done이 서면 접속자에게 방류가 열렸다고 알린다 (서버 간 전파는 Core FlagService). */
+    /**
+     * When climax_done is set, tells online players that release is open (cross-server propagation
+     * is Core FlagService).
+     */
     @EventHandler
     public void onFlag(ServerFlagChangedEvent event) {
         if (event.flag().equals(rules().flag()) && event.value() != null) {

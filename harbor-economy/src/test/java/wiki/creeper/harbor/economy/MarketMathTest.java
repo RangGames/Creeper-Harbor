@@ -19,7 +19,7 @@ class MarketMathTest {
 
     @Test
     void coefficientFollowsBalanceFormula() {
-        // '7. 밸런스 기획' 6.2: M = clamp(1 − 0.35 × (S/S₀ − 1), 0.5, 1.2)
+        // "7. Balance design" 6.2: M = clamp(1 − 0.35 × (S/S₀ − 1), 0.5, 1.2)
         assertEquals(1.2, MarketMath.coefficient(0, 100, BALANCE), 1e-9);
         assertEquals(1.0, MarketMath.coefficient(100, 100, BALANCE), 1e-9);
         assertEquals(0.65, MarketMath.coefficient(200, 100, BALANCE), 1e-9);
@@ -58,7 +58,7 @@ class MarketMathTest {
         FishDef c = fish("c", Grade.UNCOMMON, 100);
         Map<Grade, Double> weights =
                 Map.of(Grade.COMMON, 60.0, Grade.UNCOMMON, 25.0, Grade.RARE, 10.0, Grade.EPIC, 4.0);
-        // 지역에 일반·고급만 있으므로 일반 60/85, 그 안에서 a는 100/400
+        // The region has only common and uncommon, so common is 60/85, and within it a is 100/400
         assertEquals(
                 60.0 / 85 * 0.25, MarketMath.expectedShare(a, List.of(a, b, c), weights), 1e-9);
         assertEquals(25.0 / 85, MarketMath.expectedShare(c, List.of(a, b, c), weights), 1e-9);

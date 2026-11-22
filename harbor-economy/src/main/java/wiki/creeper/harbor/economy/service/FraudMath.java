@@ -5,14 +5,17 @@ import java.util.List;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
 
 /**
- * 부정 거래 점수 (docs 20 7.4 부정 거래 방지, 수치는 모두 제안값). 서버 API 없음, 단위 테스트 대상.
+ * Fraudulent-trade score (docs 20 7.4 fraud prevention, all numbers are proposed values). No server
+ * API; unit tested.
  *
  * <ul>
- *   <li>linked: 공유 IP가 아닌 IP로 연결된 계정 사이 거래 (Common AccountLinkReader)
- *   <li>pair_repeat: 같은 두 사람 사이 거래가 7일에 3회 이상 (이번 거래 포함)
- *   <li>price_outlier: 기준가의 5배 이상 낙찰
- *   <li>wash: 연결 계정끼리 기준가의 0.6배 이하 거래 (헐값 넘기기)
- *   <li>trap_alt: 연결 계정끼리 통발 어종 거래 ('12. 월드 · 하우징 · 통발' 5장)
+ *   <li>linked: trade between accounts linked by a non-shared IP (Common AccountLinkReader)
+ *   <li>pair_repeat: 3 or more trades between the same two people within 7 days (including this
+ *       one)
+ *   <li>price_outlier: sale at 5× the reference price or more
+ *   <li>wash: trade between linked accounts at 0.6× the reference price or less (dumping)
+ *   <li>trap_alt: trade of trap species between linked accounts ("12. World · Housing · Traps" ch.
+ *       5)
  * </ul>
  */
 public final class FraudMath {
@@ -20,24 +23,25 @@ public final class FraudMath {
     private FraudMath() {}
 
     /**
-     * 한 거래의 관측값.
+     * Observations for one trade.
      *
-     * @param pairTrades 창 안에서 같은 두 사람 사이 거래 수 (이번 거래 제외)
-     * @param priceRatio 낙찰가 ÷ 기준가
-     * @param trapSource 통발 수확물인지
+     * @param pairTrades number of trades between the same two people within the window (excluding
+     *     this one)
+     * @param priceRatio sale price ÷ reference price
+     * @param trapSource whether it is a trap harvest
      */
     public record Signals(boolean linked, int pairTrades, double priceRatio, boolean trapSource) {}
 
     /**
-     * 판정.
+     * Verdict.
      *
-     * @param reasons 걸린 규칙 코드 (trade_flag.kind와 detail에 쓴다)
-     * @param flag trade_flag 기록·관리자 알림 대상
-     * @param hold 판매 대금 보류 대상
+     * @param reasons rule codes that matched (used in trade_flag.kind and detail)
+     * @param flag subject to trade_flag recording and admin alert
+     * @param hold subject to withholding the sale proceeds
      */
     public record Verdict(double score, List<String> reasons, boolean flag, boolean hold) {
 
-        /** trade_flag.kind: 가장 먼저 걸린 규칙 (없으면 none). */
+        /** trade_flag.kind: the first rule that matched (none if none). */
         public String kind() {
             return reasons.isEmpty() ? "none" : reasons.getFirst();
         }
@@ -73,7 +77,10 @@ public final class FraudMath {
                 score >= rules.holdScore());
     }
 
-    /** 경매 시세 지수 = 낙찰가/기준가 비율의 중앙값 ('7. 밸런스 기획' 11장: 경매 희귀 중앙가 / NPC가, 목표 0.8~2.0). 표본이 없으면 NaN. */
+    /**
+     * Auction market index = median of sale price / reference price ratios ("7. Balance design" ch.
+     * 11: auction rare median price / NPC price, target 0.8–2.0). NaN if there are no samples.
+     */
     public static double index(List<Double> ratios) {
         if (ratios.isEmpty()) {
             return Double.NaN;

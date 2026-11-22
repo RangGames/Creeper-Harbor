@@ -14,7 +14,10 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.season.api.TitleId;
 
-/** 도감 칭호 키 → Season TitleId, 참조 ID, 대기열(이전 달성분) 계산. */
+/**
+ * Codex title key → Season TitleId, reference ID, and pending queue (earlier achievements)
+ * computation.
+ */
 class CodexTitlesTest {
 
     private static final CodexRules RULES =

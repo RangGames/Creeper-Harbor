@@ -27,12 +27,14 @@ import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.economy.content.StationDef;
 
 /**
- * 제작 스테이션·경매 게시판 (docs 20 7.4 "스테이션: stations 좌표에 Interaction 엔티티를 두고, 클릭하면 해당 station의 레시피만
- * 보여줍니다"). 엔티티는 저장하지 않고(setPersistent false) 콘텐츠 리로드·월드 로드 때 다시 만든다. 시작할 때 PDC 표시가 남은 엔티티는 지운다.
+ * Crafting stations and auction boards (docs 20 7.4 "Stations: place an Interaction entity at the
+ * stations coordinates; clicking shows only that station's recipes"). Entities are not saved
+ * (setPersistent false) and are recreated on content reload and world load. At startup, entities
+ * still carrying the PDC marker are removed.
  */
 public final class StationManager implements Listener {
 
-    /** 스테이션 클릭 처리 (제작 화면, 경매장). */
+    /** Station click handling (crafting screen, auction house). */
     public interface Opener {
         void open(Player player, StationDef station);
     }
@@ -59,7 +61,7 @@ public final class StationManager implements Listener {
         return api.content().snapshot().get(StationDef.TYPE, id);
     }
 
-    /** 콘텐츠 월드 ID → Bukkit 월드 (balance.yml world_alias, Fishing·NPC와 같은 규칙). */
+    /** Content world ID → Bukkit world (balance.yml world_alias, same rule as Fishing and NPC). */
     Optional<World> world(String contentWorld) {
         World direct = Bukkit.getWorld(contentWorld);
         if (direct != null) {
@@ -82,7 +84,7 @@ public final class StationManager implements Listener {
                 .map(w -> new Location(w, station.x(), station.y(), station.z()));
     }
 
-    /** 반경 안의 가장 가까운 스테이션 (kind가 null이면 종류 무관). */
+    /** Nearest station within the radius (any kind if kind is null). */
     public Optional<StationDef> nearest(
             Player player, StationDef.@Nullable Kind kind, double radius) {
         Location at = Objects.requireNonNull(player.getLocation());
@@ -105,12 +107,12 @@ public final class StationManager implements Listener {
         return Optional.ofNullable(best);
     }
 
-    /** 이 종류의 스테이션이 콘텐츠에 하나라도 있는지. */
+    /** Whether the content has at least one station of this kind. */
     public boolean anyOf(StationDef.Kind kind) {
         return all().stream().anyMatch(s -> s.kind() == kind);
     }
 
-    // ------------------------------------------------------------------ 엔티티
+    // ------------------------------------------------------------------ Entities
 
     public void respawn() {
         despawn();

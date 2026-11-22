@@ -33,18 +33,22 @@ import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 판매 상자 (/판매, 추가 제안). 위 5줄에 물고기를 넣으면 마지막 줄 판매 버튼에 합계 견적이 바로 보인다 (일괄 판매 미끄러짐 포함). 판매는 /판매와 같은
- * 트랜잭션(FISH_SELL + 고유 ID 장부 SOLD, 실패하면 반환)을 탄다.
+ * Sell chest (/판매, proposed). Putting fish in the top 5 rows immediately shows the total quote on
+ * the sell button in the last row (bulk-sale slippage included). Selling goes through the same
+ * transaction as /판매 (FISH_SELL + unique ID ledger SOLD, returned on failure).
  *
  * <ul>
- *   <li>모두 넣기: 인벤토리 물고기 중 귀한 물고기(잠금·고유 번호·★5)는 빼고 넣는다
- *   <li>귀한 물고기를 직접 넣었으면 판매 버튼을 두 번 눌러야 판다 (첫 클릭은 확인 문구)
- *   <li>Shift+우클릭: 그 물고기 잠금 켜기/끄기 (상자·인벤토리 모두)
- *   <li>어종이 아닌 아이템을 넣으면 다음 틱에 인벤토리로 돌려준다
- *   <li>창을 닫으면 남은 물고기는 인벤토리로 (넘치면 우편함). 접속을 끊으며 닫히면 전부 우편함으로 보낸다 (저장된 인벤토리와 겹치지 않게)
+ *   <li>Add all: adds fish from the inventory except valuable ones (locked, unique number, ★5)
+ *   <li>If valuable fish were added by hand, the sell button must be pressed twice (the first click
+ *       shows a confirmation message)
+ *   <li>Shift+right-click: toggles the lock on that fish (both chest and inventory)
+ *   <li>Non-fish items put in are returned to the inventory on the next tick
+ *   <li>On close, remaining fish go back to the inventory (mailbox on overflow). If closed by
+ *       disconnecting, everything goes to the mailbox (so it does not overlap with the saved
+ *       inventory)
  * </ul>
  *
- * 메인 스레드 전용.
+ * Main thread only.
  */
 public final class SellMenu implements Listener {
 
@@ -56,7 +60,7 @@ public final class SellMenu implements Listener {
     private static final int RETURN_PROTECTED = 51;
     private static final int CLOSE = 53;
 
-    /** 열린 판매 상자. */
+    /** An open sell chest. */
     static final class Box implements InventoryHolder {
         final UUID owner;
         final Inventory inventory;
@@ -88,7 +92,10 @@ public final class SellMenu implements Listener {
         this.mail = mail;
     }
 
-    /** 자동 저장용 (Core ItemCustody): 열린 판매 상자에 넣어 둔 아이템. 판매 처리 중인 것은 이미 상자에서 빠져 있다. */
+    /**
+     * For auto-save (Core ItemCustody): items placed in open sell chests. Items being sold have
+     * already been removed from the chest.
+     */
     public List<ItemStack> held(Player player) {
         Box box = open.get(player.getUniqueId());
         if (box == null || box.done) {
@@ -115,7 +122,7 @@ public final class SellMenu implements Listener {
         player.openInventory(box.inventory);
     }
 
-    // ------------------------------------------------------------------ 그리기
+    // ------------------------------------------------------------------ Drawing
 
     private void render(Player player, Box box) {
         List<SellService.Line> lines = sell.boxLines(player, box.inventory.getContents(), DEPOSIT);
@@ -213,7 +220,7 @@ public final class SellMenu implements Listener {
         return stack;
     }
 
-    // ------------------------------------------------------------------ 이벤트
+    // ------------------------------------------------------------------ Events
 
     private @Nullable Box boxOf(Inventory top) {
         return top.getHolder(false) instanceof Box b ? b : null;
@@ -227,7 +234,7 @@ public final class SellMenu implements Listener {
         }
         int raw = event.getRawSlot();
         if (event.getAction() == InventoryAction.COLLECT_TO_CURSOR) {
-            event.setCancelled(true); // 버튼 줄의 아이템을 끌어오지 않게
+            event.setCancelled(true); // so items in the button row are not pulled in
             return;
         }
         if (raw >= DEPOSIT && raw < ROWS * 9) {
@@ -263,7 +270,7 @@ public final class SellMenu implements Listener {
         later(player, box);
     }
 
-    /** 다음 틱: 어종 아닌 것 돌려주고 견적을 다시 그린다. */
+    /** Next tick: return non-fish items and redraw the quote. */
     private void later(Player player, Box box) {
         var _ =
                 tasks.later(
@@ -312,7 +319,7 @@ public final class SellMenu implements Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 버튼
+    // ------------------------------------------------------------------ Buttons
 
     private void button(Player player, Box box, int slot) {
         switch (slot) {
@@ -327,7 +334,7 @@ public final class SellMenu implements Listener {
         HarborSounds.play(player, "harbor:ui.click");
     }
 
-    /** 인벤토리 물고기를 넣는다 (귀한 물고기는 그대로 둔다). */
+    /** Adds inventory fish (valuable fish are left alone). */
     private void fill(Player player, Box box) {
         PlayerInventory inv = player.getInventory();
         int moved = 0;
@@ -347,7 +354,7 @@ public final class SellMenu implements Listener {
                 moved++;
             } else {
                 inv.setItem(slot, left.values().iterator().next());
-                break; // 상자가 찼다
+                break; // the chest is full
             }
         }
         if (skipped > 0) {
@@ -363,7 +370,7 @@ public final class SellMenu implements Listener {
         render(player, box);
     }
 
-    /** 위 5줄에만 넣는다 (버튼 줄은 건드리지 않음). */
+    /** Adds only to the top 5 rows (the button row is untouched). */
     private static Map<Integer, ItemStack> addToDeposit(Box box, ItemStack stack) {
         int remaining = stack.getAmount();
         for (int slot = 0; slot < DEPOSIT && remaining > 0; slot++) {
@@ -418,7 +425,7 @@ public final class SellMenu implements Listener {
             box.inventory.setItem(line.slot(), null);
         }
         if (!sell.sellTaken(player, lines)) {
-            // 처리 중: 꺼낸 것을 다시 넣는다
+            // In progress: put back what was taken out
             for (SellService.Line line : lines) {
                 box.inventory.setItem(line.slot(), line.stack());
             }
@@ -440,9 +447,9 @@ public final class SellMenu implements Listener {
         render(player, box);
     }
 
-    // ------------------------------------------------------------------ 반환
+    // ------------------------------------------------------------------ Returning
 
-    /** 남은 물고기를 돌려준다 (한 번만). disconnect면 전부 우편함. */
+    /** Returns remaining fish (only once). On disconnect, everything goes to the mailbox. */
     private void giveBack(Player player, Box box, boolean disconnect) {
         if (box.done) {
             return;

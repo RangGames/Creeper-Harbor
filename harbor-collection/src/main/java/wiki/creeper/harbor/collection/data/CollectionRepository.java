@@ -20,24 +20,27 @@ import wiki.creeper.harbor.collection.api.CodexEntry;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/** Collection SQL. 트랜잭션은 호출하는 쪽이 연다. */
+/** Collection SQL. The caller opens the transaction. */
 public final class CollectionRepository {
 
-    /** 기록 한 줄 (이름은 players 조인). */
+    /** One record row (name via players join). */
     public record RecordRow(
             FishId fish, String league, UUID player, String name, double size, Instant caughtAt) {}
 
-    /** 수족관 상태. */
+    /** Aquarium state. */
     public record AquariumState(long points, int speciesCount, int stage) {
         public static final AquariumState EMPTY = new AquariumState(0, 0, 0);
     }
 
-    /** 이번 시즌 기부된 어종 한 줄 (수조 연출·이름표). donor는 처음 기부한 사람 이름. */
+    /**
+     * One species donated this season (tank display and name tags). donor is the first donor's
+     * name.
+     */
     public record SpeciesRow(FishId fish, UUID firstDonor, String donor, Instant donatedAt) {}
 
     private CollectionRepository() {}
 
-    // ------------------------------------------------------------------ 도감
+    // ------------------------------------------------------------------ codex
 
     public static CodexData load(Connection c, UUID uuid, SeasonId season) throws SQLException {
         Map<FishId, CodexEntry> total =
@@ -104,7 +107,10 @@ public final class CollectionRepository {
         return result;
     }
 
-    /** 도감 업서트 (지연 쓰기). 플레이어 데이터는 세션 잠금을 가진 서버 하나만 쓰므로 포획 수는 메모리 값을 그대로 쓴다. */
+    /**
+     * Codex upsert (write-behind). Player data is written only by the one server holding the
+     * session lock, so the catch count uses the in-memory value as-is.
+     */
     public static void upsertCodex(
             Connection c, UUID uuid, @Nullable SeasonId season, FishId fish, CodexEntry e)
             throws SQLException {
@@ -169,9 +175,12 @@ public final class CollectionRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 기록
+    // ------------------------------------------------------------------ records
 
-    /** 개인 최고 업서트. 크기가 커질 때만 caught_at을 바꾼다 (UPDATE 순서 주의: caught_at을 먼저). */
+    /**
+     * Personal best upsert. Changes caught_at only when the size grows (mind the UPDATE order:
+     * caught_at first).
+     */
     public static void upsertRecord(
             Connection c,
             FishId fish,
@@ -210,7 +219,7 @@ public final class CollectionRepository {
         }
     }
 
-    /** 시즌 전체 (어종, 리그)별 상위 n명. */
+    /** Top n players per (species, league) for the whole season. */
     public static List<RecordRow> topRecords(Connection c, SeasonId season, int n)
             throws SQLException {
         List<RecordRow> rows = new ArrayList<>();
@@ -242,7 +251,7 @@ public final class CollectionRepository {
         return rows;
     }
 
-    /** 그 리그에서 내 순위 (1부터). 기록이 없으면 0. */
+    /** My rank in that league (from 1). 0 if there is no record. */
     public static int rank(Connection c, FishId fish, SeasonId season, String league, UUID uuid)
             throws SQLException {
         try (PreparedStatement ps =
@@ -260,7 +269,7 @@ public final class CollectionRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 수족관
+    // ------------------------------------------------------------------ aquarium
 
     public static AquariumState aquarium(Connection c, SeasonId season) throws SQLException {
         try (PreparedStatement ps =
@@ -276,9 +285,10 @@ public final class CollectionRepository {
     }
 
     /**
-     * 기부 한 마리 (트랜잭션 안). 서버에 처음 기부된 어종이면 true.
+     * Donates one fish (inside a transaction). true if the species is donated to the server for the
+     * first time.
      *
-     * @param itemUuid 고유 ID 아이템이면 그 ID (장부 상태는 호출한 쪽이 바꾼다)
+     * @param itemUuid the ID if it is a unique-ID item (the caller changes the ledger state)
      */
     public static boolean donate(
             Connection c,
@@ -328,7 +338,7 @@ public final class CollectionRepository {
         return firstSpecies;
     }
 
-    /** 단계는 시즌 안에서 내려가지 않는다. 실제로 올렸으면 true (여러 서버 중 한 번만). */
+    /** Stages never go down within a season. true if actually raised (only once across servers). */
     public static boolean raiseStage(Connection c, SeasonId season, int stage) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
@@ -340,7 +350,7 @@ public final class CollectionRepository {
         }
     }
 
-    /** 이번 시즌 기부된 어종 (먼저 기부된 순). */
+    /** Species donated this season (in donation order). */
     public static List<SpeciesRow> species(Connection c, SeasonId season) throws SQLException {
         List<SpeciesRow> rows = new ArrayList<>();
         try (PreparedStatement ps =
@@ -361,7 +371,7 @@ public final class CollectionRepository {
         return rows;
     }
 
-    /** 방류 기록 (release_log, 추가 제안). */
+    /** Release record (release_log, proposed). */
     public static void logRelease(
             Connection c,
             SeasonId season,
@@ -388,7 +398,7 @@ public final class CollectionRepository {
         }
     }
 
-    /** 기부 기록에서 다시 집계한다 (/harbor collection aquarium recount). */
+    /** Re-aggregates from donation records (/harbor collection aquarium recount). */
     public static void recount(Connection c, SeasonId season) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
@@ -401,7 +411,7 @@ public final class CollectionRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ helpers
 
     private static BigDecimal size(double value) {
         return BigDecimal.valueOf(value).setScale(1, RoundingMode.HALF_UP);

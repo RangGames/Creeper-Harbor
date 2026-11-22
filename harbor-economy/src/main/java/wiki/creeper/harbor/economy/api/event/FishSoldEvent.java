@@ -7,10 +7,10 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.model.Quality;
 
-/** NPC 판매가 커밋된 뒤 (Quest deliver 목표 등). */
+/** After an NPC sale is committed (Quest deliver objectives, etc.). */
 public final class FishSoldEvent extends Event {
 
-    /** 판매 한 줄. */
+    /** One sale line. */
     public record Line(FishId fish, Quality quality, double sizeCm, long price) {}
 
     private static final HandlerList HANDLERS = new HandlerList();

@@ -11,11 +11,12 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 어시장 광장 랭킹 전광판 (billboard.yml, 추가 제안, docs 20 4.4 '랭킹 전광판'). Season RankingService 캐시(10분 주기)를 읽어
- * pageSeconds마다 다음 페이지를 그린다.
+ * Fish market plaza ranking billboard (billboard.yml, proposed, docs 20 4.4 "ranking billboard").
+ * Reads the Season RankingService cache (10-minute cycle) and draws the next page every
+ * pageSeconds.
  *
- * @param server 이 서버 ID에서만 띄운다 (비우면 world가 있는 모든 서버)
- * @param lines 페이지당 줄 수
+ * @param server shown only on this server ID (blank means every server that has the world)
+ * @param lines lines per page
  */
 public record BillboardRules(
         String server,
@@ -27,16 +28,21 @@ public record BillboardRules(
         int lines,
         List<Page> pages) {
 
-    /** 전광판 한 페이지. */
+    /** One billboard page. */
     public sealed interface Page permits BoardPage, RegionPage, WeeklyPage {}
 
-    /** Season 랭킹 보드 한 리그 (rankings.yml id). */
+    /** One league of a Season ranking board (rankings.yml id). */
     public record BoardPage(String board, String league) implements Page {}
 
-    /** 지역 필터: 그 지역 어종마다 전체 리그 서버 1위 (Collection 기록 캐시). */
+    /**
+     * Region filter: server #1 in the all league for each species in that region (Collection record
+     * cache).
+     */
     public record RegionPage(RegionId region) implements Page {}
 
-    /** 이번 주 신기록 (이 서버가 받은 서버 1위 갱신, 주간 초기화 때 비움). */
+    /**
+     * This week's new records (server #1 updates received by this server, cleared on weekly reset).
+     */
     public record WeeklyPage() implements Page {}
 
     public static final BillboardRules NONE =
@@ -49,7 +55,7 @@ public record BillboardRules(
         return at != null && !pages.isEmpty() && !world.isEmpty();
     }
 
-    /** 페이지 번호 (tick은 0부터 늘어나는 페이지 넘김 횟수). */
+    /** Page index (tick is the page-turn count, increasing from 0). */
     public static int pageIndex(long tick, int pageCount) {
         return pageCount <= 0 ? -1 : (int) Math.floorMod(tick, (long) pageCount);
     }

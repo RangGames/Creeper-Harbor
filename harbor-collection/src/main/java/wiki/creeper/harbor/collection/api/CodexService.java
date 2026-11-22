@@ -7,14 +7,17 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.RegionId;
 
-/** 도감 조회 (Quest 조건, Shop 기념 스킨 구매 조건). 접속 중인 플레이어만. 메인 스레드. */
+/**
+ * Codex queries (Quest conditions, Shop commemorative skin purchase conditions). Online players
+ * only. Main thread.
+ */
 public interface CodexService {
 
     Optional<CodexEntry> entry(UUID player, FishId fish, CodexScope scope);
 
     boolean isRegistered(UUID player, FishId fish, CodexScope scope);
 
-    /** 달성률 0~100. region이 있으면 그 지역만 (신화 제외). */
+    /** Completion 0~100. If region is given, that region only (excluding mythic). */
     double percent(UUID player, CodexScope scope, @Nullable RegionId region);
 
     void open(Player viewer, UUID owner, int page);

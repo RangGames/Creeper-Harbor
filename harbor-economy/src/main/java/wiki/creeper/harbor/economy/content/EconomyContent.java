@@ -5,13 +5,15 @@ import wiki.creeper.harbor.common.content.ContentCheck;
 import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.content.type.ItemDef;
 
-/** Economy 콘텐츠 형식. 서버 API를 쓰지 않아 harbor-tools(CI)도 같은 코드로 검사한다. */
+/** Economy content types. Uses no server API, so harbor-tools (CI) checks with the same code. */
 public final class EconomyContent {
 
     public static final List<ContentType<?>> TYPES =
             List.of(ShopDef.TYPE, RecipeDef.TYPE, StationDef.TYPE, AuctionRefs.TYPE);
 
-    /** 레시피 결과 아이템이 콘텐츠에 있고, 주간 제한이 있는 레시피는 장소가 정해져 있는지 등. */
+    /**
+     * Recipe result items exist in content, recipes with a weekly limit have a fixed place, etc.
+     */
     public static final ContentCheck<RecipeDef> RECIPE_CHECK =
             (recipe, check) -> {
                 var result = check.snapshot().get(ItemDef.TYPE, recipe.result().id());

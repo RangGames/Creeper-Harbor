@@ -6,12 +6,15 @@ import java.util.OptionalInt;
 import java.util.UUID;
 import wiki.creeper.harbor.collection.api.RecordEntry;
 
-/** 최대어 순위 계산 (추가 제안, 서버 API 없음). 서버 기록 캐시는 리그별 상위 10이고 크기 내림차순·먼저 잡은 사람 우선이다. */
+/**
+ * Biggest-catch rank computation (proposed, no server API). The server record cache holds the top
+ * 10 per league, sorted by size descending, earlier catcher first.
+ */
 public final class RecordRanks {
 
     private RecordRanks() {}
 
-    /** 상위 목록 안에서 그 플레이어의 순위 (1부터, 없으면 비어 있음). */
+    /** The player's rank within the top list (from 1; empty if absent). */
     public static OptionalInt rank(List<RecordEntry> top, UUID player) {
         for (int i = 0; i < top.size(); i++) {
             if (top.get(i).player().equals(player)) {
@@ -22,9 +25,10 @@ public final class RecordRanks {
     }
 
     /**
-     * 상위 목록에 들려면 더 키워야 하는 크기 (cm). 목록이 차지 않았으면 0, 이미 들어 있거나 넘으면 0.
+     * Size (cm) still needed to enter the top list. 0 if the list is not full, and 0 if already in
+     * it or above.
      *
-     * @param capacity 목록 크기 (서버 캐시 10)
+     * @param capacity list size (server cache 10)
      */
     public static OptionalDouble gapToTop(List<RecordEntry> top, double mySize, int capacity) {
         if (top.size() < capacity) {
@@ -34,7 +38,10 @@ public final class RecordRanks {
         return OptionalDouble.of(Math.max(0, Math.nextUp(last) - mySize));
     }
 
-    /** 이 크기라면 몇 위가 되는지 (같은 크기는 먼저 잡은 사람 우선이라 그 뒤). capacity를 넘으면 비어 있음. */
+    /**
+     * Rank this size would get (ties go after, since the earlier catcher wins). Empty if beyond
+     * capacity.
+     */
     public static OptionalInt wouldRank(List<RecordEntry> top, double size, int capacity) {
         int position = 1;
         for (RecordEntry e : top) {

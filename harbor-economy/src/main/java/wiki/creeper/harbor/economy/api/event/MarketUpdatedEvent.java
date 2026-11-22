@@ -4,7 +4,7 @@ import java.time.Instant;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 시세 표가 새 값으로 바뀐 뒤 (어시장 게시판 갱신). */
+/** After the market table changes to new values (fish market board refresh). */
 public final class MarketUpdatedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

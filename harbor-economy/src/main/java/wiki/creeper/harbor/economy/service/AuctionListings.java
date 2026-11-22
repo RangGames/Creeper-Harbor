@@ -18,25 +18,28 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.economy.service.AuctionHouse.Row;
 
-/** 경매 행 조회 (목록 페이지·최저가·등록 수)와 분류별 첫 페이지 캐시. 쓰기 쪽은 끝날 때 {@link #invalidate()}로 캐시를 비운다. */
+/**
+ * Auction row queries (list pages, lowest price, listing count) and the first-page cache per
+ * category. Writers clear the cache with {@link #invalidate()} when done.
+ */
 final class AuctionListings {
 
     private record CachedPage(Instant at, List<Row> rows) {}
 
     /**
-     * 등록 전 가격 참고 (추가 제안). 모두 개당 값.
+     * Price reference before listing (proposed). All values are per unit.
      *
-     * @param lowestUnit 지금 걸린 것 중 최저가
-     * @param averageUnit 최근 days일 낙찰 평균
-     * @param sold 최근 days일 낙찰 수
+     * @param lowestUnit lowest price among current listings
+     * @param averageUnit sale average over the last days days
+     * @param sold number of sales over the last days days
      */
     record PriceInfo(OptionalLong lowestUnit, OptionalLong averageUnit, int sold, int days) {}
 
     /**
-     * 내 거래 기록 한 줄 (추가 제안).
+     * One line of my trade history (proposed).
      *
-     * @param sold true면 내가 판 것, false면 산 것
-     * @param fee 판매 수수료 (판 것만)
+     * @param sold true if I sold it, false if I bought it
+     * @param fee sale fee (sales only)
      */
     record HistoryRow(
             String itemName,
@@ -88,10 +91,11 @@ final class AuctionListings {
     }
 
     /**
-     * 진행 중인 등록 한 페이지 (가상 스레드에서 읽고 메인 스레드에서 완료). 분류별 첫 페이지는 30초 캐시.
+     * One page of active listings (read on a virtual thread, completed on the main thread). The
+     * first page per category is cached for 30 seconds.
      *
-     * @param search 이름 검색어 (null이면 없음)
-     * @param seller 판매자 한정 (null이면 전체)
+     * @param search name search term (null for none)
+     * @param seller restrict to a seller (null for all)
      */
     CompletableFuture<List<Row>> page(
             String category, @Nullable String search, @Nullable UUID seller, int page) {
@@ -99,9 +103,10 @@ final class AuctionListings {
     }
 
     /**
-     * 정렬·쪽 크기를 정한 목록. 캐시는 최신순 기본 쪽 크기 첫 페이지만.
+     * A list with a given sort and page size. Only the first page with newest-first order and the
+     * default page size is cached.
      *
-     * @param size 쪽 크기 (1~PAGE)
+     * @param size page size (1 to PAGE)
      */
     CompletableFuture<List<Row>> page(
             String category,
@@ -198,7 +203,10 @@ final class AuctionListings {
                 .thenApplyAsync(v -> v, tasks.main());
     }
 
-    /** 등록 전 참고 가격 (개당 최저가 · 최근 days일 낙찰 평균). 메인 스레드에서 완료. */
+    /**
+     * Reference prices before listing (lowest unit price · sale average over the last days days).
+     * Completes on the main thread.
+     */
     CompletableFuture<PriceInfo> priceInfo(String itemId, int days) {
         int d = Math.clamp(days, 1, 90);
         return api.database()
@@ -247,9 +255,9 @@ final class AuctionListings {
     }
 
     /**
-     * 내 최근 거래 (판 것 또는 산 것, 새 것부터). 메인 스레드에서 완료.
+     * My recent trades (sold or bought, newest first). Completes on the main thread.
      *
-     * @param sold true면 판 것 (seller), false면 산 것 (buyer)
+     * @param sold true for sold (seller), false for bought (buyer)
      */
     CompletableFuture<List<HistoryRow>> history(UUID player, boolean sold, int limit) {
         String who = sold ? "s.seller" : "s.buyer";

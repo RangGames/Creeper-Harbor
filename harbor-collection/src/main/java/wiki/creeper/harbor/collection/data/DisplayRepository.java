@@ -17,7 +17,7 @@ import wiki.creeper.harbor.collection.api.DisplaySlot;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
 
-/** housing_display SQL (개인 어항 전시, 즉시 쓰기). */
+/** housing_display SQL (personal aquarium display, immediate writes). */
 public final class DisplayRepository {
 
     private DisplayRepository() {}
@@ -49,7 +49,7 @@ public final class DisplayRepository {
                                                 ? null
                                                 : HarborId.tryParse(rawTheme).orElse(null)));
                     } catch (IllegalArgumentException e) {
-                        // 형식이 틀린 행 (콘텐츠에서 어종 ID가 바뀐 경우)은 건너뛴다
+                        // Skip malformed rows (when a species ID changed in content)
                     }
                 }
             }
@@ -57,7 +57,7 @@ public final class DisplayRepository {
         return result;
     }
 
-    /** 칸에 전시 (테마는 그대로 둔다). */
+    /** Displays in a slot (keeps the theme). */
     public static void upsert(Connection c, long plotId, UUID owner, DisplaySlot slot)
             throws SQLException {
         try (PreparedStatement ps =
@@ -103,7 +103,7 @@ public final class DisplayRepository {
         }
     }
 
-    /** 테마 칸이 줄어든 칸들을 기본 테마로 (D14). */
+    /** Reverts slots lost from the theme slot count to the default theme (D14). */
     public static void revertThemes(Connection c, long plotId, List<Integer> slots)
             throws SQLException {
         for (int slot : slots) {

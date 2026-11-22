@@ -3,7 +3,7 @@ package wiki.creeper.harbor.collection.api.event;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 수족관 단계 상승 (Quest 클라이맥스 판정). 단계를 올린 서버에서만 발생한다. */
+/** Aquarium stage increase (Quest climax check). Fired only on the server that raised the stage. */
 public final class AquariumStageChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

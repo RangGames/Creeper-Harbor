@@ -7,7 +7,7 @@ import wiki.creeper.harbor.economy.content.EconomyBalance;
 import wiki.creeper.harbor.economy.content.RecipeDef;
 import wiki.creeper.harbor.economy.content.ShopDef;
 
-/** 서버 API가 필요한 콘텐츠 검사 (바닐라 아이템 키). harbor-tools는 형식만 본다. */
+/** Content checks that need the server API (vanilla item keys). harbor-tools only checks format. */
 final class ServerChecks {
 
     private ServerChecks() {}
@@ -36,7 +36,7 @@ final class ServerChecks {
                 }
             };
 
-    /** 경매 비율·수수료가 말이 되는지 (economy.auction). */
+    /** Whether auction ratios and fees make sense (economy.auction). */
     static final ContentCheck<Balance> BALANCE =
             (balance, check) -> {
                 EconomyBalance b = new EconomyBalance(balance);

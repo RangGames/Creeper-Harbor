@@ -13,8 +13,9 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 원장 기록이 있으면 CurrencyService.atomic, 없으면 (등록비 0%, 골드 없는 요리) 같은 규칙의 DB 트랜잭션. 추가 SQL이 {@link
- * LedgerException}을 던지면 롤백하고 그 사유를 돌려준다. 결과는 메인 스레드에서 완료된다.
+ * CurrencyService.atomic if there are ledger entries, otherwise (0% listing fee, gold-free cooking)
+ * a DB transaction with the same rules. If the extra SQL throws {@link LedgerException}, rolls back
+ * and returns that reason. The result completes on the main thread.
  */
 final class Tx {
 
@@ -52,7 +53,7 @@ final class Tx {
                 .thenApplyAsync(r -> r, tasks.main());
     }
 
-    /** 결과의 실패 사유 (성공이면 null). */
+    /** Failure reason of the result (null on success). */
     static @Nullable LedgerError error(Result<?, LedgerError> result) {
         return result instanceof Result.Err<?, LedgerError>(LedgerError e) ? e : null;
     }

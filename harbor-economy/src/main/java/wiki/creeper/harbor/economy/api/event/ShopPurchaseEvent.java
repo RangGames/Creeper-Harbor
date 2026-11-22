@@ -7,7 +7,10 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.ItemId;
 
-/** 상점 구매가 커밋된 뒤. 바닐라 재료 항목이면 item이 null이고 key가 vanilla/<키>. */
+/**
+ * After a shop purchase is committed. For a vanilla material entry, item is null and key is
+ * vanilla/<key>.
+ */
 public final class ShopPurchaseEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -41,7 +44,7 @@ public final class ShopPurchaseEvent extends Event {
         return item;
     }
 
-    /** 상점 항목 키 (아이템 경로 또는 vanilla/<키>). */
+    /** Shop entry key (item path or vanilla/<key>). */
     public String key() {
         return key;
     }

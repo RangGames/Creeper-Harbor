@@ -4,7 +4,10 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 경매 낙찰이 커밋된 뒤 (구매한 서버의 메인 스레드). held면 판매 대금이 보류됐다. */
+/**
+ * After an auction sale is committed (main thread of the buyer's server). If held, the sale
+ * proceeds were withheld.
+ */
 public final class AuctionSoldEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

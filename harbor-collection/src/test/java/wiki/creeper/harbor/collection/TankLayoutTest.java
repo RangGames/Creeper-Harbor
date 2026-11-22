@@ -13,7 +13,7 @@ import wiki.creeper.harbor.collection.content.AquariumRules.Tank;
 import wiki.creeper.harbor.collection.content.Box;
 import wiki.creeper.harbor.common.id.FishId;
 
-/** 수조 배치: 심해관 분리, 수조 칸 수, 동시 표시 상한과 교대. */
+/** Tank layout: deep-sea hall separation, tank slot counts, concurrent display cap and rotation. */
 class TankLayoutTest {
 
     private static FishId fish(int i) {

@@ -6,13 +6,15 @@ import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
 
 /**
- * 개인 어항 전시 한 칸 (housing_display). 아이템이 아니라 누적 도감 기록을 전시하므로 시즌이 바뀌어도 유지된다.
+ * One personal aquarium display slot (housing_display). It displays the cumulative codex record
+ * rather than an item, so it persists across seasons.
  *
- * @param slot 수조 자리 번호 (World DisplayAnchor.slot)
- * @param size 전시할 때의 누적 최대 크기
- * @param quality 전시할 때의 누적 최고 품질 (추가 제안 열)
- * @param firstCaught 처음 낚은 시각 (추가 제안 열)
- * @param theme 이 칸의 어항 테마 (null이면 기본 테마, D14: 테마 칸 수 안에서만)
+ * @param slot tank spot number (World DisplayAnchor.slot)
+ * @param size cumulative max size at the time of display
+ * @param quality cumulative best quality at the time of display (proposed column)
+ * @param firstCaught first catch time (proposed column)
+ * @param theme aquarium theme of this slot (null means default theme; D14: only within the theme
+ *     slot count)
  */
 public record DisplaySlot(
         int slot,

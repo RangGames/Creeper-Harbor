@@ -30,14 +30,17 @@ import wiki.creeper.harbor.npc.api.ReputationSource;
 import wiki.creeper.harbor.npc.api.event.ReputationTierChangedEvent;
 
 /**
- * NPC 연동 (docs 20 4.2·5.2, 선택 의존). Harbor-Npc가 켜져 있을 때만 이 클래스를 불러온다.
+ * NPC integration (docs 20 4.2·5.2, optional dependency). This class is loaded only when Harbor-Npc
+ * is enabled.
  *
  * <ul>
- *   <li>대화 액션 {@code aquarium:donate}: 기부함 GUI를 연다 (이슬·수족관 관리인)
- *   <li>대화 액션 {@code codex:hint}: 힌트 한 단계 (HintService.grantRandom). 인자 {@code region}(선택, 그 지역부터),
- *       {@code daily}(하루 횟수, 기본 1, 제안값). 횟수는 시즌 범위 플레이어 플래그 collection/hint_day = "날짜:횟수"
- *   <li>최고 평판 등급(어항 칸, D11)과 방류 평판(RELEASE)
- *   <li>평판 등급이 바뀌면 그 플레이어 플롯의 전시 칸을 다시 계산한다
+ *   <li>Dialog action {@code aquarium:donate}: opens the donation box GUI (Iseul, aquarium keeper)
+ *   <li>Dialog action {@code codex:hint}: one hint stage (HintService.grantRandom). Arguments
+ *       {@code region} (optional, start from that region), {@code daily} (daily count, default 1,
+ *       proposed value). The count is the season-scoped player flag collection/hint_day =
+ *       "date:count"
+ *   <li>Highest reputation tier (aquarium slots, D11) and release reputation (RELEASE)
+ *   <li>When the reputation tier changes, recomputes that player's plot display slots
  * </ul>
  */
 public final class NpcHooks implements NpcBridge, Listener {
@@ -51,7 +54,7 @@ public final class NpcHooks implements NpcBridge, Listener {
         this.api = api;
     }
 
-    /** 대화 액션을 등록하고 창구를 돌려준다 (모듈 enable, 콘텐츠 로드 전). */
+    /** Registers dialog actions and returns the facade (module enable, before content load). */
     public static NpcBridge install(
             Plugin plugin, HarborApi api, AquariumService aquarium, HintService hints) {
         NpcHooks hooks = new NpcHooks(api);
@@ -139,7 +142,7 @@ public final class NpcHooks implements NpcBridge, Listener {
         return ActionResult.CONTINUE;
     }
 
-    /** 플래그 값 "날짜:횟수"에서 오늘 쓴 횟수. */
+    /** Today's used count from the flag value "date:count". */
     static int usedToday(@Nullable String value, String today) {
         if (value == null) {
             return 0;
@@ -155,7 +158,7 @@ public final class NpcHooks implements NpcBridge, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 평판
+    // ------------------------------------------------------------------ reputation
 
     private @Nullable ReputationService reputation() {
         return Bukkit.getServicesManager().load(ReputationService.class);

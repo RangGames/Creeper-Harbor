@@ -20,13 +20,16 @@ import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 수족관 규칙 (aquarium.yml, 추가 제안, docs 20 4.3·4.4). 점수는 개인 기여 순위에만 쓰고, 단계는 기부율(서로 다른 어종 수 ÷ 기부 가능 어종
- * 수)로 판정한다. 수조 연출(tanks)·구조물(structure)은 본 서버(world가 있는 서버)에서만 돈다.
+ * Aquarium rules (aquarium.yml, proposed, docs 20 4.3·4.4). Points are used only for personal
+ * contribution ranking; the stage is decided by the donation rate (distinct species ÷ donatable
+ * species count). Tank display (tanks) and structures (structure) run only on the main server (the
+ * server that has the world).
  *
- * @param qualityBonus 품질 보너스 × (1 + qualityBonus × (★ − 1))
- * @param firstSpeciesMult 서버에 처음 기부되는 어종 점수 배율
- * @param perPlayerSpeciesCap 같은 어종을 한 사람이 시즌에 점수 인정받는 최대 마리 수
- * @param display 수조 연출 (없으면 연출 없음)
+ * @param qualityBonus quality bonus × (1 + qualityBonus × (★ − 1))
+ * @param firstSpeciesMult point multiplier for a species donated to the server for the first time
+ * @param perPlayerSpeciesCap max number of fish of the same species one player can earn points for
+ *     per season
+ * @param display tank display (none if absent)
  */
 public record AquariumRules(
         Map<Grade, Integer> points,
@@ -37,9 +40,11 @@ public record AquariumRules(
         Display display) {
 
     /**
-     * 단계: 기부율 rate 이상이면 서버 플래그 flag를 켜고 서버 버프 modifiers를 건다.
+     * Stage: at donation rate {@code rate} or above, sets server flag {@code flag} and applies
+     * server buff {@code modifiers}.
      *
-     * @param structure 이 단계에서 붙일 구조물 템플릿 (NamespacedKey 문자열, 없으면 그대로)
+     * @param structure structure template placed at this stage (NamespacedKey string; unchanged if
+     *     absent)
      */
     public record Stage(
             int stage,
@@ -49,31 +54,33 @@ public record AquariumRules(
             @Nullable String structure) {}
 
     /**
-     * 수조 하나 (리그가 헤엄치는 공간).
+     * One tank (the space a rig swims in).
      *
-     * @param box 헤엄 범위 (블록 좌표)
-     * @param slots 이 수조에 넣을 최대 어종 수
-     * @param stage 열리는 단계 (1단계 '수조 2개 추가'는 stage: 1)
-     * @param deep 심해관 수조 (deep_regions 어종만, 4단계)
-     * @param label 이름표 Text Display 위치 (없으면 상자 위)
+     * @param box swim area (block coordinates)
+     * @param slots max number of species placed in this tank
+     * @param stage stage that opens it (stage 1 "add 2 tanks" is stage: 1)
+     * @param deep deep-sea hall tank (deep_regions species only, stage 4)
+     * @param label name tag Text Display position (above the box if absent)
      */
     public record Tank(
             String id, Box box, int slots, int stage, boolean deep, @Nullable Point label) {}
 
     /**
-     * 수조 연출 설정 (제안값).
+     * Tank display settings (proposed values).
      *
-     * @param world 수족관 월드 (본 서버)
-     * @param view 이 상자 안 플레이어에게만 리그를 보여준다
-     * @param visibleMax 동시에 띄우는 리그 수 (나머지는 rotateMinutes마다 교대)
-     * @param lodRadius 이 거리 안에 시청자가 없으면 헤엄 이동을 생략한다 (애니메이션 LOD는 Core가 한다)
-     * @param swimSpeed 헤엄 속도 (블록/틱)
-     * @param fallbackRig 어종 리그(rig/fish/<이름>)가 없을 때 쓰는 리그 (없으면 그 어종은 표시하지 않음)
-     * @param baseStructure 0단계 구조물 (시즌 초기화 뒤 되돌릴 모습)
-     * @param structureOrigin 구조물을 붙이는 기준 좌표
-     * @param entrance 구조물을 붙이기 직전 그 영역의 플레이어를 옮길 입구
-     * @param structureBox 구조물이 덮는 영역 (플레이어 이동 판정)
-     * @param deepRegions 심해관 수조에 넣을 어종의 지역
+     * @param world aquarium world (main server)
+     * @param view rigs are shown only to players inside this box
+     * @param visibleMax number of rigs shown at once (the rest rotate every rotateMinutes)
+     * @param lodRadius swim movement is skipped when no viewer is within this distance (animation
+     *     LOD is done by Core)
+     * @param swimSpeed swim speed (blocks/tick)
+     * @param fallbackRig rig used when the species rig (rig/fish/<name>) is missing (if absent,
+     *     that species is not shown)
+     * @param baseStructure stage 0 structure (the look restored after a season reset)
+     * @param structureOrigin reference coordinate where structures are placed
+     * @param entrance entrance to move players in the area to just before placing a structure
+     * @param structureBox area covered by the structure (for moving players)
+     * @param deepRegions regions whose species go into deep-sea hall tanks
      */
     public record Display(
             String world,
@@ -99,7 +106,7 @@ public record AquariumRules(
             return !world.isEmpty() && !tanks.isEmpty();
         }
 
-        /** 단계에서 열린 수조. */
+        /** Tanks opened at this stage. */
         public List<Tank> openTanks(int stage) {
             return tanks.stream().filter(t -> t.stage() <= stage).toList();
         }
@@ -113,7 +120,10 @@ public record AquariumRules(
         return (int) Math.round(firstSpecies ? base * firstSpeciesMult : base);
     }
 
-    /** 이 단계에 붙일 구조물: 그 단계 이하에서 structure가 있는 가장 높은 단계 → 없으면 base_structure. */
+    /**
+     * Structure for this stage: the highest stage at or below it that has a structure → otherwise
+     * base_structure.
+     */
     public Optional<String> structureFor(int stage) {
         String result = display.baseStructure();
         for (Stage s : stages) {
@@ -124,7 +134,7 @@ public record AquariumRules(
         return Optional.ofNullable(result);
     }
 
-    /** 다음 단계 (없으면 빈 값). */
+    /** Next stage (empty if none). */
     public Optional<Stage> next(int stage) {
         return stages.stream().filter(s -> s.stage() > stage).findFirst();
     }

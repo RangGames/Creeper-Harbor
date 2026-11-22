@@ -1,12 +1,10 @@
 package wiki.creeper.harbor.collection.service;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,8 +21,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -34,7 +30,6 @@ import wiki.creeper.harbor.collection.api.event.AquariumStageChangedEvent;
 import wiki.creeper.harbor.collection.aquarium.AquariumTanks;
 import wiki.creeper.harbor.collection.content.AquariumRules;
 import wiki.creeper.harbor.collection.content.StatBonus;
-import wiki.creeper.harbor.collection.data.CodexData;
 import wiki.creeper.harbor.collection.data.CollectionRepository;
 import wiki.creeper.harbor.collection.data.CollectionRepository.AquariumState;
 import wiki.creeper.harbor.collection.data.CollectionRepository.SpeciesRow;
@@ -51,61 +46,45 @@ import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
-import wiki.creeper.harbor.core.item.FishLedger;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 항구 수족관 (docs 20 4.4). 단계와 클라이맥스 조건은 점수가 아니라 기부율로 판정해, 한 어종을 대량으로 기부해서 밀어붙이는 것을 막는다.
+ * Harbor aquarium (docs 20 4.4). Stages and the climax condition are judged by donation rate, not
+ * points, so mass-donating one species cannot push them forward.
  *
  * <ul>
- *   <li>기부 경로: 손에 든 한 마리(/수족관 기부), 기부함 GUI(이슬 대화 aquarium:donate), Quest 수집 의뢰({@link
- *       #donateItems}).
- *   <li>여러 마리는 한 트랜잭션: aquarium_donation 행 추가, aquarium_species INSERT IGNORE, aquarium_state 증가,
- *       고유 ID 장부 ACTIVE → DONATED. 실패하면 전부 돌려주고, 오프라인·인벤토리가 차 있으면 우편함으로 보낸다 (0.1).
- *   <li>기부 중에는 서버 이동을 최대 4초 미룬다 (Core HandoffBlocker).
- *   <li>수조 연출·구조물은 {@link AquariumTanks}.
+ *   <li>Donation paths: one held fish (/수족관 기부), the donation box GUI (Iseul dialog
+ *       aquarium:donate), Quest collection requests ({@link #donateItems}).
+ *   <li>Multiple fish in one transaction: insert aquarium_donation rows, INSERT IGNORE
+ *       aquarium_species, increment aquarium_state, unique ID ledger ACTIVE -> DONATED. On failure
+ *       everything is given back, via the mailbox when offline or the inventory is full (0.1).
+ *   <li>Server moves are delayed up to 4 seconds while donating (Core HandoffBlocker).
+ *   <li>Tank visuals and structures are in {@link AquariumTanks}.
  * </ul>
  */
 public final class AquariumManager implements AquariumService, Listener {
 
-    /** 다른 서버 동기화 (harbor:collection, 추가 제안). */
+    /** Cross-server sync (harbor:collection, proposed). */
     public record AquariumUpdated(int season, int species, int stage) {}
 
     static final Channel<AquariumUpdated> UPDATES =
             new Channel<>("harbor:collection", AquariumUpdated.class);
 
     private static final String BUFF_SOURCE = "aquarium_stage";
-    private static final String RETURN_SOURCE = "aquarium_return";
-    private static final int BOX_ROWS = 4;
-    private static final long CONFIRM_TIMEOUT_TICKS = 20L * 60;
+    static final String RETURN_SOURCE = "aquarium_return";
 
     private final HarborApi api;
     private final Tasks tasks;
     private final Logger log;
     private final ItemReturns returns;
     private final AquariumTanks tanks;
+    private final AquariumDonationFlow flow;
     private final Map<UUID, CompletableFuture<?>> busy = new ConcurrentHashMap<>();
-    private final Map<UUID, List<ItemStack>> pendingBox = new HashMap<>();
     private volatile AquariumState state = AquariumState.EMPTY;
     private volatile Set<FishId> donatedSpecies = Set.of();
 
-    /** 기부함 GUI (아이템을 넣고 닫으면 확인 화면). Core Menu와 달리 아이템 이동을 막지 않는다. */
-    static final class DonationBox implements InventoryHolder {
-        private final Inventory inventory;
-
-        DonationBox(Component title) {
-            this.inventory = Bukkit.createInventory(this, BOX_ROWS * 9, title);
-        }
-
-        @Override
-        public Inventory getInventory() {
-            return inventory;
-        }
-    }
-
-    /** 기부할 한 마리. */
-    private record Candidate(
-            ItemStack stack, HarborItem.Fish item, FishDef fish, boolean counted) {}
+    /** One fish to donate. */
+    record Candidate(ItemStack stack, HarborItem.Fish item, FishDef fish, boolean counted) {}
 
     public AquariumManager(HarborApi api, Tasks tasks, Logger log, ItemReturns returns) {
         this.api = api;
@@ -113,6 +92,7 @@ public final class AquariumManager implements AquariumService, Listener {
         this.log = log;
         this.returns = returns;
         this.tanks = new AquariumTanks(api, tasks, log);
+        this.flow = new AquariumDonationFlow(this, api, tasks, returns);
     }
 
     public void start() {
@@ -128,22 +108,16 @@ public final class AquariumManager implements AquariumService, Listener {
                         });
     }
 
-    /** 종료: 열린 기부함·확인 대기 아이템을 돌려주고 수조 리그를 지운다. */
+    /**
+     * Shutdown: gives back items in open donation boxes or awaiting confirmation and removes the
+     * tank rigs.
+     */
     public void stop() {
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p.getOpenInventory().getTopInventory().getHolder(false)
-                    instanceof DonationBox box) {
-                List<ItemStack> items = takeAll(box.getInventory());
-                p.closeInventory();
-                giveOrMail(p.getUniqueId(), p, items);
-            }
-        }
-        pendingBox.forEach((uuid, items) -> giveOrMail(uuid, Bukkit.getPlayer(uuid), items));
-        pendingBox.clear();
+        flow.stop();
         tanks.stop();
     }
 
-    /** DB에서 다시 읽고 버프·수조를 교체한다 (메인 스레드에서 부른다). */
+    /** Reloads from the DB and replaces buffs and tanks (call on the main thread). */
     public void refresh() {
         SeasonId season = api.infra().season();
         record Loaded(AquariumState state, List<SpeciesRow> species) {}
@@ -178,7 +152,7 @@ public final class AquariumManager implements AquariumService, Listener {
         return api.content().snapshot().single(AquariumRules.TYPE);
     }
 
-    /** 기부 가능 어종 수: 시즌 어종 중 신화·release_only 제외. */
+    /** Number of donatable species: season species excluding mythic and release_only. */
     int donatable() {
         int season = api.infra().season().value();
         return (int)
@@ -203,24 +177,26 @@ public final class AquariumManager implements AquariumService, Listener {
                 s.stage());
     }
 
-    /** 다음 단계 (/수족관 표시). */
+    /** The next stage (shown by /수족관). */
     public Optional<AquariumRules.Stage> nextStage(Status status) {
         return rules().next(status.stage());
     }
 
-    /** 이번 시즌 처음 기부되는 어종인지 (메모리 캐시 기준, 확인 화면 표시용. 점수는 트랜잭션 안에서 다시 판정). */
+    /**
+     * Whether this species is donated for the first time this season (by the memory cache, for the
+     * confirmation screen; points are judged again inside the transaction).
+     */
     boolean firstSpecies(FishId fish) {
         return !donatedSpecies.contains(fish);
     }
 
-    /** 서버 이동 지연 (Core HandoffBlocker): 기부 트랜잭션이 끝날 때까지. */
+    /** Server move delay (Core HandoffBlocker): until the donation transaction finishes. */
     public HandoffBlocker handoffBlocker() {
         return (player, destination) -> {
-            // 기부함이 열려 있거나 확인을 기다리는 동안은 아이템이 인벤토리 밖(기부함·대기 목록)에 있다. 저장본을 뜨면 빠지고, 뜬 뒤 돌려주는
-            // 아이템은 저장되지 않으므로 이동을 막는다
-            if (pendingBox.containsKey(player.getUniqueId())
-                    || player.getOpenInventory().getTopInventory().getHolder(false)
-                            instanceof DonationBox) {
+            // While the donation box is open or awaiting confirmation the items are outside the
+            // inventory (box or pending list). A snapshot would miss them, and items given back
+            // after the snapshot are not saved, so block the move
+            if (flow.holding(player)) {
                 return new HandoffBlocker.Deny("busy");
             }
             CompletableFuture<?> f = busy.get(player.getUniqueId());
@@ -228,7 +204,7 @@ public final class AquariumManager implements AquariumService, Listener {
         };
     }
 
-    // ------------------------------------------------------------------ 손에 든 한 마리
+    // ------------------------------------------------------------------ one held fish
 
     @Override
     public CompletableFuture<Boolean> donateHeld(Player player) {
@@ -240,254 +216,47 @@ public final class AquariumManager implements AquariumService, Listener {
     }
 
     /**
-     * 인벤토리 한 칸의 어종 한 마리를 기부한다 (확인 화면 후, 손에 든 것·수족관 진행 화면 공용). 확인하는 사이 그 칸의 아이템이 바뀌었으면 취소하고, 기부는
-     * {@link #donateItems}의 같은 트랜잭션으로 한다.
+     * Donates one fish from an inventory slot after a confirmation screen; see {@link
+     * AquariumDonationFlow#donateSlot}.
      *
-     * @param changedKey 칸이 바뀌었을 때 문구 키
+     * @param changedKey message key for when the slot changed
      */
     CompletableFuture<Boolean> donateSlot(
             Player player, int slot, String source, String changedKey) {
-        ItemStack held = player.getInventory().getItem(slot);
-        Optional<HarborItem.Fish> item = fishOf(held);
-        Optional<FishDef> fish =
-                item.flatMap(i -> api.content().snapshot().get(FishDef.TYPE, i.species().id()));
-        if (item.isEmpty() || fish.isEmpty() || fish.get().releaseOnly()) {
-            api.messages().send(player, "collection.aquarium.not_fish");
-            return CompletableFuture.completedFuture(false);
-        }
-        HarborPlayer hp = api.players().get(player);
-        CodexData data = hp.get(CollectionManager.COMPONENT);
-        AquariumRules rules = rules();
-        boolean counted =
-                data.donations().getOrDefault(fish.get().id(), 0) < rules.perPlayerSpeciesCap();
-        boolean first = firstSpecies(fish.get().id());
-        int estimate =
-                counted
-                        ? rules.pointsFor(fish.get().grade(), item.get().quality().stars(), first)
-                        : 0;
-        CompletableFuture<Boolean> result = new CompletableFuture<>();
-        List<Component> body = new ArrayList<>();
-        body.add(
-                api.messages()
-                        .get(
-                                "collection.aquarium.confirm_body",
-                                Placeholder.unparsed("name", fish.get().name()),
-                                Placeholder.unparsed("points", String.valueOf(estimate))));
-        if (first) {
-            body.add(api.messages().get("collection.aquarium.first_species"));
-        }
-        api.dialogs()
-                .confirm(
-                        player,
-                        api.messages().get("collection.aquarium.confirm_title"),
-                        body,
-                        api.messages().get("collection.aquarium.yes"),
-                        api.messages().get("collection.aquarium.no"),
-                        ok -> {
-                            if (!ok) {
-                                result.complete(false);
-                                return;
-                            }
-                            // 그 칸의 아이템이 확인 화면 사이에 바뀌었으면 취소
-                            ItemStack now = player.getInventory().getItem(slot);
-                            if (now == null || !fishOf(now).map(item.get()::equals).orElse(false)) {
-                                api.messages().send(player, changedKey);
-                                result.complete(false);
-                                return;
-                            }
-                            ItemStack taken = now.asOne();
-                            now.setAmount(now.getAmount() - 1);
-                            var _ =
-                                    donateItems(player, List.of(taken), source)
-                                            .thenAccept(r -> result.complete(r.ok()));
-                        });
-        return result;
+        return flow.donateSlot(player, slot, source, changedKey);
     }
 
-    /** 이번 시즌 기부된 어종 (메모리 캐시, 진행 화면). */
+    /** Species donated this season (memory cache, progress screen). */
     Set<FishId> donatedSpecies() {
         return donatedSpecies;
     }
 
-    // ------------------------------------------------------------------ 기부함
+    // ------------------------------------------------------------------ donation box
 
-    /** 자동 저장용 (Core ItemCustody): 열린 기부함에 넣은 아이템과 기부 확인을 기다리는 아이템. */
+    /**
+     * For auto-save (Core ItemCustody): items put in an open donation box and items awaiting the
+     * donation confirmation.
+     */
     public List<ItemStack> held(Player player) {
-        List<ItemStack> out = new ArrayList<>();
-        if (player.getOpenInventory().getTopInventory().getHolder(false)
-                instanceof DonationBox box) {
-            for (ItemStack stack : box.getInventory().getContents()) {
-                if (stack != null && !stack.isEmpty()) {
-                    out.add(stack.clone());
-                }
-            }
-        }
-        List<ItemStack> pending = pendingBox.get(player.getUniqueId());
-        if (pending != null) {
-            pending.forEach(stack -> out.add(stack.clone()));
-        }
-        return out;
+        return flow.held(player);
     }
 
     @Override
     public void openDonationBox(Player player) {
-        if (pendingBox.containsKey(player.getUniqueId())) {
-            api.messages().send(player, "collection.aquarium.box_pending");
-            return;
-        }
-        player.openInventory(
-                new DonationBox(api.messages().get("collection.aquarium.box_title"))
-                        .getInventory());
+        flow.open(player);
     }
 
     @EventHandler
     public void onBoxClose(InventoryCloseEvent event) {
-        if (!(event.getInventory().getHolder(false) instanceof DonationBox box)
-                || !(event.getPlayer() instanceof Player player)) {
-            return;
-        }
-        List<ItemStack> items = takeAll(box.getInventory());
-        if (items.isEmpty()) {
-            return;
-        }
-        // 다음 틱: 닫는 이벤트 안에서 다른 화면을 열지 않는다
-        var _ = tasks.later(1, () -> confirmBox(player, items));
-    }
-
-    private void confirmBox(Player player, List<ItemStack> items) {
-        if (!player.isOnline()) {
-            returns.giveBack(player.getUniqueId(), items, RETURN_SOURCE);
-            return;
-        }
-        List<ItemStack> fish = new ArrayList<>();
-        List<ItemStack> other = new ArrayList<>();
-        for (ItemStack stack : items) {
-            Optional<FishDef> def =
-                    fishOf(stack)
-                            .flatMap(
-                                    i ->
-                                            api.content()
-                                                    .snapshot()
-                                                    .get(FishDef.TYPE, i.species().id()));
-            if (def.isPresent() && !def.get().releaseOnly()) {
-                fish.add(stack);
-            } else {
-                other.add(stack);
-            }
-        }
-        if (!other.isEmpty()) {
-            returns.giveBack(player.getUniqueId(), other, RETURN_SOURCE);
-            api.messages().send(player, "collection.aquarium.box_returned");
-        }
-        if (fish.isEmpty()) {
-            return;
-        }
-        UUID uuid = player.getUniqueId();
-        pendingBox.put(uuid, fish);
-        List<Candidate> preview = candidates(player, fish, new ArrayList<>());
-        AquariumRules rules = rules();
-        List<Component> body = new ArrayList<>();
-        int total = 0;
-        Set<FishId> firstShown = new HashSet<>();
-        Map<String, int[]> lines = new LinkedHashMap<>();
-        for (Candidate c : preview) {
-            boolean first = firstSpecies(c.fish().id()) && firstShown.add(c.fish().id());
-            int points =
-                    c.counted()
-                            ? rules.pointsFor(c.fish().grade(), c.item().quality().stars(), first)
-                            : 0;
-            total += points;
-            String key = c.fish().name() + "|" + c.item().quality().display() + "|" + first;
-            int[] acc = lines.computeIfAbsent(key, k -> new int[2]);
-            acc[0]++;
-            acc[1] += points;
-        }
-        lines.forEach(
-                (key, acc) -> {
-                    String[] parts = key.split("\\|", 3);
-                    body.add(
-                            api.messages()
-                                    .get(
-                                            parts[2].equals("true")
-                                                    ? "collection.aquarium.box_line_first"
-                                                    : "collection.aquarium.box_line",
-                                            Placeholder.unparsed("name", parts[0]),
-                                            Placeholder.unparsed("quality", parts[1]),
-                                            Placeholder.unparsed("count", String.valueOf(acc[0])),
-                                            Placeholder.unparsed(
-                                                    "points", String.valueOf(acc[1]))));
-                });
-        body.add(
-                api.messages()
-                        .get(
-                                "collection.aquarium.box_total",
-                                Placeholder.unparsed("count", String.valueOf(preview.size())),
-                                Placeholder.unparsed("points", String.valueOf(total))));
-        api.dialogs()
-                .confirm(
-                        player,
-                        api.messages().get("collection.aquarium.confirm_title"),
-                        body,
-                        api.messages().get("collection.aquarium.yes"),
-                        api.messages().get("collection.aquarium.no"),
-                        ok -> {
-                            List<ItemStack> held = pendingBox.remove(uuid);
-                            if (held == null) {
-                                return;
-                            }
-                            if (ok) {
-                                var _ = donateItems(player, held, "box");
-                            } else {
-                                returns.giveBack(uuid, held, RETURN_SOURCE);
-                            }
-                        });
-        // ESC로 닫으면 결과가 오지 않으므로 시간이 지나면 돌려준다
-        var _ =
-                tasks.later(
-                        CONFIRM_TIMEOUT_TICKS,
-                        () -> {
-                            List<ItemStack> held = pendingBox.remove(uuid);
-                            if (held != null) {
-                                returns.giveBack(uuid, held, RETURN_SOURCE);
-                            }
-                        });
+        flow.onClose(event);
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        UUID uuid = event.getPlayer().getUniqueId();
-        List<ItemStack> held = pendingBox.remove(uuid);
-        if (held != null) {
-            // 퇴장 이벤트 안이라 아직 인벤토리가 저장되기 전이다
-            giveOrMail(uuid, event.getPlayer(), held);
-        }
+        flow.onQuit(event);
     }
 
-    /** 인벤토리에 넣고 넘친 것은 우편으로 (예전에는 넘친 만큼 사라졌다). 접속해 있지 않으면 모두 우편. */
-    private void giveOrMail(UUID uuid, @Nullable Player player, List<ItemStack> items) {
-        List<ItemStack> left = new ArrayList<>();
-        if (player != null) {
-            left.addAll(player.getInventory().addItem(items.toArray(ItemStack[]::new)).values());
-        } else {
-            left.addAll(items);
-        }
-        if (!left.isEmpty()) {
-            returns.giveBack(uuid, left, RETURN_SOURCE); // 칸이 없으면 우편으로 간다
-        }
-    }
-
-    private static List<ItemStack> takeAll(Inventory inventory) {
-        List<ItemStack> items = new ArrayList<>();
-        for (ItemStack stack : inventory.getContents()) {
-            if (stack != null && !stack.isEmpty()) {
-                items.add(stack.clone());
-            }
-        }
-        inventory.clear();
-        return items;
-    }
-
-    // ------------------------------------------------------------------ 여러 마리 기부
+    // ------------------------------------------------------------------ donating multiple fish
 
     @Override
     public CompletableFuture<DonationResult> donateItems(
@@ -495,7 +264,8 @@ public final class AquariumManager implements AquariumService, Listener {
         UUID uuid = player.getUniqueId();
         CompletableFuture<?> running = busy.get(uuid);
         if (running != null && !running.isDone()) {
-            // 앞 기부가 커밋되기 전이면 종 상한(메모리 값 기준)을 넘길 수 있으므로 받지 않고 돌려준다
+            // Before the previous donation commits the species cap (memory value) could be
+            // exceeded, so reject and give the items back
             returns.giveBack(uuid, items, RETURN_SOURCE);
             api.messages().send(player, "collection.aquarium.busy");
             return CompletableFuture.completedFuture(
@@ -515,16 +285,17 @@ public final class AquariumManager implements AquariumService, Listener {
                 api.database()
                         .async(
                                 c -> {
-                                    // 시즌 행을 잠가 기부를 한 줄로 세운다: 두 사람이 같은 새 어종을 동시에 기부하면 둘 다 "첫 기부"
-                                    // 보너스를 받았다
-                                    lockSeason(c, season);
+                                    // Lock the season row to serialize donations: when two
+                                    // players donated the same new species at once, both got
+                                    // the "first donation" bonus
+                                    AquariumTx.lockSeason(c, season);
                                     int[] points = new int[list.size()];
                                     for (int i = 0; i < list.size(); i++) {
                                         Candidate cand = list.get(i);
-                                        ledger(c, cand.item().uid(), questOwned);
+                                        AquariumTx.ledger(c, cand.item().uid(), questOwned);
                                         boolean first =
                                                 cand.counted()
-                                                        && !speciesDonated(
+                                                        && !AquariumTx.speciesDonated(
                                                                 c, season, cand.fish().id());
                                         int p =
                                                 cand.counted()
@@ -550,8 +321,11 @@ public final class AquariumManager implements AquariumService, Listener {
         return work.handleAsync(
                 (points, error) -> {
                     busy.remove(uuid, work);
-                    // 기부 기록은 즉시 커밋, 인벤토리는 지연 쓰기다: 곧 저장해서 서버가 죽어도 기부한 물고기가 돌아오지 않게 한다
-                    // (실패해서 돌려준 경우도 인벤토리가 바뀌었다)
+                    // Donation records commit immediately but the inventory is write-behind: save
+                    // soon
+                    // so donated fish don't come back if the server dies (the inventory also
+                    // changed
+                    // when items were given back on failure)
                     api.players().saveSoon(uuid);
                     if (error != null || points == null) {
                         log.warn(
@@ -616,9 +390,11 @@ public final class AquariumManager implements AquariumService, Listener {
                 tasks.main());
     }
 
-    /** 아이템을 한 마리씩 나눈다. 어종이 아니거나 기부할 수 없는 아이템은 giveBack에 넣는다. 개인 상한(같은 어종 시즌 N마리)은 묶음 안의 순서까지 센다. */
-    private List<Candidate> candidates(
-            Player player, List<ItemStack> items, List<ItemStack> giveBack) {
+    /**
+     * Splits items into single fish. Items that are not fish or cannot be donated go into giveBack.
+     * The personal cap (N of the same species per season) also counts the order within the batch.
+     */
+    List<Candidate> candidates(Player player, List<ItemStack> items, List<ItemStack> giveBack) {
         HarborPlayer hp = api.players().get(player);
         Map<FishId, Integer> counts =
                 new HashMap<>(hp.get(CollectionManager.COMPONENT).donations());
@@ -643,54 +419,6 @@ public final class AquariumManager implements AquariumService, Listener {
         return result;
     }
 
-    /** 고유 ID 장부: ACTIVE → DONATED. Quest가 같은 납품에서 이미 DONATED로 바꿨으면 그대로 받는다. */
-    private static void ledger(Connection c, @Nullable UUID uid, boolean questOwned)
-            throws SQLException {
-        if (uid == null
-                || FishLedger.transition(
-                        c, uid, FishLedger.State.ACTIVE, FishLedger.State.DONATED)) {
-            return;
-        }
-        if (questOwned
-                && FishLedger.state(c, uid)
-                        .filter(s -> s == FishLedger.State.DONATED)
-                        .isPresent()) {
-            return;
-        }
-        throw new SQLException("고유 ID 장부 상태가 ACTIVE가 아닙니다: " + uid);
-    }
-
-    private static void lockSeason(Connection c, SeasonId season) throws SQLException {
-        try (var ps =
-                c.prepareStatement(
-                        "INSERT IGNORE INTO aquarium_state (season, points, species_count) VALUES (?, 0, 0)")) {
-            ps.setInt(1, season.value());
-            ps.executeUpdate();
-        }
-        try (var ps =
-                c.prepareStatement(
-                        "SELECT season FROM aquarium_state WHERE season = ? FOR UPDATE")) {
-            ps.setInt(1, season.value());
-            try (var rs = ps.executeQuery()) {
-                // 잠금만 잡는다
-                var _ = rs.next();
-            }
-        }
-    }
-
-    private static boolean speciesDonated(Connection c, SeasonId season, FishId fish)
-            throws SQLException {
-        try (var ps =
-                c.prepareStatement(
-                        "SELECT 1 FROM aquarium_species WHERE season = ? AND fish_id = ?")) {
-            ps.setInt(1, season.value());
-            ps.setString(2, fish.toString());
-            try (var rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        }
-    }
-
     Optional<HarborItem.Fish> fishOf(@Nullable ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return Optional.empty();
@@ -705,9 +433,12 @@ public final class AquariumManager implements AquariumService, Listener {
         return items.stream().mapToInt(ItemStack::getAmount).sum();
     }
 
-    // ------------------------------------------------------------------ 단계
+    // ------------------------------------------------------------------ stages
 
-    /** 가상 스레드: 기부율을 다시 보고, 단계를 올릴 수 있으면 분산 잠금 + 조건부 UPDATE로 한 번만 올린다. */
+    /**
+     * Virtual thread: rechecks the donation rate and, if the stage can rise, raises it exactly once
+     * via a distributed lock plus a conditional UPDATE.
+     */
     void checkStage() {
         SeasonId season = api.infra().season();
         Optional<DistributedLock.Handle> lock;
@@ -767,7 +498,7 @@ public final class AquariumManager implements AquariumService, Listener {
         }
     }
 
-    /** 단계를 올린 서버만: 서버 플래그, 이벤트, 공지. */
+    /** Only on the server that raised the stage: server flags, event, announcement. */
     private void onStageRaised(SeasonId season, int stage) {
         applyBuffs(stage);
         for (AquariumRules.Stage s : rules().stages()) {
@@ -787,7 +518,7 @@ public final class AquariumManager implements AquariumService, Listener {
                         new Channels.Announcement(MiniMessage.miniMessage().serialize(msg)));
     }
 
-    /** 단계 버프 (출처 aquarium_stage, 서버 전체 보정자): 교체 등록. */
+    /** Stage buffs (source aquarium_stage, server-wide modifiers): registered by replacement. */
     private void applyBuffs(int stage) {
         api.modifiers().removeGlobalSource(BUFF_SOURCE);
         for (AquariumRules.Stage s : rules().stages()) {
@@ -806,7 +537,7 @@ public final class AquariumManager implements AquariumService, Listener {
         tanks.reload();
     }
 
-    /** 관리자: 기부 기록에서 다시 집계. */
+    /** Admin: recount from the donation records. */
     public CompletableFuture<Void> recount() {
         SeasonId season = api.infra().season();
         return api.database()
@@ -814,7 +545,7 @@ public final class AquariumManager implements AquariumService, Listener {
                 .thenRunAsync(this::refresh, tasks.main());
     }
 
-    /** 관리자: 단계 강제 (올리기만). */
+    /** Admin: force a stage (raise only). */
     public CompletableFuture<Boolean> forceStage(int stage) {
         SeasonId season = api.infra().season();
         return api.database()

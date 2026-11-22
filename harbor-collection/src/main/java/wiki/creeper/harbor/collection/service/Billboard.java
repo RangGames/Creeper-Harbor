@@ -34,12 +34,15 @@ import wiki.creeper.harbor.season.api.SeasonServices;
 import wiki.creeper.harbor.season.content.RankingBoardDef;
 
 /**
- * 어시장 광장 랭킹 전광판 (docs 20 4.4 '랭킹 전광판', billboard.yml). Text Display 하나에 page_seconds마다 다음 페이지를 그린다.
+ * Fish market plaza ranking billboard (docs 20 4.4 "ranking billboard", billboard.yml). Draws the
+ * next page on a single Text Display every page_seconds.
  *
  * <ul>
- *   <li>보드 페이지: Season RankingService 캐시(10분 주기 집계, DB 접근 없음)
- *   <li>지역 페이지: 그 지역 어종마다 전체 리그 서버 1위 (Collection 기록 캐시)
- *   <li>이번 주 신기록: 이 서버가 받은 서버 1위 갱신 (주간 초기화 때 비움)
+ *   <li>Board pages: Season RankingService cache (aggregated every 10 minutes, no DB access)
+ *   <li>Region pages: server #1 in the all league for each species in that region (Collection
+ *       record cache)
+ *   <li>This week's new records: server #1 updates received by this server (cleared on weekly
+ *       reset)
  * </ul>
  */
 public final class Billboard implements Listener {
@@ -65,7 +68,7 @@ public final class Billboard implements Listener {
         schedule();
     }
 
-    /** 콘텐츠 리로드 (주기가 바뀌었을 수 있다). */
+    /** Content reload (the cycle may have changed). */
     @EventHandler
     public void onReload(ContentReloadedEvent event) {
         reload();

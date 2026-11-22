@@ -26,8 +26,11 @@ import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.Menu;
 
 /**
- * 최대어 기록 화면 (/기록, 추가 제안). 인자 없이 열면 어종 고르기(누적 도감에 등록한 어종만 누를 수 있다), 어종을 고르면 리그 탭(1차 · 2차 · 전체)과 이번
- * 시즌 서버 TOP 10(플레이어 머리), 내 순위·시즌 최고·TOP 10까지 남은 크기. 데이터는 전광판과 같은 서버 기록 캐시라 DB를 읽지 않는다.
+ * Biggest-catch records screen (/기록, proposed). Opened without arguments it shows species selection
+ * (only species registered in the cumulative codex are clickable); after picking a species it shows
+ * league tabs (tier 1 · tier 2 · all), this season's server TOP 10 (player heads), and my rank,
+ * season best, and size remaining to TOP 10. Data comes from the same server record cache as the
+ * billboard, so the DB is not read.
  */
 final class RecordsMenu {
 
@@ -46,7 +49,7 @@ final class RecordsMenu {
         return api.messages();
     }
 
-    // ------------------------------------------------------------------ 어종 고르기
+    // ------------------------------------------------------------------ species selection
 
     void pick(Player viewer, int page) {
         List<FishDef> fish = new ArrayList<>(api.content().snapshot().all(FishDef.TYPE).values());
@@ -111,7 +114,7 @@ final class RecordsMenu {
         menu.open(viewer);
     }
 
-    // ------------------------------------------------------------------ 어종 하나
+    // ------------------------------------------------------------------ single species
 
     void open(Player viewer, FishDef fish, String league, Runnable back) {
         Menu menu =
@@ -199,7 +202,7 @@ final class RecordsMenu {
         return stack;
     }
 
-    /** 내 순위 · 이번 시즌 최고 · TOP 10까지 남은 크기. */
+    /** My rank · this season's best · size remaining to TOP 10. */
     private ItemStack mine(Player viewer, FishDef fish, List<RecordEntry> top) {
         UUID uuid = viewer.getUniqueId();
         Optional<CodexEntry> season = codex.entry(uuid, fish.id(), CodexScope.SEASON);

@@ -39,20 +39,24 @@ import wiki.creeper.harbor.economy.content.EconomyBalance;
 import wiki.creeper.harbor.fishing.api.FishingService;
 
 /**
- * 판매가와 시세 엔진 (docs 20 7.4). 매시 정각 분산 잠금을 얻은 서버 하나만 계산해 market_coef에 쓰고 harbor:market을 발행한다. 각 서버는
- * DB에서 새 값을 읽어 표를 통째로 바꾼다. 실패하면 직전 값을 유지하고, 3시간 넘게 갱신이 없으면 관리자에게 알린다.
+ * Sell price and market engine (docs 20 7.4). Every hour on the hour, only the one server that
+ * acquires the distributed lock computes, writes market_coef and publishes harbor:market. Each
+ * server reads the new values from the DB and swaps its table wholesale. On failure the previous
+ * values are kept; if there is no update for more than 3 hours, admins are alerted.
  *
- * <p>기대 출현 비율은 Fishing api의 expectedShare(없으면 등급·어종 가중치 계산)를 쓴다. 기준량 S₀의 지역 체류 인원은 World 모듈이 생기면
- * 지역별 기록으로 바꾼다. 지금은 이 서버 접속자 수를 쓴다 (제안).
+ * <p>Expected appearance share uses the Fishing api's expectedShare (falls back to computing from
+ * grade and species weights). The number of players staying in a region for the baseline S₀ will
+ * switch to per-region records once the World module exists. For now it uses this server's online
+ * count (proposed).
  *
- * <p>다음 시간 예측값 next_coef도 함께 계산한다 (경제 계열 '시세 예측').
+ * <p>Also computes the next-hour forecast next_coef (economy line "Market Forecast").
  */
 public final class MarketEngine implements PriceService {
 
-    /** harbor:market 본문: 시각만 보내고 값은 DB에서 읽는다. */
+    /** harbor:market payload: sends only the timestamp; values are read from the DB. */
     public record MarketTick(Instant hour) {}
 
-    /** 어종 하나의 최신 시세. */
+    /** Latest market rate for one species. */
     record Stat(Instant hour, double coef, long sales, double s0, OptionalDouble next) {}
 
     static final Channel<MarketTick> CHANNEL = new Channel<>(Channels.MARKET, MarketTick.class);
@@ -75,7 +79,7 @@ public final class MarketEngine implements PriceService {
     }
 
     public void start() {
-        // 서버별 접속자 수 (S0를 네트워크 전체 기준으로)
+        // Per-server online counts (so S0 is network-wide)
         api.bus()
                 .subscribe(
                         ProxyMessages.HEARTBEATS,
@@ -87,7 +91,7 @@ public final class MarketEngine implements PriceService {
                         });
         reload();
         api.bus().subscribe(CHANNEL, envelope -> reload());
-        // 1분마다 정각이 지났는지 본다
+        // Check every minute whether the hour has passed
         var _ =
                 tasks.timer(
                         20 * 60,
@@ -109,7 +113,7 @@ public final class MarketEngine implements PriceService {
         return Instant.now().truncatedTo(ChronoUnit.HOURS);
     }
 
-    /** 메인 스레드: 마지막 갱신에서 stale_h가 지났으면 관리자에게 알린다 (1시간에 한 번). */
+    /** Main thread: alerts admins if stale_h has passed since the last update (once an hour). */
     private void checkStale() {
         Duration age = Duration.between(newestHour, Instant.now());
         if (age.toHours() >= balance().marketStaleHours()
@@ -134,13 +138,13 @@ public final class MarketEngine implements PriceService {
         return stat == null ? OptionalDouble.empty() : stat.next();
     }
 
-    /** 최근 24시간 판매량 S (마지막 계산 시점). */
+    /** Sales volume S over the last 24 hours (as of the last computation). */
     long sales(FishId fish) {
         Stat stat = stats.get(fish);
         return stat == null ? 0 : stat.sales();
     }
 
-    /** 기준량 S₀ (마지막 계산 시점, 없으면 0). */
+    /** Baseline S₀ (as of the last computation, 0 if none). */
     double s0(FishId fish) {
         Stat stat = stats.get(fish);
         return stat == null ? 0 : stat.s0();
@@ -156,7 +160,7 @@ public final class MarketEngine implements PriceService {
         return price(fish, api.modifiers().value(player, SELL_PRICE), coefficient(fish.species()));
     }
 
-    /** 시세 계수를 정해서 계산한다 (일괄 판매 미끄러짐, 큰손 거래 M = 1.0). */
+    /** Computes with a set market factor (bulk-sale slippage, bulk-buyer trade M = 1.0). */
     OptionalLong quoteWith(UUID player, HarborItem.Fish fish, double coef) {
         return price(fish, api.modifiers().value(player, SELL_PRICE), coef);
     }
@@ -180,11 +184,13 @@ public final class MarketEngine implements PriceService {
         return OptionalLong.of(Math.max(0, result));
     }
 
-    // ------------------------------------------------------------------ 판매량
+    // ------------------------------------------------------------------ Sales volume
 
     /**
-     * 판매 커밋 후 메인 스레드: 그 시간 판매량에 더한다. 증분으로 쓴다: 예전에는 서버마다 자기 합계를 절댓값으로 덮어써서, 여러 서버에서 팔면 마지막에 쓴 서버의 수만
-     * 남아 판매량이 적게 잡혔다 (값이 덜 떨어져 대량 판매가 가능).
+     * Main thread after a sale commit: adds to that hour's sales. Written as an increment:
+     * previously each server overwrote the row with its own absolute total, so with sales on
+     * several servers only the last writer's count remained and sales were undercounted (prices
+     * fell less, enabling bulk sales).
      */
     void recordSale(FishId fish, int count) {
         if (count <= 0) {
@@ -215,17 +221,18 @@ public final class MarketEngine implements PriceService {
                                 });
     }
 
-    /** 서버별 최근 하트비트 접속자 수 (네트워크 전체 접속자 = 합). */
+    /** Latest heartbeat online count per server (network-wide online = sum). */
     private record Beat(int online, long atMillis) {}
 
     private final Map<String, Beat> beats = new ConcurrentHashMap<>();
 
-    /** 하트비트가 이보다 오래되면 꺼진 서버로 본다 (하트비트는 5초마다). */
+    /** Heartbeats older than this count as a stopped server (heartbeats come every 5 seconds). */
     private static final long BEAT_STALE_MILLIS = 15_000;
 
     /**
-     * 네트워크 전체 접속자 수 (S0 기준). 예전에는 시세 잠금을 얻은 서버 하나의 접속자 수를 (그것도 메인 스레드 밖에서) 썼다: 로비가 잠금을 얻으면 0명이라 계수가
-     * 바닥으로 떨어졌다. 하트비트가 없으면 이 서버 접속자 수.
+     * Network-wide online count (for S0). Previously the online count of the single server that won
+     * the market lock was used (and off the main thread): when the lobby won the lock it was 0 and
+     * the coefficient hit the floor. Falls back to this server's online count without heartbeats.
      */
     private int networkOnline() {
         long now = System.currentTimeMillis();
@@ -240,7 +247,7 @@ public final class MarketEngine implements PriceService {
         return any ? sum : api.players().online().size();
     }
 
-    // ------------------------------------------------------------------ 계산
+    // ------------------------------------------------------------------ Computation
 
     private static Map<String, Long> sums(
             java.sql.Connection c, String sql, Instant from, Instant to) throws SQLException {
@@ -257,7 +264,7 @@ public final class MarketEngine implements PriceService {
         return result;
     }
 
-    /** 가상 스레드: 잠금을 얻은 서버 하나만 계산한다. */
+    /** Virtual thread: only the one server that acquires the lock computes. */
     public void recompute() {
         Optional<DistributedLock.Handle> lock;
         try {
@@ -283,8 +290,9 @@ public final class MarketEngine implements PriceService {
             api.database()
                     .txVoid(
                             c -> {
-                                // S: 창 안 합계 (이번 시간 포함), leaving: 다음 정각에 창에서 빠지는 시간, lastHour: 지난
-                                // 1시간
+                                // S: total within the window (including this hour), leaving: the
+                                // hour that drops out
+                                // of the window at the next hour mark, lastHour: the past hour
                                 Map<String, Long> sales =
                                         sums(c, range, windowStart, hour.plus(Duration.ofHours(1)));
                                 Map<String, Long> leaving =
@@ -382,7 +390,7 @@ public final class MarketEngine implements PriceService {
         }
     }
 
-    /** DB에서 최신 시세를 읽어 표를 통째로 바꾼다. */
+    /** Reads the latest market rates from the DB and swaps the table wholesale. */
     void reload() {
         var _ =
                 api.database()
@@ -412,7 +420,7 @@ public final class MarketEngine implements PriceService {
                                                                             : OptionalDouble
                                                                                     .empty()));
                                                 } catch (IllegalArgumentException e) {
-                                                    // 형식이 틀린 행은 무시
+                                                    // Ignore malformed rows
                                                 }
                                             }
                                         }
@@ -439,7 +447,10 @@ public final class MarketEngine implements PriceService {
                                 });
     }
 
-    /** 최근 24시간 시세 계수 (오래된 순, 경제 계열 '시세 정보' 2랭크 그래프). future는 메인 스레드에서 완료된다. */
+    /**
+     * Market factors over the last 24 hours (oldest first, economy line "Market Info" rank 2
+     * graph). The future completes on the main thread.
+     */
     CompletableFuture<List<Double>> history(FishId fish) {
         return api.database()
                 .async(
@@ -460,7 +471,10 @@ public final class MarketEngine implements PriceService {
                 .thenApplyAsync(v -> v, tasks.main());
     }
 
-    /** 어느 정시의 모든 어종 계수 (시세판 24시간 비교, 추가 제안). 없으면 빈 지도. future는 메인 스레드에서 완료된다. */
+    /**
+     * All species factors at a given hour (market board 24-hour comparison, proposed). Empty map if
+     * none. The future completes on the main thread.
+     */
     CompletableFuture<java.util.Map<String, Double>> coefficientsAt(Instant hour) {
         java.sql.Timestamp at = java.sql.Timestamp.from(hour.truncatedTo(ChronoUnit.HOURS));
         return api.database()
@@ -482,7 +496,10 @@ public final class MarketEngine implements PriceService {
                 .thenApplyAsync(v -> v, tasks.main());
     }
 
-    /** 관리자: 시세 수동 고정 (이번 시간 값으로 쓰고 모든 서버에 알린다). */
+    /**
+     * Admin: manually pin the market rate (written as this hour's value and announced to all
+     * servers).
+     */
     public void override(FishId fish, double coef) {
         Instant hour = currentHour();
         var _ =

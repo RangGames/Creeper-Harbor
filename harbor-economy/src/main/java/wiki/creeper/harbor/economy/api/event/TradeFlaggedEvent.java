@@ -5,7 +5,7 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 부정 거래 의심이 기록된 뒤 (기록한 서버의 메인 스레드). */
+/** After a suspected fraudulent trade is recorded (main thread of the recording server). */
 public final class TradeFlaggedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

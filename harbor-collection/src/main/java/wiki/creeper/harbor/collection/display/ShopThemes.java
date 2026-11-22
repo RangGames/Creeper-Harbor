@@ -10,9 +10,10 @@ import wiki.creeper.harbor.collection.api.AquariumThemeOwnership;
 import wiki.creeper.harbor.common.id.HarborId;
 
 /**
- * 어항 테마 보유 확인 (D14, 외형만). Shop이 {@link AquariumThemeOwnership}를 등록했으면 그것을, 없으면 Shop의
- * CosmeticService.owns(UUID, HarborId)를 서비스 이름으로 찾아 부른다 (Shop → Collection 의존 때문에 컴파일 의존을 둘 수 없다).
- * Shop이 없으면 아무 테마도 보유하지 않은 것으로 본다. 메인 스레드 전용.
+ * Aquarium theme ownership check (D14, appearance only). Uses Shop's registered {@link
+ * AquariumThemeOwnership} if present, otherwise looks up Shop's CosmeticService.owns(UUID,
+ * HarborId) by service name and calls it (a compile dependency is impossible because Shop →
+ * Collection). Without Shop, no theme is considered owned. Main thread only.
  */
 public final class ShopThemes implements AquariumThemeOwnership {
 

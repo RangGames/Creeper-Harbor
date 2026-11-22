@@ -19,8 +19,8 @@ import wiki.creeper.harbor.core.item.FishLedger;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 경매 취소·만료 (docs 20 7.4 만료). 경매 행 EXPIRED/CANCELLED + 판매자 우편 반환 + 장부 ACTIVE를 한 트랜잭션으로 처리한다. 등록비는
- * 돌려주지 않는다.
+ * Auction cancellation and expiry (docs 20 7.4 expiry). Handles auction row EXPIRED/CANCELLED +
+ * return to the seller's mail + ledger ACTIVE in one transaction. The listing fee is not refunded.
  */
 final class AuctionReturns {
 
@@ -50,10 +50,11 @@ final class AuctionReturns {
     }
 
     /**
-     * 같은 트랜잭션: 경매를 끝내고 아이템을 판매자 우편함으로 돌려보낸다.
+     * Same transaction: ends the auction and returns the item to the seller's mailbox.
      *
-     * @param seller 판매자 본인 취소면 판매자 (다르면 거부), 관리자·만료면 null
-     * @return 판매자 (이미 끝난 경매면 빈 값)
+     * @param seller the seller for a seller's own cancellation (rejected if different); null for
+     *     admin or expiry
+     * @return the seller (empty if the auction already ended)
      */
     private static Optional<UUID> returnToSeller(
             Connection c,
@@ -116,7 +117,7 @@ final class AuctionReturns {
         return Optional.of(owner);
     }
 
-    /** 판매자 본인 취소 (게시판 반경 안, 등록비 환불 없음). */
+    /** Cancellation by the seller (within the board radius, listing fee not refunded). */
     void cancel(Player player, long id) {
         UUID uuid = player.getUniqueId();
         if (!house.nearBoard(player)) {
@@ -167,7 +168,7 @@ final class AuctionReturns {
                                 });
     }
 
-    /** 관리자 강제 취소: 아이템은 판매자 우편함. */
+    /** Admin forced cancellation: the item goes to the seller's mailbox. */
     CompletableFuture<Boolean> adminCancel(long id) {
         int season = api.infra().season().value();
         return api.database()
@@ -181,7 +182,10 @@ final class AuctionReturns {
                         tasks.main());
     }
 
-    /** 가상 스레드: 기한이 지난 경매를 EXPIRED로 바꾸고 판매자에게 돌려보낸다 (잠금을 얻은 서버 하나만). */
+    /**
+     * Virtual thread: marks overdue auctions EXPIRED and returns them to the sellers (only the one
+     * server that acquires the lock).
+     */
     void expireDue() {
         Optional<wiki.creeper.harbor.common.redis.DistributedLock.Handle> lock;
         try {

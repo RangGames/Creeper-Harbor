@@ -11,8 +11,10 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 경매 기준가 표 (auction_refs.yml, 추가 제안). 문서의 items/*.yml auction_ref 필드(docs 20 7.3, '11. 데이터 설계'
- * 2.9)는 Common ItemDef에 아직 없어서, 그 값을 이 파일에 모은다. sell_price·buy_price가 없는 거래 가능 아이템의 기준가로 쓴다.
+ * Auction reference price table (auction_refs.yml, proposed). The documented items/*.yml
+ * auction_ref field (docs 20 7.3, "11. Data design" 2.9) is not in Common ItemDef yet, so those
+ * values are gathered in this file. Used as the reference price for tradable items without
+ * sell_price or buy_price.
  *
  * <pre>{@code
  * refs:

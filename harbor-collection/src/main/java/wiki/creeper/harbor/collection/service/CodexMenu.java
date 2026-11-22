@@ -26,9 +26,12 @@ import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.Menu;
 
 /**
- * 도감 화면 (/도감, docs 20 4.4 + 추가 제안). 윗줄은 전체·지역 탭(지역별 달성률)과 보상 트랙, 가운데 4줄은 어종, 아랫줄은 페이지·필터(전체 · 미등록 ·
- * 등록)·등급·정렬(번호 · 등급 · 최근 등록)·최근 등록 바로 보기. 등록 어종은 어종 모델 아이콘 + 내 기록, 미등록은 실루엣 + 힌트. 누르면 Dialog 상세(설명,
- * 힌트 또는 내 기록, 리그별 서버 1위). 지역 페이지 배경(커스텀 폰트)은 리소스팩이 준비되면 붙인다.
+ * Codex screen (/도감, docs 20 4.4 + proposed). The top row has all/region tabs (completion per
+ * region) and the reward track, the middle 4 rows species, the bottom row page·filter (all ·
+ * unregistered · registered)·grade·sort (number · grade · recent registration)·recent registrations
+ * shortcut. Registered species show the species model icon + my record; unregistered show a
+ * silhouette + hint. Clicking opens a Dialog detail (description, hint or my record, server #1 per
+ * league). Region page backgrounds (custom font) will be added once the resource pack is ready.
  */
 final class CodexMenu {
 
@@ -104,7 +107,7 @@ final class CodexMenu {
         menu.open(viewer);
     }
 
-    // ------------------------------------------------------------------ 윗줄
+    // ------------------------------------------------------------------ top row
 
     private void tabs(Menu menu, Player viewer, UUID owner, CodexView.State s) {
         String total = pct(codex.percent(owner, CodexScope.TOTAL, null));
@@ -165,7 +168,7 @@ final class CodexMenu {
                                 .open(viewer, owner, () -> open(viewer, owner, s)));
     }
 
-    /** 지역 탭 순서: 해금 레벨 → ID. */
+    /** Region tab order: unlock level → ID. */
     private List<RegionDef> regions() {
         List<RegionDef> regions =
                 new ArrayList<>(api.content().snapshot().all(RegionDef.TYPE).values());
@@ -175,7 +178,7 @@ final class CodexMenu {
         return regions;
     }
 
-    // ------------------------------------------------------------------ 아랫줄
+    // ------------------------------------------------------------------ bottom row
 
     private void nav(
             Menu menu, Player viewer, UUID owner, CodexView.State s, int pages, int count) {
@@ -262,7 +265,7 @@ final class CodexMenu {
         }
     }
 
-    // ------------------------------------------------------------------ 어종
+    // ------------------------------------------------------------------ species
 
     private ItemStack icon(UUID owner, FishDef fish) {
         Optional<CodexEntry> entry = codex.entry(owner, fish.id(), CodexScope.TOTAL);
@@ -315,7 +318,7 @@ final class CodexMenu {
         return DATE.format(entry.firstCaught().atZone(zone));
     }
 
-    /** 힌트 단계별 공개 (0 지역 → 1 시간대 → 2 날씨·미끼 → 3 구역·달·직업). */
+    /** Hint reveal per stage (0 region → 1 time of day → 2 weather·bait → 3 zone·moon·job). */
     private List<Component> hints(UUID owner, FishDef fish) {
         int level = codex.level(owner, fish.id());
         List<Component> lines = new ArrayList<>();

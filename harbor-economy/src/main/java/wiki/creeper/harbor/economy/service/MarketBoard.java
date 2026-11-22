@@ -27,13 +27,14 @@ import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.gui.Menu;
 
 /**
- * 시세판 (/시세, 추가 제안). 모든 어종을 아이콘으로 늘어놓고 지금 계수를 보여준다. 경제 계열 '시세 정보' 1랭크부터 열리고, 2랭크면 24시간 전과 비교한 ▲▼ 추세와
- * 급변 어종 강조, '시세 예측'이 있으면 다음 시간 예측을 더한다 (/시세 &lt;어종&gt;과 같은 기준). 정렬은 번호순 · 상승 큰 순 · 하락 큰 순. 메인 스레드
- * 전용.
+ * Market board (/시세, proposed). Lays out every species as an icon and shows its current factor.
+ * Opens from economy line "Market Info" rank 1; at rank 2 adds ▲▼ trends versus 24 hours ago and
+ * highlights sharply moving species; with "Market Forecast" adds the next-hour forecast (same basis
+ * as /시세 &lt;species&gt;). Sort: by number · biggest rise · biggest drop. Main thread only.
  */
 final class MarketBoard {
 
-    /** 정렬. */
+    /** Sort order. */
     enum Order {
         NUMBER,
         RISING,

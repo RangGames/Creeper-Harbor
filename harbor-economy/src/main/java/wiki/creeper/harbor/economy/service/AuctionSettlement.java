@@ -31,13 +31,15 @@ import wiki.creeper.harbor.economy.service.AuctionHouse.Row;
 import wiki.creeper.harbor.economy.service.AuctionHouse.SoldNotice;
 
 /**
- * 경매 구매·낙찰 (docs 20 7.4 구매). 가상 스레드에서 행과 의심 신호를 읽은 뒤, 메인 스레드에서 CurrencyService.atomic 한 트랜잭션으로 구매자
- * −가격(AUCTION_BUY) + 판매자 +가격(AUCTION_SALE) −수수료(AUCTION_FEE) + 경매 행 SOLD + auction_sale + 장부
- * IN_AUCTION → ACTIVE + 낙찰품 우편을 처리한다. 의심 점수가 높으면 판매자 몫은 HELD 우편 골드로 보낸다.
+ * Auction buying and settlement (docs 20 7.4 buying). Reads the row and suspicion signals on a
+ * virtual thread, then on the main thread handles, in one CurrencyService.atomic transaction, buyer
+ * −price (AUCTION_BUY) + seller +price (AUCTION_SALE) −fee (AUCTION_FEE) + auction row SOLD +
+ * auction_sale + ledger IN_AUCTION → ACTIVE + mail with the won item. If the suspicion score is
+ * high, the seller's share is sent as HELD mail gold.
  */
 final class AuctionSettlement {
 
-    /** 구매 직전 정보 (가상 스레드에서 읽음). */
+    /** Information just before buying (read on a virtual thread). */
     private record Prepared(Row row, FraudMath.Verdict verdict) {}
 
     private final HarborApi api;
@@ -143,7 +145,7 @@ final class AuctionSettlement {
                                 });
     }
 
-    /** 메인 스레드: 낙찰 트랜잭션. */
+    /** Main thread: the settlement transaction. */
     private CompletableFuture<Void> settle(
             Player player, Prepared prepared, int season, EconomyBalance.FraudRules rules) {
         Row row = prepared.row();
@@ -315,7 +317,7 @@ final class AuctionSettlement {
                         });
     }
 
-    /** 같은 트랜잭션: 경매 행을 잠그고 ACTIVE·가격·기한을 확인한다. */
+    /** Same transaction: locks the auction row and checks ACTIVE, price and deadline. */
     private static void lockActive(Connection c, long id, long price) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(

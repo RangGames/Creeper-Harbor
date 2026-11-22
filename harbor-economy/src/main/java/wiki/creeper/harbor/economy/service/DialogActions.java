@@ -12,13 +12,14 @@ import wiki.creeper.harbor.npc.api.DialogArgs;
 import wiki.creeper.harbor.npc.api.DialogService;
 
 /**
- * NPC 대화 액션 (docs 20 5.2, 7.2 수신 이벤트 'NpcInteractEvent(상점 열기)'). 샘플 대화(fish_market·tackle_keeper·
- * shipwright·peddler)가 이미 {@code shop:open}을 쓴다.
+ * NPC dialog actions (docs 20 5.2, 7.2 incoming event "NpcInteractEvent (open shop)"). The sample
+ * dialogs (fish_market, tackle_keeper, shipwright, peddler) already use {@code shop:open}.
  *
  * <ul>
- *   <li>{@code shop:open [상점 ID]}: 인자 → NPC의 shop 필드 → shops.yml npc가 그 NPC인 상점. 호감도 할인 적용
- *   <li>{@code craft:open <스테이션 ID 또는 workshop · cooking · shipyard>} (추가 제안)
- *   <li>{@code auction:open}, {@code mail:open} (추가 제안)
+ *   <li>{@code shop:open [shop ID]}: argument → the NPC's shop field → the shop whose shops.yml npc
+ *       is that NPC. Affinity discount applies
+ *   <li>{@code craft:open <station ID or workshop · cooking · shipyard>} (proposed)
+ *   <li>{@code auction:open}, {@code mail:open} (proposed)
  * </ul>
  */
 public final class DialogActions {

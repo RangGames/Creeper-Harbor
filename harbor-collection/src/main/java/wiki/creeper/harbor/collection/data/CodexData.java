@@ -6,9 +6,10 @@ import wiki.creeper.harbor.collection.api.CodexEntry;
 import wiki.creeper.harbor.common.id.FishId;
 
 /**
- * 플레이어 도감 (PlayerComponent, 변경 불가). 1인 최대 145 × 2 엔트리라 메모리 부담이 없다.
+ * Player codex (PlayerComponent, immutable). At most 145 × 2 entries per player, so memory cost is
+ * negligible.
  *
- * @param donations 이번 시즌 어종별 기부 수 (개인 점수 상한 판정)
+ * @param donations donations per species this season (for the personal point cap)
  */
 public record CodexData(
         Map<FishId, CodexEntry> total,

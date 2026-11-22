@@ -7,7 +7,7 @@ import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.model.Quality;
 
-/** 수족관 기부 1마리마다 (Quest donate 목표). */
+/** Fired per fish donated to the aquarium (Quest donate objective). */
 public final class AquariumDonatedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

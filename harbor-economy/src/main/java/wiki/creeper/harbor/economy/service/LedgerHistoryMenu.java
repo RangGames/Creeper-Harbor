@@ -19,8 +19,10 @@ import wiki.creeper.harbor.core.api.LedgerRecord;
 import wiki.creeper.harbor.core.gui.Menu;
 
 /**
- * 내 거래 내역 (/거래내역, 추가 제안). Core CurrencyService.history로 원장 최근 줄을 읽어 보여준다 (새 것부터, 재화별 200줄까지). 사유
- * 이름은 messages_ko.yml {@code economy.history.reason.<사유>}, 없으면 사유 코드 그대로. 읽기만 한다. 메인 스레드 전용.
+ * My transaction history (/거래내역, proposed). Reads recent ledger lines via Core
+ * CurrencyService.history (newest first, up to 200 lines per currency). Reason names come from
+ * messages_ko.yml {@code economy.history.reason.<reason>}, or the raw reason code if absent.
+ * Read-only. Main thread only.
  */
 final class LedgerHistoryMenu {
 

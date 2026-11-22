@@ -8,14 +8,14 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 관리자 알림 (부정 거래 의심, 시세 갱신 중단). 모든 서버의 권한 {@value #PERMISSION}을 가진 접속자에게 보낸다. 채널 harbor:econ_alert
- * (추가 제안).
+ * Admin alerts (suspected fraudulent trades, stalled market updates). Sent to online players with
+ * permission {@value #PERMISSION} on every server. Channel harbor:econ_alert (proposed).
  */
 public final class AdminAlerts {
 
     public static final String PERMISSION = "harbor.admin.economy.alert";
 
-    /** 알림 한 건. value는 문구의 {@code <value>} 자리. */
+    /** One alert. value fills the {@code <value>} slot in the message. */
     public record Alert(String key, String value) {}
 
     static final Channel<Alert> CHANNEL = new Channel<>("harbor:econ_alert", Alert.class);
@@ -41,7 +41,7 @@ public final class AdminAlerts {
                                                                 envelope.payload().value())));
     }
 
-    /** 어느 스레드에서 불러도 된다. */
+    /** May be called from any thread. */
     public void alert(String key, String value) {
         api.bus().publish(CHANNEL, new Alert(key, value));
     }

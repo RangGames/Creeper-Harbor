@@ -36,7 +36,7 @@ class FraudMathTest {
 
     @Test
     void repeatedPairCountsThisTrade() {
-        // 7일에 3회 이상: 앞선 2회 + 이번 거래
+        // 3 or more within 7 days: 2 earlier + this trade
         assertFalse(
                 FraudMath.evaluate(new FraudMath.Signals(false, 1, 1, false), RULES)
                         .reasons()
@@ -49,7 +49,8 @@ class FraudMathTest {
 
     @Test
     void washTradeBetweenAltsIsHeld() {
-        // 같은 IP 계정끼리 기준가 0.5배 반복 거래 → 60 + 40 + 20 = 120 ≥ 70
+        // Repeated trades between same-IP accounts at 0.5× the reference price → 60 + 40 + 20 = 120
+        // ≥ 70
         FraudMath.Verdict v = FraudMath.evaluate(new FraudMath.Signals(true, 2, 0.5, false), RULES);
         assertEquals(List.of("linked", "pair_repeat", "wash"), v.reasons());
         assertTrue(v.hold());
@@ -65,7 +66,7 @@ class FraudMathTest {
         FraudMath.Verdict trap = FraudMath.evaluate(new FraudMath.Signals(true, 0, 1, true), RULES);
         assertTrue(trap.reasons().contains("trap_alt"));
         assertTrue(trap.hold()); // 60 + 30
-        // 통발 어종이어도 연결 계정이 아니면 표시하지 않음
+        // Even trap species are not flagged unless the accounts are linked
         assertFalse(FraudMath.evaluate(new FraudMath.Signals(false, 0, 1, true), RULES).flag());
     }
 

@@ -18,20 +18,21 @@ import wiki.creeper.harbor.common.model.JobLine;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * NPC 상점 (shops.yml, 추가 제안, docs 20 7.3). 가격은 항목의 price가 없으면 아이템의 buy_price. 바닐라 재료(철 주괴·화약 …)는
- * {@code vanilla:}로 쓰고 price가 필수다 ('13. 제작 · 상점 가격' 4장 고정가).
+ * NPC shop (shops.yml, proposed, docs 20 7.3). The price is the entry's price, or the item's
+ * buy_price if absent. Vanilla materials (iron ingot, gunpowder …) are written as {@code vanilla:}
+ * and require a price ("13. Crafting · Shop prices" ch. 4 fixed prices).
  *
- * @param npc 상점 NPC (대화 액션 shop:open이 이 NPC의 상점을 연다)
+ * @param npc shop NPC (the shop:open dialog action opens this NPC's shop)
  */
 public record ShopDef(HarborId id, @Nullable NpcId npc, String title, List<Entry> entries) {
 
     /**
-     * 판매 항목. item과 vanilla 중 하나만 있다.
+     * Shop entry. Exactly one of item and vanilla is present.
      *
-     * @param dailyLimit 1인 하루 구매 한도 (0이면 없음)
-     * @param jobTier 필요한 직업 단계 (0이면 없음)
-     * @param visited 지역 첫 방문 (플레이어 플래그 visited/<지역>, 추가 제안)
-     * @param quest 퀘스트 완료 (플레이어 플래그 quest/<경로>, 추가 제안)
+     * @param dailyLimit per-player daily purchase limit (0 for none)
+     * @param jobTier required job tier (0 for none)
+     * @param visited first visit to a region (player flag visited/<region>, proposed)
+     * @param quest quest completed (player flag quest/<path>, proposed)
      */
     public record Entry(
             @Nullable ItemId item,
@@ -43,13 +44,13 @@ public record ShopDef(HarborId id, @Nullable NpcId npc, String title, List<Entry
             @Nullable RegionId visited,
             @Nullable QuestId quest) {
 
-        /** 한도 표에 쓰는 항목 키. */
+        /** Entry key used in the limit table. */
         public String key() {
             ItemId it = item;
             return it != null ? it.id().path() : "vanilla/" + String.valueOf(vanilla);
         }
 
-        /** 확인할 플레이어 플래그. */
+        /** Player flags to check. */
         public List<String> requiredFlags() {
             List<String> flags = new ArrayList<>();
             RegionId v = visited;
@@ -70,7 +71,7 @@ public record ShopDef(HarborId id, @Nullable NpcId npc, String title, List<Entry
             new ContentType.Entries<>(
                     "shop", List.of("shops.yml"), PREFIX, ShopDef::parse, ShopDef::id);
 
-    /** 가격이 정해지지 않은 항목 (price도 buy_price도 없음)은 오류. */
+    /** An entry with no price defined (neither price nor buy_price) is an error. */
     public static final ContentCheck<ShopDef> PRICE_CHECK =
             (shop, check) -> {
                 for (Entry entry : shop.entries()) {

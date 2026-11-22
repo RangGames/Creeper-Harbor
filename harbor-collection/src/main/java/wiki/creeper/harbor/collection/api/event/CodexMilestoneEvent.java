@@ -6,14 +6,15 @@ import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 도감 마일스톤 (지역 완성, 누적 달성률 단계). 칭호는 Collection이 Season TitleService로 직접 지급하고(참조 ID {@code
- * codex:<시즌>:<칭호 키>}), 치장품은 Shop이 이 이벤트를 듣고 지급한다. title은 지급한 칭호 키다.
+ * Codex milestone (region completion, cumulative completion stage). Titles are granted directly by
+ * Collection via Season TitleService (reference ID {@code codex:<season>:<title key>}); cosmetics
+ * are granted by Shop listening to this event. title is the granted title key.
  *
  * @see Kind
  */
 public final class CodexMilestoneEvent extends Event {
 
-    /** 마일스톤 종류. */
+    /** Milestone kind. */
     public enum Kind {
         REGION_COMPLETE,
         TOTAL_PERCENT
@@ -44,7 +45,7 @@ public final class CodexMilestoneEvent extends Event {
         return kind;
     }
 
-    /** 지역 이름 또는 달성률 단계 키. */
+    /** Region name or completion stage key. */
     public String key() {
         return key;
     }
@@ -53,7 +54,7 @@ public final class CodexMilestoneEvent extends Event {
         return percent;
     }
 
-    /** 지급할 칭호 ID (없으면 null). */
+    /** Title ID to grant (null if none). */
     public @Nullable String title() {
         return title;
     }

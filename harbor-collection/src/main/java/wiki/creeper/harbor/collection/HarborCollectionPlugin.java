@@ -28,8 +28,10 @@ import wiki.creeper.harbor.core.api.ModuleContext;
 import wiki.creeper.harbor.fishing.api.FishingService;
 
 /**
- * Harbor-Collection (docs 20 4장): 도감·힌트·최대어 기록·항구 수족관(수조 연출)·개인 어항 전시·방류·랭킹 전광판. 포획 판정은 하지 않고
- * Fishing의 포획 이벤트를 받아 기록만 한다. Season은 필수(칭호·명예의 전당·랭킹), NPC·World·Shop은 선택 의존이다.
+ * Harbor-Collection (docs 20 ch. 4): codex, hints, biggest-catch records, harbor aquarium (tank
+ * display), personal aquarium displays, release, ranking billboard. It does not judge catches; it
+ * only records Fishing's catch events. Season is required (titles, hall of fame, rankings); NPC,
+ * World, and Shop are optional dependencies.
  */
 public final class HarborCollectionPlugin extends HarborModule {
 
@@ -67,7 +69,8 @@ public final class HarborCollectionPlugin extends HarborModule {
                         "Harbor-Fishing이 켜져 있어야 합니다")
                 .registerCodex(codex);
 
-        // NPC 선택 의존: 대화 액션 aquarium:donate · codex:hint, 최고 평판 등급(어항 칸), 방류 평판
+        // Optional NPC dependency: dialog actions aquarium:donate · codex:hint, highest reputation
+        // tier (aquarium slots), release reputation
         NpcBridge npc = NpcBridge.NONE;
         if (enabled("Harbor-Npc")) {
             npc = wiki.creeper.harbor.collection.hook.NpcHooks.install(this, api, aquarium, codex);
@@ -76,7 +79,8 @@ public final class HarborCollectionPlugin extends HarborModule {
                 new ReleaseManager(api, ctx.tasks(), getSLF4JLogger(), returns, npc);
         ctx.listen(release);
 
-        // World 선택 의존: 개인 어항 전시. Shop(어항 테마 보유)은 Collection 뒤에 켜지므로 쓸 때 찾는다
+        // Optional World dependency: personal aquarium displays. Shop (aquarium theme ownership)
+        // enables after Collection, so it is looked up on use
         ShopThemes themes = new ShopThemes(getSLF4JLogger());
         if (enabled("Harbor-World")) {
             display =

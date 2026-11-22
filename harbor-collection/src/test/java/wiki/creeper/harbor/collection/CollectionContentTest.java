@@ -23,7 +23,10 @@ import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.fishing.content.FishingContent;
 import wiki.creeper.harbor.season.content.SeasonContent;
 
-/** 저장소 content/의 Collection 파일이 서버와 같은 로더로 읽히는지. */
+/**
+ * Checks that the Collection files in the repository content/ load with the same loader as the
+ * server.
+ */
 class CollectionContentTest {
 
     private static final Set<String> OWNED =
