@@ -6,6 +6,18 @@
 - 기준 버전: Skript **2.17.1** (2.17 등록 API 사용)
 - Skript가 없으면 아무것도 하지 않습니다 (서버 오류 없이 꺼진 채로 둠)
 
+## 전체 문법 레퍼런스
+
+이 README는 기본 문법과 지킬 것을 다룹니다. 모듈별 전체 문법은 아래 문서에 있습니다.
+
+| 문서 | 다루는 것 |
+|---|---|
+| [docs/core-jobs-season.md](docs/core-jobs-season.md) | 플레이어 데이터·수치 보정·재화(오프라인·이체·순위·내역)·문구·보스바·다이얼로그(대기형)·소리·서버 이동·파티·월드 경계·콘텐츠 리로드·외부 이벤트·리그·가구·커스텀 블록, 직업, 시즌·칭호·주간 한도·랭킹·명예의 전당 |
+| [docs/fishing-collection-quest-wildlife.md](docs/fishing-collection-quest-wildlife.md) | 낚시(세션·물고기 아이템·통발·장력 미니게임·모든 낚시 이벤트), 도감·수족관·방류·기록·전시함, 퀘스트·연대기·서버 진행도, 야생 물고기 |
+| [docs/npc-economy-world-boss-shop.md](docs/npc-economy-world-boss-shop.md) | NPC·대화(스크립트로 대화 액션·조건 구현)·호감도·평판·컷씬, 경제(시세·판매가·경매·제작대), 월드(지역·선박·하우징·해도·보물·해역 이벤트), 보스·파티·기록, 상점(치장품·후원·시즌 패스) |
+
+결과가 늦게 오는 동작(오프라인 잔액, 다이얼로그 답, 칭호 지급 등)은 `… and store it in {_var}` 형태의 대기 문법입니다. 결과를 받을 때까지 그 트리거의 다음 줄을 미루고, 메인 스레드는 막지 않습니다.
+
 ## 설치
 
 1. 문법을 쓸 서버(lobby·play)마다 `Skript.jar`와 `harbor-skript.jar`를 `plugins/`에 넣습니다.
@@ -378,7 +390,7 @@ equip harbor title %string% (for|to|on) %players%   # 가지고 있는 칭호만
 unequip harbor title (of|for|from) %players%
 ```
 
-칭호 **지급**은 스크립트에서 하지 않습니다. 칭호는 퀘스트·도감·시즌 보상으로만 받게 합니다.
+칭호 지급·회수는 관리자용 `harbor admin grant/revoke title …`로만 합니다 ([docs/core-jobs-season.md](docs/core-jobs-season.md)). 보통은 퀘스트·도감·시즌 보상으로 받게 합니다.
 
 ## 시세 · 경매 (Harbor-Economy)
 
@@ -421,11 +433,13 @@ on harbor sea event start:
     broadcast "&b[해역] %harbor sea event name%이(가) 시작됐습니다!"
 ```
 
-## 없는 것
+## 일부러 열지 않은 것
 
-- **GUI 열기:** 퀘스트북·판매·경매장 열기 문법은 없습니다. 그 모듈이 API로 여는 기능을 내놓지 않았기 때문입니다. 도감만 `open harbor collection`로 열 수 있습니다. 플레이어에게 명령을 시키려면 `make player execute command "/퀘스트"`를 쓰세요.
-- **새 목표 유형 등록:** 위 퀘스트 절 참고.
-- **재화·칭호·호감도를 직접 바꾸기:** 원장·보상 경로를 지키려고 골드·물비늘(원장 사유 SCRIPT_*)만 엽니다.
+- **진주(유료 재화):** 잔액 읽기·지급·차감·이벤트 모두 열지 않습니다. 결제·환불과 묶인 재화라 스크립트로 바꾸면 정산이 어긋납니다.
+- **골드 우편:** 받을 때 원장에 `MAIL_GOLD`로 기록되어 스크립트 지급 감사(`SCRIPT_*`)에서 빠집니다. 오프라인 플레이어에게도 `harbor give N gold`를 쓰세요.
+- **다른 기능의 수치 보정 지우기:** 스크립트가 거는 보정의 출처는 항상 `skript:` 아래라서, 스킬·이벤트 보정은 지울 수 없습니다.
+
+모듈 API가 아직 없어서 열지 못한 기능은 각 문서 끝의 "없는 것" 절에 있습니다.
 
 ## 운영: 스크립트가 지급한 재화 확인
 

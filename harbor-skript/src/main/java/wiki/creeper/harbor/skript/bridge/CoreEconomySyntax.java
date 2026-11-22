@@ -21,8 +21,8 @@ import wiki.creeper.harbor.skript.lambda.Registrar;
 
 /**
  * Core currency and mail syntax (always registered): grants and deductions for offline players,
- * transfers, admin set, balance / rank / top / history lookups, gold mail, unclaimed mail count and
- * extra currency event values.
+ * transfers, admin set, balance / rank / top / history lookups, unclaimed mail count and extra
+ * currency event values.
  *
  * <p>Every change is a ledger transaction through CurrencyService (script changes use the reasons
  * SCRIPT_GRANT · SCRIPT_TAKE, admin set uses ADMIN_GRANT · ADMIN_TAKE). Results arrive
@@ -247,20 +247,8 @@ public final class CoreEconomySyntax {
                 (e, x) -> api().mail().isPresent(),
                 "harbor mail is available",
                 "harbor mail (isn't|is not) available");
-        Ext.effect(
-                r,
-                "send harbor gold mail",
-                c -> {
-                    Optional<MailService> mail = api().mail();
-                    long gold = c.number(0).map(Number::longValue).orElse(0L);
-                    if (mail.isEmpty() || gold <= 0) {
-                        return;
-                    }
-                    for (OfflinePlayer p : c.offline(1)) {
-                        var _ = mail.get().sendGold(p.getUniqueId(), gold, "skript", Shared.ref());
-                    }
-                },
-                "send harbor gold mail [of] %number% to %offlineplayers%");
+        // No gold mail: claimed gold is booked as MAIL_GOLD and would escape the SCRIPT_* ledger
+        // audit. Scripts give gold to offline players with `harbor give N gold` instead.
         Ext.await(
                 r,
                 "harbor load unclaimed mail",

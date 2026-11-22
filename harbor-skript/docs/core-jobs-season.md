@@ -157,12 +157,12 @@ event-player                        # 접속 중일 때
 ## 우편 (Core, 구현은 Harbor-Economy)
 
 ```
-send harbor gold mail [of] %number% to %offlineplayers%          # 받을 때 원장 MAIL_GOLD로 지급
 harbor load unclaimed mail count of %offlineplayer% into %objects%
 harbor mail is available         harbor mail (isn't|is not) available
 ```
 
 Harbor-Economy가 없으면 우편 문법은 아무것도 하지 않습니다 (`harbor mail is available`로 확인).
+골드 우편은 열지 않습니다. 받을 때 원장에 MAIL_GOLD로 기록되어 스크립트 지급(SCRIPT_GRANT) 감사에서 빠지기 때문입니다. 오프라인 플레이어에게 골드를 줄 때는 `harbor give N gold to …`를 쓰세요.
 
 ## 문구 · 화면 (Core)
 

@@ -1,6 +1,6 @@
 # Harbor-Skript
 
-선택 설치하는 Skript 애드온이다. Skript가 있을 때만 문법을 등록하고, 각 Harbor 모듈 문법도 그 모듈이 켜져 있을 때만 등록한다. 재화는 원장(`SCRIPT_GRANT` · `SCRIPT_TAKE`)으로만, 아이템은 `ItemService`로만 다룬다. 문법 전체와 예시는 [harbor-skript/README.md](../harbor-skript/README.md)에 있다.
+선택 설치하는 Skript 애드온이다. Skript가 있을 때만 문법을 등록하고, 각 Harbor 모듈 문법도 그 모듈이 켜져 있을 때만 등록한다. 재화는 원장(`SCRIPT_GRANT` · `SCRIPT_TAKE`)으로만, 아이템은 `ItemService`로만 다룬다. 기본 문법은 [harbor-skript/README.md](../harbor-skript/README.md), 모듈별 전체 문법은 [harbor-skript/docs/](../harbor-skript/docs/)의 세 문서에 있다 (Core·직업·시즌·가구 / 낚시·도감·퀘스트·야생동물 / NPC·경제·월드·보스·상점).
 
 ## 할 수 있는 것
 
