@@ -104,7 +104,7 @@ public final class HarborProxyPlugin {
         bus = messageBus;
 
         ProxyText text = new ProxyText(config.messages(), bundledMessages());
-        ServerDirectory directory = new ServerDirectory();
+        ServerDirectory directory = new ServerDirectory(config);
         SeatReservations seats = new SeatReservations();
         SessionLocks locks = new SessionLocks(r);
         Executor io = database.executor();

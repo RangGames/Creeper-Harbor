@@ -45,6 +45,9 @@ final class MaintenanceService {
     private volatile State state = State.OFF;
     private volatile boolean kicked;
 
+    /** Redis에서 한 번이라도 읽었는지. 읽은 뒤의 장애에는 마지막 상태를 유지한다. */
+    private volatile boolean known;
+
     MaintenanceService(
             Object plugin,
             ProxyServer proxy,
@@ -62,17 +65,28 @@ final class MaintenanceService {
         this.log = log;
     }
 
-    /** 시작할 때와 주기적으로 Redis에서 다시 읽는다. Redis가 없으면 설정 파일의 fallback 값을 쓴다. */
+    /**
+     * 시작할 때와 주기적으로 Redis에서 다시 읽는다. 시작 때 Redis가 없으면 설정 파일의 fallback 값을 쓴다 (종료 시각 미정이라 새 접속만 막고 내보내지는
+     * 않는다). 읽은 뒤의 일시 장애로 접속자를 내보내지 않게 그때는 마지막 상태를 유지한다.
+     */
     void refresh() {
+        State next;
         try {
             String raw = redis.sync().get(KEY);
-            state = raw == null ? State.OFF : Json.GSON.fromJson(raw, State.class);
+            next = raw == null ? State.OFF : Json.GSON.fromJson(raw, State.class);
+            known = true;
         } catch (RuntimeException e) {
-            if (config.maintenanceFallback()) {
-                state = new State(true, "maintenance", 0, List.of());
+            log.warn("점검 상태를 읽지 못했습니다: {}", String.valueOf(e.getMessage()));
+            if (known || !config.maintenanceFallback()) {
+                return;
             }
-            log.warn("점검 상태를 읽지 못했습니다: {}", e.getMessage());
+            next = new State(true, "maintenance", 0, List.of());
         }
+        // 다른 곳(다른 프록시 명령·Season)에서 바뀐 점검도 다시 카운트다운·퇴장하게 한다
+        if (!next.equals(state)) {
+            kicked = false;
+        }
+        state = next;
     }
 
     State state() {
@@ -120,7 +134,8 @@ final class MaintenanceService {
     /** 1초마다: 남은 시간 공지, 0초에 저장 신호 → 3초 뒤 bypass 외 전원 퇴장. */
     void tick() {
         State s = state;
-        if (!s.on() || kicked) {
+        // until 0은 종료 시각 미정 (fallback 등): 새 접속만 막고 카운트다운·퇴장은 하지 않는다
+        if (!s.on() || kicked || s.until() == 0) {
             return;
         }
         long left = (s.until() - System.currentTimeMillis()) / 1000;

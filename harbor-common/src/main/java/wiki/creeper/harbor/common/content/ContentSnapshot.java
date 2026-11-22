@@ -2,6 +2,7 @@ package wiki.creeper.harbor.common.content;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -18,11 +19,24 @@ public final class ContentSnapshot {
     private final Map<String, Map<HarborId, Object>> entries;
     private final Map<String, Object> singles;
 
+    /** 형식별로 파싱 때 모은 참조. 일부만 다시 읽을 때 안 읽은 형식의 참조도 다시 검사하려고 둔다. */
+    private final Map<String, List<ParseContext.Reference>> references;
+
     ContentSnapshot(Map<String, Map<HarborId, Object>> entries, Map<String, Object> singles) {
+        this(entries, singles, Map.of());
+    }
+
+    ContentSnapshot(
+            Map<String, Map<HarborId, Object>> entries,
+            Map<String, Object> singles,
+            Map<String, List<ParseContext.Reference>> references) {
         Map<String, Map<HarborId, Object>> copy = new HashMap<>();
         entries.forEach((k, v) -> copy.put(k, Collections.unmodifiableMap(v)));
         this.entries = Collections.unmodifiableMap(copy);
         this.singles = Map.copyOf(singles);
+        Map<String, List<ParseContext.Reference>> refs = new HashMap<>();
+        references.forEach((k, v) -> refs.put(k, List.copyOf(v)));
+        this.references = Collections.unmodifiableMap(refs);
     }
 
     public static ContentSnapshot empty() {
@@ -78,6 +92,10 @@ public final class ContentSnapshot {
 
     Map<String, Object> rawSingles() {
         return singles;
+    }
+
+    Map<String, List<ParseContext.Reference>> rawReferences() {
+        return references;
     }
 
     /** 형식별 항목 수 (상태 표시용). */

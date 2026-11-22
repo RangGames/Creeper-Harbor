@@ -3,13 +3,18 @@ package wiki.creeper.harbor.common.redis;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import io.lettuce.core.RedisChannelHandler;
+import io.lettuce.core.RedisConnectionStateListener;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import java.lang.System.Logger.Level;
+import java.net.SocketAddress;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import wiki.creeper.harbor.common.util.Json;
 
@@ -25,9 +30,15 @@ public final class MessageBus implements AutoCloseable {
 
     private static final System.Logger LOG = System.getLogger("Harbor/MessageBus");
 
+    /** 구독 실패 재시도 간격: 1초부터 두 배씩, 최대 30초. */
+    private static final long RETRY_MIN_MS = 1_000;
+
+    private static final long RETRY_MAX_MS = 30_000;
+
     private final Redis redis;
     private final String serverId;
     private final Map<String, List<Handler<?>>> handlers = new ConcurrentHashMap<>();
+    private volatile boolean closed;
 
     private record Handler<T extends Record>(Channel<T> channel, Consumer<Envelope<T>> consumer) {
         void dispatch(Envelope<JsonElement> raw) {
@@ -45,6 +56,18 @@ public final class MessageBus implements AutoCloseable {
                             @Override
                             public void message(String channel, String message) {
                                 onMessage(channel, message);
+                            }
+                        });
+        // Lettuce는 실제로 구독된 채널만 복구한다. 끊긴 동안 거부된 SUBSCRIBE까지 다시 건다 (SUBSCRIBE는 중복돼도 무해)
+        redis.pubSub()
+                .addListener(
+                        new RedisConnectionStateListener() {
+                            @Override
+                            public void onRedisConnected(
+                                    RedisChannelHandler<?, ?> connection, SocketAddress address) {
+                                for (String name : handlers.keySet()) {
+                                    subscribeLater(name, RETRY_MIN_MS);
+                                }
                             }
                         });
     }
@@ -82,10 +105,44 @@ public final class MessageBus implements AutoCloseable {
                 handlers.computeIfAbsent(
                         channel.name(),
                         name -> {
-                            var _ = redis.pubSub().async().subscribe(name);
+                            subscribeNow(name, RETRY_MIN_MS);
                             return new CopyOnWriteArrayList<>();
                         });
         list.add(new Handler<>(channel, consumer));
+    }
+
+    /** SUBSCRIBE를 보내고, 실패하면 간격을 늘려 다시 시도한다 (REJECT_COMMANDS라 끊긴 동안은 바로 실패한다). */
+    private void subscribeNow(String name, long delayMs) {
+        if (closed) {
+            return;
+        }
+        CompletableFuture<Void> sent;
+        try {
+            sent = redis.pubSub().async().subscribe(name).toCompletableFuture();
+        } catch (RuntimeException e) {
+            sent = CompletableFuture.failedFuture(e);
+        }
+        var _ =
+                sent.exceptionally(
+                        e -> {
+                            LOG.log(
+                                    Level.WARNING,
+                                    "Redis 구독 실패, "
+                                            + delayMs / 1000
+                                            + "초 뒤 다시 시도 ("
+                                            + name
+                                            + "): "
+                                            + String.valueOf(e.getMessage()));
+                            subscribeLater(name, delayMs);
+                            return null;
+                        });
+    }
+
+    private void subscribeLater(String name, long delayMs) {
+        var _ =
+                CompletableFuture.runAsync(
+                        () -> subscribeNow(name, Math.min(delayMs * 2, RETRY_MAX_MS)),
+                        CompletableFuture.delayedExecutor(delayMs, TimeUnit.MILLISECONDS));
     }
 
     private void onMessage(String channel, String message) {
@@ -120,6 +177,7 @@ public final class MessageBus implements AutoCloseable {
 
     @Override
     public void close() {
+        closed = true;
         if (!handlers.isEmpty()) {
             var _ = redis.pubSub().async().unsubscribe(handlers.keySet().toArray(String[]::new));
         }
