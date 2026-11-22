@@ -1,4 +1,4 @@
-# 수족관 관장 이슬. 기부함·힌트는 Collection이 aquarium:donate·codex:hint를 등록한다.
+# 수족관 관장 이슬. 기부함·힌트는 Collection이 aquarium:donate·collection:hint를 등록한다.
 - id: dialog/iseul
   entries:
     - {node: greet}

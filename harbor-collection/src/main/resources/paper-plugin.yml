@@ -18,7 +18,7 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
-    # 선택: 대화 액션(aquarium:donate · codex:hint), 최고 평판 등급(어항 칸, D11), 방류 평판
+    # 선택: 대화 액션(aquarium:donate · collection:hint), 최고 평판 등급(어항 칸, D11), 방류 평판
     Harbor-Npc:
       load: BEFORE
       required: false
@@ -34,7 +34,7 @@ dependencies:
       required: false
       join-classpath: true
 permissions:
-  harbor.collection.collection:
+  harbor.collection.view:
     description: '/도감'
     default: true
   harbor.collection.record:

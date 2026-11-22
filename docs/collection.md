@@ -30,8 +30,8 @@
 
 | 명령 | 권한 (`paper-plugin.yml`) | 설명 |
 |---|---|---|
-| `/도감 [플레이어]` | `harbor.collection.collection` | 도감 GUI |
-| `/도감 보상` · `/도감 최근` | `harbor.collection.collection` | 보상 트랙, 최근 등록순 |
+| `/도감 [플레이어]` | `harbor.collection.view` | 도감 GUI |
+| `/도감 보상` · `/도감 최근` | `harbor.collection.view` | 보상 트랙, 최근 등록순 |
 | `/기록 [어종] [채팅]` | `harbor.collection.record` | 최대어 기록 GUI (채팅을 붙이면 채팅으로) |
 | `/수족관` · `/수족관 상태` | `harbor.collection.aquarium` | 수족관 진행 화면, 상태 한 줄 |
 | `/수족관 기부` · `/수족관 기부함` | `harbor.collection.aquarium` | 손에 든 한 마리 기부, 기부함 |
@@ -44,8 +44,8 @@
 | 명령 | 설명 |
 |---|---|
 | `/harbor collection display <플롯> clear <칸>` | 개인 어항 전시 칸 비우기 |
-| `/harbor collection collection <플레이어> set <어종> [크기 품질]` | 도감 등록 |
-| `/harbor collection collection <플레이어> remove <어종>` | 도감 삭제 |
+| `/harbor collection entry <플레이어> set <어종> [크기 품질]` | 도감 등록 |
+| `/harbor collection entry <플레이어> remove <어종>` | 도감 삭제 |
 | `/harbor collection record remove <어종> <리그> <플레이어>` | 최대어 기록 삭제 |
 | `/harbor collection hint <플레이어> <어종> <0~3>` | 힌트 단계 설정 |
 | `/harbor collection aquarium recount` | 수족관 기부율 다시 세기 |

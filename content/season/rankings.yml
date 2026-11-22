@@ -1,4 +1,4 @@
-# 랭킹 보드 (docs 20 11.3·11.4). source: records · level · codex_season · boss_records (+ 다른 모듈이 등록한 원천)
+# 랭킹 보드 (docs 20 11.3·11.4). source: records · level · collection_season · boss_records (+ 다른 모듈이 등록한 원천)
 # 한 서버가 refresh(분)마다 상위 size명을 집계해 모든 서버에 보낸다. 동점은 먼저 달성한 사람이 앞선다.
 
 boards:

@@ -1,7 +1,7 @@
 # 칭호 정의 (추가 제안, docs 20 11.3). 지급은 Season TitleService (Collection·Quest·Boss·Shop이 요청).
 # style: common · rare · epic · legendary · special / permanent: false면 상태형 (조건이 끝나면 회수될 수 있음)
 
-# ---- 도감 (Collection CodexMilestoneEvent 칭호 키와 같다)
+# ---- 도감 (Collection CollectionMilestoneEvent 칭호 키와 같다)
 - {id: title/codex_25, name: "<white>초보 수집가", style: common, source_hint: "누적 도감 25%"}
 - {id: title/codex_50, name: "<green>열성 수집가", style: rare, source_hint: "누적 도감 50%"}
 - {id: title/codex_75, name: "<aqua>노련한 수집가", style: epic, source_hint: "누적 도감 75%"}

@@ -53,6 +53,6 @@ catch_fx:                # 포획 연출 등급 강도 (Fishing fishing/presets.
   legendary: {pillar: 12, firework: true}
   mythic: {pillar: 16, firework: true}
 
-collection_rewards:           # Collection CodexMilestoneEvent 키 → 치장품 ('17-2' 4.4)
+collection_rewards:           # Collection CollectionMilestoneEvent 키 → 치장품 ('17-2' 4.4)
   total_25: cosmetic/codex_25_frame
   harbor: cosmetic/codex_harbor_theme

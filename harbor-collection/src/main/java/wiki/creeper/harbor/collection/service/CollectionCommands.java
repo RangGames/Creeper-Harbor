@@ -284,7 +284,7 @@ public final class CollectionCommands {
                                                                                         this
                                                                                                 ::displayClear)))))
                 .then(
-                        Commands.literal("collection")
+                        Commands.literal("entry")
                                 .then(
                                         target().then(
                                                         Commands.literal("set")

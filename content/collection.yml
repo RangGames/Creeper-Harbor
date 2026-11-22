@@ -1,4 +1,4 @@
-# 도감 보상 (추가 제안, docs 20 4.3·4.4). 칭호는 Season, 치장품은 Shop이 CodexMilestoneEvent로 지급한다.
+# 도감 보상 (추가 제안, docs 20 4.3·4.4). 칭호는 Season, 치장품은 Shop이 CollectionMilestoneEvent로 지급한다.
 
 first_catch:            # 희귀 이상 첫 포획 물비늘 ('7. 밸런스 기획' 7장: 종당 1)
   min_grade: rare
@@ -14,7 +14,7 @@ total_milestones:       # 누적 달성률 (성능 버프 없음)
   - {percent: 75, title: codex_75}
   - {percent: 100, title: codex_100}
 
-season_buffs:           # 시즌 도감 버프 (제안값, 출처 codex_season)
+season_buffs:           # 시즌 도감 버프 (제안값, 출처 collection_season)
   - {percent: 20, modifiers: [{stat: exp_gain, value: 0.02}]}
   - {percent: 40, modifiers: [{stat: sell_price, value: 0.02}]}
   - {percent: 60, modifiers: [{stat: rare_weight, value: 0.03}]}
