@@ -51,9 +51,9 @@ import wiki.creeper.harbor.fishing.api.event.QualityRolledEvent;
 import wiki.creeper.harbor.fishing.api.event.TrapHarvestEvent;
 import wiki.creeper.harbor.skript.Ids;
 import wiki.creeper.harbor.skript.lambda.Args;
+import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
-import wiki.creeper.harbor.skript.lambda.ValueExpr;
 
 /**
  * When Harbor-Fishing is enabled: fishing session state, pity, fish item info and creation, traps,
@@ -64,8 +64,8 @@ import wiki.creeper.harbor.skript.lambda.ValueExpr;
  * <p>Roll results can be changed inside the roll events ({@code set harbor rolled fish to ...},
  * {@code set harbor rolled size to ...}); {@code harbor admin force next fish} sets the next roll
  * ahead of time like {@code /harbor fishing force}. Trap lists come from an async API, so trap
- * expressions return the last fetched value (refreshed in the background, see {@link
- * LatestValues}). Trap actions are in {@link TrapSyntax}, food buffs in {@link FoodSyntax}.
+ * expressions return the last fetched value (refreshed in the background, see {@link AsyncCache}).
+ * Trap actions are in {@link TrapSyntax}, food buffs in {@link FoodSyntax}.
  */
 public final class FishingSyntax {
 
@@ -76,8 +76,8 @@ public final class FishingSyntax {
 
     private record ScriptTension(TensionSession session, String tag) {}
 
-    private static final LatestValues<UUID, List<TrapInfo>> TRAPS =
-            new LatestValues<>(
+    private static final AsyncCache<UUID, List<TrapInfo>> TRAPS =
+            AsyncCache.every(
                     5_000,
                     owner ->
                             Harbor.api()
@@ -86,8 +86,8 @@ public final class FishingSyntax {
                                     .orElseThrow());
 
     /** Traps looked up by ID (other players' traps, not in an owner list yet). */
-    private static final LatestValues<Long, Optional<TrapInfo>> TRAP_BY_ID =
-            new LatestValues<>(
+    private static final AsyncCache<Long, Optional<TrapInfo>> TRAP_BY_ID =
+            AsyncCache.every(
                     5_000,
                     id ->
                             Harbor.api()
@@ -187,13 +187,13 @@ public final class FishingSyntax {
         for (List<TrapInfo> list : TRAPS.cached()) {
             for (TrapInfo t : list) {
                 if (t.id() == id) {
-                    var _ = TRAPS.get(t.owner());
+                    var _ = TRAPS.latest(t.owner());
                     return Optional.of(t);
                 }
             }
         }
         // Not in a fetched owner list: look it up by ID (empty on the first read)
-        return TRAP_BY_ID.get(id).flatMap(t -> t);
+        return TRAP_BY_ID.latest(id).flatMap(t -> t);
     }
 
     private static <T> Spec.Getter<T> byTrap(Function<TrapInfo, @Nullable T> value) {
@@ -300,7 +300,8 @@ public final class FishingSyntax {
                     return List.of(f.get().expectedShare(reg.get(), fish.get()));
                 },
                 "[the] harbor expected share of [fish] %string% in [region] %string%");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.single("active harbor sea events"),
                         (e, x) ->
@@ -308,7 +309,7 @@ public final class FishingSyntax {
                                         .<List<String>>map(f -> List.copyOf(f.activeSeaEvents()))
                                         .orElse(List.of()))
                 .list()
-                .register(r, "[all] [the] active harbor sea events");
+                .register("[all] [the] active harbor sea events");
         r.condition(
                 Spec.single("harbor sea event active"),
                 (e, x) -> {
@@ -504,15 +505,17 @@ public final class FishingSyntax {
                 Spec.of("harbor fish catcher"),
                 perFish(f -> Bukkit.getOfflinePlayer(f.catcher().uuid())),
                 "[the] harbor fish catcher of %itemstacks%");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         ch.njol.skript.util.Date.class,
                         Spec.of("harbor fish caught date"),
                         perFish(f -> new ch.njol.skript.util.Date(f.caughtAt().toEpochMilli())))
-                .register(r, "[the] harbor fish caught (date|time) of %itemstacks%");
+                .register("[the] harbor fish caught (date|time) of %itemstacks%");
 
         // Creating a fish item: ★5, legendary and mythic fish get a unique ID recorded in
         // fish_ledger by Core (async), exactly like a normal catch item.
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         ItemStack.class,
                         Spec.single("harbor fish item"),
                         (e, x) -> {
@@ -554,7 +557,6 @@ public final class FishingSyntax {
                                                     Instant.now()));
                         })
                 .register(
-                        r,
                         "[a] harbor fish item %string% [with size %-number%] [with quality"
                                 + " %-number%] [caught by %-offlineplayer%]");
 
@@ -592,24 +594,25 @@ public final class FishingSyntax {
                                 e,
                                 x,
                                 p ->
-                                        TRAPS.get(p.getUniqueId())
+                                        TRAPS.latest(p.getUniqueId())
                                                 .map(l -> (Number) l.size())
                                                 .orElse(null)),
                 "[the] (number|amount) of harbor traps of %players%",
                 "[the] harbor trap count of %players%");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         Number.class,
                         Spec.of("harbor trap ids"),
                         (e, x) -> {
                             List<Number> out = new ArrayList<>();
                             for (Player p : Args.players(e, x, 0)) {
-                                TRAPS.get(p.getUniqueId())
+                                TRAPS.latest(p.getUniqueId())
                                         .ifPresent(l -> l.forEach(t -> out.add(t.id())));
                             }
                             return out;
                         })
                 .list()
-                .register(r, "[all] [the] harbor trap ids of %players%");
+                .register("[all] [the] harbor trap ids of %players%");
         r.number(
                 Spec.of("harbor trap stored total"),
                 (e, x) ->
@@ -617,7 +620,7 @@ public final class FishingSyntax {
                                 e,
                                 x,
                                 p ->
-                                        TRAPS.get(p.getUniqueId())
+                                        TRAPS.latest(p.getUniqueId())
                                                 .map(
                                                         l ->
                                                                 (Number)
@@ -660,7 +663,8 @@ public final class FishingSyntax {
                 Spec.single("harbor trap owner"),
                 byTrap(t -> Bukkit.getOfflinePlayer(t.owner())),
                 "[the] harbor trap owner of trap %number%");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         Location.class,
                         Spec.single("harbor trap location"),
                         byTrap(
@@ -668,8 +672,9 @@ public final class FishingSyntax {
                                     World w = Bukkit.getWorld(t.world());
                                     return w == null ? null : new Location(w, t.x(), t.y(), t.z());
                                 }))
-                .register(r, "[the] harbor trap location of trap %number%");
-        ValueExpr.builder(
+                .register("[the] harbor trap location of trap %number%");
+        Ext.expr(
+                        r,
                         ch.njol.skript.util.Date.class,
                         Spec.single("harbor trap next cycle"),
                         byTrap(
@@ -679,7 +684,7 @@ public final class FishingSyntax {
                                             ? null
                                             : new ch.njol.skript.util.Date(next.toEpochMilli());
                                 }))
-                .register(r, "[the] harbor trap next cycle [time] of trap %number%");
+                .register("[the] harbor trap next cycle [time] of trap %number%");
         r.effect(
                 Spec.of("refresh harbor traps"),
                 (e, x) -> Args.players(e, x, 0).forEach(p -> TRAPS.refresh(p.getUniqueId())),
@@ -767,7 +772,8 @@ public final class FishingSyntax {
                 (e, x) -> Args.all(e, x, p -> tension(p).isPresent()),
                 "%players% (is|are) in [a] harbor tension [minigame]",
                 "%players% (isn't|is not|aren't|are not) in [a] harbor tension [minigame]");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         Number.class,
                         Spec.of("harbor tension"),
                         (e, x) ->
@@ -778,7 +784,7 @@ public final class FishingSyntax {
                                                 tension(p)
                                                         .map(t -> (Number) t.session().tension())
                                                         .orElse(null)))
-                .changer(
+                .valueChanger(
                         Number.class,
                         (e, x, mode, v) -> {
                             double d = v instanceof Number n ? n.doubleValue() : 0;
@@ -801,8 +807,9 @@ public final class FishingSyntax {
                         ChangeMode.ADD,
                         ChangeMode.REMOVE,
                         ChangeMode.SET)
-                .register(r, "[the] harbor tension of %players%");
-        ValueExpr.builder(
+                .register("[the] harbor tension of %players%");
+        Ext.expr(
+                        r,
                         Number.class,
                         Spec.of("harbor tension hp"),
                         (e, x) ->
@@ -813,7 +820,7 @@ public final class FishingSyntax {
                                                 tension(p)
                                                         .map(t -> (Number) t.session().hpRatio())
                                                         .orElse(null)))
-                .changer(
+                .valueChanger(
                         Number.class,
                         (e, x, mode, v) -> {
                             double d = v instanceof Number n ? n.doubleValue() : 0;
@@ -822,7 +829,7 @@ public final class FishingSyntax {
                             }
                         },
                         ChangeMode.REMOVE)
-                .register(r, "[the] harbor tension (hp|health) of %players%");
+                .register("[the] harbor tension (hp|health) of %players%");
         r.number(
                 Spec.of("harbor tension phase"),
                 (e, x) ->
@@ -931,11 +938,12 @@ public final class FishingSyntax {
                 "어종을 굴린 직후 (event-player, event-string = 어종 ID). cancel event로 취소, harbor rolled fish로 바꾸기",
                 "harbor fish roll");
         r.value(FishRollEvent.class, String.class, f -> f.fish().id().toString());
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.in("harbor rolled fish", FishRollEvent.class),
                         in(FishRollEvent.class, f -> f.fish().id().toString()))
-                .changer(
+                .valueChanger(
                         String.class,
                         (e, x, mode, v) -> {
                             if (e instanceof FishRollEvent roll && v != null) {
@@ -943,7 +951,7 @@ public final class FishingSyntax {
                             }
                         },
                         ChangeMode.SET)
-                .register(r, "[the] harbor rolled fish [id]");
+                .register("[the] harbor rolled fish [id]");
         r.text(
                 Spec.in("harbor roll bait", FishRollEvent.class),
                 in(FishRollEvent.class, f -> f.bait() == null ? null : String.valueOf(f.bait())),
@@ -967,11 +975,12 @@ public final class FishingSyntax {
                 "harbor size roll");
         r.value(QualityRolledEvent.class, String.class, q -> q.fish().id().toString());
         r.value(QualityRolledEvent.class, Number.class, QualityRolledEvent::sizeCm);
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         Number.class,
                         Spec.in("harbor rolled size", QualityRolledEvent.class),
                         in(QualityRolledEvent.class, QualityRolledEvent::sizeCm))
-                .changer(
+                .valueChanger(
                         Number.class,
                         (e, x, mode, v) -> {
                             if (e instanceof QualityRolledEvent q && v instanceof Number n) {
@@ -988,12 +997,13 @@ public final class FishingSyntax {
                         ChangeMode.SET,
                         ChangeMode.ADD,
                         ChangeMode.REMOVE)
-                .register(r, "[the] harbor rolled size");
-        ValueExpr.builder(
+                .register("[the] harbor rolled size");
+        Ext.expr(
+                        r,
                         Number.class,
                         Spec.in("harbor rolled quality", QualityRolledEvent.class),
                         in(QualityRolledEvent.class, q -> q.quality().stars()))
-                .changer(
+                .valueChanger(
                         Number.class,
                         (e, x, mode, v) -> {
                             if (e instanceof QualityRolledEvent q && v instanceof Number n) {
@@ -1011,7 +1021,7 @@ public final class FishingSyntax {
                         ChangeMode.SET,
                         ChangeMode.ADD,
                         ChangeMode.REMOVE)
-                .register(r, "[the] harbor rolled quality");
+                .register("[the] harbor rolled quality");
         r.condition(
                 Spec.in("harbor rolled capped", QualityRolledEvent.class),
                 (e, x) -> e instanceof QualityRolledEvent q && q.capped(),
@@ -1120,7 +1130,8 @@ public final class FishingSyntax {
                 "harbor trap harvest");
         r.value(TrapHarvestEvent.class, Number.class, TrapHarvestEvent::trapId);
         r.value(TrapHarvestEvent.class, String.class, t -> t.region().toString());
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.in("harbor harvested fish", TrapHarvestEvent.class),
                         (e, x) ->
@@ -1130,7 +1141,7 @@ public final class FishingSyntax {
                                                 .toList()
                                         : List.of())
                 .list()
-                .register(r, "[all] [the] harbor harvested fish");
+                .register("[all] [the] harbor harvested fish");
         r.number(
                 Spec.in("harbor harvested count", TrapHarvestEvent.class),
                 in(TrapHarvestEvent.class, t -> t.fish().size()),

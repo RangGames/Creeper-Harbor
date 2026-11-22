@@ -28,6 +28,24 @@ public final class Ext {
         return new ExprBuilder<>(r, type, label);
     }
 
+    /**
+     * Starts an expression registration from a {@link Spec} (label, cardinality, event) and a
+     * {@code (event, exprs)} getter.
+     *
+     * <pre>{@code
+     * Ext.expr(r, Number.class, Spec.in("harbor rolled size", QualityRolledEvent.class), getter)
+     *         .valueChanger(Number.class, (e, x, mode, value) -> ..., ChangeMode.SET)
+     *         .register("[the] harbor rolled size");
+     * }</pre>
+     */
+    public static <T> ExprBuilder<T> expr(
+            Registrar r, Class<T> type, Spec spec, Spec.Getter<T> getter) {
+        ExprBuilder<T> b = new ExprBuilder<>(r, type, spec.label);
+        b.card = spec.perFirstArg ? ExtExpr.Card.PER_FIRST : ExtExpr.Card.SINGLE;
+        b.onlyIn = spec.onlyIn;
+        return b.get(getter);
+    }
+
     public static void effect(Registrar r, String label, ExtStatement.Action action, String... p) {
         effectIn(r, label, null, action, p);
     }
@@ -119,6 +137,7 @@ public final class Ext {
         private ExtExpr.@Nullable Changer changer;
         private Class<?> deltaType = Object.class;
         private Set<ChangeMode> modes = EnumSet.noneOf(ChangeMode.class);
+        private ExtExpr.Getter<T> getter = ctx -> List.of();
 
         private ExprBuilder(Registrar r, Class<T> type, String label) {
             this.r = r;
@@ -159,6 +178,45 @@ public final class Ext {
             this.modes = EnumSet.noneOf(ChangeMode.class);
             this.modes.addAll(List.of(modes));
             return this;
+        }
+
+        /**
+         * Changer given the first delta value. Not called when set · add · remove come without a
+         * value; called with null for reset · delete.
+         */
+        public ExprBuilder<T> valueChanger(
+                Class<?> deltaType, ExtExpr.ValueChanger changer, ChangeMode... modes) {
+            return changer(deltaType, firstValue(changer, true), modes);
+        }
+
+        /** Changer given the first delta value, or null whenever there is none (any mode). */
+        public ExprBuilder<T> valueChangerNullable(
+                Class<?> deltaType, Set<ChangeMode> modes, ExtExpr.ValueChanger changer) {
+            return changer(deltaType, firstValue(changer, false), modes.toArray(new ChangeMode[0]));
+        }
+
+        private static ExtExpr.Changer firstValue(ExtExpr.ValueChanger changer, boolean skipEmpty) {
+            return (ctx, delta, mode) -> {
+                Object value = delta == null || delta.length == 0 ? null : delta[0];
+                if (skipEmpty
+                        && value == null
+                        && mode != ChangeMode.RESET
+                        && mode != ChangeMode.DELETE) {
+                    return;
+                }
+                changer.change(ctx.event(), ctx.exprs(), mode, value);
+            };
+        }
+
+        /** Getter on the raw {@code (event, exprs)} pair (used by {@link #register(String...)}). */
+        public ExprBuilder<T> get(Spec.Getter<T> getter) {
+            this.getter = ctx -> getter.get(ctx.event(), ctx.exprs());
+            return this;
+        }
+
+        /** Registers with the getter set by {@link #get} (none: always empty). */
+        public void register(String... patterns) {
+            register(getter, patterns);
         }
 
         @SuppressWarnings({"unchecked", "rawtypes"})

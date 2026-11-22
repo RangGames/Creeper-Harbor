@@ -457,10 +457,10 @@ public final class WorldSyntax {
                                                             .toList())
                                     .orElse(List.of()),
                     "[the] harbor plot members " + form);
-            DomainExpr.of(Location.class, "harbor plot spawn")
+            Ext.expr(r, Location.class, "harbor plot spawn")
                     .single()
                     .get((e, x) -> plot(e, x, at).map(p -> Args.one(spawn(p))).orElse(List.of()))
-                    .register(r, "[the] harbor plot spawn " + form);
+                    .register("[the] harbor plot spawn " + form);
         }
         r.player(
                 Spec.single("harbor plot owner"),
@@ -735,7 +735,7 @@ public final class WorldSyntax {
     // ------------------------------------------------------------------ treasure, charts, spots
 
     private static void treasureAndCharts(Registrar r) {
-        DomainExpr.of(ItemStack.class, "harbor treasure map")
+        Ext.expr(r, ItemStack.class, "harbor treasure map")
                 .single()
                 .get(
                         (e, x) -> {
@@ -754,7 +754,6 @@ public final class WorldSyntax {
                                             .orElse(null));
                         })
                 .register(
-                        r,
                         "[a] [new] harbor treasure map (of|in|for) region %string% for %player%"
                                 + " [with tier %-string%]");
         r.condition(
@@ -786,7 +785,7 @@ public final class WorldSyntax {
                 Spec.of("harbor chart steps"),
                 (e, x) -> chart(e, x, ChartService.ChartProgress::claimedSteps),
                 "[the] harbor chart [reward] steps of %players% (in|for) region %string%");
-        DomainExpr.of(ItemStack.class, "harbor chart item")
+        Ext.expr(r, ItemStack.class, "harbor chart item")
                 .single()
                 .get(
                         (e, x) -> {
@@ -799,7 +798,7 @@ public final class WorldSyntax {
                             }
                             return Args.one(c.get().chartItem(p, id.get()).orElse(null));
                         })
-                .register(r, "[the] harbor chart (item|map) (of|for) region %string% for %player%");
+                .register("[the] harbor chart (item|map) (of|for) region %string% for %player%");
 
         r.text(
                 Spec.single("harbor fishing spot near"),
@@ -813,7 +812,7 @@ public final class WorldSyntax {
                     return Args.one(s.get().spotNear(l, radius).map(FishingSpot::id).orElse(null));
                 },
                 "[the] harbor fishing spot near %location% within %number% [blocks]");
-        DomainExpr.of(Location.class, "harbor fishing spot locations")
+        Ext.expr(r, Location.class, "harbor fishing spot locations")
                 .single()
                 .get(
                         (e, x) -> {
@@ -833,7 +832,7 @@ public final class WorldSyntax {
                             }
                             return out;
                         })
-                .register(r, "[all] [the] harbor fishing spot locations (in|of) region %string%");
+                .register("[all] [the] harbor fishing spot locations (in|of) region %string%");
     }
 
     private static List<Number> chart(

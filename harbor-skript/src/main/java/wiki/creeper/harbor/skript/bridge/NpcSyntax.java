@@ -207,7 +207,7 @@ public final class NpcSyntax {
                     return Args.perPlayer(e, x, p -> aff.get().level(p.getUniqueId(), npc.get()));
                 },
                 "[the] harbor affinity [level] of %players% with [npc] %string%");
-        DomainExpr.of(Number.class, "harbor affinity points")
+        Ext.expr(r, Number.class, "harbor affinity points")
                 .get(
                         (e, x) -> {
                             Optional<NpcId> npc = npcArg(e, x, 1);
@@ -218,11 +218,11 @@ public final class NpcSyntax {
                             return Args.perPlayer(
                                     e, x, p -> aff.get().points(p.getUniqueId(), npc.get()));
                         })
-                .change(
+                .valueChangerNullable(
                         Number.class,
                         EnumSet.of(ChangeMode.ADD, ChangeMode.REMOVE, ChangeMode.SET),
                         NpcSyntax::changeAffinity)
-                .register(r, "[the] harbor affinity points of %players% with [npc] %string%");
+                .register("[the] harbor affinity points of %players% with [npc] %string%");
         r.text(
                 Spec.of("harbor affinity level name"),
                 (e, x) -> {
@@ -335,7 +335,7 @@ public final class NpcSyntax {
                 (e, x) -> info(e, x).map(NpcInfo::spawned).orElse(false),
                 "harbor npc %string% is spawned",
                 "harbor npc %string% (isn't|is not) spawned");
-        DomainExpr.of(Location.class, "harbor npc location")
+        Ext.expr(r, Location.class, "harbor npc location")
                 .single()
                 .get(
                         (e, x) -> {
@@ -346,7 +346,7 @@ public final class NpcSyntax {
                             }
                             return Args.one(s.get().location(npc.get()).orElse(null));
                         })
-                .register(r, "[the] harbor npc location of %string%");
+                .register("[the] harbor npc location of %string%");
         r.text(
                 Spec.of("nearest harbor npc"),
                 (e, x) -> {
@@ -391,10 +391,10 @@ public final class NpcSyntax {
                 Spec.single("harbor wanderer candidate"),
                 (e, x) -> wanderer(e, x).map(w -> Args.one(w.candidate())).orElse(List.of()),
                 "[the] harbor wanderer (candidate|spot) of %string%");
-        DomainExpr.of(Location.class, "harbor wanderer location")
+        Ext.expr(r, Location.class, "harbor wanderer location")
                 .single()
                 .get((e, x) -> wanderer(e, x).map(w -> Args.one(w.location())).orElse(List.of()))
-                .register(r, "[the] harbor wanderer location of %string%");
+                .register("[the] harbor wanderer location of %string%");
         r.number(
                 Spec.single("harbor wanderer next move"),
                 (e, x) ->

@@ -73,21 +73,22 @@ public final class EconomySyntax {
 
     /** Auction listings per category ("" = all). */
     private static final AsyncCache<String, List<AuctionListingInfo>> LISTINGS =
-            new AsyncCache<>(
+            AsyncCache.ttlFromBalance(
                     category ->
                             service(AuctionService.class)
                                     .orElseThrow()
                                     .active(category.isEmpty() ? null : category, auctionLimit()));
 
     private static final AsyncCache<String, OptionalLong> LOWEST =
-            new AsyncCache<>(item -> service(AuctionService.class).orElseThrow().lowestPrice(item));
+            AsyncCache.ttlFromBalance(
+                    item -> service(AuctionService.class).orElseThrow().lowestPrice(item));
 
     private static final AsyncCache<UUID, Integer> ACTIVE_COUNT =
-            new AsyncCache<>(
+            AsyncCache.ttlFromBalance(
                     seller -> service(AuctionService.class).orElseThrow().activeCount(seller));
 
     private static final AsyncCache<UUID, Integer> UNCLAIMED =
-            new AsyncCache<>(p -> Harbor.api().mail().orElseThrow().unclaimed(p));
+            AsyncCache.ttlFromBalance(p -> Harbor.api().mail().orElseThrow().unclaimed(p));
 
     private static int auctionLimit() {
         Balance b = Harbor.api().content().snapshot().single(Balance.TYPE);

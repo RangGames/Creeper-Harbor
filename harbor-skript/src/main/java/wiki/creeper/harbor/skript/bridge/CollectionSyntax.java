@@ -35,19 +35,18 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.core.api.Harbor;
 import wiki.creeper.harbor.skript.Ids;
 import wiki.creeper.harbor.skript.lambda.Args;
+import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
-import wiki.creeper.harbor.skript.lambda.ValueExpr;
 
 /**
  * When Harbor-Collection is enabled: collection completion and entries (count · best size · best
  * quality · first catch, season and total), hints, server records, the aquarium (status, donation),
  * release, personal display cases, opening the collection, and every Collection api event.
  *
- * <p>Display case values come from an async API and are eventually consistent ({@link
- * LatestValues}). Collection entries are written by catches; {@code harbor admin set collection
- * entry} and {@code harbor admin remove collection entry} do what {@code /harbor collection entry}
- * does.
+ * <p>Display case values come from an async API and are eventually consistent ({@link AsyncCache}).
+ * Collection entries are written by catches; {@code harbor admin set collection entry} and {@code
+ * harbor admin remove collection entry} do what {@code /harbor collection entry} does.
  */
 public final class CollectionSyntax {
 
@@ -55,16 +54,16 @@ public final class CollectionSyntax {
 
     private static final String SOURCE = "skript";
 
-    private static final LatestValues<UUID, Integer> DISPLAY_SLOTS =
-            new LatestValues<>(
+    private static final AsyncCache<UUID, Integer> DISPLAY_SLOTS =
+            AsyncCache.every(
                     30_000,
                     owner -> service(DisplayCaseService.class).orElseThrow().slotCount(owner));
-    private static final LatestValues<UUID, Integer> THEME_SLOTS =
-            new LatestValues<>(
+    private static final AsyncCache<UUID, Integer> THEME_SLOTS =
+            AsyncCache.every(
                     30_000,
                     owner -> service(DisplayCaseService.class).orElseThrow().themeSlotCount(owner));
-    private static final LatestValues<Long, List<DisplaySlot>> PLOT_SLOTS =
-            new LatestValues<>(
+    private static final AsyncCache<Long, List<DisplaySlot>> PLOT_SLOTS =
+            AsyncCache.every(
                     5_000, plot -> service(DisplayCaseService.class).orElseThrow().slots(plot));
 
     private static <T> Optional<T> service(Class<T> type) {
@@ -239,12 +238,12 @@ public final class CollectionSyntax {
                     "[the] harbor "
                             + word
                             + " collection quality of %players% for [fish] %string%");
-            ValueExpr.builder(
+            Ext.expr(
+                            r,
                             Date.class,
                             Spec.of("harbor " + label + " collection first catch"),
                             entry(scope, c -> new Date(c.firstCaught().toEpochMilli())))
                     .register(
-                            r,
                             "[the] harbor "
                                     + word
                                     + " collection first catch [date] of %players% for [fish]"
@@ -328,7 +327,8 @@ public final class CollectionSyntax {
     }
 
     private static void registerHints(Registrar r) {
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         Number.class,
                         Spec.of("harbor hint level"),
                         (e, x) -> {
@@ -341,7 +341,7 @@ public final class CollectionSyntax {
                             return Args.perPlayer(
                                     e, x, p -> h.get().level(p.getUniqueId(), f.get()));
                         })
-                .changer(
+                .valueChanger(
                         Number.class,
                         (e, x, mode, v) -> {
                             Optional<FishId> f =
@@ -367,7 +367,7 @@ public final class CollectionSyntax {
                         },
                         ChangeMode.SET,
                         ChangeMode.ADD)
-                .register(r, "[the] harbor hint level of %players% for [fish] %string%");
+                .register("[the] harbor hint level of %players% for [fish] %string%");
         r.effect(
                 Spec.of("harbor grant random hint"),
                 (e, x) -> {
@@ -388,19 +388,22 @@ public final class CollectionSyntax {
 
     private static void registerRecords(Registrar r) {
         String args = "for [fish] %string% [in league %-string%] [limit %-number%]";
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.single("harbor server top names"),
                         (e, x) -> top(e, x).stream().map(RecordEntry::name).toList())
                 .list()
-                .register(r, "[the] harbor server top names " + args);
-        ValueExpr.builder(
+                .register("[the] harbor server top names " + args);
+        Ext.expr(
+                        r,
                         Number.class,
                         Spec.single("harbor server top sizes"),
                         (e, x) -> top(e, x).stream().map(t -> (Number) t.size()).toList())
                 .list()
-                .register(r, "[the] harbor server top sizes " + args);
-        ValueExpr.builder(
+                .register("[the] harbor server top sizes " + args);
+        Ext.expr(
+                        r,
                         OfflinePlayer.class,
                         Spec.single("harbor server top players"),
                         (e, x) ->
@@ -408,22 +411,25 @@ public final class CollectionSyntax {
                                         .map(t -> Bukkit.getOfflinePlayer(t.player()))
                                         .toList())
                 .list()
-                .register(r, "[the] harbor server top players " + args);
+                .register("[the] harbor server top players " + args);
 
         // This week's server records (newest first, as received by this server)
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.single("harbor weekly record fish"),
                         (e, x) -> weekly().stream().map(w -> w.fish().toString()).toList())
                 .list()
-                .register(r, "[all] [the] harbor weekly record (fish|species)");
-        ValueExpr.builder(
+                .register("[all] [the] harbor weekly record (fish|species)");
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.single("harbor weekly record names"),
                         (e, x) -> weekly().stream().map(w -> w.entry().name()).toList())
                 .list()
-                .register(r, "[all] [the] harbor weekly record names");
-        ValueExpr.builder(
+                .register("[all] [the] harbor weekly record names");
+        Ext.expr(
+                        r,
                         OfflinePlayer.class,
                         Spec.single("harbor weekly record players"),
                         (e, x) ->
@@ -431,14 +437,16 @@ public final class CollectionSyntax {
                                         .map(w -> Bukkit.getOfflinePlayer(w.entry().player()))
                                         .toList())
                 .list()
-                .register(r, "[all] [the] harbor weekly record players");
-        ValueExpr.builder(
+                .register("[all] [the] harbor weekly record players");
+        Ext.expr(
+                        r,
                         Number.class,
                         Spec.single("harbor weekly record sizes"),
                         (e, x) -> weekly().stream().map(w -> (Number) w.entry().size()).toList())
                 .list()
-                .register(r, "[all] [the] harbor weekly record sizes");
-        ValueExpr.builder(
+                .register("[all] [the] harbor weekly record sizes");
+        Ext.expr(
+                        r,
                         Date.class,
                         Spec.single("harbor weekly record dates"),
                         (e, x) ->
@@ -446,7 +454,7 @@ public final class CollectionSyntax {
                                         .map(w -> new Date(w.entry().caughtAt().toEpochMilli()))
                                         .toList())
                 .list()
-                .register(r, "[all] [the] harbor weekly record (dates|times)");
+                .register("[all] [the] harbor weekly record (dates|times)");
     }
 
     private static List<WeeklyRecord> weekly() {
@@ -543,7 +551,7 @@ public final class CollectionSyntax {
                                 x,
                                 p ->
                                         DISPLAY_SLOTS
-                                                .get(p.getUniqueId())
+                                                .latest(p.getUniqueId())
                                                 .map(n -> (Number) n)
                                                 .orElse(null)),
                 "[the] harbor display slot count of %players%");
@@ -555,20 +563,21 @@ public final class CollectionSyntax {
                                 x,
                                 p ->
                                         THEME_SLOTS
-                                                .get(p.getUniqueId())
+                                                .latest(p.getUniqueId())
                                                 .map(n -> (Number) n)
                                                 .orElse(null)),
                 "[the] harbor display theme slot count of %players%");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         String.class,
                         Spec.single("harbor displayed fish"),
                         (e, x) ->
                                 Args.number(e, x, 0)
-                                        .flatMap(n -> PLOT_SLOTS.get(n.longValue()))
+                                        .flatMap(n -> PLOT_SLOTS.latest(n.longValue()))
                                         .map(l -> l.stream().map(s -> s.fish().toString()).toList())
                                         .orElse(List.of()))
                 .list()
-                .register(r, "[all] [the] harbor displayed fish of plot %number%");
+                .register("[all] [the] harbor displayed fish of plot %number%");
         r.text(
                 Spec.single("harbor displayed fish in slot"),
                 (e, x) -> {
@@ -578,7 +587,7 @@ public final class CollectionSyntax {
                         return List.of();
                     }
                     return PLOT_SLOTS
-                            .get(plot.get().longValue())
+                            .latest(plot.get().longValue())
                             .flatMap(
                                     l ->
                                             l.stream()

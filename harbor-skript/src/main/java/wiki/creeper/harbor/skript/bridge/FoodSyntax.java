@@ -13,9 +13,9 @@ import wiki.creeper.harbor.fishing.api.FishingService;
 import wiki.creeper.harbor.fishing.api.FoodBuff;
 import wiki.creeper.harbor.skript.Ids;
 import wiki.creeper.harbor.skript.lambda.Args;
+import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
-import wiki.creeper.harbor.skript.lambda.ValueExpr;
 
 /**
  * When Harbor-Fishing is enabled: food buffs (fishing/food.yml, one at a time) through {@link
@@ -50,11 +50,12 @@ final class FoodSyntax {
                 Spec.of("harbor food buff"),
                 perBuff(b -> b.item().toString()),
                 "[the] [active] harbor food buff of %players%");
-        ValueExpr.builder(
+        Ext.expr(
+                        r,
                         ch.njol.skript.util.Date.class,
                         Spec.of("harbor food buff expiry"),
                         perBuff(b -> new ch.njol.skript.util.Date(b.expiresAt().toEpochMilli())))
-                .register(r, "[the] harbor food buff (expiry|expiration|end) [time] of %players%");
+                .register("[the] harbor food buff (expiry|expiration|end) [time] of %players%");
         r.number(
                 Spec.of("harbor food buff seconds"),
                 perBuff(
