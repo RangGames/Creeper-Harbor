@@ -73,9 +73,9 @@ public record HallOfFameRules(List<HallOfFameCategory> categories) {
                     && rule != HallOfFameCategory.Rule.FIRST_N) {
                 node.error("source: level_first는 rule: first_n과 함께 써야 합니다");
             }
-            if (source == HallOfFameCategory.Source.CODEX_FIRST
+            if (source == HallOfFameCategory.Source.COLLECTION_FIRST
                     && rule != HallOfFameCategory.Rule.FIRST_N) {
-                node.error("source: codex_first는 rule: first_n과 함께 써야 합니다");
+                node.error("source: collection_first는 rule: first_n과 함께 써야 합니다");
             }
             @Nullable String title = node.optString("title").orElse(null);
             if (title != null) {

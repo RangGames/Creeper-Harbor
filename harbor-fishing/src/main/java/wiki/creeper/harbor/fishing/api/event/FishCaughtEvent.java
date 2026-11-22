@@ -9,9 +9,9 @@ import wiki.creeper.harbor.core.api.HarborItem;
 import wiki.creeper.harbor.fishing.api.CatchSource;
 
 /**
- * After a catch is processed (after the item is created). Collection (codex, biggest fish), Quest
- * (objectives) and Season (rankings) listen. release_only species are sent without an item with
- * released = true (codex and EXP still apply).
+ * After a catch is processed (after the item is created). Collection (collection, biggest fish),
+ * Quest (objectives) and Season (rankings) listen. release_only species are sent without an item
+ * with released = true (collection and EXP still apply).
  */
 public final class FishCaughtEvent extends PlayerEvent {
 

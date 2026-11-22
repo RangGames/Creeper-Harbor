@@ -29,7 +29,7 @@ import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.api.RecordService;
 import wiki.creeper.harbor.collection.release.ReleaseManager;
 import wiki.creeper.harbor.collection.view.AquariumView;
-import wiki.creeper.harbor.collection.view.CodexView;
+import wiki.creeper.harbor.collection.view.CollectionView;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.core.api.FishArgs;
 import wiki.creeper.harbor.core.api.HarborApi;
@@ -41,32 +41,32 @@ import wiki.creeper.harbor.core.api.HarborApi;
 public final class CollectionCommands {
 
     private final HarborApi api;
-    private final CollectionManager codex;
+    private final CollectionManager collection;
     private final AquariumManager aquarium;
     private final ReleaseManager release;
     private final Supplier<@Nullable DisplayCaseService> display;
 
     public CollectionCommands(
             HarborApi api,
-            CollectionManager codex,
+            CollectionManager collection,
             AquariumManager aquarium,
             ReleaseManager release,
             Supplier<@Nullable DisplayCaseService> display) {
         this.api = api;
-        this.codex = codex;
+        this.collection = collection;
         this.aquarium = aquarium;
         this.release = release;
         this.display = display;
     }
 
     public void registerPlayerCommands(Commands commands) {
-        commands.register(codexCommand(), "도감", List.of());
+        commands.register(collectionCommand(), "도감", List.of());
         commands.register(
                 Commands.literal("기록")
                         .executes(
                                 ctx -> {
                                     if (ctx.getSource().getExecutor() instanceof Player player) {
-                                        new RecordsMenu(api, codex).pick(player, 0);
+                                        new RecordsMenu(api, collection).pick(player, 0);
                                     }
                                     return Command.SINGLE_SUCCESS;
                                 })
@@ -119,13 +119,13 @@ public final class CollectionCommands {
                 List.of());
     }
 
-    private LiteralCommandNode<CommandSourceStack> codexCommand() {
+    private LiteralCommandNode<CommandSourceStack> collectionCommand() {
         return Commands.literal("도감")
                 .requires(src -> src.getExecutor() instanceof Player)
                 .executes(
                         ctx -> {
                             if (ctx.getSource().getExecutor() instanceof Player player) {
-                                codex.open(player, player.getUniqueId(), 0);
+                                collection.open(player, player.getUniqueId(), 0);
                             }
                             return Command.SINGLE_SUCCESS;
                         })
@@ -136,11 +136,13 @@ public final class CollectionCommands {
                                             if (ctx.getSource().getExecutor()
                                                     instanceof Player player) {
                                                 UUID owner = player.getUniqueId();
-                                                new MilestoneMenu(api, codex)
+                                                new MilestoneMenu(api, collection)
                                                         .open(
                                                                 player,
                                                                 owner,
-                                                                () -> codex.open(player, owner, 0));
+                                                                () ->
+                                                                        collection.open(
+                                                                                player, owner, 0));
                                             }
                                             return Command.SINGLE_SUCCESS;
                                         }))
@@ -150,11 +152,11 @@ public final class CollectionCommands {
                                         ctx -> {
                                             if (ctx.getSource().getExecutor()
                                                     instanceof Player player) {
-                                                new CodexMenu(api, codex)
+                                                new CollectionMenu(api, collection)
                                                         .open(
                                                                 player,
                                                                 player.getUniqueId(),
-                                                                CodexView.State.RECENT);
+                                                                CollectionView.State.RECENT);
                                             }
                                             return Command.SINGLE_SUCCESS;
                                         }))
@@ -171,7 +173,7 @@ public final class CollectionCommands {
                                                             .getFirst();
                                             if (ctx.getSource().getExecutor()
                                                     instanceof Player viewer) {
-                                                codex.open(viewer, owner.getUniqueId(), 0);
+                                                collection.open(viewer, owner.getUniqueId(), 0);
                                             }
                                             return Command.SINGLE_SUCCESS;
                                         }))
@@ -191,7 +193,7 @@ public final class CollectionCommands {
                         "collection.records.header",
                         Placeholder.unparsed("name", fish.get().name()));
         for (String league : RecordService.LEAGUES) {
-            List<RecordEntry> top = codex.serverTop(fish.get().id(), league, 10);
+            List<RecordEntry> top = collection.serverTop(fish.get().id(), league, 10);
             for (int i = 0; i < top.size(); i++) {
                 api.messages()
                         .send(
@@ -217,7 +219,7 @@ public final class CollectionCommands {
             api.messages().send(player, "collection.unknown_fish");
             return 0;
         }
-        RecordsMenu menu = new RecordsMenu(api, codex);
+        RecordsMenu menu = new RecordsMenu(api, collection);
         menu.open(player, fish.get(), "all", () -> menu.pick(player, 0));
         return Command.SINGLE_SUCCESS;
     }
@@ -225,7 +227,8 @@ public final class CollectionCommands {
     /** /수족관: progress screen for players, one status line for the console. */
     private int aquariumMenu(CommandContext<CommandSourceStack> ctx) {
         if (ctx.getSource().getExecutor() instanceof Player player) {
-            new AquariumMenu(api, aquarium, codex).open(player, AquariumView.Filter.MISSING, 0);
+            new AquariumMenu(api, aquarium, collection)
+                    .open(player, AquariumView.Filter.MISSING, 0);
             return Command.SINGLE_SUCCESS;
         }
         return aquariumStatus(ctx);
@@ -281,7 +284,7 @@ public final class CollectionCommands {
                                                                                         this
                                                                                                 ::displayClear)))))
                 .then(
-                        Commands.literal("codex")
+                        Commands.literal("collection")
                                 .then(
                                         target().then(
                                                         Commands.literal("set")
@@ -289,7 +292,7 @@ public final class CollectionCommands {
                                                                         fishArgument()
                                                                                 .executes(
                                                                                         ctx ->
-                                                                                                codexSet(
+                                                                                                collectionSet(
                                                                                                         ctx,
                                                                                                         false))
                                                                                 .then(
@@ -309,7 +312,7 @@ public final class CollectionCommands {
                                                                                                                                         5))
                                                                                                                 .executes(
                                                                                                                         ctx ->
-                                                                                                                                codexSet(
+                                                                                                                                collectionSet(
                                                                                                                                         ctx,
                                                                                                                                         true))))))
                                                 .then(
@@ -318,7 +321,7 @@ public final class CollectionCommands {
                                                                         fishArgument()
                                                                                 .executes(
                                                                                         this
-                                                                                                ::codexRemove)))))
+                                                                                                ::collectionRemove)))))
                 .then(
                         Commands.literal("record")
                                 .then(
@@ -404,7 +407,7 @@ public final class CollectionCommands {
                                                                         }))));
     }
 
-    private int codexSet(CommandContext<CommandSourceStack> ctx, boolean withValues)
+    private int collectionSet(CommandContext<CommandSourceStack> ctx, boolean withValues)
             throws CommandSyntaxException {
         Player p = player(ctx);
         Optional<FishDef> fish = fish(ctx);
@@ -414,7 +417,7 @@ public final class CollectionCommands {
         }
         double size = withValues ? DoubleArgumentType.getDouble(ctx, "size") : fish.get().sizeMin();
         int quality = withValues ? IntegerArgumentType.getInteger(ctx, "quality") : 1;
-        codex.adminSet(
+        collection.adminSet(
                 p.getUniqueId(),
                 fish.get(),
                 Math.clamp(size, fish.get().sizeMin(), fish.get().sizeMax()),
@@ -423,9 +426,10 @@ public final class CollectionCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    private int codexRemove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    private int collectionRemove(CommandContext<CommandSourceStack> ctx)
+            throws CommandSyntaxException {
         Player p = player(ctx);
-        fish(ctx).ifPresent(f -> codex.adminRemove(p.getUniqueId(), f.id()));
+        fish(ctx).ifPresent(f -> collection.adminRemove(p.getUniqueId(), f.id()));
         api.messages().send(ctx.getSource().getSender(), "collection.admin.done");
         return Command.SINGLE_SUCCESS;
     }
@@ -433,7 +437,7 @@ public final class CollectionCommands {
     private int recordRemove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         Player p = player(ctx);
         String league = StringArgumentType.getString(ctx, "league");
-        fish(ctx).ifPresent(f -> codex.removeRecord(f.id(), league, p.getUniqueId()));
+        fish(ctx).ifPresent(f -> collection.removeRecord(f.id(), league, p.getUniqueId()));
         api.messages().send(ctx.getSource().getSender(), "collection.admin.done");
         return Command.SINGLE_SUCCESS;
     }
@@ -443,7 +447,7 @@ public final class CollectionCommands {
         int level = IntegerArgumentType.getInteger(ctx, "level");
         boolean ok =
                 fish(ctx)
-                        .map(f -> codex.grant(p.getUniqueId(), f.id(), level, "admin"))
+                        .map(f -> collection.grant(p.getUniqueId(), f.id(), level, "admin"))
                         .orElse(false);
         api.messages()
                 .send(

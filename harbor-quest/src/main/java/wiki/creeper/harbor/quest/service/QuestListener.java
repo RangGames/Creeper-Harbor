@@ -19,7 +19,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import wiki.creeper.harbor.collection.api.event.AquariumDonatedEvent;
-import wiki.creeper.harbor.collection.api.event.CodexRegisteredEvent;
+import wiki.creeper.harbor.collection.api.event.CollectionRegisteredEvent;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.HarborItem;
@@ -161,7 +161,7 @@ public final class QuestListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onCodex(CodexRegisteredEvent event) {
+    public void onCollection(CollectionRegisteredEvent event) {
         Player player = Bukkit.getPlayer(event.player());
         if (player != null) {
             engine.invalidate(event.player());

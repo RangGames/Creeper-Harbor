@@ -108,7 +108,7 @@
 | `reconcile` | `hour` `window_hours` |
 | `pet` | `view_distance` `follow_distance` `update_ticks` `max_parts` |
 | `catch_fx` | 등급별 빛기둥 높이·폭죽 여부 |
-| `codex_rewards` | 도감 이정표 키 → 코스메틱 |
+| `collection_rewards` | 도감 이정표 키 → 코스메틱 |
 
 ### `plugins/Harbor-Shop/config.yml` (서버별, 비밀키 포함이라 커밋하지 않음)
 

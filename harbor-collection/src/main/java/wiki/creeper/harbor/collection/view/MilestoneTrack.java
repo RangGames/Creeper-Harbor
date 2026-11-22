@@ -4,22 +4,23 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.OptionalInt;
-import wiki.creeper.harbor.collection.content.CodexRules;
+import wiki.creeper.harbor.collection.content.CollectionRules;
 import wiki.creeper.harbor.collection.content.StatBonus;
 
 /**
- * Codex reward track (proposed, no server API). Lays out codex.yml's cumulative completion titles
- * (total_milestones) and season buffs (season_buffs) in completion order and marks whether each is
- * reached. Granting is still automatic by Collection (titles: Season TitleService at the moment
- * reached; buffs: recomputed from season completion). This class only displays.
+ * Collection reward track (proposed, no server API). Lays out collection.yml's cumulative
+ * completion titles (total_milestones) and season buffs (season_buffs) in completion order and
+ * marks whether each is reached. Granting is still automatic by Collection (titles: Season
+ * TitleService at the moment reached; buffs: recomputed from season completion). This class only
+ * displays.
  */
 public final class MilestoneTrack {
 
     /** Track kind. */
     public enum Kind {
-        /** Cumulative codex title. */
+        /** Cumulative collection title. */
         TOTAL_TITLE,
-        /** Season codex buff. */
+        /** Season collection buff. */
         SEASON_BUFF
     }
 
@@ -36,10 +37,11 @@ public final class MilestoneTrack {
     private MilestoneTrack() {}
 
     /** Cumulative title stages + season buff stages (each kind in completion order). */
-    public static List<Step> steps(CodexRules rules, double totalPercent, double seasonPercent) {
+    public static List<Step> steps(
+            CollectionRules rules, double totalPercent, double seasonPercent) {
         List<Step> out = new ArrayList<>();
         rules.totalMilestones().stream()
-                .sorted(Comparator.comparingInt(CodexRules.Milestone::percent))
+                .sorted(Comparator.comparingInt(CollectionRules.Milestone::percent))
                 .forEach(
                         m ->
                                 out.add(
@@ -50,7 +52,7 @@ public final class MilestoneTrack {
                                                 List.of(),
                                                 totalPercent >= m.percent())));
         rules.seasonBuffs().stream()
-                .sorted(Comparator.comparingInt(CodexRules.SeasonBuff::percent))
+                .sorted(Comparator.comparingInt(CollectionRules.SeasonBuff::percent))
                 .forEach(
                         b ->
                                 out.add(

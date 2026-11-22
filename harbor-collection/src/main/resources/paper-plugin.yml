@@ -34,7 +34,7 @@ dependencies:
       required: false
       join-classpath: true
 permissions:
-  harbor.collection.codex:
+  harbor.collection.collection:
     description: '/도감'
     default: true
   harbor.collection.record:

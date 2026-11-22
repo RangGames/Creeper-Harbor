@@ -10,7 +10,7 @@ import wiki.creeper.harbor.core.api.HarborItem;
 /**
  * Trap harvest (docs 20 3.2). Fired after the harvest transaction commits and the items are given.
  * Quest (trap objectives) and Collection listen. Trap catches do not fire FishCaughtEvent, so
- * listen to this event if codex registration is needed.
+ * listen to this event if collection registration is needed.
  */
 public final class TrapHarvestEvent extends PlayerEvent {
 

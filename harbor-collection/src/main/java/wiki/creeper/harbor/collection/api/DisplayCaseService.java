@@ -32,7 +32,7 @@ public interface DisplayCaseService {
 
     /**
      * Displays a species in a slot. Checks edit permission (World EDIT_DISPLAY), slot count, and
-     * cumulative codex registration, saves immediately, then redraws.
+     * cumulative collection registration, saves immediately, then redraws.
      *
      * @return true if saved
      */

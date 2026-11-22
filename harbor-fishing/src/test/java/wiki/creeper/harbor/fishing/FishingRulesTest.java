@@ -370,7 +370,7 @@ class FishingRulesTest {
         GradeBonus.Sum big =
                 new GradeBonus.Sum().add("skill:collect/hunter", 0.5).add("event:migration", 0.5);
         assertEquals(0.6, big.capped(0.6), 1e-9, "합계 배율 1.6 상한");
-        assertEquals(GradeBonus.Category.FOOD, GradeBonus.categoryOf("codex_season"));
+        assertEquals(GradeBonus.Category.FOOD, GradeBonus.categoryOf("collection_season"));
         assertEquals(GradeBonus.Category.EVENT, GradeBonus.categoryOf("spot:school"));
     }
 

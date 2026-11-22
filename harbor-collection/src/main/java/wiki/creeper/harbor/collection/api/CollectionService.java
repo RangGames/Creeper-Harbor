@@ -8,17 +8,17 @@ import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * Codex queries (Quest conditions, Shop commemorative skin purchase conditions). Online players
- * only. Main thread.
+ * Collection queries (Quest conditions, Shop commemorative skin purchase conditions). Online
+ * players only. Main thread.
  */
-public interface CodexService {
+public interface CollectionService {
 
-    Optional<CodexEntry> entry(UUID player, FishId fish, CodexScope scope);
+    Optional<CollectionEntry> entry(UUID player, FishId fish, CollectionScope scope);
 
-    boolean isRegistered(UUID player, FishId fish, CodexScope scope);
+    boolean isRegistered(UUID player, FishId fish, CollectionScope scope);
 
     /** Completion 0~100. If region is given, that region only (excluding mythic). */
-    double percent(UUID player, CodexScope scope, @Nullable RegionId region);
+    double percent(UUID player, CollectionScope scope, @Nullable RegionId region);
 
     void open(Player viewer, UUID owner, int page);
 }

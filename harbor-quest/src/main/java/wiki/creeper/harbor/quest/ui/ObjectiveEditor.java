@@ -35,7 +35,7 @@ final class ObjectiveEditor {
                     "donate",
                     "use_item",
                     "cutscene",
-                    "codex",
+                    "collection",
                     "job_level",
                     "job_tier",
                     "reputation",
@@ -326,7 +326,7 @@ final class ObjectiveEditor {
             case "visit" -> "visit";
             case "cutscene" -> "cutscene";
             case "use_item" -> "item";
-            case "codex", "chart_percent" -> "region";
+            case "collection", "chart_percent" -> "region";
             default -> "text";
         };
     }
@@ -448,7 +448,7 @@ final class ObjectiveEditor {
             case "donate" -> Material.AXOLOTL_BUCKET;
             case "use_item" -> Material.BLAZE_POWDER;
             case "cutscene" -> Material.ENDER_EYE;
-            case "codex" -> Material.KNOWLEDGE_BOOK;
+            case "collection" -> Material.KNOWLEDGE_BOOK;
             case "job_level", "job_tier" -> Material.EXPERIENCE_BOTTLE;
             case "reputation" -> Material.BELL;
             case "affinity" -> Material.POPPY;

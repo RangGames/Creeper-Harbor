@@ -17,7 +17,7 @@ public final class GradeBonus {
         BAIT,
         /** Job (job:, skill:, other sources). */
         JOB,
-        /** Food, codex, aquarium (food:, codex_season, aquarium_stage). */
+        /** Food, collection, aquarium (food:, collection_season, aquarium_stage). */
         FOOD,
         /** Events and fishing spots (event:, spot:). */
         EVENT
@@ -72,7 +72,7 @@ public final class GradeBonus {
             return Category.BAIT;
         }
         if (source.startsWith("food:")
-                || source.startsWith("codex_season")
+                || source.startsWith("collection_season")
                 || source.startsWith("aquarium_stage")) {
             return Category.FOOD;
         }

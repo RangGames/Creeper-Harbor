@@ -29,7 +29,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
-import wiki.creeper.harbor.collection.api.CodexEntry;
+import wiki.creeper.harbor.collection.api.CollectionEntry;
 import wiki.creeper.harbor.collection.api.DisplayCaseService;
 import wiki.creeper.harbor.collection.api.DisplaySlot;
 import wiki.creeper.harbor.collection.content.DisplayCaseRules;
@@ -375,10 +375,10 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
     }
 
     /**
-     * The plot owner's cumulative codex (from memory when online, otherwise the DB). Completes on
-     * the main thread.
+     * The plot owner's cumulative collection (from memory when online, otherwise the DB). Completes
+     * on the main thread.
      */
-    CompletableFuture<Map<FishId, CodexEntry>> ownerCodex(UUID owner) {
+    CompletableFuture<Map<FishId, CollectionEntry>> ownerCollection(UUID owner) {
         Optional<HarborPlayer> online = api.players().get(owner);
         if (online.isPresent()) {
             return CompletableFuture.completedFuture(
@@ -408,10 +408,10 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
             return CompletableFuture.completedFuture(false);
         }
         UUID owner = view.plot.owner();
-        return ownerCodex(owner)
+        return ownerCollection(owner)
                 .thenCompose(
-                        codex -> {
-                            CodexEntry entry = codex.get(fish);
+                        collection -> {
+                            CollectionEntry entry = collection.get(fish);
                             if (entry == null) {
                                 api.messages().send(editor, "collection.display.not_registered");
                                 return CompletableFuture.completedFuture(false);

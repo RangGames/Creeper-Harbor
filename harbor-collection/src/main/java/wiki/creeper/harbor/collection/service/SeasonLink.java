@@ -11,7 +11,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
-import wiki.creeper.harbor.collection.content.CodexTitles;
+import wiki.creeper.harbor.collection.content.CollectionTitles;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.FlagService;
 import wiki.creeper.harbor.core.api.HarborApi;
@@ -30,8 +30,8 @@ import wiki.creeper.harbor.season.api.TitleService;
  * <ul>
  *   <li>Title grants are idempotent (unique per (uuid, title)). Failed (FAILED) grants stay in an
  *       in-memory queue and are retried on the next join or 5-minute cycle.
- *   <li>Milestones reached before Season existed (Phase 2a) are recomputed from the current codex
- *       state on first join and granted once (permanent flag collection/title_backfill).
+ *   <li>Milestones reached before Season existed (Phase 2a) are recomputed from the current
+ *       collection state on first join and granted once (permanent flag collection/title_backfill).
  * </ul>
  */
 public final class SeasonLink {
@@ -66,7 +66,8 @@ public final class SeasonLink {
     }
 
     /**
-     * Grants a title (main thread). key is a codex.yml title key (codex_25, codex_region/harbor).
+     * Grants a title (main thread). key is a collection.yml title key (codex_25,
+     * codex_region/harbor).
      */
     public CompletableFuture<TitleService.Grant> grant(UUID player, String key) {
         TitleId title;
@@ -76,7 +77,7 @@ public final class SeasonLink {
             log.warn("도감 칭호 키 형식이 틀렸습니다: {}", key);
             return CompletableFuture.completedFuture(TitleService.Grant.UNKNOWN_TITLE);
         }
-        String ref = CodexTitles.refId(api.infra().season().value(), key);
+        String ref = CollectionTitles.refId(api.infra().season().value(), key);
         return SeasonServices.titles()
                 .grant(player, title, ref)
                 .handle(
@@ -118,10 +119,10 @@ public final class SeasonLink {
     }
 
     /**
-     * First time only: grants every title earned under the current codex. If it ends with all owned
-     * (or undefined), sets a permanent flag so it does not run again.
+     * First time only: grants every title earned under the current collection. If it ends with all
+     * owned (or undefined), sets a permanent flag so it does not run again.
      *
-     * @param earned result of {@link CodexTitles#earned}
+     * @param earned result of {@link CollectionTitles#earned}
      */
     public void backfill(UUID player, List<String> earned) {
         if (api.flags().hasPlayer(player, BACKFILL_FLAG)) {

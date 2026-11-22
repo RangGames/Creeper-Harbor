@@ -49,15 +49,15 @@ public final class Billboard implements Listener {
 
     private final HarborApi api;
     private final Tasks tasks;
-    private final CollectionManager codex;
+    private final CollectionManager collection;
     private @Nullable TextDisplay display;
     private @Nullable BukkitTask task;
     private long page;
 
-    public Billboard(HarborApi api, Tasks tasks, CollectionManager codex) {
+    public Billboard(HarborApi api, Tasks tasks, CollectionManager collection) {
         this.api = api;
         this.tasks = tasks;
-        this.codex = codex;
+        this.collection = collection;
     }
 
     private BillboardRules rules() {
@@ -187,7 +187,8 @@ public final class Billboard implements Listener {
                                 "collection.billboard.region_title",
                                 Placeholder.unparsed("region", regionName)));
                 List<FishDef> fish = new ArrayList<>();
-                codex.regionFish(region)
+                collection
+                        .regionFish(region)
                         .forEach(
                                 id ->
                                         api.content()
@@ -200,7 +201,7 @@ public final class Billboard implements Listener {
                         break;
                     }
                     Optional<RecordEntry> top =
-                            codex.serverTop(f.id(), "all", 1).stream().findFirst();
+                            collection.serverTop(f.id(), "all", 1).stream().findFirst();
                     lines.add(
                             top.isPresent()
                                     ? msg.get(
@@ -217,7 +218,7 @@ public final class Billboard implements Listener {
             }
             case BillboardRules.WeeklyPage() -> {
                 lines.add(msg.get("collection.billboard.weekly_title"));
-                for (CollectionManager.WeeklyRecord w : codex.weeklyRecords()) {
+                for (CollectionManager.WeeklyRecord w : collection.weeklyRecords()) {
                     if (lines.size() > rules.lines()) {
                         break;
                     }

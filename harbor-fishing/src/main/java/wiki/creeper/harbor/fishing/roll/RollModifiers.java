@@ -8,7 +8,7 @@ import wiki.creeper.harbor.common.model.Grade;
  *
  * @param gradeBonus per-grade modifier multiplier − 1 for rare-or-better (category product, {@link
  *     GradeBonus}). RollEngine applies the cap once more
- * @param uncaughtWeight weight modifier for species not in the codex (codex hunter)
+ * @param uncaughtWeight weight modifier for species not in the collection (collection hunter)
  * @param legendPityStartOffset legendary pity start offset (breath of legends −30, −60)
  * @param legendChanceMult legendary chance multiplier (sign of legends ×2)
  * @param speciesMult event species multipliers (great migration ×3, species ID string → multiplier)

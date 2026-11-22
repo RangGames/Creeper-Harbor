@@ -177,7 +177,7 @@
   end_npc: npc/iseul
   objectives:
     - {key: wreck, type: visit, target: "point:harbor_main,400,60,-300,12", waypoint: "harbor_main,400,60,-300", text: 산호 군도 난파선을 조사한다}
-    - {key: codex, type: codex, target: region:region/harbor, count: 50, text: 항구 시즌 도감 50% 채우기}
+    - {key: codex, type: collection, target: region:region/harbor, count: 50, text: 항구 시즌 도감 50% 채우기}
     - {key: iseul, type: talk, target: npc/iseul, waypoint: npc/iseul, text: 수족관 관장 이슬에게 항해일지를 보여준다}
   rewards:
     gold: 1200

@@ -44,8 +44,8 @@ import wiki.creeper.harbor.season.data.TitleStore;
  *   <li>top1: locks the (season, category, subject, rank 1) row, compares, and replaces it
  *   <li>first_n · all: each player only once, rank = current count + 1. Retries when the (season,
  *       category, subject, rank) primary key collides
- *   <li>No module submits level_first · codex_first categories, so the ranking aggregation server
- *       computes them from data every 10 minutes and fills in provisional entries
+ *   <li>No module submits level_first · collection_first categories, so the ranking aggregation
+ *       server computes them from data every 10 minutes and fills in provisional entries
  *   <li>Finalization ({@link #finalizeSeason}) recomputes from archive data during the transition
  *       SNAPSHOT step and grants titles
  * </ul>
@@ -209,7 +209,7 @@ public final class HallOfFameManager implements HallOfFameService {
     }
 
     // ------------------------------------------------------------------ derived entries
-    // (level_first · codex_first)
+    // (level_first · collection_first)
 
     /**
      * Called by the ranking aggregation server (virtual thread). Runs at most once per 10 minutes.
@@ -230,7 +230,7 @@ public final class HallOfFameManager implements HallOfFameService {
         }
         for (HallOfFameCategory cat : categories()) {
             if (cat.source() != HallOfFameCategory.Source.LEVEL_FIRST
-                    && cat.source() != HallOfFameCategory.Source.CODEX_FIRST) {
+                    && cat.source() != HallOfFameCategory.Source.COLLECTION_FIRST) {
                 continue;
             }
             try {

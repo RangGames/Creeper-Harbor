@@ -6,8 +6,8 @@ import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
 
 /**
- * One personal aquarium display slot (housing_display). It displays the cumulative codex record
- * rather than an item, so it persists across seasons.
+ * One personal aquarium display slot (housing_display). It displays the cumulative collection
+ * record rather than an item, so it persists across seasons.
  *
  * @param slot tank spot number (World DisplayAnchor.slot)
  * @param size cumulative max size at the time of display

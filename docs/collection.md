@@ -11,7 +11,7 @@
   - **지역 완성**(시즌 도감, 신화 제외): 칭호와 물비늘 3개.
   - **누적 달성률 25·50·75·100%:** 칭호. 치장품은 Shop이 같은 이벤트로 준다.
   - **시즌 도감 달성률 20·40·60·80%:** 버프 (경험치·판매가·희귀 가중치 소폭).
-- **힌트:** 미등록 어종은 실루엣과 힌트로 보인다. 힌트 단계(0~3)는 NPC 대화(`codex:hint`)나 보물 지도 수령으로 오른다.
+- **힌트:** 미등록 어종은 실루엣과 힌트로 보인다. 힌트 단계(0~3)는 NPC 대화(`collection:hint`)나 보물 지도 수령으로 오른다.
 - **최대어 기록:** 어종마다 시즌·누적 최고 크기를 남긴다. 리그는 기록 때의 직업 단계로 나뉜다 (1차 · 2차 · 전체). 서버 TOP 10과 "TOP 10까지 몇 cm"를 보여 준다. 서버 기록을 깨면 이벤트가 나고, 명예의 전당(Season)에 제출된다.
 - **항구 수족관:** 모든 플레이어가 어종을 기부해 서버 단계를 올린다.
   - 단계는 기부된 어종 비율로 정한다: 10% · 25% · 45% · 65% · 80%.
@@ -30,8 +30,8 @@
 
 | 명령 | 권한 (`paper-plugin.yml`) | 설명 |
 |---|---|---|
-| `/도감 [플레이어]` | `harbor.collection.codex` | 도감 GUI |
-| `/도감 보상` · `/도감 최근` | `harbor.collection.codex` | 보상 트랙, 최근 등록순 |
+| `/도감 [플레이어]` | `harbor.collection.collection` | 도감 GUI |
+| `/도감 보상` · `/도감 최근` | `harbor.collection.collection` | 보상 트랙, 최근 등록순 |
 | `/기록 [어종] [채팅]` | `harbor.collection.record` | 최대어 기록 GUI (채팅을 붙이면 채팅으로) |
 | `/수족관` · `/수족관 상태` | `harbor.collection.aquarium` | 수족관 진행 화면, 상태 한 줄 |
 | `/수족관 기부` · `/수족관 기부함` | `harbor.collection.aquarium` | 손에 든 한 마리 기부, 기부함 |
@@ -44,8 +44,8 @@
 | 명령 | 설명 |
 |---|---|
 | `/harbor collection display <플롯> clear <칸>` | 개인 어항 전시 칸 비우기 |
-| `/harbor collection codex <플레이어> set <어종> [크기 품질]` | 도감 등록 |
-| `/harbor collection codex <플레이어> remove <어종>` | 도감 삭제 |
+| `/harbor collection collection <플레이어> set <어종> [크기 품질]` | 도감 등록 |
+| `/harbor collection collection <플레이어> remove <어종>` | 도감 삭제 |
 | `/harbor collection record remove <어종> <리그> <플레이어>` | 최대어 기록 삭제 |
 | `/harbor collection hint <플레이어> <어종> <0~3>` | 힌트 단계 설정 |
 | `/harbor collection aquarium recount` | 수족관 기부율 다시 세기 |
@@ -55,7 +55,7 @@
 
 | 파일 | 내용 | 주요 필드 |
 |---|---|---|
-| `codex.yml` | 도감 보상 | `first_catch`(`min_grade` `mulbineul`) `region_complete`(`mulbineul` `title_prefix`) `total_milestones`(`percent` `title`) `season_buffs`(`percent` `modifiers`) |
+| `collection.yml` | 도감 보상 | `first_catch`(`min_grade` `mulbineul`) `region_complete`(`mulbineul` `title_prefix`) `total_milestones`(`percent` `title`) `season_buffs`(`percent` `modifiers`) |
 | `aquarium.yml` | 수족관 | `points` `quality_bonus` `first_species_mult` `per_player_species_cap` `stages`(`stage` `rate` `flag` `modifiers` `structure`) `display`(수조 좌표·`tanks`·`visible_max`·`rotate_minutes` 등) |
 | `release.yml` | 방류 | `flag` `reward_min_grade` `reputation` `buff`(`stat` `value` `minutes`) |
 | `display_case.yml` | 개인 어항 | `base_slots` `rep_bonus` `base_theme_slots` `part_budget` `view_radius` `simple_rig` `default_theme` `themes`(`cosmetic` `floor` `particle`) |
@@ -68,12 +68,12 @@
 
 ## 다른 모듈과의 연결
 
-- **제공 서비스:** `CodexService`, `HintService`, `RecordService`, `AquariumService`, `ReleaseService`, `DisplayCaseService`
-- **이벤트:** `CodexRegisteredEvent`, `CodexMilestoneEvent`, `RecordBrokenEvent`, `AquariumDonatedEvent`, `AquariumStageChangedEvent`, `FishReleasedEvent`
+- **제공 서비스:** `CollectionService`, `HintService`, `RecordService`, `AquariumService`, `ReleaseService`, `DisplayCaseService`
+- **이벤트:** `CollectionRegisteredEvent`, `CollectionMilestoneEvent`, `RecordBrokenEvent`, `AquariumDonatedEvent`, `AquariumStageChangedEvent`, `FishReleasedEvent`
 - **쓰는 것:**
-  - Fishing: 포획 이벤트를 받고, `CodexProvider`로 첫 포획 여부를 알려 준다.
+  - Fishing: 포획 이벤트를 받고, `CollectionProvider`로 첫 포획 여부를 알려 준다.
   - Season (필수): 칭호 지급, 랭킹 원천, 명예의 전당 제출, 시즌 훅.
-  - Npc (선택): 대화 액션 `aquarium:donate`·`codex:hint`, 최고 평판 등급(어항 칸), 방류 평판.
+  - Npc (선택): 대화 액션 `aquarium:donate`·`collection:hint`, 최고 평판 등급(어항 칸), 방류 평판.
   - World (선택): 개인 어항 수조 자리(`DisplayAnchor`), 편집 권한, 플롯 로드·언로드.
   - Shop (선택): 어항 테마 보유 확인. Shop은 Collection보다 뒤에 켜지므로 서비스로 찾는다.
 - **원장 사유:** `CODEX_FIRST_CATCH`, `CODEX_REWARD`

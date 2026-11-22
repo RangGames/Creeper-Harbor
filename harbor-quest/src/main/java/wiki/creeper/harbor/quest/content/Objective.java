@@ -15,11 +15,11 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *
  * @param key unique objective key. Used to carry progress over on reload (if absent, the order
  *     number "o<n>")
- * @param type objective type (catch · deliver · visit · talk · donate · codex · job_level ·
+ * @param type objective type (catch · deliver · visit · talk · donate · collection · job_level ·
  *     job_tier · boss · chart_percent · use_item · flag · cutscene · affinity · reputation, or a
  *     type registered by another module)
- * @param count required amount. Completion rate (%) for codex and chart_percent; the value to reach
- *     for job_level, job_tier, affinity and reputation
+ * @param count required amount. Completion rate (%) for collection and chart_percent; the value to
+ *     reach for job_level, job_tier, affinity and reputation
  * @param qualityMin minimum quality (catch, deliver, donate)
  * @param sizeMin minimum size in cm (catch, deliver)
  * @param region catch region condition (catch)
@@ -27,7 +27,7 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * @param source whether catch includes traps (default rod)
  * @param waypoint tracking marker location
  * @param text objective text (empty means the type's default text)
- * @param scope codex scope (season · total)
+ * @param scope collection scope (season · total)
  * @param node talk objective: the quest:talk action must run at this dialog node (empty means
  *     clicking the NPC)
  * @param server flag objective: whether it is a server flag
@@ -65,7 +65,7 @@ public record Objective(
                     "visit",
                     "talk",
                     "donate",
-                    "codex",
+                    "collection",
                     "job_level",
                     "job_tier",
                     "boss",
@@ -81,7 +81,13 @@ public record Objective(
      * of counted).
      */
     public static final Set<String> GAUGES =
-            Set.of("codex", "job_level", "job_tier", "chart_percent", "affinity", "reputation");
+            Set.of(
+                    "collection",
+                    "job_level",
+                    "job_tier",
+                    "chart_percent",
+                    "affinity",
+                    "reputation");
 
     private static final Pattern KEY = Pattern.compile("[a-z0-9_]{1,32}");
     private static final Pattern TYPE = Pattern.compile("[a-z0-9_]{1,32}");
@@ -315,7 +321,7 @@ public record Objective(
                     n.error("use_item 목표의 target은 아이템 ID여야 합니다");
                 }
             }
-            case "codex", "chart_percent" -> {
+            case "collection", "chart_percent" -> {
                 if (target.kind() != Target.Kind.ANY && target.kind() != Target.Kind.REGION) {
                     n.error(type + " 목표의 target은 region:<ID> 또는 any여야 합니다");
                 }

@@ -14,12 +14,12 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import wiki.creeper.harbor.collection.api.AquariumService;
-import wiki.creeper.harbor.collection.api.CodexScope;
+import wiki.creeper.harbor.collection.api.CollectionScope;
 import wiki.creeper.harbor.collection.content.AquariumRules;
 import wiki.creeper.harbor.collection.content.StatBonus;
-import wiki.creeper.harbor.collection.data.CodexData;
+import wiki.creeper.harbor.collection.data.CollectionData;
 import wiki.creeper.harbor.collection.view.AquariumView;
-import wiki.creeper.harbor.collection.view.CodexView;
+import wiki.creeper.harbor.collection.view.CollectionView;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.core.api.HarborApi;
@@ -33,7 +33,8 @@ import wiki.creeper.harbor.core.gui.Menu;
  * shortcut, and species filters (remaining · donated · all). The middle 4 rows are donatable
  * species; species in the inventory come first and glint, and clicking opens the donation
  * confirmation screen (the same {@link AquariumManager#donateSlot} → donateItems transaction as
- * donating from hand). Species not yet donated and not in your codex are hidden as silhouettes.
+ * donating from hand). Species not yet donated and not in your collection are hidden as
+ * silhouettes.
  */
 final class AquariumMenu {
 
@@ -41,12 +42,12 @@ final class AquariumMenu {
 
     private final HarborApi api;
     private final AquariumManager aquarium;
-    private final CollectionManager codex;
+    private final CollectionManager collection;
 
-    AquariumMenu(HarborApi api, AquariumManager aquarium, CollectionManager codex) {
+    AquariumMenu(HarborApi api, AquariumManager aquarium, CollectionManager collection) {
         this.api = api;
         this.aquarium = aquarium;
-        this.codex = codex;
+        this.collection = collection;
     }
 
     private MessageService msg() {
@@ -70,11 +71,11 @@ final class AquariumMenu {
         List<AquariumView.SpeciesRow> rows =
                 AquariumView.species(
                         donatable, aquarium.donatedSpecies(), inventory(viewer), filter);
-        int pages = CodexView.pages(rows.size(), PER_PAGE);
+        int pages = CollectionView.pages(rows.size(), PER_PAGE);
         int shown = Math.clamp(page, 0, pages - 1);
         Menu menu = new Menu(msg().get("collection.aquarium.menu.title"), 6);
         header(menu, viewer, status, stages, filter);
-        CodexData mine = codex.data(viewer.getUniqueId());
+        CollectionData mine = collection.data(viewer.getUniqueId());
         int start = shown * PER_PAGE;
         for (int i = 0; i < PER_PAGE && start + i < rows.size(); i++) {
             AquariumView.SpeciesRow row = rows.get(start + i);
@@ -140,7 +141,7 @@ final class AquariumMenu {
         lore.add(
                 MenuItems.bar(
                         api,
-                        CodexView.filled(target <= 0 ? 1 : status.rate() / target, width),
+                        CollectionView.filled(target <= 0 ? 1 : status.rate() / target, width),
                         width));
         lore.add(
                 msg().get(
@@ -198,7 +199,7 @@ final class AquariumMenu {
                                                     Locale.ROOT, "%.0f", row.stage().rate() * 100)),
                                     Placeholder.unparsed("needed", String.valueOf(row.needed()))));
             for (StatBonus bonus : row.stage().modifiers()) {
-                stageLore.add(new MilestoneMenu(api, codex).stat(bonus));
+                stageLore.add(new MilestoneMenu(api, collection).stat(bonus));
             }
             String key = "collection.aquarium.menu.stage_note." + row.stage().stage();
             if (msg().has(key)) {
@@ -261,10 +262,11 @@ final class AquariumMenu {
             UUID viewer,
             FishDef fish,
             AquariumView.SpeciesRow row,
-            CodexData mine,
+            CollectionData mine,
             AquariumRules rules) {
         boolean known =
-                row.donated() || codex.entry(viewer, fish.id(), CodexScope.TOTAL).isPresent();
+                row.donated()
+                        || collection.entry(viewer, fish.id(), CollectionScope.TOTAL).isPresent();
         List<Component> lore = new ArrayList<>();
         lore.add(
                 msg().get(
@@ -276,7 +278,7 @@ final class AquariumMenu {
                     msg().get(
                                     "collection.hint.region",
                                     Placeholder.unparsed(
-                                            "region", codex.regionName(fish.region()))));
+                                            "region", collection.regionName(fish.region()))));
         }
         lore.add(
                 msg().get(

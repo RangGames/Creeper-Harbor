@@ -23,7 +23,7 @@ import wiki.creeper.harbor.season.content.TitleDef;
  * </ul>
  *
  * <pre>{@code
- * // Collection: on reaching a codex milestone (Season does not listen to CodexMilestoneEvent, so call directly)
+ * // Collection: on reaching a collection milestone (Season does not listen to CollectionMilestoneEvent, so call directly)
  * titles.grant(uuid, TitleId.of(milestone.title()), "codex:" + season + ":" + milestone.percent());
  * }</pre>
  */

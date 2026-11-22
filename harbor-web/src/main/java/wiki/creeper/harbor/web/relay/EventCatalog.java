@@ -49,14 +49,14 @@ public final class EventCatalog {
                 e,
                 "Harbor-Collection",
                 "collection",
-                "collection.codex_registered",
-                "CodexRegisteredEvent");
+                "collection.registered",
+                "CollectionRegisteredEvent");
         module(
                 e,
                 "Harbor-Collection",
                 "collection",
-                "collection.codex_milestone",
-                "CodexMilestoneEvent");
+                "collection.milestone",
+                "CollectionMilestoneEvent");
         module(
                 e,
                 "Harbor-Collection",

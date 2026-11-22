@@ -22,7 +22,7 @@ import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
-import wiki.creeper.harbor.collection.api.CodexEntry;
+import wiki.creeper.harbor.collection.api.CollectionEntry;
 import wiki.creeper.harbor.collection.api.DisplaySlot;
 import wiki.creeper.harbor.collection.content.DisplayCaseRules;
 import wiki.creeper.harbor.collection.data.CollectionRepository;
@@ -186,14 +186,14 @@ final class DisplayCaseMenus {
     private void openFishPicker(Player player, PlotView view, int slot) {
         long plotId = view.plot.plotId();
         var _ =
-                manager.ownerCodex(view.plot.owner())
+                manager.ownerCollection(view.plot.owner())
                         .thenAccept(
-                                codex -> {
+                                collection -> {
                                     if (!player.isOnline()) {
                                         return;
                                     }
                                     List<FishDef> fish = new ArrayList<>();
-                                    for (FishId id : codex.keySet()) {
+                                    for (FishId id : collection.keySet()) {
                                         api.content()
                                                 .snapshot()
                                                 .get(FishDef.TYPE, id.id())
@@ -201,7 +201,8 @@ final class DisplayCaseMenus {
                                                 .ifPresent(fish::add);
                                     }
                                     if (fish.isEmpty()) {
-                                        api.messages().send(player, "collection.display.no_codex");
+                                        api.messages()
+                                                .send(player, "collection.display.no_collection");
                                         return;
                                     }
                                     fish.sort(Comparator.comparingInt(FishDef::no));
@@ -212,7 +213,7 @@ final class DisplayCaseMenus {
                                                     fish,
                                                     f ->
                                                             new PagedMenu.Entry(
-                                                                    icon(f, codex.get(f.id())),
+                                                                    icon(f, collection.get(f.id())),
                                                                     e -> {
                                                                         player.closeInventory();
                                                                         var _ =
@@ -274,7 +275,7 @@ final class DisplayCaseMenus {
         menu.open(player);
     }
 
-    private ItemStack icon(FishDef fish, @Nullable CodexEntry entry) {
+    private ItemStack icon(FishDef fish, @Nullable CollectionEntry entry) {
         String baseItem =
                 api.content()
                         .snapshot()

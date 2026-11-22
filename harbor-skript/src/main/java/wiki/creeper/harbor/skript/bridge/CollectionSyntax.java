@@ -5,10 +5,10 @@ import java.util.Optional;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
-import wiki.creeper.harbor.collection.api.CodexScope;
-import wiki.creeper.harbor.collection.api.CodexService;
+import wiki.creeper.harbor.collection.api.CollectionScope;
+import wiki.creeper.harbor.collection.api.CollectionService;
 import wiki.creeper.harbor.collection.api.RecordService;
-import wiki.creeper.harbor.collection.api.event.CodexRegisteredEvent;
+import wiki.creeper.harbor.collection.api.event.CollectionRegisteredEvent;
 import wiki.creeper.harbor.collection.api.event.RecordBrokenEvent;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.core.api.Harbor;
@@ -18,15 +18,15 @@ import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
 /**
- * When Harbor-Collection is enabled: codex completion rate and registration, personal biggest fish,
- * opening the codex, codex registration and new record events.
+ * When Harbor-Collection is enabled: collection completion rate and registration, personal biggest
+ * fish, opening the collection, collection registration and new record events.
  */
 public final class CollectionSyntax {
 
     private CollectionSyntax() {}
 
-    private static Optional<CodexService> codex() {
-        return Harbor.api().service(CodexService.class);
+    private static Optional<CollectionService> collection() {
+        return Harbor.api().service(CollectionService.class);
     }
 
     private static Optional<FishId> fish(String raw) {
@@ -35,9 +35,10 @@ public final class CollectionSyntax {
 
     public static void register(Registrar r) {
         r.number(
-                Spec.of("harbor codex percent"),
+                Spec.of("harbor collection percent"),
                 (e, x) ->
-                        codex().map(
+                        collection()
+                                .map(
                                         c ->
                                                 Args.<Number>perPlayer(
                                                         e,
@@ -45,14 +46,15 @@ public final class CollectionSyntax {
                                                         p ->
                                                                 c.percent(
                                                                         p.getUniqueId(),
-                                                                        CodexScope.SEASON,
+                                                                        CollectionScope.SEASON,
                                                                         null)))
                                 .orElse(List.of()),
-                "[the] harbor [season] codex percent[age] of %players%");
+                "[the] harbor [season] collection percent[age] of %players%");
         r.number(
-                Spec.of("harbor total codex percent"),
+                Spec.of("harbor total collection percent"),
                 (e, x) ->
-                        codex().map(
+                        collection()
+                                .map(
                                         c ->
                                                 Args.<Number>perPlayer(
                                                         e,
@@ -60,15 +62,15 @@ public final class CollectionSyntax {
                                                         p ->
                                                                 c.percent(
                                                                         p.getUniqueId(),
-                                                                        CodexScope.TOTAL,
+                                                                        CollectionScope.TOTAL,
                                                                         null)))
                                 .orElse(List.of()),
-                "[the] harbor total codex percent[age] of %players%");
+                "[the] harbor total collection percent[age] of %players%");
         r.condition(
-                Spec.of("harbor codex registered"),
+                Spec.of("harbor collection registered"),
                 (e, x) -> {
                     Optional<FishId> fish = Args.string(e, x, 1).flatMap(CollectionSyntax::fish);
-                    Optional<CodexService> c = codex();
+                    Optional<CollectionService> c = collection();
                     return fish.isPresent()
                             && c.isPresent()
                             && Args.all(
@@ -79,7 +81,7 @@ public final class CollectionSyntax {
                                                     .isRegistered(
                                                             p.getUniqueId(),
                                                             fish.get(),
-                                                            CodexScope.TOTAL));
+                                                            CollectionScope.TOTAL));
                 },
                 "%players% (has|have) registered harbor fish %string%",
                 "%players% (hasn't|has not|haven't|have not) registered harbor fish %string%");
@@ -102,9 +104,9 @@ public final class CollectionSyntax {
                 },
                 "[the] harbor (best|record) size of %players% for [fish] %string%");
         r.effect(
-                Spec.of("open harbor codex"),
+                Spec.of("open harbor collection"),
                 (e, x) -> {
-                    Optional<CodexService> c = codex();
+                    Optional<CollectionService> c = collection();
                     if (c.isEmpty()) {
                         return;
                     }
@@ -119,18 +121,18 @@ public final class CollectionSyntax {
                                         0);
                     }
                 },
-                "open harbor codex [of %-offlineplayer%] (to|for) %players%");
+                "open harbor collection [of %-offlineplayer%] (to|for) %players%");
 
         r.event(
-                "Harbor Codex Register",
-                CodexRegisteredEvent.class,
+                "Harbor Collection Register",
+                CollectionRegisteredEvent.class,
                 "도감에 새 어종이 등록된 뒤 (event-offlineplayer, event-string = 어종 ID)",
-                "harbor codex regist(er|ration)");
+                "harbor collection regist(er|ration)");
         r.value(
-                CodexRegisteredEvent.class,
+                CollectionRegisteredEvent.class,
                 OfflinePlayer.class,
                 e -> Bukkit.getOfflinePlayer(e.player()));
-        r.value(CodexRegisteredEvent.class, String.class, e -> e.fish().id().toString());
+        r.value(CollectionRegisteredEvent.class, String.class, e -> e.fish().id().toString());
 
         r.event(
                 "Harbor Record Broken",

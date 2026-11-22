@@ -6,7 +6,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.ServicePriority;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.collection.api.AquariumService;
-import wiki.creeper.harbor.collection.api.CodexService;
+import wiki.creeper.harbor.collection.api.CollectionService;
 import wiki.creeper.harbor.collection.api.DisplayCaseService;
 import wiki.creeper.harbor.collection.api.HintService;
 import wiki.creeper.harbor.collection.api.RecordService;
@@ -28,10 +28,10 @@ import wiki.creeper.harbor.core.api.ModuleContext;
 import wiki.creeper.harbor.fishing.api.FishingService;
 
 /**
- * Harbor-Collection (docs 20 ch. 4): codex, hints, biggest-catch records, harbor aquarium (tank
- * display), personal aquarium displays, release, ranking billboard. It does not judge catches; it
- * only records Fishing's catch events. Season is required (titles, hall of fame, rankings); NPC,
- * World, and Shop are optional dependencies.
+ * Harbor-Collection (docs 20 ch. 4): collection, hints, biggest-catch records, harbor aquarium
+ * (tank display), personal aquarium displays, release, ranking billboard. It does not judge
+ * catches; it only records Fishing's catch events. Season is required (titles, hall of fame,
+ * rankings); NPC, World, and Shop are optional dependencies.
  */
 public final class HarborCollectionPlugin extends HarborModule {
 
@@ -54,26 +54,30 @@ public final class HarborCollectionPlugin extends HarborModule {
         ItemReturns returns = new ItemReturns(api, getSLF4JLogger());
         SeasonLink season = new SeasonLink(api, getSLF4JLogger());
         season.registerHook(this);
-        CollectionManager codex = new CollectionManager(api, ctx.tasks(), getSLF4JLogger(), season);
+        CollectionManager collection =
+                new CollectionManager(api, ctx.tasks(), getSLF4JLogger(), season);
         AquariumManager aquarium = new AquariumManager(api, ctx.tasks(), getSLF4JLogger(), returns);
         this.aquarium = aquarium;
-        ctx.listen(codex);
+        ctx.listen(collection);
         ctx.listen(aquarium);
         ctx.handoffBlocker(aquarium.handoffBlocker());
         ctx.itemCustody(aquarium::held);
-        codex.start();
+        collection.start();
         aquarium.start();
         var _ = ctx.tasks().timer(20L * 300, 20L * 300, season::retryAll);
         Objects.requireNonNull(
                         getServer().getServicesManager().load(FishingService.class),
                         "Harbor-Fishing이 켜져 있어야 합니다")
-                .registerCodex(codex);
+                .registerCollection(collection);
 
-        // Optional NPC dependency: dialog actions aquarium:donate · codex:hint, highest reputation
+        // Optional NPC dependency: dialog actions aquarium:donate · collection:hint, highest
+        // reputation
         // tier (aquarium slots), release reputation
         NpcBridge npc = NpcBridge.NONE;
         if (enabled("Harbor-Npc")) {
-            npc = wiki.creeper.harbor.collection.hook.NpcHooks.install(this, api, aquarium, codex);
+            npc =
+                    wiki.creeper.harbor.collection.hook.NpcHooks.install(
+                            this, api, aquarium, collection);
         }
         ReleaseManager release =
                 new ReleaseManager(api, ctx.tasks(), getSLF4JLogger(), returns, npc);
@@ -88,13 +92,13 @@ public final class HarborCollectionPlugin extends HarborModule {
                             this, api, ctx.tasks(), getSLF4JLogger(), npc, themes);
         }
 
-        Billboard board = new Billboard(api, ctx.tasks(), codex);
+        Billboard board = new Billboard(api, ctx.tasks(), collection);
         board.start();
         this.billboard = board;
         ctx.listen(board);
 
         CollectionCommands commands =
-                new CollectionCommands(api, codex, aquarium, release, () -> display);
+                new CollectionCommands(api, collection, aquarium, release, () -> display);
         ctx.adminCommand(commands.adminCommand());
         getLifecycleManager()
                 .registerEventHandler(
@@ -102,9 +106,9 @@ public final class HarborCollectionPlugin extends HarborModule {
                         event -> commands.registerPlayerCommands(event.registrar()));
 
         var services = getServer().getServicesManager();
-        services.register(CodexService.class, codex, this, ServicePriority.Normal);
-        services.register(HintService.class, codex, this, ServicePriority.Normal);
-        services.register(RecordService.class, codex, this, ServicePriority.Normal);
+        services.register(CollectionService.class, collection, this, ServicePriority.Normal);
+        services.register(HintService.class, collection, this, ServicePriority.Normal);
+        services.register(RecordService.class, collection, this, ServicePriority.Normal);
         services.register(AquariumService.class, aquarium, this, ServicePriority.Normal);
         services.register(ReleaseService.class, release, this, ServicePriority.Normal);
         DisplayCaseManager d = display;

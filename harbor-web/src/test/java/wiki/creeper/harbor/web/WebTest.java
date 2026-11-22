@@ -154,8 +154,11 @@ class WebTest {
     @Test
     void routerAndLimiterAndRecent() throws Router.ApiException {
         Router router = new Router();
-        router.get("players/{id}/codex", "", r -> r.param("id") + ":" + r.query("scope", "total"));
-        var m = router.match("/players/Steve/codex").orElseThrow();
+        router.get(
+                "players/{id}/collection",
+                "",
+                r -> r.param("id") + ":" + r.query("scope", "total"));
+        var m = router.match("/players/Steve/collection").orElseThrow();
         assertEquals(
                 "Steve:season",
                 m.getKey().handle(new Router.Request(m.getValue(), Router.query("scope=season"))));

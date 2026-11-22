@@ -14,7 +14,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.content.AquariumRules;
-import wiki.creeper.harbor.collection.content.CodexRules;
+import wiki.creeper.harbor.collection.content.CollectionRules;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.RegionId;
@@ -29,63 +29,65 @@ class CollectionViewsTest {
         return new FishId(HarborId.parse("fish/" + id));
     }
 
-    static CodexView.Item item(String id, int no, Grade grade, RegionId region, Long caught) {
-        return new CodexView.Item(
+    static CollectionView.Item item(String id, int no, Grade grade, RegionId region, Long caught) {
+        return new CollectionView.Item(
                 fish(id), no, grade, region, caught == null ? null : Instant.ofEpochSecond(caught));
     }
 
-    static final List<CodexView.Item> ITEMS =
+    static final List<CollectionView.Item> ITEMS =
             List.of(
                     item("a", 3, Grade.COMMON, HARBOR, 100L),
                     item("b", 1, Grade.RARE, HARBOR, null),
                     item("c", 2, Grade.EPIC, SWAMP, 300L),
                     item("d", 4, Grade.RARE, SWAMP, 200L));
 
-    static List<Integer> nos(List<CodexView.Item> items) {
-        return items.stream().map(CodexView.Item::no).toList();
+    static List<Integer> nos(List<CollectionView.Item> items) {
+        return items.stream().map(CollectionView.Item::no).toList();
     }
 
     @Test
-    void codexFiltersAndSorts() {
-        CodexView.State d = CodexView.State.DEFAULT;
-        assertEquals(List.of(1, 2, 3, 4), nos(CodexView.apply(ITEMS, d)));
-        assertEquals(List.of(1, 3), nos(CodexView.apply(ITEMS, d.withRegion(HARBOR))));
+    void collectionFiltersAndSorts() {
+        CollectionView.State d = CollectionView.State.DEFAULT;
+        assertEquals(List.of(1, 2, 3, 4), nos(CollectionView.apply(ITEMS, d)));
+        assertEquals(List.of(1, 3), nos(CollectionView.apply(ITEMS, d.withRegion(HARBOR))));
         assertEquals(
                 List.of(1),
-                nos(CodexView.apply(ITEMS, d.withFilter(CodexView.Filter.UNREGISTERED))));
-        assertEquals(List.of(1, 4), nos(CodexView.apply(ITEMS, d.withGrade(Grade.RARE))));
+                nos(CollectionView.apply(ITEMS, d.withFilter(CollectionView.Filter.UNREGISTERED))));
+        assertEquals(List.of(1, 4), nos(CollectionView.apply(ITEMS, d.withGrade(Grade.RARE))));
         assertEquals(
-                List.of(2, 1, 4, 3), nos(CodexView.apply(ITEMS, d.withSort(CodexView.Sort.GRADE))));
-        assertEquals(List.of(2, 4, 3), nos(CodexView.apply(ITEMS, CodexView.State.RECENT)));
+                List.of(2, 1, 4, 3),
+                nos(CollectionView.apply(ITEMS, d.withSort(CollectionView.Sort.GRADE))));
+        assertEquals(
+                List.of(2, 4, 3), nos(CollectionView.apply(ITEMS, CollectionView.State.RECENT)));
     }
 
     @Test
-    void codexHelpers() {
-        assertEquals(Grade.COMMON, CodexView.nextGrade(null));
-        assertNull(CodexView.nextGrade(Grade.MYTHIC));
-        assertEquals(CodexView.Filter.ALL, CodexView.Filter.REGISTERED.next());
-        assertEquals(1, CodexView.pages(0, 36));
-        assertEquals(2, CodexView.pages(37, 36));
-        assertEquals(50.0, CodexView.percent(1, 2));
-        assertEquals(0.0, CodexView.percent(1, 0));
-        assertEquals(5, CodexView.filled(0.5, 10));
-        assertEquals(10, CodexView.filled(1.7, 10));
-        assertEquals(0, CodexView.filled(Double.NaN, 10));
-        assertEquals(3, CodexView.filled(0.3, 10), "부동소수 오차로 칸이 덜 차지 않는다");
+    void collectionHelpers() {
+        assertEquals(Grade.COMMON, CollectionView.nextGrade(null));
+        assertNull(CollectionView.nextGrade(Grade.MYTHIC));
+        assertEquals(CollectionView.Filter.ALL, CollectionView.Filter.REGISTERED.next());
+        assertEquals(1, CollectionView.pages(0, 36));
+        assertEquals(2, CollectionView.pages(37, 36));
+        assertEquals(50.0, CollectionView.percent(1, 2));
+        assertEquals(0.0, CollectionView.percent(1, 0));
+        assertEquals(5, CollectionView.filled(0.5, 10));
+        assertEquals(10, CollectionView.filled(1.7, 10));
+        assertEquals(0, CollectionView.filled(Double.NaN, 10));
+        assertEquals(3, CollectionView.filled(0.3, 10), "부동소수 오차로 칸이 덜 차지 않는다");
     }
 
     @Test
     void milestoneTrackMarksReached() {
-        CodexRules rules =
-                new CodexRules(
+        CollectionRules rules =
+                new CollectionRules(
                         Grade.RARE,
                         1,
                         3,
                         "codex_region",
                         List.of(
-                                new CodexRules.Milestone(50, "codex_50"),
-                                new CodexRules.Milestone(25, "codex_25")),
-                        List.of(new CodexRules.SeasonBuff(20, List.of())));
+                                new CollectionRules.Milestone(50, "codex_50"),
+                                new CollectionRules.Milestone(25, "codex_25")),
+                        List.of(new CollectionRules.SeasonBuff(20, List.of())));
         List<MilestoneTrack.Step> steps = MilestoneTrack.steps(rules, 30, 10);
         assertEquals(3, steps.size());
         assertEquals(25, steps.get(0).percent());

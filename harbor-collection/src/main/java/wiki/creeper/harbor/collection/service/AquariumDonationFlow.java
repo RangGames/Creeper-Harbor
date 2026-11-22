@@ -21,7 +21,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.collection.content.AquariumRules;
-import wiki.creeper.harbor.collection.data.CodexData;
+import wiki.creeper.harbor.collection.data.CollectionData;
 import wiki.creeper.harbor.collection.service.AquariumManager.Candidate;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.FishId;
@@ -89,7 +89,7 @@ final class AquariumDonationFlow {
             return CompletableFuture.completedFuture(false);
         }
         HarborPlayer hp = api.players().get(player);
-        CodexData data = hp.get(CollectionManager.COMPONENT);
+        CollectionData data = hp.get(CollectionManager.COMPONENT);
         AquariumRules rules = manager.rules();
         boolean counted =
                 data.donations().getOrDefault(fish.get().id(), 0) < rules.perPlayerSpeciesCap();

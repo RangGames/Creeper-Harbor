@@ -20,7 +20,7 @@ public interface ObjectiveSignal {
     void signal(Player player, String type, String target, int amount);
 
     /**
-     * Sets the reached value (gauge objectives such as codex and chart_percent). It never goes
+     * Sets the reached value (gauge objectives such as collection and chart_percent). It never goes
      * down.
      */
     void set(Player player, String type, String target, int value);

@@ -6,13 +6,13 @@ import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Codex milestone (region completion, cumulative completion stage). Titles are granted directly by
- * Collection via Season TitleService (reference ID {@code codex:<season>:<title key>}); cosmetics
- * are granted by Shop listening to this event. title is the granted title key.
+ * Collection milestone (region completion, cumulative completion stage). Titles are granted
+ * directly by Collection via Season TitleService (reference ID {@code codex:<season>:<title key>});
+ * cosmetics are granted by Shop listening to this event. title is the granted title key.
  *
  * @see Kind
  */
-public final class CodexMilestoneEvent extends Event {
+public final class CollectionMilestoneEvent extends Event {
 
     /** Milestone kind. */
     public enum Kind {
@@ -28,7 +28,7 @@ public final class CodexMilestoneEvent extends Event {
     private final int percent;
     private final @Nullable String title;
 
-    public CodexMilestoneEvent(
+    public CollectionMilestoneEvent(
             UUID player, Kind kind, String key, int percent, @Nullable String title) {
         this.player = player;
         this.kind = kind;

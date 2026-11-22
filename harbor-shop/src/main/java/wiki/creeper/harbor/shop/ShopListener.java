@@ -8,7 +8,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import wiki.creeper.harbor.collection.api.event.CodexMilestoneEvent;
+import wiki.creeper.harbor.collection.api.event.CollectionMilestoneEvent;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.shop.cosmetic.CosmeticManager;
 import wiki.creeper.harbor.shop.data.NoticeRepository;
@@ -20,7 +20,7 @@ import wiki.creeper.harbor.shop.pearl.PearlManager;
 /**
  * Join and cross-server notice handling (docs 20 12.2: PlayerJoinEvent → unshown payment notices,
  * apply subscription perks). On a harbor:shop notice, if that player is on this server, re-read the
- * cache from the DB and show unacknowledged notices. Collection codex milestone cosmetics are also
+ * cache from the DB and show unacknowledged notices. Collection milestone cosmetics are also
  * granted here ('17-2' 4.4).
  */
 public final class ShopListener implements Listener {
@@ -134,12 +134,12 @@ public final class ShopListener implements Listener {
     }
 
     /**
-     * Codex completion and region completion cosmetics (shop.yml codex_rewards). Titles are
-     * requested by Collection directly from Season.
+     * Collection completion and region completion cosmetics (shop.yml collection_rewards). Titles
+     * are requested by Collection directly from Season.
      */
     @EventHandler
-    public void onMilestone(CodexMilestoneEvent event) {
-        HarborId reward = rt.settings().codexRewards().get(event.key());
+    public void onMilestone(CollectionMilestoneEvent event) {
+        HarborId reward = rt.settings().collectionRewards().get(event.key());
         if (reward != null) {
             var _ = cosmetics.grant(event.player(), reward, "CODEX", "codex:" + event.key());
         }

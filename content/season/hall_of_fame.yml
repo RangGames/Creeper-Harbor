@@ -30,7 +30,7 @@ categories:
 
   - category: codex_first
     name: "<aqua>시즌 도감 완성 선착순"
-    source: codex_first
+    source: collection_first
     rule: first_n
     count: 10            # 제안값
     unit: 종

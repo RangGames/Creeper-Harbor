@@ -52,7 +52,7 @@ Redis 메시지는 Harbor 공통 봉투이고 `payload`가 이벤트다.
 | Core | `economy.currency_changed` |
 | Quest | `quest.accepted` `quest.completed` `quest.abandoned` `quest.chapter_completed` `quest.chronicle_piece` |
 | Economy | `economy.auction_listed` `economy.auction_sold` `economy.fish_sold` `economy.item_crafted` `economy.shop_purchase` `economy.trade_flagged` `economy.market_updated` |
-| Collection | `collection.codex_registered` `collection.codex_milestone` `collection.record_broken` `collection.aquarium_donated` `collection.aquarium_stage` `collection.fish_released` |
+| Collection | `collection.registered` `collection.milestone` `collection.record_broken` `collection.aquarium_donated` `collection.aquarium_stage` `collection.fish_released` |
 | Fishing | `fishing.caught` `fishing.trap_harvest` |
 | Jobs | `jobs.advanced` `jobs.level_up` `jobs.line_changed` `jobs.capstone_used` |
 | Npc | `npc.reputation_tier` `npc.affinity_level_up` `npc.gift_given` |
@@ -103,7 +103,7 @@ webhooks:
 | `GET /v1/health` | 살아 있는지 (토큰 불필요) |
 | `GET /v1/server` | 서버 ID·시즌·접속 인원 |
 | `GET /v1/players/{uuid 또는 이름}` | 이름·접속 시각·플레이 시간 + 이번 시즌 레벨·직업·골드·물비늘·평판 |
-| `GET /v1/players/{id}/codex?scope=total\|season` | 도감 (등록 수·%·어종별 최대 크기·최고 품질·횟수) — Collection |
+| `GET /v1/players/{id}/collection?scope=total\|season` | 도감 (등록 수·%·어종별 최대 크기·최고 품질·횟수) — Collection |
 | `GET /v1/players/{id}/quests` | 퀘스트 상태 (이번 시즌 + 메인) — Quest |
 | `GET /v1/players/{id}/ledger?currency=gold\|mulbineul&limit=50` | 재화 원장 최근 기록 (사유·증감·잔액·시각, 최대 200) |
 | `GET /v1/events?after=<seq>&type=<glob>&limit=100` | 최근 외부 이벤트 (`last`를 다음 요청의 `after`로) |

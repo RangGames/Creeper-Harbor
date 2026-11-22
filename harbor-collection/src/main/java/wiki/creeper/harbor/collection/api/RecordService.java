@@ -6,14 +6,14 @@ import java.util.UUID;
 import wiki.creeper.harbor.common.id.FishId;
 
 /**
- * Biggest-catch records (Season rankings and hall of fame, codex details). Leagues: tier1 · tier2 ·
- * all.
+ * Biggest-catch records (Season rankings and hall of fame, collection details). Leagues: tier1 ·
+ * tier2 · all.
  */
 public interface RecordService {
 
     List<String> LEAGUES = List.of("tier1", "tier2", "all");
 
-    /** Personal max size from the cumulative codex. */
+    /** Personal max size from the cumulative collection. */
     Optional<Double> personalBest(UUID player, FishId fish);
 
     /** This season's server top list (main server memory cache, up to 10). */

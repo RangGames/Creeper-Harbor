@@ -323,23 +323,23 @@ on harbor fish catch:
 ## 도감 · 기록 (Harbor-Collection)
 
 ```
-[the] harbor [season] codex percent[age] of %players%     # 이번 시즌 도감 %
-[the] harbor total codex percent[age] of %players%        # 전체 도감 %
+[the] harbor [season] collection percent[age] of %players%     # 이번 시즌 도감 %
+[the] harbor total collection percent[age] of %players%        # 전체 도감 %
 %players% (has|have) registered harbor fish %string%     # 전체 도감 등록 여부
 %players% (hasn't|has not|haven't|have not) registered harbor fish %string%
 [the] harbor (best|record) size of %players% for [fish] %string%   # 개인 최대어 cm
-open harbor codex [of %-offlineplayer%] (to|for) %players%        # 도감 화면 (다른 사람 도감도 볼 수 있음)
+open harbor collection [of %-offlineplayer%] (to|for) %players%        # 도감 화면 (다른 사람 도감도 볼 수 있음)
 ```
 
 | 이벤트 | 값 |
 |---|---|
-| `on harbor codex register` | `event-offlineplayer`, `event-string` = 어종 ID |
+| `on harbor collection register` | `event-offlineplayer`, `event-string` = 어종 ID |
 | `on harbor record broken` | `event-offlineplayer`, `event-string` = 어종 ID, `event-number` = 크기 cm |
 
 ```
-on harbor codex register:
-    if harbor total codex percent of event-offlineplayer >= 50:
-        harbor set flag "skript/codex_half" for event-offlineplayer
+on harbor collection register:
+    if harbor total collection percent of event-offlineplayer >= 50:
+        harbor set flag "skript/collection_half" for event-offlineplayer
 ```
 
 (`event-offlineplayer`가 접속 중이 아니면 플레이어 목록 인자를 받는 문법은 아무것도 하지 않습니다.)
@@ -423,7 +423,7 @@ on harbor sea event start:
 
 ## 없는 것
 
-- **GUI 열기:** 퀘스트북·판매·경매장 열기 문법은 없습니다. 그 모듈이 API로 여는 기능을 내놓지 않았기 때문입니다. 도감만 `open harbor codex`로 열 수 있습니다. 플레이어에게 명령을 시키려면 `make player execute command "/퀘스트"`를 쓰세요.
+- **GUI 열기:** 퀘스트북·판매·경매장 열기 문법은 없습니다. 그 모듈이 API로 여는 기능을 내놓지 않았기 때문입니다. 도감만 `open harbor collection`로 열 수 있습니다. 플레이어에게 명령을 시키려면 `make player execute command "/퀘스트"`를 쓰세요.
 - **새 목표 유형 등록:** 위 퀘스트 절 참고.
 - **재화·칭호·호감도를 직접 바꾸기:** 원장·보상 경로를 지키려고 골드·물비늘(원장 사유 SCRIPT_*)만 엽니다.
 
