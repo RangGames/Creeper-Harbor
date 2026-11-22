@@ -39,7 +39,8 @@ import wiki.creeper.harbor.npc.entity.NpcManager;
 import wiki.creeper.harbor.npc.logic.AffinityMath;
 
 /**
- * 호감도·선물 (docs 20 5.4). 값은 PlayerComponent<NpcData>에 두고 Core가 지연 쓰기 큐로 저장한다 (재화가 아님). 메인 스레드 전용.
+ * Affinity and gifts (docs 20 5.4). Values live in PlayerComponent<NpcData> and Core saves them
+ * through the write-behind queue (not a currency). Main thread only.
  */
 public final class AffinityManager implements AffinityService {
 
@@ -80,7 +81,7 @@ public final class AffinityManager implements AffinityService {
         return api.players().get(player).map(hp -> hp.get(component));
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ queries
 
     @Override
     public int points(UUID player, NpcId npc) {
@@ -117,7 +118,7 @@ public final class AffinityManager implements AffinityService {
         return levelInfo(player, npc).discountPercent();
     }
 
-    // ------------------------------------------------------------------ 변경
+    // ------------------------------------------------------------------ changes
 
     @Override
     public AffinityChange add(UUID player, NpcId npc, int delta, AffinitySource source) {
@@ -137,7 +138,9 @@ public final class AffinityManager implements AffinityService {
                 source);
     }
 
-    /** 상태를 바꾸고 이벤트를 낸다. state에는 선물·인사 날짜 갱신이 이미 들어 있을 수 있다. */
+    /**
+     * Replaces the state and fires events. state may already include updated gift/greeting dates.
+     */
     private AffinityChange apply(
             HarborPlayer hp,
             NpcData data,
@@ -172,7 +175,7 @@ public final class AffinityManager implements AffinityService {
         return new AffinityChange(true, oldPoints, newPoints, oldLevel, newLevel);
     }
 
-    /** 하루 첫 대화 (docs 20 5.4 3단계, 제안값 +2). */
+    /** First talk of the day (docs 20 5.4 step 3, proposed value +2). */
     public void greet(Player player, NpcDef def) {
         if (!def.greet()) {
             return;
@@ -193,9 +196,9 @@ public final class AffinityManager implements AffinityService {
                 AffinitySource.GREETING);
     }
 
-    // ------------------------------------------------------------------ 선물
+    // ------------------------------------------------------------------ gifts
 
-    /** 대화 액션 gift:open: 손에 든 아이템 1개를 선물한다 (docs 20 5.4 선물 1~4단계). */
+    /** Dialog action gift:open: gifts one of the held item (docs 20 5.4 gift steps 1-4). */
     public ActionResult openGift(Player player, NpcId npc) {
         Optional<NpcDef> def = npcs.def(npc);
         if (def.isEmpty()) {
@@ -226,7 +229,7 @@ public final class AffinityManager implements AffinityService {
                         .map(i -> ((HarborItem.Fish) i).uid())
                         .orElse(null);
         if (uid != null) {
-            // 고유 ID 아이템은 확인 Dialog를 거친다
+            // Items with a unique ID go through a confirmation Dialog
             api.dialogs()
                     .confirm(
                             player,
@@ -257,7 +260,10 @@ public final class AffinityManager implements AffinityService {
         };
     }
 
-    /** 4단계: 메인 스레드에서 아이템을 즉시 빼고 호감도를 메모리에 반영한 뒤 반응 대사를 띄운다. */
+    /**
+     * Step 4: on the main thread, remove the item immediately, apply affinity in memory, then show
+     * the reaction line.
+     */
     private void give(
             Player player,
             NpcDef def,
@@ -294,11 +300,16 @@ public final class AffinityManager implements AffinityService {
         held.setAmount(held.getAmount() - 1);
         player.getInventory().setItem(EquipmentSlot.HAND, held.getAmount() <= 0 ? null : held);
         if (uid != null) {
-            // 장부는 바로 GIFTED가 되므로 선물한 아이템이 빠진 인벤토리도 곧 저장한다. 서버가 죽으면 GIFTED 상태의 아이템이 돌아와
-            // 복사본으로 판정된다 (판매·경매 불가)
+            // The ledger becomes GIFTED right away, so also save the inventory without the gifted
+            // item soon. If the server
+            // crashes, the GIFTED item comes back and is judged a copy (cannot be sold or
+            // auctioned)
             api.players().saveSoon(player.getUniqueId());
-            // 장부 상태를 바꾼 뒤 성공했을 때만 호감도를 준다. 실패(이미 GIFTED·SOLD 등)면 복사된 아이템이다: 예전에는 기록만 하고
-            // 호감도를 그대로 줘서 복사한 5성 물고기로 매일 최대 호감도를 받을 수 있었다
+            // Grant affinity only if the ledger state change succeeds. A failure (already GIFTED ·
+            // SOLD,
+            // etc.) means a duplicated item: previously the state was only logged and affinity was
+            // granted
+            // anyway, so a duplicated 5-star fish could earn max affinity every day
             var _ =
                     api.database()
                             .async(
@@ -329,7 +340,10 @@ public final class AffinityManager implements AffinityService {
         reward(player, def, id, stars, base);
     }
 
-    /** 선물 반응: 호감도 반영·이벤트·대사 (메인 스레드). 지금 데이터를 다시 읽는다 (고유 ID 선물은 장부 확인 뒤에 온다). */
+    /**
+     * Gift reaction: applies affinity · event · dialog line (main thread). Re-reads current data (a
+     * unique-ID gift arrives after the ledger check).
+     */
     private void reward(Player player, NpcDef def, @Nullable HarborId id, int stars, int base) {
         HarborPlayer hp = api.players().get(player);
         LocalDate today = api.time().gameDay();

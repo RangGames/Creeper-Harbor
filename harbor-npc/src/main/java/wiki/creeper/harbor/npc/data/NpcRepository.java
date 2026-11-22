@@ -24,12 +24,15 @@ import wiki.creeper.harbor.common.model.SeasonId;
 import wiki.creeper.harbor.npc.api.ReputationLogEntry;
 import wiki.creeper.harbor.npc.api.ReputationSource;
 
-/** npc_affinity · npc_reputation_log · npc_rep_best · cutscene_restore SQL. 가상 스레드에서만 부른다. */
+/**
+ * npc_affinity · npc_reputation_log · npc_rep_best · cutscene_restore SQL. Call only from virtual
+ * threads.
+ */
 public final class NpcRepository {
 
     private NpcRepository() {}
 
-    // ------------------------------------------------------------------ 플레이어 데이터
+    // ------------------------------------------------------------------ player data
 
     public static NpcData load(
             Connection c, UUID uuid, SeasonId season, LocalDate today, int recentSize)
@@ -52,7 +55,7 @@ public final class NpcRepository {
                                         rs.getInt(4),
                                         localDate(rs.getDate(5))));
                     } catch (IllegalArgumentException e) {
-                        // 형식이 틀린 행은 무시한다
+                        // Ignore malformed rows
                     }
                 }
             }
@@ -107,7 +110,7 @@ public final class NpcRepository {
         return new NpcData(affinity, today, todayBySource, recent, refs, Math.max(1, best));
     }
 
-    /** 호감도 저장 (지연 쓰기 큐 또는 퇴장 시 즉시). */
+    /** Saves affinity (write-behind queue, or immediately on quit). */
     public static void saveAffinity(
             Connection c, UUID uuid, SeasonId season, Map<NpcId, AffinityState> affinity)
             throws SQLException {
@@ -135,9 +138,9 @@ public final class NpcRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 평판
+    // ------------------------------------------------------------------ reputation
 
-    /** 평판 기록을 넣는다. 같은 (uuid, season, ref_id)가 이미 있으면 false. */
+    /** Inserts a reputation log entry. False if the same (uuid, season, ref_id) already exists. */
     public static boolean insertReputation(
             Connection c,
             UUID uuid,
@@ -165,7 +168,7 @@ public final class NpcRepository {
         }
     }
 
-    /** 반영하지 못한 기록을 지운다 (다시 받을 수 있게). */
+    /** Deletes an entry that could not be applied (so it can be received again). */
     public static void deleteReputation(Connection c, UUID uuid, SeasonId season, String refId)
             throws SQLException {
         try (PreparedStatement ps =
@@ -188,7 +191,7 @@ public final class NpcRepository {
         }
     }
 
-    /** 최고 등급은 올라가기만 한다. */
+    /** The best tier only goes up. */
     public static void raiseBest(Connection c, UUID uuid, int tier) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
@@ -201,7 +204,7 @@ public final class NpcRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 컷씬 복구
+    // ------------------------------------------------------------------ cutscene restore
 
     public static void saveRestore(Connection c, UUID uuid, RestoreInfo info) throws SQLException {
         try (PreparedStatement ps =

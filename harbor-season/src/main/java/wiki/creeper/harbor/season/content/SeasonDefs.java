@@ -18,7 +18,7 @@ import wiki.creeper.harbor.common.content.ParseContext;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
-/** season/seasons.yml: 시즌 정의 목록. 시즌 번호 오름차순. */
+/** season/seasons.yml: list of season definitions, in ascending season number. */
 public record SeasonDefs(List<SeasonDef> seasons) {
 
     public static final ContentType.Single<SeasonDefs> TYPE =

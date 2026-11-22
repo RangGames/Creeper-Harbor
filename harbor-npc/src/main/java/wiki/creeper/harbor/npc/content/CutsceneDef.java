@@ -16,14 +16,14 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 컷씬 (cutscenes/*.yml, 추가 제안, docs 20 5.3). 시간 t는 시작부터의 틱.
+ * Cutscene (cutscenes/*.yml, proposed, docs 20 5.3). Time t is ticks since the start.
  *
  * <pre>{@code
  * - id: cutscene/prologue_drift
  *   world: harbor_main
- *   skippable: seen          # seen(한 번 본 뒤) · always · never
- *   time: night              # 틱 또는 dawn·day·dusk·night (개인 시간)
- *   weather: thunder         # clear · rain · thunder (개인 날씨)
+ *   skippable: seen          # seen (after watching once) · always · never
+ *   time: night              # ticks or dawn·day·dusk·night (personal time)
+ *   weather: thunder         # clear · rain · thunder (personal weather)
  *   camera:
  *     - {t: 0, pos: [10, 70, 5], yaw: 90, pitch: 10}
  *     - {t: 80, pos: [20, 72, 5], yaw: 120, pitch: 5}
@@ -32,12 +32,12 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *   lines: [{t: 20, actor: hansol, text: npc.cutscene.prologue.1, ticks: 60}]
  *   titles: [{t: 0, title: npc.cutscene.prologue.title, subtitle: npc.cutscene.prologue.sub}]
  *   sounds: [{t: 0, sound: minecraft:weather.rain, volume: 1, pitch: 1}]
- *   end: {return: origin}    # origin 또는 [x, y, z, yaw, pitch]
+ *   end: {return: origin}    # origin or [x, y, z, yaw, pitch]
  * }</pre>
  *
- * @param duration 전체 길이 (명시하지 않으면 마지막 큐가 끝나는 틱)
- * @param time 개인 시간 틱 (없으면 그대로)
- * @param weather 개인 날씨 (없으면 그대로)
+ * @param duration total length (if not given, the tick at which the last cue ends)
+ * @param time personal time ticks (unchanged if absent)
+ * @param weather personal weather (unchanged if absent)
  */
 public record CutsceneDef(
         HarborId id,
@@ -63,7 +63,7 @@ public record CutsceneDef(
                     CutsceneDef::parse,
                     CutsceneDef::id);
 
-    /** 건너뛰기 규칙 ('8. 시스템 상세 기획' 7장: 한 번 본 컷씬은 스킵 가능). */
+    /** Skip rule ('8. System detailed design' ch. 7: a cutscene seen once can be skipped). */
     public enum Skippable implements Keyed {
         SEEN,
         ALWAYS,
@@ -82,9 +82,10 @@ public record CutsceneDef(
     public record CameraKey(int t, Spot pos) {}
 
     /**
-     * 배우. npc가 있으면 그 NPC의 스킨·자세·이름을 쓰고, skin·name·pose로 덮어쓸 수 있다.
+     * Actor. If npc is set, uses that NPC's skin, pose and name, which skin, name and pose can
+     * override.
      *
-     * @param path 위치 키프레임 (사이는 틱마다 보간)
+     * @param path position keyframes (interpolated every tick in between)
      */
     public record Actor(
             String id,
@@ -100,9 +101,9 @@ public record CutsceneDef(
     }
 
     /**
-     * 대사. actor가 비어 있으면 내레이션(액션바 자막만).
+     * Line. If actor is empty, it is narration (action bar subtitle only).
      *
-     * @param text messages_ko.yml 키
+     * @param text messages_ko.yml key
      */
     public record Line(int t, @Nullable String actor, String text, int ticks) {}
 
@@ -123,7 +124,7 @@ public record CutsceneDef(
         return actors.stream().filter(a -> a.id().equals(id)).findFirst();
     }
 
-    /** 끝나면 원래 위치로 돌아가는지. */
+    /** Whether to return to the original location at the end. */
     public boolean returnsToOrigin() {
         return end == null;
     }
@@ -301,7 +302,7 @@ public record CutsceneDef(
                 endSpot);
     }
 
-    /** [{t, pos: [x, y, z(, yaw, pitch)], yaw, pitch}] — t는 커져야 한다. */
+    /** [{t, pos: [x, y, z(, yaw, pitch)], yaw, pitch}] — t must increase. */
     private static List<CameraKey> keys(List<YamlNode> list, String world, String what) {
         List<CameraKey> keys = new ArrayList<>();
         int previous = -1;

@@ -6,7 +6,10 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.NpcId;
 
-/** 대화 선택지 선택 (조건 재확인 뒤, 액션 실행 전). 통계·튜토리얼용. */
+/**
+ * Dialog choice selected (after re-checking conditions, before running actions). For stats and
+ * tutorials.
+ */
 public final class DialogOptionSelectedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

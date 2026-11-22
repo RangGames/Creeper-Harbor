@@ -5,7 +5,10 @@ import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.season.api.HallOfFameEntry;
 
-/** 명예의 전당 잠정 1위(또는 선착순 명단)가 바뀐 뒤 메인 스레드에서 발생한다 (공지·전광판). 제출을 처리한 서버에서만 발생한다. */
+/**
+ * Fired on the main thread after the provisional hall of fame top (or first-come list) changes
+ * (notices, leaderboards). Fired only on the server that processed the submission.
+ */
 public final class HallOfFameUpdatedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -22,7 +25,7 @@ public final class HallOfFameUpdatedEvent extends Event {
         return entry;
     }
 
-    /** 밀려난 기존 1위 (없으면 null). */
+    /** The previous top that was displaced (null if none). */
     public @Nullable HallOfFameEntry previous() {
         return previous;
     }

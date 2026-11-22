@@ -5,7 +5,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.HarborId;
 
-/** 컷씬 시작 (준비가 끝나고 재생 직전). */
+/** Cutscene started (setup done, right before playback). */
 public final class CutsceneStartEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

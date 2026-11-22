@@ -13,71 +13,81 @@ import wiki.creeper.harbor.season.api.SeasonHook;
 import wiki.creeper.harbor.season.api.TitleId;
 
 /**
- * 전환 엔진이 서버(또는 harbor-tools 리허설 CLI)에 맡기는 일. 엔진은 Paper API를 모르고 이 인터페이스로만 바깥과 이야기한다. 모든 메서드는 가상
- * 스레드에서 불리며 블로킹해도 된다.
+ * Work the transition engine delegates to the server (or the harbor-tools rehearsal CLI). The
+ * engine knows nothing of the Paper API and talks to the outside only through this interface. All
+ * methods are called on virtual threads and may block.
  */
 public interface TransitionEnvironment {
 
-    /** 이 서버가 지금 돌리는 시즌 (harbor-infra.yml season.id). */
+    /** The season this server is currently running (harbor-infra.yml season.id). */
     int currentSeason();
 
-    /** PRECHECK: 다음 시즌 콘텐츠(seasons.yml·content_dir) 검사 오류. */
+    /** PRECHECK: validation errors in the next season's content (seasons.yml, content_dir). */
     List<String> checkContent(int nextSeason);
 
-    /** PRECHECK: 다음 시즌 리소스팩 URL을 받아 SHA-1이 맞는지. 오류 목록. */
+    /**
+     * PRECHECK: downloads the next season's resource pack URL and checks the SHA-1. List of errors.
+     */
     List<String> checkResourcePack(int nextSeason);
 
-    /** DB 서버 디스크 여유 (바이트). 알 수 없으면 빈 값 (경고만 남긴다). */
+    /** Free disk space on the DB server (bytes). Empty if unknown (only a warning is logged). */
     OptionalLong freeDiskBytes();
 
     boolean titleExists(TitleId title);
 
-    /** 다음 시즌 시작·종료 시각 (season_meta 행이 없을 때 만들기 위해). */
+    /** Start and end time of the next season (for creating the season_meta row if missing). */
     SeasonWindow window(int season);
 
-    /** 시작·종료 시각 (epoch 초). */
+    /** Start and end time (epoch seconds). */
     record SeasonWindow(long startsAt, long endsAt) {}
 
-    /** 전 서버 공지 (harbor:announce). 메시지 키와 자리표시자. */
+    /** Network-wide notice (harbor:announce). Message key and placeholders. */
     void announce(String messageKey, Map<String, String> placeholders);
 
-    /** 관리자에게 진행 상황 (접속 중인 harbor.admin.season.transition 보유자와 콘솔). */
+    /**
+     * Progress updates for admins (online holders of harbor.admin.season.transition and the
+     * console).
+     */
     void progress(String messageKey, Map<String, String> placeholders);
 
-    /** FREEZE: 모든 서버가 플레이어를 내보내고 지연 쓰기 큐를 비울 때까지 기다린다. */
+    /** FREEZE: waits until every server has kicked players and drained its write-behind queue. */
     FreezeResult freeze(String transitionId, int season, Duration timeout)
             throws InterruptedException;
 
-    /** 결과. missing = 응답이 없거나 실패한 서버. */
+    /** Result. missing = servers that did not respond or failed. */
     record FreezeResult(boolean ok, List<String> servers, List<String> missing) {}
 
-    /** 롤백 A 뒤 접속 차단을 푼다. */
+    /** Lifts the login block after rollback A. */
     void thaw(String transitionId, int season);
 
-    /** season_meta가 바뀌었다고 모든 서버에 알린다. */
+    /** Notifies all servers that season_meta has changed. */
     void metaChanged(int season);
 
     /**
-     * RESET: 시즌 n 잔액을 SEASON_RESET 원장 기록(참조 ID season_reset:&lt;n&gt;:&lt;uuid&gt;)으로 0으로 만든다. 반드시
-     * CurrencyService(Common LedgerWriter)를 거친다. 다시 불러도 같은 결과여야 한다.
+     * RESET: zeroes season-n balances with SEASON_RESET ledger entries (reference ID
+     * season_reset:&lt;n&gt;:&lt;uuid&gt;). Must go through CurrencyService (Common LedgerWriter).
+     * Calling it again must give the same result.
      *
-     * @return 처리한 원장 기록 수
+     * @return number of ledger entries processed
      */
     long resetBalances(int season, Set<Currency> currencies) throws Exception;
 
-    /** SNAPSHOT: 최종 랭킹을 ranking_snapshot에 남긴다. */
+    /** SNAPSHOT: stores the final rankings in ranking_snapshot. */
     int snapshotRankings(Connection c, int season, String archiveSchema) throws SQLException;
 
-    /** SNAPSHOT: 명예의 전당 확정 + 칭호 지급. 분류별 행 수. */
+    /** SNAPSHOT: finalizes the hall of fame and grants titles. Row count per category. */
     Map<String, Integer> finalizeHallOfFame(Connection c, int season, String archiveSchema)
             throws SQLException;
 
-    /** 등록된 SeasonHook (등록 순서). */
+    /** Registered SeasonHooks (registration order). */
     List<SeasonHook> hooks();
 
-    /** CONTENT: 다음 시즌 콘텐츠·리소스팩으로 바꿀 준비를 하고 확인한다. 오류 목록 (비면 성공). */
+    /**
+     * CONTENT: prepares and verifies the switch to next season's content and resource pack. List of
+     * errors (empty on success).
+     */
     List<String> switchContent(int nextSeason);
 
-    /** 플러그인 폴더 기준 경로 (백업 표식 파일). */
+    /** Path relative to the plugin folder (backup marker file). */
     Path dataPath(String relative);
 }

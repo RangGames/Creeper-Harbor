@@ -8,12 +8,14 @@ import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.core.api.Dialogs;
 
 /**
- * 대화 한 화면 (한 쪽 + 버튼). 버튼을 누르면 {@code onClick}(순서 번호)을 부른다. 오래된 화면·위조 클릭은 받는 쪽(DialogManager)이
- * nonce로 거른다.
+ * One dialog screen (one page + buttons). Pressing a button calls {@code onClick} (its index).
+ * Stale screens and forged clicks are filtered by the receiver (DialogManager) via the nonce.
  *
- * @param text 대사 (없으면 버튼만)
- * @param nextOnly 버튼이 "다음" 하나뿐인지 (DIALOG 밖의 방식은 NPC 재클릭으로도 넘김)
- * @param staySeconds 화면이 떠 있을 시간 힌트 (타이틀 유지 시간, 0이면 방식 기본값)
+ * @param text line (buttons only if absent)
+ * @param nextOnly whether the only button is "next" (non-DIALOG styles also advance on NPC
+ *     re-click)
+ * @param staySeconds hint for how long the screen stays up (title stay time, 0 for the style
+ *     default)
  */
 public record Frame(
         NpcId npc,

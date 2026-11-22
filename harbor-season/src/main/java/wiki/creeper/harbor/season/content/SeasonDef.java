@@ -8,15 +8,15 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * 시즌 정의 한 개 (season/seasons.yml, docs 20 11.3).
+ * One season definition (season/seasons.yml, docs 20 11.3).
  *
- * @param startDate 시작일
- * @param startTime 시작 시각 (null이면 그날 일일 초기화 시각)
- * @param weeks 시즌 길이 (주, 기본 12 = '7. 밸런스 기획' 1장)
- * @param themeRegion 테마 지역 (없으면 null)
- * @param packUrl 시즌 리소스팩 URL (없으면 null)
- * @param packSha1 리소스팩 SHA-1 (40자리 16진수, packUrl이 있으면 필수)
- * @param contentDir 시즌 콘텐츠 폴더 (콘텐츠 루트 기준, 없으면 null)
+ * @param startDate start date
+ * @param startTime start time (null = that day's daily reset time)
+ * @param weeks season length (weeks, default 12 = '7. Balance design' ch. 1)
+ * @param themeRegion theme region (null if none)
+ * @param packUrl season resource pack URL (null if none)
+ * @param packSha1 resource pack SHA-1 (40 hex digits, required if packUrl is set)
+ * @param contentDir season content folder (relative to the content root, null if none)
  */
 public record SeasonDef(
         int season,
@@ -29,7 +29,7 @@ public record SeasonDef(
         @Nullable String packSha1,
         @Nullable String contentDir) {
 
-    /** 시작 시각. startTime이 없으면 dailyReset을 쓴다. */
+    /** Start time. Uses dailyReset if startTime is not set. */
     public ZonedDateTime startsAt(ZoneId zone, LocalTime dailyReset) {
         LocalTime time = startTime;
         return startDate.atTime(time == null ? dailyReset : time).atZone(zone);

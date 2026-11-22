@@ -8,12 +8,14 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.season.api.TitleId;
 
 /**
- * 칭호 정의 (titles.yml, 추가 제안, docs 20 11.3).
+ * Title definition (titles.yml, proposed, docs 20 11.3).
  *
- * @param name 표시 이름 (MiniMessage)
- * @param style 표시 등급 (common · rare · epic · legendary · special). GUI 아이콘 색에 쓴다
- * @param sourceHint 얻는 방법 설명 (GUI 설명 줄)
- * @param permanent false면 상태형 칭호 (후원자 칭호처럼 조건이 끝나면 회수될 수 있음)
+ * @param name display name (MiniMessage)
+ * @param style display tier (common · rare · epic · legendary · special). Used for the GUI icon
+ *     color
+ * @param sourceHint description of how to obtain it (GUI lore line)
+ * @param permanent false for status titles (may be revoked when the condition ends, like donor
+ *     titles)
  */
 public record TitleDef(
         TitleId id, String name, String style, String sourceHint, boolean permanent) {

@@ -10,14 +10,18 @@ import wiki.creeper.harbor.npc.api.ReputationSource;
 import wiki.creeper.harbor.npc.api.ReputationTier;
 
 /**
- * balance.yml의 reputation 절(docs 20 5.3)과 npc 절(추가 제안). 값이 없으면 docs 20 5.4의 제안값을 쓴다. 모든 수치는 CBT 지표로
- * 확정한다.
+ * The reputation section (docs 20 5.3) and npc section (proposed) of balance.yml. Missing values
+ * fall back to the proposed values in docs 20 5.4. All numbers are to be finalized with CBT
+ * metrics.
  */
 public record NpcBalance(Balance balance) {
 
-    // ------------------------------------------------------------------ 평판
+    // ------------------------------------------------------------------ reputation
 
-    /** 등급표 (1부터, 누적 평판 오름차순). balance.yml {@code reputation.tiers.<등급>: {points, name}}. */
+    /**
+     * Tier table (1-based, ascending cumulative reputation). balance.yml {@code
+     * reputation.tiers.<tier>: {points, name}}.
+     */
     public List<ReputationTier> reputationTiers() {
         List<ReputationTier> tiers = new ArrayList<>();
         for (String key : balance.keys("reputation.tiers")) {
@@ -35,7 +39,7 @@ public record NpcBalance(Balance balance) {
                             balance.string(base + ".name").orElse(String.valueOf(tier))));
         }
         if (tiers.isEmpty()) {
-            // docs 20 5.4 평판 표 (제안값)
+            // docs 20 5.4 reputation table (proposed values)
             tiers.add(new ReputationTier(1, 0, "이방인"));
             tiers.add(new ReputationTier(2, 300, "이웃"));
             tiers.add(new ReputationTier(3, 1_000, "단골"));
@@ -46,7 +50,7 @@ public record NpcBalance(Balance balance) {
         return List.copyOf(tiers);
     }
 
-    /** 출처별 기본 평판 (docs 20 5.4 제안값). */
+    /** Default reputation per source (docs 20 5.4 proposed values). */
     public int sourceValue(ReputationSource source) {
         int fallback =
                 switch (source) {
@@ -63,22 +67,22 @@ public record NpcBalance(Balance balance) {
         return balance.integer("reputation.sources." + source.key(), fallback);
     }
 
-    /** 출처별 하루 상한 (0이면 없음). 방류 30 (제안값). */
+    /** Daily cap per source (0 means none). Release 30 (proposed value). */
     public int dailyCap(ReputationSource source) {
         int fallback = source == ReputationSource.RELEASE ? 30 : 0;
         return balance.integer("reputation.daily_caps." + source.key(), fallback);
     }
 
-    /** /평판 최근 내역 줄 수. */
+    /** Number of lines in the reputation command's recent history. */
     public int recentSize() {
         return balance.integer("reputation.recent_size", 10);
     }
 
-    // ------------------------------------------------------------------ 호감도
+    // ------------------------------------------------------------------ affinity
 
     /**
-     * 기본 단계표 (npcs.yml affinity_levels가 없을 때). {@code npc.affinity.levels.<단계>: {points, name,
-     * discount, unlocks}}.
+     * Default level table (when npcs.yml has no affinity_levels). {@code
+     * npc.affinity.levels.<level>: {points, name, discount, unlocks}}.
      */
     public List<AffinityLevel> affinityLevels() {
         List<AffinityLevel> levels = new ArrayList<>();
@@ -106,22 +110,22 @@ public record NpcBalance(Balance balance) {
         return List.copyOf(levels);
     }
 
-    /** 하루 첫 대화 호감도 (제안값 +2). */
+    /** Affinity for the first talk of the day (proposed value +2). */
     public int greetPoints() {
         return balance.integer("npc.affinity.greet", 2);
     }
 
-    /** gifts 표에 없는 아이템의 호감도 (기본 +1). */
+    /** Affinity for items not in the gifts table (default +1). */
     public int giftDefault() {
         return balance.integer("npc.affinity.gift_default", 1);
     }
 
-    /** 어종 선물 품질 배율 × (1 + bonus × (★ − 1)), 제안값 0.25. */
+    /** Fish gift quality multiplier × (1 + bonus × (★ − 1)), proposed value 0.25. */
     public double giftQualityBonus() {
         return balance.number("npc.affinity.gift_quality_bonus", 0.25);
     }
 
-    /** NPC당 하루 선물 횟수 (1). */
+    /** Gifts per NPC per day (1). */
     public int giftsPerDay() {
         return balance.integer("npc.affinity.gifts_per_day", 1);
     }
@@ -134,78 +138,81 @@ public record NpcBalance(Balance balance) {
         return balance.integer("npc.affinity.reactions.like", 5);
     }
 
-    // ------------------------------------------------------------------ 대화·엔티티
+    // ------------------------------------------------------------------ dialog and entities
 
-    /** 대화 세션 유효 시간 (5분). */
+    /** Dialog session lifetime (5 minutes). */
     public int dialogTimeoutSeconds() {
         return balance.integer("npc.dialog.timeout_seconds", 300);
     }
 
-    /** 선택지 클릭 때 NPC와의 최대 거리 (6블록). */
+    /** Maximum distance to the NPC when clicking a choice (6 blocks). */
     public double optionDistance() {
         return balance.number("npc.dialog.option_distance", 6);
     }
 
-    /** 같은 플레이어의 중복 클릭 무시 (10틱). */
+    /** Ignore repeated clicks from the same player (10 ticks). */
     public int clickCooldownTicks() {
         return balance.integer("npc.dialog.click_cooldown_ticks", 10);
     }
 
-    // ------------------------------------------------------------------ 대화 방식 (추가 제안, 모두 제안값)
+    // ------------------------------------------------------------------ dialog style (proposed,
+    // all proposed values)
 
-    /** NPC에 dialog_style이 없을 때 방식 (dialog). */
+    /** Style when the NPC has no dialog_style (dialog). */
     public DialogStyle defaultStyle() {
         return balance.string("npc.dialog.default_style")
                 .flatMap(DialogStyle::parse)
                 .orElse(DialogStyle.DIALOG);
     }
 
-    /** DIALOG 밖의 세션: 거리·말풍선 확인 간격 (10틱). */
+    /** Non-DIALOG sessions: distance and speech bubble check interval (10 ticks). */
     public int watchTicks() {
         return Math.max(2, balance.integer("npc.dialog.watch_ticks", 10));
     }
 
-    /** 말풍선 높이 (NPC 발 기준, 이름·표시보다 위). */
+    /** Speech bubble height (from the NPC's feet, above the name and marker). */
     public double hologramOffset() {
         return balance.number("npc.dialog.hologram.offset", 2.9);
     }
 
-    /** 말풍선 한 줄 너비 (픽셀, TextDisplay line width). */
+    /** Speech bubble line width (pixels, TextDisplay line width). */
     public int hologramLineWidth() {
         return Math.max(40, balance.integer("npc.dialog.hologram.line_width", 180));
     }
 
-    /** 한마디(say) 말풍선·타이틀이 떠 있는 시간 (초). */
+    /** How long a one-liner (say) bubble or title stays up (seconds). */
     public double barkSeconds() {
         return Math.max(1, balance.number("npc.dialog.hologram.bark_seconds", 4));
     }
 
-    /** 타자 효과: 틱당 글자 수 (0이면 한 번에). */
+    /** Typewriter effect: characters per tick (0 means all at once). */
     public int typewriterCharsPerTick() {
         return Math.max(0, balance.integer("npc.dialog.hologram.typewriter_chars_per_tick", 2));
     }
 
-    /** 말풍선 보이는 거리 배율 (TextDisplay view range, 1 = 64블록). */
+    /** Speech bubble view distance multiplier (TextDisplay view range, 1 = 64 blocks). */
     public float hologramViewRange() {
         return (float) balance.number("npc.dialog.hologram.view_range", 0.5);
     }
 
-    /** 말풍선 배경 불투명도 (0~255). */
+    /** Speech bubble background opacity (0-255). */
     public int hologramBackgroundAlpha() {
         return Math.clamp(balance.integer("npc.dialog.hologram.background_alpha", 96), 0, 255);
     }
 
-    /** TITLE 방식에서 서브타이틀이 떠 있는 시간 (초). auto가 있으면 그 값. */
+    /** How long the subtitle stays up in TITLE style (seconds). If auto is set, that value. */
     public double titleStaySeconds() {
         return Math.max(1, balance.number("npc.dialog.title.stay_seconds", 8));
     }
 
-    /** 서브타이틀이 이 글자 수를 넘으면 채팅에도 같이 보낸다 (잘려 보일 수 있어서). */
+    /**
+     * If the subtitle exceeds this many characters, also send it to chat (it may appear cut off).
+     */
     public int titleMaxChars() {
         return Math.max(8, balance.integer("npc.dialog.title.max_chars", 40));
     }
 
-    /** ACTIONBAR 방식: 액션바가 사라지지 않게 다시 보내는 간격 (40틱). */
+    /** ACTIONBAR style: interval for resending so the action bar does not fade (40 ticks). */
     public int actionBarRefreshTicks() {
         return Math.max(10, balance.integer("npc.dialog.actionbar.refresh_ticks", 40));
     }
@@ -222,7 +229,7 @@ public record NpcBalance(Balance balance) {
         return balance.number("npc.entity.interaction_height", 2.0);
     }
 
-    /** 이름 Text Display 높이 (발 기준). */
+    /** Name Text Display height (from the feet). */
     public double nameOffset() {
         return balance.number("npc.entity.name_offset", 2.15);
     }
@@ -231,40 +238,42 @@ public record NpcBalance(Balance balance) {
         return balance.number("npc.entity.marker_offset", 2.5);
     }
 
-    // ------------------------------------------------------------------ 떠돌이
+    // ------------------------------------------------------------------ wanderers
 
     public int wandererSlotHours() {
         return balance.integer("npc.wanderer.slot_hours", 3);
     }
 
-    /** 조건부 후보 확인 간격 (1분). */
+    /** Conditional candidate check interval (1 minute). */
     public int wandererCheckTicks() {
         return Math.max(20, balance.integer("npc.wanderer.check_interval_ticks", 1_200));
     }
 
-    /** 대화 중인 플레이어가 있을 때 이동을 미루는 최대 시간 (60초). */
+    /** Maximum time to postpone a move while a player is in dialog (60 seconds). */
     public int wandererMaxDelaySeconds() {
         return balance.integer("npc.wanderer.max_delay_seconds", 60);
     }
 
-    // ------------------------------------------------------------------ 컷씬
+    // ------------------------------------------------------------------ cutscenes
 
-    /** 복구 정보 쓰기를 기다리는 최대 시간 (1초). */
+    /** Maximum time to wait for the restore info write (1 second). */
     public int cutsceneRestoreTimeoutMillis() {
         return balance.integer("npc.cutscene.restore_timeout_ms", 1_000);
     }
 
-    /** 웅크리기 두 번 간격 (10틱). */
+    /** Double-sneak interval (10 ticks). */
     public int cutsceneSkipWindowTicks() {
         return balance.integer("npc.cutscene.skip_window_ticks", 10);
     }
 
-    /** 플레이어당 컷씬 엔티티 상한 (20). */
+    /** Cutscene entity cap per player (20). */
     public int cutsceneMaxEntities() {
         return balance.integer("npc.cutscene.max_entities", 20);
     }
 
-    /** 카메라 보간 한 번의 최대 길이 (teleport_duration 상한 59틱 안). */
+    /**
+     * Maximum length of one camera interpolation (within the teleport_duration cap of 59 ticks).
+     */
     public int cameraStepTicks() {
         return Math.clamp(balance.integer("npc.cutscene.camera_step_ticks", 40), 1, 59);
     }

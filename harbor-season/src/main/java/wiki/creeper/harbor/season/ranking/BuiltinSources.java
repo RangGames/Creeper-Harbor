@@ -20,14 +20,17 @@ import wiki.creeper.harbor.season.content.RankingBoardDef;
 import wiki.creeper.harbor.season.content.RankingBoards;
 
 /**
- * 기본 랭킹 원천 4종 (docs 20 11.3 rankings.yml source). 다른 모듈의 테이블을 SQL로만 읽는다 (코드 의존 없음, docs 20 11.2).
- * players는 아카이브하지 않으므로 이름은 늘 지금 DB에서 읽는다.
+ * The 4 built-in ranking sources (docs 20 11.3 rankings.yml source). Reads other modules' tables
+ * only through SQL (no code dependency, docs 20 11.2). players is not archived, so names are always
+ * read from the current DB.
  *
  * <ul>
- *   <li>records: Collection records (어종별 최대어, 인덱스 fish_id·season·league·size)
- *   <li>level: Core player_season (레벨 → 경험치, 리그 = 직업 단계)
- *   <li>codex_season: Collection codex_season (시즌 도감 등록 수, 마지막 등록이 빠른 사람이 앞섬)
- *   <li>boss_records: Boss boss_records (최단 처치, members = UUID 문자열 JSON 배열, 첫 번째가 파티장)
+ *   <li>records: Collection records (biggest catch per species, index fish_id·season·league·size)
+ *   <li>level: Core player_season (level → experience, league = job tier)
+ *   <li>codex_season: Collection codex_season (season codex entry count; whoever registered their
+ *       last entry earlier ranks higher)
+ *   <li>boss_records: Boss boss_records (fastest kill, members = JSON array of UUID strings, first
+ *       one is the party leader)
  * </ul>
  */
 public final class BuiltinSources {
@@ -62,7 +65,8 @@ public final class BuiltinSources {
     }
 
     static String bossSql() {
-        // boss_records는 이월(keep) 테이블이라 아카이브하지 않는다. 시즌 열로만 거른다
+        // boss_records is a carry-over (keep) table and is not archived. Filter by the season
+        // column only
         return "SELECT members, duration_ms, cleared_at FROM boss_records"
                 + " WHERE boss_id = ? AND season = ? ORDER BY duration_ms ASC, cleared_at ASC LIMIT ?";
     }

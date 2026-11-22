@@ -1,6 +1,6 @@
 package wiki.creeper.harbor.npc.data;
 
-/** cutscene_restore 한 행: 컷씬 시작 전 상태. */
+/** One cutscene_restore row: state before the cutscene started. */
 public record RestoreInfo(
         String server,
         String cutscene,

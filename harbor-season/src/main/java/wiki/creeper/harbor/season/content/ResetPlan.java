@@ -17,15 +17,16 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.season.api.TitleId;
 
 /**
- * 시즌 전환 계획 (season/reset_plan.yml, docs 20 11.3·11.4). 시즌 테이블을 선언으로만 다루고, 코드가 필요한 정리는 각 모듈의
- * SeasonHook이 맡는다.
+ * Season transition plan (season/reset_plan.yml, docs 20 11.3, 11.4). Season tables are handled
+ * declaratively only; cleanup that needs code is done by each module's SeasonHook.
  *
- * @param tables 테이블별 정책 (적은 순서대로 처리)
- * @param currencies RESET 때 잔액을 SEASON_RESET 원장 기록으로 0으로 만들 재화 (골드·물비늘)
- * @param fishLedgerStates fish_ledger에서 시즌 n 아이템을 ARCHIVED로 바꿀 상태들
- * @param openTitles OPEN 단계에서 지급할 칭호 (CBT 기념 칭호 등)
- * @param gate 새 시즌 첫 접속 정리 규칙 (SeasonGate)
- * @param transition 전환 엔진 운영값
+ * @param tables per-table policies (processed in the order listed)
+ * @param currencies currencies whose balances are zeroed with SEASON_RESET ledger entries at RESET
+ *     (gold, mulbineul)
+ * @param fishLedgerStates fish_ledger states whose season-n items are changed to ARCHIVED
+ * @param openTitles titles granted at the OPEN step (CBT commemorative titles etc.)
+ * @param gate first-login cleanup rules for the new season (SeasonGate)
+ * @param transition transition engine operating values
  */
 public record ResetPlan(
         List<TableRule> tables,
@@ -49,11 +50,11 @@ public record ResetPlan(
         openTitles = List.copyOf(openTitles);
     }
 
-    /** 테이블 범위. */
+    /** Table scope. */
     public enum Scope implements Keyed {
-        /** season 열이 있는 테이블: 시즌 n 행만 다룬다. */
+        /** Table with a season column: only season-n rows are handled. */
         SEASON_COLUMN,
-        /** season 열이 없는 테이블: 전체를 다룬다 (auction_listing 등). */
+        /** Table without a season column: the whole table is handled (auction_listing etc.). */
         FULL;
 
         @Override
@@ -62,15 +63,15 @@ public record ResetPlan(
         }
     }
 
-    /** 테이블 정책. */
+    /** Table policy. */
     public enum Policy implements Keyed {
-        /** 아카이브에 복사한 뒤 원본에서 지운다 (keep_where 행은 남김). */
+        /** Copies to the archive, then deletes from the source (keep_where rows are kept). */
         ARCHIVE_RESET,
-        /** 아카이브에 복사만 하고 원본은 그대로. */
+        /** Copies to the archive only; the source is left as is. */
         ARCHIVE_KEEP,
-        /** 손대지 않는다. */
+        /** Left untouched. */
         KEEP,
-        /** 아카이브에 복사하고, 정리는 그 모듈의 SeasonHook.onReset이 한다. */
+        /** Copies to the archive; cleanup is done by that module's SeasonHook.onReset. */
         CUSTOM;
 
         @Override
@@ -84,30 +85,31 @@ public record ResetPlan(
     }
 
     /**
-     * 테이블 하나의 계획.
+     * Plan for one table.
      *
-     * @param column 시즌 열 이름 (scope = season_column, 기본 season)
-     * @param keepWhere archive_reset에서 지우지 않을 행 조건 (SQL WHERE 조각, 예 {@code quest_id LIKE
-     *     'harbor:quest/main/%'})
+     * @param column season column name (scope = season_column, default season)
+     * @param keepWhere condition for rows not deleted by archive_reset (SQL WHERE fragment, e.g.
+     *     {@code quest_id LIKE 'harbor:quest/main/%'})
      */
     public record TableRule(
             String table, Scope scope, Policy policy, String column, @Nullable String keepWhere) {}
 
     /**
-     * OPEN 단계 칭호 지급.
+     * Title grant at the OPEN step.
      *
-     * @param fromSeason 끝나는 시즌이 이 번호일 때만 (0이면 매번)
-     * @param who 지급 대상: {@code season_players} = 끝나는 시즌에 player_season 행이 있던 사람 전원
+     * @param fromSeason only when the ending season has this number (0 = every time)
+     * @param who grant target: {@code season_players} = everyone who had a player_season row in the
+     *     ending season
      */
     public record OpenTitle(int fromSeason, TitleId title, String who) {}
 
     /**
-     * 새 시즌 첫 접속 정리 (SeasonGate).
+     * First-login cleanup for the new season (SeasonGate).
      *
-     * @param keepVanilla Harbor 아이템이 아닌 바닐라 아이템을 남길지
-     * @param keepOldFish 지난 시즌에 잡은 어종 아이템을 남길지
-     * @param resetVanillaState 바닐라 경험치·효과·체력·배고픔을 초기화할지
-     * @param spawn 옮길 시작 지점 (null이면 첫 월드의 스폰)
+     * @param keepVanilla whether to keep vanilla items that are not Harbor items
+     * @param keepOldFish whether to keep fish items caught in past seasons
+     * @param resetVanillaState whether to reset vanilla experience, effects, health and hunger
+     * @param spawn starting location to move to (null = spawn of the first world)
      */
     public record Gate(
             boolean keepVanilla,
@@ -115,19 +117,20 @@ public record ResetPlan(
             boolean resetVanillaState,
             @Nullable Spawn spawn) {}
 
-    /** 위치. */
+    /** Location. */
     public record Spawn(String world, double x, double y, double z, float yaw, float pitch) {}
 
     /**
-     * 전환 엔진 운영값 (제안값).
+     * Transition engine operating values (proposed value).
      *
-     * @param noticeMinutes 카운트다운 공지 시점 (분, 큰 순)
-     * @param flushTimeoutSeconds FREEZE에서 모든 서버 응답을 기다리는 시간
-     * @param batchRows 대형 테이블 분할 복사·삭제 단위 (docs 20 11.6: 5만 행)
-     * @param diskFactor PRECHECK 디스크 여유 기준 (DB 크기 × 이 값)
-     * @param backupMarker 운영 스크립트가 백업 뒤 남기는 표식 파일 (플러그인 폴더 기준)
-     * @param rowsPerSecond dry-run 예상 시간 계산용 처리 속도
-     * @param maxMinutes 목표 소요 시간 (dry-run 경고 기준, docs 20 11.4: 60분)
+     * @param noticeMinutes countdown notice times (minutes, descending)
+     * @param flushTimeoutSeconds how long FREEZE waits for all servers to respond
+     * @param batchRows chunk size for copying and deleting large tables (docs 20 11.6: 50,000 rows)
+     * @param diskFactor PRECHECK free disk threshold (DB size × this value)
+     * @param backupMarker marker file the ops script leaves after backup (relative to the plugin
+     *     folder)
+     * @param rowsPerSecond throughput used to compute the dry-run time estimate
+     * @param maxMinutes target duration (dry-run warning threshold, docs 20 11.4: 60 minutes)
      */
     public record TransitionSettings(
             List<Integer> noticeMinutes,
@@ -307,7 +310,10 @@ public record ResetPlan(
         return new ResetPlan(tables, currencies, states, openTitles, gate, settings);
     }
 
-    /** keep_where에 문장 구분자·주석이 없는지 (콘텐츠 작성 실수로 다른 문장이 실행되지 않게). */
+    /**
+     * Whether keep_where has no statement separators or comments (so a content authoring mistake
+     * cannot run another statement).
+     */
     static boolean safeFragment(String sql) {
         return !sql.contains(";")
                 && !sql.contains("--")

@@ -9,7 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.HarborApi;
 
-/** ACTIONBAR: 액션바 대사 (사라지지 않게 refresh로 다시 보냄) + 채팅 버튼 줄. */
+/** ACTIONBAR: action bar line (resent via refresh so it does not fade) + chat button row. */
 final class ActionBarPresenter implements DialogPresenter {
 
     private final HarborApi api;

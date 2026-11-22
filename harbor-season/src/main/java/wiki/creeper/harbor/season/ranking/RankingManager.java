@@ -34,20 +34,23 @@ import wiki.creeper.harbor.season.content.RankingBoards;
 import wiki.creeper.harbor.season.net.SeasonMessages;
 
 /**
- * RankingService 구현 (docs 20 11.4 랭킹·리그).
+ * RankingService implementation (docs 20 11.4 rankings and leagues).
  *
  * <ul>
- *   <li>집계: 서버마다 1분마다 harbor:lock:ranking을 시도하고, 얻은 서버만 집계 주기가 지난 보드(마지막 집계 시각은 모든 서버가 같은 캐시를 봄)를
- *       가상 스레드에서 다시 계산해 harbor:rank로 보낸다. 잠금은 풀지 않고 만료되게 두어 한 주기에 한 서버만 집계한다
- *   <li>스냅샷: 주간 초기화 때 ranking_snapshot에 주간 마감본, 시즌 전환 SNAPSHOT 단계에서 최종본(week = 0, 추가 제안)
- *   <li>원천 테이블이 아직 없으면 (그 모듈이 없으면) 그 보드는 비워 둔다
+ *   <li>Aggregation: every server tries harbor:lock:ranking each minute; only the server that gets
+ *       it recomputes, on a virtual thread, the boards whose refresh interval has passed (the last
+ *       computed time comes from the cache shared by all servers) and sends them to harbor:rank.
+ *       The lock is not released but left to expire, so only one server aggregates per interval
+ *   <li>Snapshots: the weekly closing snapshot goes into ranking_snapshot at the weekly reset, and
+ *       the final one (week = 0, proposed) at the season transition SNAPSHOT step
+ *   <li>If a source table does not exist yet (that module is missing), the board is left empty
  * </ul>
  */
 public final class RankingManager implements RankingService {
 
     static final String LOCK = "harbor:lock:ranking";
 
-    /** ranking_snapshot.week의 시즌 최종본 값 (추가 제안). */
+    /** ranking_snapshot.week value for the season-final snapshot (proposed). */
     public static final int FINAL_WEEK = 0;
 
     private final HarborApi api;
@@ -70,7 +73,10 @@ public final class RankingManager implements RankingService {
         BuiltinSources.all().forEach(this::registerSource);
     }
 
-    /** 집계 서버가 된 주기마다 함께 할 일 (명예의 전당 파생 기록 계산 등, 가상 스레드). */
+    /**
+     * Extra work to run on each interval this server aggregates (hall of fame derived records etc.,
+     * virtual thread).
+     */
     public void onLeaderTick(Runnable task) {
         leaderTasks.add(task);
     }
@@ -101,7 +107,8 @@ public final class RankingManager implements RankingService {
                         () -> {
                             var _ = tasks.async(this::leaderTick);
                         });
-        // 새로 켠 서버는 캐시가 비어 있으므로 직접 한 번 채운다 (발행하지 않음)
+        // A freshly started server has an empty cache, so it fills it once itself (without
+        // publishing)
         var _ = tasks.async(() -> computeAll(false, false));
     }
 
@@ -150,7 +157,7 @@ public final class RankingManager implements RankingService {
         sources.put(source.id(), source);
     }
 
-    // ------------------------------------------------------------------ 집계
+    // ------------------------------------------------------------------ aggregation
 
     private void leaderTick() {
         if (lock().isEmpty()) {
@@ -179,8 +186,8 @@ public final class RankingManager implements RankingService {
     }
 
     /**
-     * @param force 주기와 관계없이 모두
-     * @param publish harbor:rank로 보낼지 (false면 이 서버 캐시에만)
+     * @param force all boards regardless of interval
+     * @param publish whether to send to harbor:rank (if false, this server's cache only)
      */
     private void computeAll(boolean force, boolean publish) {
         int season = clock.current().value();
@@ -217,7 +224,7 @@ public final class RankingManager implements RankingService {
         }
     }
 
-    /** 보드 하나를 집계한다 (블로킹). 원천이 없거나 테이블이 없으면 빈 Optional. */
+    /** Aggregates one board (blocking). Empty Optional if the source or table does not exist. */
     public Optional<RankingBoard> compute(
             RankingBoardDef def, League league, int season, @Nullable String schema) {
         RankingSource source = sources.get(def.source());
@@ -242,7 +249,7 @@ public final class RankingManager implements RankingService {
         } catch (RuntimeException e) {
             Throwable cause = e.getCause() == null ? e : e.getCause();
             if (cause instanceof RejectedExecutionException) {
-                // 서버 종료 중 DB 실행기가 닫혔다. 집계를 조용히 그만둔다
+                // The DB executor was closed during server shutdown. Quietly stop aggregating
                 return Optional.empty();
             }
             if (cause instanceof SQLSyntaxErrorException) {
@@ -265,9 +272,9 @@ public final class RankingManager implements RankingService {
         }
     }
 
-    // ------------------------------------------------------------------ 스냅샷
+    // ------------------------------------------------------------------ snapshots
 
-    /** 주간 마감 스냅샷 (주간 초기화 때, 한 서버만). */
+    /** Weekly closing snapshot (at the weekly reset, one server only). */
     public void weeklySnapshot(int finishedWeek) {
         if (finishedWeek < 1) {
             return;
@@ -307,10 +314,11 @@ public final class RankingManager implements RankingService {
     }
 
     /**
-     * 모든 보드를 다시 집계해 ranking_snapshot에 넣는다 (INSERT IGNORE라 다시 실행해도 같다). 블로킹.
+     * Re-aggregates every board and inserts into ranking_snapshot (INSERT IGNORE, so re-running
+     * gives the same result). Blocking.
      *
-     * @param schema 원천을 읽을 스키마 (시즌 최종본은 archive_s&lt;n&gt;)
-     * @return 넣은 행 수
+     * @param schema schema to read sources from (archive_s&lt;n&gt; for the season-final snapshot)
+     * @return number of rows inserted
      */
     public int snapshot(Connection c, int season, int week, @Nullable String schema)
             throws SQLException {
@@ -377,7 +385,7 @@ public final class RankingManager implements RankingService {
         }
     }
 
-    /** 지난 주차·시즌 스냅샷 읽기 (GUI). week = 0이면 시즌 최종본. */
+    /** Reads past weekly or season snapshots (GUI). week = 0 means the season-final snapshot. */
     public CompletableFuture<List<RankEntry>> snapshotEntries(
             int season, int week, String board, League league) {
         return api.database()

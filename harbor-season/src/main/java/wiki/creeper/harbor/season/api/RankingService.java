@@ -7,8 +7,10 @@ import java.util.concurrent.CompletableFuture;
 import wiki.creeper.harbor.season.content.RankingBoardDef;
 
 /**
- * 랭킹 (docs 20 11.4). harbor:lock:ranking을 얻은 서버 하나가 보드별 refresh 주기(기본 10분)로 상위 N명을 집계해 harbor:rank
- * 채널로 모든 서버에 보낸다. 다른 서버와 전광판(Collection)은 이 캐시만 읽으므로 {@link #board}는 DB에 접근하지 않는다 (어느 스레드에서도 가능).
+ * Rankings (docs 20 11.4). The one server holding harbor:lock:ranking aggregates the top N per
+ * board on its refresh interval (default 10 minutes) and sends them to all servers over the
+ * harbor:rank channel. Other servers and the leaderboard displays (Collection) read only this
+ * cache, so {@link #board} does not access the DB (callable from any thread).
  *
  * <pre>{@code
  * RankingBoard top = SeasonServices.rankings().board("level", League.ALL);
@@ -17,20 +19,25 @@ import wiki.creeper.harbor.season.content.RankingBoardDef;
  */
 public interface RankingService {
 
-    /** 보드 정의 (season/rankings.yml). */
+    /** Board definitions (season/rankings.yml). */
     List<RankingBoardDef> boards();
 
     Optional<RankingBoardDef> boardDef(String board);
 
-    /** 캐시된 순위표. 아직 집계 전이거나 없는 보드면 빈 표. */
+    /** Cached leaderboard. An empty table if not yet aggregated or the board does not exist. */
     RankingBoard board(String board, League league);
 
-    /** 캐시된 상위 N명 안의 순위. 밖이면 빈 Optional. */
+    /** Rank within the cached top N. Empty Optional if outside. */
     Optional<RankEntry> rankOf(UUID player, String board, League league);
 
-    /** 바로 다시 집계한다 (관리자 명령). 잠금을 얻지 못하면 false. 메인 스레드에서 완료. */
+    /**
+     * Re-aggregates immediately (admin command). false if the lock could not be acquired. Completes
+     * on the main thread.
+     */
     CompletableFuture<Boolean> refreshNow();
 
-    /** 다른 모듈의 랭킹 원천 등록 (모듈 enable에서). 같은 id면 덮어쓴다. */
+    /**
+     * Registers a ranking source from another module (in module enable). Overwrites on the same id.
+     */
     void registerSource(RankingSource source);
 }

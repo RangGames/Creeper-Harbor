@@ -13,14 +13,14 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.season.api.League;
 
-/** season/rankings.yml: 랭킹 보드 목록. */
+/** season/rankings.yml: list of ranking boards. */
 public record RankingBoards(List<RankingBoardDef> boards) {
 
     public static final ContentType.Single<RankingBoards> TYPE =
             new ContentType.Single<>(
                     "ranking_boards", "season/rankings.yml", false, RankingBoards::parse);
 
-    /** 기본 원천. */
+    /** Built-in sources. */
     public static final String RECORDS = "records";
 
     public static final String LEVEL = "level";

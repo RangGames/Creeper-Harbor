@@ -11,8 +11,9 @@ import wiki.creeper.harbor.common.ledger.BalanceStore;
 import wiki.creeper.harbor.common.model.Currency;
 
 /**
- * 원장 검사(VERIFY 단계) 전용 잔액 읽기. Core의 SeasonBalanceStore와 같은 열(player_season 시즌 n 행)을 읽기만 한다. 잔액을 바꾸는
- * 메서드는 막는다 (잔액은 CurrencyService로만 바꾼다).
+ * Balance reads for the ledger check (VERIFY step) only. Reads the same columns as Core's
+ * SeasonBalanceStore (player_season rows for season n), read-only. Methods that change balances are
+ * blocked (balances change only through CurrencyService).
  */
 public final class ReadOnlySeasonBalances implements BalanceStore {
 
@@ -50,7 +51,7 @@ public final class ReadOnlySeasonBalances implements BalanceStore {
         return result;
     }
 
-    /** 잔액 열 식 (골드 = gold, 물비늘 = earned − spent). */
+    /** Balance column expression (gold = gold, mulbineul = earned − spent). */
     public static String column(Currency currency) {
         return switch (currency) {
             case GOLD -> "gold";

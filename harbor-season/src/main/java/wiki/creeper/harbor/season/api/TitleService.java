@@ -9,69 +9,81 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.season.content.TitleDef;
 
 /**
- * 칭호 저장소 (titles, docs 20 0.1·11.4). Collection·Quest·Boss·Shop은 지급 요청만 한다. 칭호는 시즌 초기화 대상이 아니다.
+ * Title store (titles, docs 20 0.1, 11.4). Collection, Quest, Boss and Shop only request grants.
+ * Titles are not reset by season.
  *
  * <ul>
- *   <li>{@link #grant}는 (uuid, title_id) 유니크로 중복을 막고, 이미 있으면 {@link Grant#ALREADY_OWNED}로 성공 처리한다
- *       (멱등). 접속 중이 아니어도 DB에 바로 쓴다.
- *   <li>titles.yml에 없는 칭호는 {@link Grant#UNKNOWN_TITLE}로 거부한다. 콘텐츠에서 칭호를 가리키면 {@code
- *       ctx.ref("title", id, pos)}로 참조 검사를 걸어 두는 것을 권장한다.
- *   <li>결과 future는 모두 메인 스레드에서 완료된다.
+ *   <li>{@link #grant} prevents duplicates via the (uuid, title_id) unique key and treats an
+ *       existing title as success with {@link Grant#ALREADY_OWNED} (idempotent). Writes to the DB
+ *       immediately even if the player is offline.
+ *   <li>Titles not in titles.yml are rejected with {@link Grant#UNKNOWN_TITLE}. When content refers
+ *       to a title, registering a reference check with {@code ctx.ref("title", id, pos)} is
+ *       recommended.
+ *   <li>All result futures complete on the main thread.
  * </ul>
  *
  * <pre>{@code
- * // Collection: 도감 마일스톤 달성 시 (CodexMilestoneEvent를 Season이 듣지 않으므로 직접 부른다)
+ * // Collection: on reaching a codex milestone (Season does not listen to CodexMilestoneEvent, so call directly)
  * titles.grant(uuid, TitleId.of(milestone.title()), "codex:" + season + ":" + milestone.percent());
  * }</pre>
  */
 public interface TitleService {
 
-    /** 지급 결과. */
+    /** Grant result. */
     enum Grant {
         GRANTED,
         ALREADY_OWNED,
         UNKNOWN_TITLE,
         FAILED;
 
-        /** 지금 가지고 있는 상태인지 (새로 받았거나 이미 있었음). */
+        /** Whether the title is now owned (newly granted or already owned). */
         public boolean owned() {
             return this == GRANTED || this == ALREADY_OWNED;
         }
     }
 
     /**
-     * 칭호를 준다.
+     * Grants a title.
      *
-     * @param refId 출처 참조 ID (기록용, 1~64자. 예 {@code hof:3:biggest_fish:fish/x}, {@code
-     *     worldboss:<event>:<uuid>})
+     * @param refId source reference ID (for records, 1-64 characters, e.g. {@code
+     *     hof:3:biggest_fish:fish/x}, {@code worldboss:<event>:<uuid>})
      */
     CompletableFuture<Grant> grant(UUID player, TitleId title, @Nullable String refId);
 
-    /** 칭호를 회수한다 (관리자, 후원 종료 등). 장착 중이면 장착도 푼다. 있었으면 true. */
+    /**
+     * Revokes a title (admin, end of donation etc.). Also unequips it if equipped. true if it was
+     * owned.
+     */
     CompletableFuture<Boolean> revoke(UUID player, TitleId title);
 
-    /** 보유 칭호 목록 (DB에서 읽음, 얻은 순서). */
+    /** Owned titles (read from the DB, in order obtained). */
     CompletableFuture<List<OwnedTitle>> list(UUID player);
 
-    /** 접속 중인 플레이어가 칭호를 가졌는지 (메모리 캐시, 메인 스레드). 접속 중이 아니면 false. */
+    /** Whether an online player owns the title (memory cache, main thread). false if not online. */
     boolean has(UUID player, TitleId title);
 
-    /** 접속 여부와 관계없이 DB로 확인한다. */
+    /** Checks via the DB regardless of whether the player is online. */
     CompletableFuture<Boolean> hasAsync(UUID player, TitleId title);
 
-    /** 장착한 칭호 (접속 중인 플레이어, 메인 스레드). */
+    /** Equipped title (online player, main thread). */
     Optional<TitleId> equipped(UUID player);
 
-    /** 칭호를 장착한다 (Shop 장착 화면의 칭호 슬롯과 같은 값). null이면 해제. 가지고 있지 않은 칭호면 false. 접속 중인 플레이어만, 메인 스레드. */
+    /**
+     * Equips a title (same value as the title slot in the Shop equipment screen). null unequips.
+     * false if the title is not owned. Online players only, main thread.
+     */
     boolean equip(UUID player, @Nullable TitleId title);
 
-    /** 칭호 정의 (titles.yml). */
+    /** Title definitions (titles.yml). */
     Optional<TitleDef> definition(TitleId title);
 
-    /** 표시 문구 (titles.yml name, MiniMessage). 정의가 없으면 ID. */
+    /** Display text (titles.yml name, MiniMessage). The ID if there is no definition. */
     Component display(TitleId title);
 
-    /** 장착 칭호 표시 문구 (채팅·이름표 앞에 붙이는 용도). 장착하지 않았으면 빈 Optional. */
+    /**
+     * Display text of the equipped title (for prefixing chat and name tags). Empty Optional if none
+     * equipped.
+     */
     default Optional<Component> equippedDisplay(UUID player) {
         return equipped(player).map(this::display);
     }

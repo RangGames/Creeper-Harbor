@@ -18,11 +18,12 @@ import wiki.creeper.harbor.season.hof.HallOfFameManager;
 import wiki.creeper.harbor.season.hof.HofMath;
 
 /**
- * 명예의 전당 화면 (/명예의전당, docs 20 11.4 표시). 상자 GUI(시즌·분류 탭) + 항목을 누르면 Dialog 상세(기록, 날짜, 당시 이름).
+ * Hall of fame screen (/명예의전당, docs 20 11.4 display). Chest GUI (season and category tabs);
+ * clicking an entry opens a Dialog with details (record, date, name at the time).
  *
  * <pre>
- * 위 5줄: 기록 (대상별 순위순)
- * 마지막 줄: [이전 시즌][분류 탭 ×7][다음 시즌]
+ * Top 5 rows: records (by rank per subject)
+ * Last row: [previous season][category tabs x7][next season]
  * </pre>
  */
 public final class HallOfFameMenu {
@@ -39,7 +40,7 @@ public final class HallOfFameMenu {
         this.tasks = tasks;
     }
 
-    /** season이 0이면 기록이 있는 가장 최근 시즌. */
+    /** If season is 0, the most recent season that has records. */
     public void open(Player viewer, int season, int categoryIndex) {
         List<HallOfFameCategory> categories = hof.categories();
         if (categories.isEmpty()) {

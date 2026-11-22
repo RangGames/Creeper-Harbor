@@ -16,14 +16,16 @@ import wiki.creeper.harbor.npc.content.DialogDef;
 import wiki.creeper.harbor.npc.content.DialogRef;
 
 /**
- * 대화 조건·액션 레지스트리 (docs 20 5.4 콘텐츠 검사). 키가 등록되어 있으면 인자까지 검사하고, 등록한 모듈이 하나도 없는 이름공간(선택 의존 모듈 없음)의 키는
- * 오류 대신 경고로 남기고 그 선택지를 숨긴다. NPC 기본 키와, 키가 하나라도 등록된 이름공간의 모르는 키는 오타로 보고 오류다.
+ * Dialog condition/action registry (docs 20 5.4 content check). Registered keys are checked down to
+ * their arguments; keys in a namespace no module registered (optional dependency missing) are
+ * logged as warnings instead of errors and their choices are hidden. NPC built-in keys, and unknown
+ * keys in a namespace with at least one registered key, are treated as typos and are errors.
  */
 public final class DialogRegistry {
 
     record Entry<T>(Plugin owner, T value) {}
 
-    /** NPC 기본 이름공간 (affinity:add, flag:set …). */
+    /** NPC built-in namespace (affinity:add, flag:set …). */
     static final Set<String> BUILTIN_NAMESPACES =
             Set.of("", "affinity", "flag", "gift", "cutscene");
 
@@ -77,7 +79,7 @@ public final class DialogRegistry {
         conditions.values().removeIf(e -> e.owner().equals(owner));
     }
 
-    /** 키가 하나라도 등록된 이름공간. */
+    /** Namespaces with at least one registered key. */
     private Set<String> namespaces() {
         Set<String> ns = new HashSet<>(BUILTIN_NAMESPACES);
         actions.keySet().forEach(k -> ns.add(namespace(k)));
@@ -90,7 +92,7 @@ public final class DialogRegistry {
         return colon < 0 ? "" : key.substring(0, colon);
     }
 
-    /** 콘텐츠 검사 (Core 리로드 때). */
+    /** Content check (on Core reload). */
     public ContentCheck<DialogDef> check() {
         return (dialog, ctx) -> {
             Set<String> namespaces = namespaces();
@@ -128,7 +130,7 @@ public final class DialogRegistry {
         };
     }
 
-    /** 모든 모듈이 켜진 뒤: 등록되지 않은 키를 경고로 남긴다 (그 선택지는 숨김). */
+    /** After all modules are enabled: warn about unregistered keys (those choices are hidden). */
     public void warnMissing(Iterable<DialogDef> dialogs) {
         for (DialogDef dialog : dialogs) {
             for (DialogRef ref : dialog.allActions()) {

@@ -3,7 +3,6 @@ package wiki.creeper.harbor.npc.entity;
 import io.papermc.paper.event.player.PlayerTrackEntityEvent;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,11 +17,8 @@ import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
-import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -49,12 +45,15 @@ import wiki.creeper.harbor.npc.content.NpcBalance;
 import wiki.creeper.harbor.npc.content.NpcDef;
 import wiki.creeper.harbor.npc.content.Spot;
 
-/** NPC 엔티티 생성·정리·시선·이름 변형·퀘스트 표시 (docs 20 5.4). 엔티티는 청크 엔티티가 로드될 때 만들고 언로드 때 지운다. 메인 스레드 전용. */
+/**
+ * NPC entity spawning · cleanup · gaze · name variants · quest markers (docs 20 5.4). Entities are
+ * created when a chunk's entities load and removed when they unload. Main thread only.
+ */
 public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener {
 
-    /** 떠돌이 NPC의 현재 위치를 알려 준다 (WandererManager가 구현). */
+    /** Supplies the current location of wandering NPCs (implemented by WandererManager). */
     public interface Placement {
-        /** 지금 서 있어야 할 위치. 빈 값이면 숨김. */
+        /** Where the NPC should stand now. Empty means hidden. */
         Optional<Spot> spot(NpcDef def);
     }
 
@@ -69,18 +68,18 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
     private final boolean entitiesEnabled;
     private final Map<NpcId, SpawnedNpc> spawned = new HashMap<>();
 
-    /** 월드 이름 → 청크 키 → 그 청크의 NPC (시선 계산용 공간 색인). */
+    /** World name → chunk key → NPCs in that chunk (spatial index for gaze). */
     private final Map<String, Map<Long, List<SpawnedNpc>>> index = new HashMap<>();
 
     private final List<Registered<MarkerProvider>> providers = new CopyOnWriteArrayList<>();
     private final List<BusyCheck> busyChecks = new CopyOnWriteArrayList<>();
 
-    /** 플레이어별로 지금 보여 주는 표시. */
+    /** Markers currently shown to each player. */
     private final Map<UUID, Map<NpcId, QuestMarker>> shown = new HashMap<>();
 
     private Placement placement = def -> Optional.ofNullable(def.location());
 
-    /** start() 전에는 청크 로드 이벤트로 만들지 않는다 (잔여물 정리가 먼저). */
+    /** Before start(), chunk-load events do not spawn (leftover cleanup comes first). */
     private boolean started;
 
     public NpcManager(
@@ -111,7 +110,10 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         return api.content().snapshot().all(NpcDef.TYPE).values();
     }
 
-    /** 서버 시작 직후: 잔여물 정리 + 로드된 청크의 NPC 생성. 시선 타이머 시작. */
+    /**
+     * Right after server start: clean up leftovers + spawn NPCs in loaded chunks. Starts the gaze
+     * timer.
+     */
     public void start() {
         if (!entitiesEnabled) {
             return;
@@ -140,9 +142,9 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         index.clear();
     }
 
-    // ------------------------------------------------------------------ 생성·제거
+    // ------------------------------------------------------------------ spawning · removal
 
-    /** 모든 NPC를 콘텐츠·플래그·일정에 맞춘다. */
+    /** Brings every NPC in line with content · flags · schedules. */
     public void syncAll() {
         if (!entitiesEnabled || !started) {
             return;
@@ -161,13 +163,13 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         def(id).ifPresentOrElse(this::sync, () -> despawn(id, false));
     }
 
-    /** 다시 만든다 (/harbor npc respawn). */
+    /** Recreates the NPC (/harbor npc respawn). */
     public void respawn(NpcId id) {
         despawn(id, false);
         sync(id);
     }
 
-    /** 서 있어야 할 위치 (등장·숨김 플래그, 떠돌이 일정 반영). */
+    /** Where the NPC should stand (applies spawn · hide flags and the wanderer schedule). */
     public Optional<Location> desired(NpcDef def) {
         String spawnFlag = def.spawnFlag();
         if (spawnFlag != null && !api.flags().hasServer(spawnFlag)) {
@@ -180,7 +182,7 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         return placement.spot(def).flatMap(worlds::location);
     }
 
-    /** 서 있어야 할 곳과 다르거나 콘텐츠가 바뀌었으면 다시 만든다. */
+    /** Recreates the NPC if it is not where it should be or its content changed. */
     private void sync(NpcDef def) {
         Optional<Location> want = desired(def);
         SpawnedNpc current = spawned.get(def.id());
@@ -209,49 +211,8 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
 
     private void spawn(NpcDef def, Location at) {
         NpcBalance balance = balance();
-        String tag = def.id().toString();
-        boolean hasVariants = !def.nameVariants().isEmpty();
         try {
-            NpcBody body =
-                    MannequinBody.spawn(
-                            at, def.skin(), def.pose(), m -> NpcKeys.tag(m, NpcKeys.NPC, tag));
-            Interaction hitbox =
-                    at.getWorld()
-                            .spawn(
-                                    at,
-                                    Interaction.class,
-                                    i -> {
-                                        i.setPersistent(false);
-                                        i.setInteractionWidth((float) balance.interactionWidth());
-                                        i.setInteractionHeight((float) balance.interactionHeight());
-                                        i.setResponsive(true);
-                                        NpcKeys.tag(i, NpcKeys.NPC, tag);
-                                    });
-            List<TextDisplay> names = new ArrayList<>();
-            Location nameAt = at.clone().add(0, balance.nameOffset(), 0);
-            names.add(text(nameAt, mini(def.name()), !hasVariants, tag));
-            for (NpcDef.NameVariant v : def.nameVariants()) {
-                names.add(text(nameAt, mini(v.name()), false, tag));
-            }
-            Map<QuestMarker, TextDisplay> markers = new EnumMap<>(QuestMarker.class);
-            Location markerAt = at.clone().add(0, balance.markerOffset(), 0);
-            for (QuestMarker m : QuestMarker.values()) {
-                if (m != QuestMarker.NONE) {
-                    markers.put(
-                            m,
-                            text(
-                                    markerAt,
-                                    api.messages()
-                                            .get(
-                                                    "npc.marker."
-                                                            + m.name()
-                                                                    .toLowerCase(
-                                                                            java.util.Locale.ROOT)),
-                                    false,
-                                    tag));
-                }
-            }
-            SpawnedNpc npc = new SpawnedNpc(def, at.clone(), body, hitbox, names, markers);
+            SpawnedNpc npc = SpawnedNpcFactory.create(api, def, at, balance);
             spawned.put(def.id(), npc);
             index.computeIfAbsent(at.getWorld().getName(), k -> new HashMap<>())
                     .computeIfAbsent(npc.chunkKey(), k -> new ArrayList<>())
@@ -261,25 +222,8 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         }
     }
 
-    private TextDisplay text(Location at, Component text, boolean visible, String tag) {
-        return at.getWorld()
-                .spawn(
-                        at,
-                        TextDisplay.class,
-                        t -> {
-                            t.setPersistent(false);
-                            t.text(text);
-                            t.setBillboard(Display.Billboard.CENTER);
-                            t.setShadowed(true);
-                            t.setDefaultBackground(false);
-                            t.setBackgroundColor(org.bukkit.Color.fromARGB(0, 0, 0, 0));
-                            t.setVisibleByDefault(visible);
-                            NpcKeys.tag(t, NpcKeys.NPC, tag);
-                        });
-    }
-
     /**
-     * @param fog 안개 파티클과 함께 사라짐 (떠돌이 조건부 퇴장)
+     * @param fog vanish with fog particles (conditional wanderer exit)
      */
     public void despawn(NpcId id, boolean fog) {
         SpawnedNpc npc = spawned.remove(id);
@@ -317,7 +261,7 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         if (!entitiesEnabled || !started) {
             return;
         }
-        // 비정상 종료로 남은 태그 엔티티 (우리 것이 아닌 것) 정리
+        // clean up tagged entities left by a crash (ones that are not ours)
         for (Entity e : event.getEntities()) {
             String id = NpcKeys.get(e, NpcKeys.NPC);
             if (id != null && !isOurs(e, id)) {
@@ -325,7 +269,8 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
             } else if (id == null && NpcKeys.get(e, NpcKeys.CUTSCENE) != null) {
                 e.remove();
             } else if (NpcKeys.get(e, NpcKeys.SPEECH) != null) {
-                e.remove(); // 말풍선은 저장하지 않으므로 청크와 함께 읽히면 잔여물
+                e.remove(); // speech bubbles are never saved, so one loaded with a chunk is
+                // a leftover
             }
         }
         Chunk chunk = event.getChunk();
@@ -403,7 +348,7 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
             return;
         }
         Player player = event.getPlayer();
-        // 추적이 확정된 다음 틱에 표시를 고른다
+        // pick the markers on the next tick, once tracking is settled
         var _ =
                 Bukkit.getScheduler()
                         .runTask(
@@ -427,9 +372,10 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         busyChecks.removeIf(b -> b.owner().equals(event.getPlugin()));
     }
 
-    // ------------------------------------------------------------------ 이름 변형·퀘스트 표시
+    // ------------------------------------------------------------------ name variants · quest
+    // markers
 
-    /** 이름 변형 번호 (0 = 기본). 위에서부터 첫 일치. */
+    /** Name variant index (0 = default). First match from the top. */
     private int variantIndex(Player player, NpcDef def) {
         List<NpcDef.NameVariant> variants = def.nameVariants();
         for (int i = 0; i < variants.size(); i++) {
@@ -497,52 +443,15 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         return best;
     }
 
-    // ------------------------------------------------------------------ 시선
+    // ------------------------------------------------------------------ gaze
 
     private void lookTick() {
-        if (spawned.isEmpty()) {
-            return;
-        }
-        Map<SpawnedNpc, Player> nearest = new HashMap<>();
-        Map<SpawnedNpc, Double> best = new HashMap<>();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            Map<Long, List<SpawnedNpc>> chunks = index.get(player.getWorld().getName());
-            if (chunks == null) {
-                continue;
-            }
-            Location loc = Worlds.loc(player);
-            int cx = loc.getBlockX() >> 4;
-            int cz = loc.getBlockZ() >> 4;
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    List<SpawnedNpc> list = chunks.get(SpawnedNpc.chunkKey(cx + dx, cz + dz));
-                    if (list == null) {
-                        continue;
-                    }
-                    for (SpawnedNpc npc : list) {
-                        double r = npc.def().lookRadius();
-                        double d = npc.home().distanceSquared(loc);
-                        if (d <= r * r && d < best.getOrDefault(npc, Double.MAX_VALUE)) {
-                            best.put(npc, d);
-                            nearest.put(npc, player);
-                        }
-                    }
-                }
-            }
-        }
-        for (SpawnedNpc npc : spawned.values()) {
-            Player target = nearest.get(npc);
-            if (target != null) {
-                npc.body().lookAt(Worlds.eye(target));
-            } else {
-                npc.body().resetLook();
-            }
-        }
+        NpcLook.tick(spawned.values(), index);
     }
 
     // ------------------------------------------------------------------ NpcService
 
-    /** 클릭된 엔티티의 NPC (모습·클릭 판정 모두). */
+    /** The NPC of a clicked entity (both the body and the hitbox). */
     public Optional<NpcId> npcOf(Entity entity) {
         String id = NpcKeys.get(entity, NpcKeys.NPC);
         if (id == null) {
@@ -615,7 +524,7 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         return def(id).map(d -> mini(nameFor(viewer, d))).orElse(Component.text(id.toString()));
     }
 
-    /** 이 플레이어에게 보이는 이름 원문 (MiniMessage). */
+    /** Raw name shown to this player (MiniMessage). */
     public String nameFor(Player viewer, NpcDef def) {
         int i = variantIndex(viewer, def);
         return i == 0 ? def.name() : def.nameVariants().get(i - 1).name();

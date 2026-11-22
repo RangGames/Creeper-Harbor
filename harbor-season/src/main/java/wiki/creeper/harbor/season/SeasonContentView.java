@@ -14,8 +14,9 @@ import wiki.creeper.harbor.season.content.SeasonDefs;
 import wiki.creeper.harbor.season.content.TitleDef;
 
 /**
- * 지금 콘텐츠 스냅샷에서 Season 형식을 꺼낸다. 모듈이 켜지는 도중(형식 등록 직후, 첫 로드 전)에도 쓰일 수 있어서 형식이 아직 없으면 빈 값을 준다. 스냅샷은 변경
- * 불가라 어느 스레드에서 불러도 된다.
+ * Pulls Season types out of the current content snapshot. May be used while the module is enabling
+ * (right after type registration, before the first load), so it returns an empty value if the type
+ * is not there yet. Snapshots are immutable and may be read from any thread.
  */
 public final class SeasonContentView {
 

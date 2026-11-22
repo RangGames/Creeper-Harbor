@@ -5,7 +5,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.NpcId;
 
-/** 호감도 단계 상승. */
+/** Affinity level increased. */
 public final class AffinityLevelUpEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

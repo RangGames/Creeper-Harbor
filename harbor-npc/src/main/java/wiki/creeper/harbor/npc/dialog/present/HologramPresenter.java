@@ -23,13 +23,14 @@ import wiki.creeper.harbor.npc.entity.NpcManager;
 import wiki.creeper.harbor.npc.logic.SpeechText;
 
 /**
- * HOLOGRAM: NPC 머리 위 말풍선 (TextDisplay, 그 플레이어에게만 보임). 타자 효과로 글자를 차례로 드러내고, 선택지는 채팅 버튼 줄로 보낸다. 말풍선은
- * 저장하지 않고(persistent false) harbor:npc_speech 태그를 달아 비정상 종료 잔여물을 NpcManager가 지운다. NPC가 이 서버에 서 있지
- * 않으면 CHAT으로 대신한다.
+ * HOLOGRAM: speech bubble above the NPC's head (TextDisplay, visible only to that player). Reveals
+ * characters one by one with a typewriter effect and sends choices as a chat button row. Bubbles
+ * are not saved (persistent false) and carry the harbor:npc_speech tag so NpcManager removes
+ * leftovers after a crash. Falls back to CHAT if the NPC is not standing on this server.
  */
 final class HologramPresenter implements DialogPresenter {
 
-    /** 플레이어 한 명의 말풍선. */
+    /** One player's speech bubble. */
     private static final class Bubble {
         final NpcId npc;
         final TextDisplay display;
@@ -96,7 +97,10 @@ final class HologramPresenter implements DialogPresenter {
         buttons.send(player, frame);
     }
 
-    /** 세션 없는 한마디. 몇 초 뒤 사라진다. NPC가 없으면 false (부르는 쪽이 다른 방식으로 대신). */
+    /**
+     * A session-less one-liner. Disappears after a few seconds. False if there is no NPC (the
+     * caller falls back to another style).
+     */
     boolean bark(Player player, NpcId npc, Component speaker, Component line) {
         if (!bubble(player, npc, speaker, line, null)) {
             return false;
@@ -211,7 +215,7 @@ final class HologramPresenter implements DialogPresenter {
         if (!b.display.isValid()
                 || npcs.home(b.npc) == null
                 || !b.display.getWorld().equals(player.getWorld())) {
-            clear(player); // NPC가 사라졌거나 플레이어가 다른 월드로 감
+            clear(player); // The NPC disappeared or the player went to another world
         }
     }
 
@@ -228,14 +232,14 @@ final class HologramPresenter implements DialogPresenter {
         }
     }
 
-    /** 플러그인 종료: 모든 말풍선 제거. */
+    /** Plugin shutdown: removes all speech bubbles. */
     void clearAll() {
         for (UUID uuid : List.copyOf(bubbles.keySet())) {
             remove(uuid);
         }
     }
 
-    /** 이 플레이어에게 말풍선이 떠 있는지 (watch 대상). */
+    /** Whether this player has a speech bubble up (watch target). */
     boolean has(UUID uuid) {
         return bubbles.containsKey(uuid);
     }

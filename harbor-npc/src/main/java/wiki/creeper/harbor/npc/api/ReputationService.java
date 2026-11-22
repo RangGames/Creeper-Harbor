@@ -7,46 +7,54 @@ import java.util.concurrent.CompletableFuture;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 항구 평판 (docs 20 5.4). 값은 Core player_season.reputation이고 쓰기는 이 서비스만 한다 (Quest, Collection 방류, Boss
- * 월드 보스 보상은 이 API를 부른다). 시즌마다 초기화되고, 시즌을 넘어 유지되는 최고 도달 등급은 {@link #bestTier}다 (D11: 하우징 크기·어항 칸은 최고
- * 등급, 경매 슬롯은 현재 등급).
+ * Harbor reputation (docs 20 5.4). The value is Core player_season.reputation and only this service
+ * writes it (Quest, Collection releases and Boss world boss rewards call this API). It resets every
+ * season; the best tier reached, kept across seasons, is {@link #bestTier} (D11: housing size and
+ * aquarium slots use the best tier, auction slots use the current tier).
  *
- * <p>메인 스레드에서 부른다. 같은 refId는 시즌에 한 번만 들어간다 (npc_reputation_log 유니크). 예: {@code
- * q:<uuid>:<quest>:<cycle>}, {@code boss1:<boss>}.
+ * <p>Call on the main thread. The same refId is counted only once per season (npc_reputation_log
+ * unique). Examples: {@code q:<uuid>:<quest>:<cycle>}, {@code boss1:<boss>}.
  */
 public interface ReputationService {
 
-    /** 접속 중이 아니면 0. */
+    /** 0 if not online. */
     int value(UUID player);
 
-    /** 현재 등급 (1부터). */
+    /** Current tier (1-based). */
     int tier(UUID player);
 
-    /** 시즌을 넘어 유지되는 최고 도달 등급 (접속 중일 때). 접속 중이 아니면 {@link #loadBestTier}. */
+    /**
+     * Best tier reached, kept across seasons (while online). If not online, use {@link
+     * #loadBestTier}.
+     */
     int bestTier(UUID player);
 
-    /** DB에서 최고 도달 등급을 읽는다 (오프라인 플레이어의 하우징 크기 판정 등). */
+    /** Reads the best tier reached from the DB (e.g. housing size checks for offline players). */
     CompletableFuture<Integer> loadBestTier(UUID player);
 
     List<ReputationTier> tiers();
 
     ReputationTier tierInfo(int tier);
 
-    /** 다음 등급 (최고 등급이면 빈 값). */
+    /** Next tier (empty at the top tier). */
     Optional<ReputationTier> nextTier(UUID player);
 
-    /** 출처별 기본값 (balance.yml reputation.sources). Quest는 보상 표에 값이 없으면 이 값을 쓴다. */
+    /**
+     * Default per source (balance.yml reputation.sources). Quest uses this when its reward table
+     * has no value.
+     */
     int defaultValue(ReputationSource source);
 
     /**
-     * 평판을 더한다. CONTRIBUTION 출처는 reputation_gain 보정자를 곱하고, 하루 상한이 있는 출처는 상한까지만 더한다. 등급이 바뀌면
-     * ReputationTierChangedEvent를 내고 최고 등급을 즉시 저장한다.
+     * Adds reputation. CONTRIBUTION sources are multiplied by the reputation_gain modifier, and
+     * sources with a daily cap add only up to the cap. On a tier change, fires
+     * ReputationTierChangedEvent and saves the best tier immediately.
      *
-     * @param refId 중복 방지 참조 ID (null이면 중복 검사 안 함)
+     * @param refId reference ID for duplicate prevention (null skips the duplicate check)
      */
     CompletableFuture<ReputationResult> add(
             UUID player, int delta, ReputationSource source, @Nullable String refId);
 
-    /** 최근 획득 내역 (최신순, 접속 중일 때). */
+    /** Recent gain history (newest first, while online). */
     List<ReputationLogEntry> recent(UUID player);
 }

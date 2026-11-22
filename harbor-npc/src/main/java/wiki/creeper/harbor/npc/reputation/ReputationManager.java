@@ -39,13 +39,18 @@ import wiki.creeper.harbor.npc.data.NpcRepository;
 import wiki.creeper.harbor.npc.logic.ReputationMath;
 
 /**
- * 항구 평판 (docs 20 5.4). 값은 Core player_season.reputation (HarborPlayer.setReputation → Core 저장 주기).
- * 같은 refId는 npc_reputation_log 유니크로 시즌에 한 번만 들어가고, 기록을 먼저 넣은 뒤 메인 스레드에서 값을 반영한다. 동시에 들어온 요청이 하루 상한을
- * 넘지 않도록 DB 왕복 중인 양을 출처별로 예약해 둔다.
+ * Harbor reputation (docs 20 5.4). The value is Core player_season.reputation
+ * (HarborPlayer.setReputation → Core save cycle). The same refId is counted only once per season
+ * via the npc_reputation_log unique key; the log entry is inserted first, then the value is applied
+ * on the main thread. Amounts in DB round-trips are reserved per source so concurrent requests do
+ * not exceed the daily cap.
  */
 public final class ReputationManager implements ReputationService, Listener {
 
-    /** 경제 계열 '항구 투자' (Jobs 설계와 같은 키). CONTRIBUTION 출처에만 곱한다. */
+    /**
+     * Economy line "harbor investment" (same key as the Jobs design). Applied only to CONTRIBUTION
+     * sources.
+     */
     public static final StatKey REPUTATION_GAIN = StatKey.of("reputation_gain");
 
     private final HarborApi api;
@@ -53,7 +58,7 @@ public final class ReputationManager implements ReputationService, Listener {
     private final PlayerComponent<NpcData> component;
     private final Logger log;
 
-    /** DB 왕복 중인 출처별 양 (하루 상한 예약). */
+    /** Per-source amounts in DB round-trips (daily cap reservation). */
     private final Map<UUID, Map<ReputationSource, Integer>> pending = new HashMap<>();
 
     public ReputationManager(
@@ -68,7 +73,7 @@ public final class ReputationManager implements ReputationService, Listener {
         return new NpcBalance(api.content().snapshot().single(Balance.TYPE));
     }
 
-    // ------------------------------------------------------------------ 조회
+    // ------------------------------------------------------------------ queries
 
     @Override
     public int value(UUID player) {
@@ -125,7 +130,7 @@ public final class ReputationManager implements ReputationService, Listener {
         return api.players().get(player).map(hp -> hp.get(component).recent()).orElse(List.of());
     }
 
-    // ------------------------------------------------------------------ 변경
+    // ------------------------------------------------------------------ changes
 
     @Override
     public CompletableFuture<ReputationResult> add(
@@ -212,7 +217,7 @@ public final class ReputationManager implements ReputationService, Listener {
             boolean capped) {
         Optional<? extends HarborPlayer> found = api.players().get(player);
         if (found.isEmpty() || !found.get().season().equals(season)) {
-            // 그 사이 나갔다: 기록을 지워 다시 받을 수 있게 한다
+            // The player left in the meantime: delete the log entry so it can be received again
             if (refId != null) {
                 var _ =
                         api.database()
@@ -291,8 +296,11 @@ public final class ReputationManager implements ReputationService, Listener {
             return;
         }
         if (delta < 0 && !pending.containsKey(player)) {
-            // 퇴장으로 이미 비웠다: 진행 중이던 지급이 늦게 끝나 되돌리는 것이므로 음수 예약을 새로 만들지 않는다 (남으면 다음 접속 때
-            // 일일 한도를 그만큼 덜 잡아 넘길 수 있다)
+            // already cleared on quit: this is a late rollback of an in-flight grant, so do not
+            // create a
+            // new negative reservation (if left over, the next session would undercount the daily
+            // cap and
+            // allow exceeding it)
             return;
         }
         Map<ReputationSource, Integer> map =
@@ -334,7 +342,10 @@ public final class ReputationManager implements ReputationService, Listener {
                         });
     }
 
-    /** 접속 때 최고 등급이 현재 등급보다 낮으면 고친다 (Common 열 이전·데이터 복구 대비). */
+    /**
+     * On join, fixes the best tier if it is lower than the current tier (guards against Common
+     * column migration and data recovery).
+     */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();

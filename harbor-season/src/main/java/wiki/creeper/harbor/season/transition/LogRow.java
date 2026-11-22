@@ -4,9 +4,9 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
- * season_transition_log 한 행.
+ * One row of season_transition_log.
  *
- * @param step 단계 이름 (PRECHECK …) 또는 세부 단계 (ARCHIVE:player_season, RESET:currency,
+ * @param step step name (PRECHECK ...) or sub-step (ARCHIVE:player_season, RESET:currency,
  *     HOOK:shop.pass:archive)
  * @param state STARTED · DONE · FAILED · SKIPPED
  */

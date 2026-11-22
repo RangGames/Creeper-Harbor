@@ -8,7 +8,7 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.npc.api.GiftReaction;
 
-/** 선물 (아이템은 이미 빠짐). */
+/** Gift given (the item is already removed). */
 public final class GiftGivenEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

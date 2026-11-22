@@ -15,7 +15,10 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.npc.Worlds;
 import wiki.creeper.harbor.npc.content.Skin;
 
-/** Mannequin(1.21.9 바닐라 엔티티) 모습. 저장하지 않고, AI·중력·충돌·피해 없음. 이름은 따로 Text Display로 띄운다. */
+/**
+ * Mannequin (1.21.9 vanilla entity) body. Not saved; no AI, gravity, collision or damage. The name
+ * is shown separately via a Text Display.
+ */
 public final class MannequinBody implements NpcBody {
 
     private final Mannequin mannequin;
@@ -30,7 +33,8 @@ public final class MannequinBody implements NpcBody {
     }
 
     /**
-     * @param configure 생성 직후(월드에 추가되기 전) 추가 설정 (PDC 태그, 기본 숨김 등)
+     * @param configure extra setup right after creation (before being added to the world): PDC
+     *     tags, hidden by default, etc.
      */
     public static MannequinBody spawn(
             Location at,
@@ -66,7 +70,7 @@ public final class MannequinBody implements NpcBody {
         return new MannequinBody(m, at.getYaw(), at.getPitch());
     }
 
-    /** 자세 이름 → Pose (Mannequin이 지원하는 것만). */
+    /** Pose name to Pose (only those Mannequin supports). */
     public static @Nullable Pose pose(@Nullable String name) {
         if (name == null) {
             return null;
@@ -82,7 +86,8 @@ public final class MannequinBody implements NpcBody {
     static ResolvableProfile profile(Skin skin) {
         String player = skin.player();
         if (player != null) {
-            // 이름만 있는 프로필: 서버가 Mojang에서 UUID·스킨을 찾아 채운다
+            // Name-only profile: the server looks up the UUID and skin from Mojang and fills them
+            // in
             return ResolvableProfile.resolvableProfile().name(player).build();
         }
         ResolvableProfile.Builder builder =

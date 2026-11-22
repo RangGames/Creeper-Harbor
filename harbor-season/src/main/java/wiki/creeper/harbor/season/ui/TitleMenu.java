@@ -18,12 +18,13 @@ import wiki.creeper.harbor.season.api.TitleService;
 import wiki.creeper.harbor.season.content.TitleDef;
 
 /**
- * 칭호 화면 (/칭호, docs 20 11.5). 가진 칭호는 눌러서 장착하고, 없는 칭호는 얻는 방법만 보여준다. 첫 칸은 장착 해제. 장착 값은 Shop 장착 화면의 칭호
- * 슬롯과 같다.
+ * Title screen (/칭호, docs 20 11.5). Owned titles are equipped by clicking; unowned titles only show
+ * how to obtain them. The first slot unequips. The equipped value is the same as the title slot in
+ * the Shop equipment screen.
  */
 public final class TitleMenu {
 
-    /** 한 칸. def가 null이면 장착 해제 버튼. */
+    /** One slot. If def is null, it is the unequip button. */
     private record Row(@Nullable TitleDef def, boolean owned) {}
 
     private final HarborApi api;

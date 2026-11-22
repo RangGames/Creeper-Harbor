@@ -4,7 +4,10 @@ import java.util.UUID;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/** 평판 등급 변경. bestTier는 변경 후 최고 도달 등급 (시즌 간 유지). */
+/**
+ * Reputation tier changed. bestTier is the best tier reached after the change (kept across
+ * seasons).
+ */
 public final class ReputationTierChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

@@ -17,7 +17,7 @@ class HofMathTest {
         assertTrue(HofMath.better(false, 60.5, T2, 60.0, T1));
         assertFalse(HofMath.better(false, 59.9, T1, 60.0, T2));
         assertTrue(HofMath.better(true, 50_000, T2, 60_000, T1));
-        // 같은 값이면 먼저 달성한 기록이 이긴다
+        // On equal values, the record achieved first wins
         assertFalse(HofMath.better(false, 60.0, T2, 60.0, T1));
         assertTrue(HofMath.better(false, 60.0, T1, 60.0, T2));
     }

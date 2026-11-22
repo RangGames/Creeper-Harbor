@@ -31,8 +31,9 @@ import wiki.creeper.harbor.season.data.TitleStore;
 import wiki.creeper.harbor.season.net.SeasonMessages;
 
 /**
- * TitleService 구현 (docs 20 11.4 칭호). 쓰기는 즉시 DB, 접속 중인 플레이어는 PlayerComponent 캐시도 고친다. 다른 서버에 접속 중인
- * 플레이어는 harbor:season TitleChanged로 캐시를 고친다.
+ * TitleService implementation (docs 20 11.4 titles). Writes go to the DB immediately, and for
+ * online players the PlayerComponent cache is updated too. Players online on another server update
+ * their cache via harbor:season TitleChanged.
  */
 public final class TitleManager implements TitleService {
 
@@ -109,7 +110,7 @@ public final class TitleManager implements TitleService {
                         tasks.main());
     }
 
-    /** 커밋 뒤 메인 스레드: 캐시·이벤트·알림·다른 서버 전파. */
+    /** Main thread after commit: cache, event, notification, propagation to other servers. */
     public void afterGrant(UUID player, TitleId title, @Nullable String ref) {
         applyCache(player, title, true);
         Bukkit.getPluginManager().callEvent(new TitleGrantedEvent(player, title, ref));
@@ -243,7 +244,7 @@ public final class TitleManager implements TitleService {
                 .orElse(Component.text(title.shortName()));
     }
 
-    // ------------------------------------------------------------------ 내부
+    // ------------------------------------------------------------------ internal
 
     private void applyCache(UUID player, TitleId title, boolean granted) {
         api.players()

@@ -29,7 +29,7 @@ import wiki.creeper.harbor.npc.content.NpcDef;
 import wiki.creeper.harbor.npc.logic.DialogEval;
 import wiki.creeper.harbor.npc.logic.SpeechText;
 
-/** 대화 방식(style·dialog_style·auto) 파싱과 말풍선 문구 도우미. */
+/** Dialog style (style, dialog_style, auto) parsing and speech bubble text helpers. */
 class DialogStyleTest {
 
     @TempDir Path root;
@@ -45,7 +45,7 @@ class DialogStyleTest {
         write("messages_ko.yml", "npc:\n  t:\n    hello: \"안녕\"\n    bye: \"잘 가\"\n");
     }
 
-    // ------------------------------------------------------------------ 파싱
+    // ------------------------------------------------------------------ parsing
 
     @Test
     void parsesStyleKeys() {
@@ -96,10 +96,10 @@ class DialogStyleTest {
         assertTrue(text.contains("'bubble'"), text);
         assertTrue(text.contains("'popup'"), text);
         assertTrue(text.contains("auto는 0 이상"), text);
-        assertTrue(text.contains("npcs.yml"), text); // 위치(파일)가 붙는다
+        assertTrue(text.contains("npcs.yml"), text); // The position (file) is attached
     }
 
-    // ------------------------------------------------------------------ 문구 도우미
+    // ------------------------------------------------------------------ text helpers
 
     @Test
     void slicesKeepingStyle() {
@@ -112,7 +112,7 @@ class DialogStyleTest {
         assertEquals("안녕 어부님!", plain(SpeechText.slice(text, 100)));
         assertEquals("", plain(SpeechText.slice(text, 0)));
         Component cut = SpeechText.slice(text, 4);
-        assertEquals(NamedTextColor.GOLD, cut.children().getFirst().color()); // 색 유지
+        assertEquals(NamedTextColor.GOLD, cut.children().getFirst().color()); // Color kept
     }
 
     @Test
@@ -133,7 +133,7 @@ class DialogStyleTest {
 
     @Test
     void speechPageFlow() {
-        // 3쪽이면 마지막 쪽에서만 선택지, 쪽이 없으면 바로 선택지
+        // With 3 pages, choices only on the last page; with no pages, choices immediately
         assertFalse(DialogEval.optionsOnPage(3, 0));
         assertFalse(DialogEval.optionsOnPage(3, 1));
         assertTrue(DialogEval.optionsOnPage(3, 2));
@@ -142,7 +142,7 @@ class DialogStyleTest {
         assertEquals(0, DialogEval.clampPage(0, 5));
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ helpers
 
     private static String plain(Component c) {
         return PlainTextComponentSerializer.plainText().serialize(c);

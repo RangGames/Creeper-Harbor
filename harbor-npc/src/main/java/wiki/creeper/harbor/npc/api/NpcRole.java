@@ -2,7 +2,7 @@ package wiki.creeper.harbor.npc.api;
 
 import wiki.creeper.harbor.common.model.Keyed;
 
-/** NPC 역할 ('11. 데이터 설계' 2.5). wanderer는 schedule이 필수다. */
+/** NPC role ('11. Data design' 2.5). wanderer requires a schedule. */
 public enum NpcRole implements Keyed {
     STORY,
     JOB,

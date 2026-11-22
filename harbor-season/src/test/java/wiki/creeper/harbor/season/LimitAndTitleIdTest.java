@@ -20,7 +20,7 @@ class LimitAndTitleIdTest {
         LimitResult full = new LimitResult(false, 3, 3, 4);
         assertEquals(0, full.remaining());
         assertTrue(full.exhausted());
-        // 한도가 줄어 사용 횟수가 더 많아도 음수가 되지 않는다
+        // When the limit shrinks below the used count, remaining does not go negative
         assertEquals(0, new LimitResult(false, 5, 3, 4).remaining());
     }
 

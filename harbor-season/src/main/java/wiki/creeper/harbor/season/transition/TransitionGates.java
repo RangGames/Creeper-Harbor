@@ -21,8 +21,9 @@ import wiki.creeper.harbor.season.data.SeasonMeta;
 import wiki.creeper.harbor.season.data.SeasonRepository;
 
 /**
- * 데이터를 옮기지 않는 전환 단계: 2 NOTICE(공지·대기), 3 FREEZE(TRANSITIONING·서버 동결), 4 VERIFY(원장 검사), 5 BACKUP(백업
- * 확인 대기·표식 검사), 9 CONTENT(새 시즌 콘텐츠). 전환 스레드에서 블로킹으로 돈다.
+ * Transition steps that do not move data: 2 NOTICE (notice and wait), 3 FREEZE (TRANSITIONING,
+ * server freeze), 4 VERIFY (ledger check), 5 BACKUP (wait for backup confirmation, marker check), 9
+ * CONTENT (new season content). Runs blocking on the transition thread.
  */
 final class TransitionGates {
 

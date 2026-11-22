@@ -20,7 +20,10 @@ import wiki.creeper.harbor.season.content.ResetPlan;
 import wiki.creeper.harbor.season.data.SeasonMeta;
 import wiki.creeper.harbor.season.data.SeasonRepository;
 
-/** 시즌 전환 사전 검사 (1단계 PRECHECK)와 dry-run 보고서. 쓰기 없이 DB·콘텐츠·디스크·계획을 확인한다. 블로킹. */
+/**
+ * Season transition pre-check (step 1 PRECHECK) and dry-run report. Checks DB, content, disk and
+ * plan without writing. Blocking.
+ */
 final class TransitionPreflight {
 
     private static final System.Logger LOG = System.getLogger("Harbor/SeasonTransition");
@@ -50,9 +53,9 @@ final class TransitionPreflight {
     }
 
     /**
-     * 사전 검사 (docs 20 11.4 1단계). 오류는 errors, 경고는 warnings에 넣는다.
+     * Pre-check (docs 20 11.4 step 1). Errors go into errors, warnings into warnings.
      *
-     * @return 지금 DB 크기 (바이트)
+     * @return current DB size (bytes)
      */
     long precheck(ResetPlan plan, int from, int to, List<String> errors, List<String> warnings)
             throws SQLException {
@@ -143,7 +146,10 @@ final class TransitionPreflight {
 
     // ------------------------------------------------------------------ dry-run
 
-    /** 실제 쓰기 없이 검사와 예정 행 수, 예상 시간 (블로킹, docs 20 11.4). */
+    /**
+     * Checks, planned row counts and estimated time without any actual writes (blocking, docs 20
+     * 11.4).
+     */
     DryRunReport dryRun() throws SQLException {
         ResetPlan plan = plans.get();
         int from = env.currentSeason();

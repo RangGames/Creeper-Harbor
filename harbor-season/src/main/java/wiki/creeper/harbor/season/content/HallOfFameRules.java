@@ -12,7 +12,7 @@ import wiki.creeper.harbor.common.content.ParseContext;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.season.api.TitleId;
 
-/** season/hall_of_fame.yml: 명예의 전당 분류 목록. */
+/** season/hall_of_fame.yml: list of hall of fame categories. */
 public record HallOfFameRules(List<HallOfFameCategory> categories) {
 
     public static final ContentType.Single<HallOfFameRules> TYPE =

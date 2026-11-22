@@ -8,7 +8,7 @@ import wiki.creeper.harbor.season.api.RankEntry;
 import wiki.creeper.harbor.season.content.RankingBoards;
 import wiki.creeper.harbor.season.hof.HofMath;
 
-/** 화면 표시 형식. */
+/** Display formats. */
 public final class Formats {
 
     private static final DateTimeFormatter DATE =
@@ -20,7 +20,7 @@ public final class Formats {
         return at.equals(Instant.EPOCH) ? "-" : DATE.format(at.atZone(zone));
     }
 
-    /** 랭킹 값 표시 (원천별). */
+    /** Ranking value display (per source). */
     public static String rankValue(String source, RankEntry entry) {
         return switch (source) {
             case RankingBoards.RECORDS -> HofMath.format(entry.value(), "cm");

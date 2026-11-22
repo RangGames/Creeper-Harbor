@@ -2,7 +2,10 @@ package wiki.creeper.harbor.season.transition;
 
 import java.util.Optional;
 
-/** 시즌 전환 10단계 (docs 20 11.4). 순서대로만 진행하고, RESET만 원본을 지운다. */
+/**
+ * The 10 season transition steps (docs 20 11.4). They run strictly in order, and only RESET deletes
+ * source data.
+ */
 public enum TransitionStep {
     PRECHECK(1),
     NOTICE(2),
@@ -21,7 +24,7 @@ public enum TransitionStep {
         this.number = number;
     }
 
-    /** 문서의 단계 번호 (1~10). */
+    /** Step number in the docs (1-10). */
     public int number() {
         return number;
     }
@@ -35,7 +38,10 @@ public enum TransitionStep {
         return Optional.empty();
     }
 
-    /** 이 단계가 시작됐으면 롤백 A(아카이브 스키마 삭제)로는 되돌릴 수 없다. */
+    /**
+     * Once this step has started, it cannot be undone with rollback A (dropping the archive
+     * schema).
+     */
     public boolean pastRollbackA() {
         return number >= RESET.number;
     }

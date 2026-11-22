@@ -19,25 +19,26 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.npc.api.DialogStyle;
 
 /**
- * 대화 트리 (dialogs/<npc>.yml, 추가 제안, docs 20 5.3). npcs.yml의 dialog가 ID로 가리킨다.
+ * Dialog tree (dialogs/<npc>.yml, proposed, docs 20 5.3). Referenced by ID from dialog in npcs.yml.
  *
  * <pre>{@code
  * - id: dialog/hansol
- *   entries:                       # 위에서부터 첫 일치 노드를 연다
+ *   entries:                       # opens the first matching node from the top
  *     - {conditions: [quest_available: main], node: offer}
  *     - {node: greet}
  *   nodes:
  *     greet:
- *       pages: [npc.dialog.hansol.greet.1, npc.dialog.hansol.greet.2]   # messages_ko.yml 키
- *       style: hologram            # 선택: dialog·hologram·title·chat·actionbar (없으면 NPC 기본)
- *       auto: 4                    # 선택: DIALOG 밖의 방식에서 4초마다 다음 쪽
+ *       pages: [npc.dialog.hansol.greet.1, npc.dialog.hansol.greet.2]   # messages_ko.yml keys
+ *       style: hologram            # optional: dialog·hologram·title·chat·actionbar (NPC default if absent)
+ *       auto: 4                    # optional: next page every 4 seconds in non-DIALOG styles
  *       options:
  *         - {label: npc.dialog.option.gift, actions: [gift:open]}
  *         - {label: npc.dialog.option.bye, actions: [close]}
  * }</pre>
  *
- * 검사: entries·goto·노드 인자(node, fail_node, success_node, after_node)가 있는 노드를 가리키는지, entries·external
- * 노드에서 도달할 수 없는 노드가 없는지. 조건·액션 키와 인자는 서버에서 레지스트리로 검사한다.
+ * Checks: entries, goto and node arguments (node, fail_node, success_node, after_node) point to
+ * existing nodes, and no node is unreachable from entries or external nodes. Condition/action keys
+ * and arguments are checked on the server against the registry.
  */
 public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> nodes) {
 
@@ -47,7 +48,7 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
             new ContentType.Entries<>(
                     "dialog", List.of("dialogs/*.yml"), PREFIX, DialogDef::parse, DialogDef::id);
 
-    /** 진입 규칙 한 줄. */
+    /** One entry rule. */
     public record Entry(List<DialogRef> conditions, String node, SourcePos pos) {
 
         public Entry {
@@ -56,13 +57,15 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
     }
 
     /**
-     * 대화 노드.
+     * Dialog node.
      *
-     * @param speaker 화자 이름 덮어쓰기 (없으면 NPC 이름, 이름 변형 반영)
-     * @param pages 대사 messages_ko.yml 키. 여러 개면 '다음' 버튼으로 넘긴다
-     * @param external 다른 모듈 액션·명령이 직접 여는 노드 (도달 검사 제외, 추가 제안)
-     * @param style 보여주는 방식 (없으면 NPC 기본, 추가 제안)
-     * @param autoSeconds DIALOG 밖의 방식에서 이 초가 지나면 다음 쪽으로 넘김 (0이면 넘기지 않음, 추가 제안)
+     * @param speaker speaker name override (otherwise the NPC name, with name variants)
+     * @param pages messages_ko.yml keys of the lines. With several, the 'next' button advances
+     * @param external node opened directly by other modules' actions or commands (excluded from the
+     *     reachability check, proposed)
+     * @param style presentation style (NPC default if absent, proposed)
+     * @param autoSeconds in non-DIALOG styles, advance to the next page after this many seconds (0
+     *     means never, proposed)
      */
     public record Node(
             String id,
@@ -91,11 +94,11 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
     }
 
     /**
-     * 선택지.
+     * Choice.
      *
-     * @param label 버튼 문구 키
-     * @param tooltip 버튼 설명 키 (선택)
-     * @param gotoNode 액션이 모두 Continue면 갈 노드 (없으면 닫음)
+     * @param label button text key
+     * @param tooltip button description key (optional)
+     * @param gotoNode node to go to if all actions are Continue (closes if absent)
      */
     public record Option(
             String label,
@@ -116,7 +119,7 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
         nodes = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(nodes));
     }
 
-    /** 모든 조건 참조 (진입 규칙 + 선택지). */
+    /** All condition references (entry rules + choices). */
     public List<DialogRef> allConditions() {
         List<DialogRef> all = new ArrayList<>();
         entries.forEach(e -> all.addAll(e.conditions()));
@@ -130,7 +133,7 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
         return all;
     }
 
-    /** entries·external 노드에서 시작해 goto·노드 인자로 닿지 않는 노드. */
+    /** Nodes not reachable via goto or node arguments starting from entries and external nodes. */
     public Set<String> unreachable() {
         Set<String> seen = new HashSet<>();
         Deque<String> queue = new ArrayDeque<>();
@@ -234,7 +237,10 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
                 n.pos());
     }
 
-    /** {@code style:} 같은 방식 필드. 모르는 값이면 위치와 함께 오류를 남기고 null. */
+    /**
+     * A style field such as {@code style:}. On an unknown value, records an error with its position
+     * and returns null.
+     */
     public static @Nullable DialogStyle parseStyle(YamlNode parent, String key) {
         Optional<YamlNode> raw = parent.get(key);
         if (raw.isEmpty()) {
@@ -255,7 +261,10 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
         }
     }
 
-    /** goto·노드 인자 존재, 도달 가능성. 오류는 대화 파일 항목 위치에 붙인다. */
+    /**
+     * goto/node argument existence and reachability. Errors are attached to the dialog file entry
+     * position.
+     */
     private static void validateLinks(DialogDef def, YamlNode at) {
         for (Node n : def.nodes().values()) {
             for (Option option : n.options()) {
@@ -288,7 +297,7 @@ public record DialogDef(HarborId id, List<Entry> entries, Map<String, Node> node
         }
     }
 
-    /** NPC 기본 키가 가리키는 다른 콘텐츠 (컷씬, NPC) 참조 등록. */
+    /** Registers references to other content (cutscenes, NPCs) pointed to by NPC built-in keys. */
     private static void registerRefs(DialogDef def, ParseContext ctx) {
         List<DialogRef> refs = new ArrayList<>(def.allActions());
         refs.addAll(def.allConditions());

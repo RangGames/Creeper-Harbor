@@ -6,7 +6,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.NpcId;
 
-/** NPC 클릭 (거리·상태 검사 뒤, 대화를 열기 전). 취소하면 대화를 열지 않는다. Quest가 완료 보고를 우선 처리할 때 쓴다. */
+/**
+ * NPC clicked (after distance and state checks, before opening the dialog). Cancelling prevents the
+ * dialog from opening. Used by Quest to handle turn-ins first.
+ */
 public final class NpcInteractEvent extends Event implements Cancellable {
 
     private static final HandlerList HANDLERS = new HandlerList();

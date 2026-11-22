@@ -39,7 +39,7 @@ class RankOrderTest {
 
     @Test
     void secondaryBreaksTiesBeforeTime() {
-        // 레벨 보드: 같은 레벨이면 경험치가 많은 쪽
+        // Level board: at the same level, more experience ranks higher
         List<RankEntry> ranked =
                 RankOrder.rank(List.of(row(A, 40, 100, 0), row(B, 40, 900, 0)), false, 10, true);
         assertEquals(B, ranked.getFirst().uuid());
@@ -66,7 +66,7 @@ class RankOrderTest {
                         true);
         assertEquals(2, ranked.size());
         assertEquals(20, ranked.getFirst().value());
-        // 파티 기록(보스)은 같은 파티장이 여러 번 있어도 남긴다
+        // Party records (boss) are kept even when the same party leader appears multiple times
         assertEquals(
                 3,
                 RankOrder.rank(

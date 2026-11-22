@@ -6,7 +6,7 @@ import org.bukkit.plugin.Plugin;
 import wiki.creeper.harbor.season.api.SeasonHook;
 import wiki.creeper.harbor.season.api.SeasonHookRegistry;
 
-/** SeasonHookRegistry 구현. 꺼진 플러그인의 훅은 목록에서 뺀다. */
+/** SeasonHookRegistry implementation. Hooks of disabled plugins are dropped from the list. */
 public final class HookRegistry implements SeasonHookRegistry {
 
     private record Entry(Plugin owner, SeasonHook hook) {}
