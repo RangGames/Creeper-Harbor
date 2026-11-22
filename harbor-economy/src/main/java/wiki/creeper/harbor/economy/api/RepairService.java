@@ -2,6 +2,7 @@ package wiki.creeper.harbor.economy.api;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.common.ledger.LedgerError;
@@ -25,4 +26,13 @@ public interface RepairService {
      */
     CompletableFuture<Result<Long, LedgerError>> pay(
             UUID player, long cost, String refId, @Nullable SqlConsumer extra);
+
+    /**
+     * Repairs the held gear for the player, the same flow as /수리 without the confirmation dialog:
+     * quote → take the gear and hold it → REPAIR ledger → durability restored and the gear given
+     * back (mailbox if the player left). NOTHING if the held item needs no repair or has no price.
+     *
+     * @return gold = repair cost on success
+     */
+    CompletableFuture<TradeResult> repairHeld(Player player);
 }

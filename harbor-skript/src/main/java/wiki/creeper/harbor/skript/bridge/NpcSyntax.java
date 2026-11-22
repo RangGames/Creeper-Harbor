@@ -7,6 +7,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
@@ -52,6 +53,7 @@ import wiki.creeper.harbor.skript.bridge.NpcScriptEvents.DialogConditionEvent;
 import wiki.creeper.harbor.skript.bridge.NpcScriptEvents.DialogScriptEvent;
 import wiki.creeper.harbor.skript.bridge.NpcScriptEvents.SpeechChoiceEvent;
 import wiki.creeper.harbor.skript.lambda.Args;
+import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
@@ -59,7 +61,8 @@ import wiki.creeper.harbor.skript.lambda.Spec;
  * When Harbor-Npc is enabled: reputation (tier, best tier, give and take), NPC affinity (read and
  * change), NPC lookup (location, role, nearest, wanderer schedule), dialogs (open a node, close,
  * session, one-liners, lines with choices), script-implemented dialog actions and conditions
- * ({@code skript:action} · {@code skript:check}), cutscenes, and all NPC api events.
+ * ({@code skript:action} · {@code skript:check}), cutscenes, NPC placement and gaze overrides
+ * (spawn, hide, move, look at), and all NPC api events.
  *
  * <p>Affinity and reputation changes go through AffinityService · ReputationService (source OTHER,
  * reference ID {@code skript:<random>}), which apply caps, fire events and save the value.
@@ -106,6 +109,7 @@ public final class NpcSyntax {
         reputation(r);
         affinity(r);
         npcs(r);
+        control(r);
         dialogs(r);
         scriptDialogs(r);
         cutscenes(r);
@@ -426,6 +430,111 @@ public final class NpcSyntax {
                     }
                 },
                 "harbor admin reset wanderer %string%");
+    }
+
+    // ------------------------------------------------------------------ placement and gaze
+
+    /** NpcService placement overrides (memory only, main server only). */
+    private static void control(Registrar r) {
+        Ext.await(
+                r,
+                "harbor admin spawn npc",
+                new int[] {3},
+                c -> {
+                    Optional<NpcId> npc = c.string(0).flatMap(NpcSyntax::npc);
+                    Optional<NpcService> s = service(NpcService.class);
+                    if (npc.isEmpty() || s.isEmpty()) {
+                        return null;
+                    }
+                    boolean ok =
+                            s.get()
+                                    .spawn(
+                                            npc.get(),
+                                            c.as(1, Location.class).orElse(null),
+                                            c.duration(2).orElse(null));
+                    return Ext.value(CompletableFuture.completedFuture(ok));
+                },
+                "harbor admin spawn npc %string% [at %-location%] [for %-timespan%] [and (store|save)"
+                        + " [the] result in %-objects%]");
+        Ext.effect(
+                r,
+                "harbor admin despawn npc",
+                c -> {
+                    Optional<NpcService> s = service(NpcService.class);
+                    if (s.isEmpty()) {
+                        return;
+                    }
+                    for (String raw : c.strings(0)) {
+                        npc(raw).ifPresent(id -> s.get().despawn(id));
+                    }
+                },
+                "harbor admin (despawn|hide) npc[s] %strings%");
+        Ext.effect(
+                r,
+                "harbor admin release npc",
+                c -> {
+                    Optional<NpcService> s = service(NpcService.class);
+                    if (s.isEmpty()) {
+                        return;
+                    }
+                    for (String raw : c.strings(0)) {
+                        npc(raw).ifPresent(id -> s.get().release(id));
+                    }
+                },
+                "harbor admin (release|reset) npc[s] %strings%");
+        Ext.effect(
+                r,
+                "harbor admin teleport npc",
+                c -> {
+                    Optional<NpcId> npc = c.string(0).flatMap(NpcSyntax::npc);
+                    Optional<Location> to = c.as(1, Location.class);
+                    Optional<NpcService> s = service(NpcService.class);
+                    if (npc.isPresent() && to.isPresent() && s.isPresent()) {
+                        s.get().teleport(npc.get(), to.get());
+                    }
+                },
+                "harbor admin (teleport|move) npc %string% to %location%");
+        Ext.condition(
+                r,
+                "harbor npc is script controlled",
+                c -> {
+                    Optional<NpcId> npc = c.string(0).flatMap(NpcSyntax::npc);
+                    Optional<NpcService> s = service(NpcService.class);
+                    return npc.isPresent() && s.isPresent() && s.get().controlled(npc.get());
+                },
+                "harbor npc %string% is script[-]controlled",
+                "harbor npc %string% (isn't|is not) script[-]controlled");
+        Ext.effect(
+                r,
+                "make harbor npc look",
+                c -> {
+                    Optional<NpcId> npc = c.string(0).flatMap(NpcSyntax::npc);
+                    Optional<NpcService> s = service(NpcService.class);
+                    if (npc.isEmpty() || s.isEmpty()) {
+                        return;
+                    }
+                    if (c.pattern() == 1) {
+                        c.player(1).ifPresent(p -> s.get().lookAt(npc.get(), p));
+                    } else {
+                        c.as(1, Location.class).ifPresent(l -> s.get().lookAt(npc.get(), l));
+                    }
+                },
+                "make harbor npc %string% look at %location%",
+                "make harbor npc %string% (follow|keep looking at) %player%");
+        Ext.effect(
+                r,
+                "reset harbor npc gaze",
+                c -> {
+                    Optional<NpcService> s = service(NpcService.class);
+                    if (s.isEmpty()) {
+                        return;
+                    }
+                    for (String raw : c.strings(0)) {
+                        npc(raw).ifPresent(id -> s.get().resetLook(id));
+                    }
+                },
+                "reset harbor npc gaze of %strings%",
+                "make harbor npc[s] %strings% stop looking");
     }
 
     private static Optional<NpcInfo> info(Event e, Expression<?>[] x) {

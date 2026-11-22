@@ -25,6 +25,7 @@ import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.item.FishLedger;
 import wiki.creeper.harbor.core.task.Tasks;
+import wiki.creeper.harbor.economy.api.TradeResult;
 import wiki.creeper.harbor.economy.api.event.AuctionSoldEvent;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
 import wiki.creeper.harbor.economy.service.AuctionHouse.Row;
@@ -70,20 +71,28 @@ final class AuctionSettlement {
         this.listings = listings;
     }
 
-    void buy(Player player, Row shown) {
+    private static CompletableFuture<TradeResult> done(TradeResult.Status status) {
+        return CompletableFuture.completedFuture(TradeResult.of(status));
+    }
+
+    /**
+     * Buys the listing as shown (the price must still match). The result completes on the main
+     * thread.
+     */
+    CompletableFuture<TradeResult> buy(Player player, Row shown) {
         UUID buyer = player.getUniqueId();
         if (shown.seller().equals(buyer)) {
             api.messages().send(player, "economy.auction.own");
-            return;
+            return done(TradeResult.Status.OWN);
         }
         if (api.players().get(player).balance(Currency.GOLD) < shown.price()) {
             api.messages().send(player, "economy.auction.no_gold");
-            return;
+            return done(TradeResult.Status.NO_GOLD);
         }
         Optional<TradeGuard.Ticket> ticket = guard.begin(buyer);
         if (ticket.isEmpty()) {
             api.messages().send(player, "economy.busy");
-            return;
+            return done(TradeResult.Status.BUSY);
         }
         EconomyBalance.FraudRules rules = house.balance().fraud();
         int season = api.infra().season().value();
@@ -119,7 +128,7 @@ final class AuctionSettlement {
                                     return Optional.of(
                                             new Prepared(row, FraudMath.evaluate(signals, rules)));
                                 });
-        CompletableFuture<Void> flow =
+        CompletableFuture<TradeResult> flow =
                 prepared.thenComposeAsync(
                         found -> {
                             if (found.isEmpty()) {
@@ -127,26 +136,26 @@ final class AuctionSettlement {
                                     api.messages().send(player, "economy.auction.gone");
                                 }
                                 listings.invalidate();
-                                return CompletableFuture.completedFuture(null);
+                                return done(TradeResult.Status.GONE);
                             }
                             return settle(player, found.get(), season, rules);
                         },
                         tasks.main());
-        var _ =
-                ticket.get()
-                        .track(flow)
-                        .exceptionally(
-                                e -> {
-                                    log.warn("경매 구매 실패 {} #{}", buyer, shown.id(), e);
-                                    if (player.isOnline()) {
-                                        api.messages().send(player, "economy.auction.buy_failed");
-                                    }
-                                    return null;
-                                });
+        return ticket.get()
+                .track(flow)
+                .exceptionallyAsync(
+                        e -> {
+                            log.warn("경매 구매 실패 {} #{}", buyer, shown.id(), e);
+                            if (player.isOnline()) {
+                                api.messages().send(player, "economy.auction.buy_failed");
+                            }
+                            return TradeResult.of(TradeResult.Status.FAILED);
+                        },
+                        tasks.main());
     }
 
     /** Main thread: the settlement transaction. */
-    private CompletableFuture<Void> settle(
+    private CompletableFuture<TradeResult> settle(
             Player player, Prepared prepared, int season, EconomyBalance.FraudRules rules) {
         Row row = prepared.row();
         FraudMath.Verdict verdict = prepared.verdict();
@@ -251,7 +260,7 @@ final class AuctionSettlement {
                     }
                 };
         return Tx.run(api, tasks, entries, extra)
-                .thenAccept(
+                .thenApply(
                         result -> {
                             listings.invalidate();
                             LedgerError error = Tx.error(result);
@@ -268,7 +277,12 @@ final class AuctionSettlement {
                                                         default -> "economy.auction.buy_failed";
                                                     });
                                 }
-                                return;
+                                return TradeResult.of(
+                                        switch (error) {
+                                            case INSUFFICIENT_FUNDS -> TradeResult.Status.NO_GOLD;
+                                            case REJECTED, DUPLICATE -> TradeResult.Status.GONE;
+                                            default -> TradeResult.Status.FAILED;
+                                        });
                             }
                             log.info(
                                     "경매 낙찰 #{} {} → {} {}G (수수료 {}G{})",
@@ -314,6 +328,8 @@ final class AuctionSettlement {
                                                         "price", String.valueOf(row.price())));
                                 mail.autoClaim(player, MailManager.SOURCE_AUCTION_WON, ref);
                             }
+                            return new TradeResult(
+                                    TradeResult.Status.OK, row.price(), row.amount(), row.id());
                         });
     }
 

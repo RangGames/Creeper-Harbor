@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -25,7 +26,9 @@ import wiki.creeper.harbor.economy.api.AuctionService;
 import wiki.creeper.harbor.economy.api.CraftService;
 import wiki.creeper.harbor.economy.api.PriceService;
 import wiki.creeper.harbor.economy.api.RepairService;
+import wiki.creeper.harbor.economy.api.SaleService;
 import wiki.creeper.harbor.economy.api.ShopService;
+import wiki.creeper.harbor.economy.api.TradeResult;
 import wiki.creeper.harbor.economy.api.event.AuctionListedEvent;
 import wiki.creeper.harbor.economy.api.event.AuctionSoldEvent;
 import wiki.creeper.harbor.economy.api.event.FishSoldEvent;
@@ -35,6 +38,8 @@ import wiki.creeper.harbor.economy.api.event.ShopPurchaseEvent;
 import wiki.creeper.harbor.economy.api.event.TradeFlaggedEvent;
 import wiki.creeper.harbor.skript.Ids;
 import wiki.creeper.harbor.skript.lambda.Args;
+import wiki.creeper.harbor.skript.lambda.Ctx;
+import wiki.creeper.harbor.skript.lambda.Ext;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
@@ -45,9 +50,10 @@ import wiki.creeper.harbor.skript.lambda.Spec;
  *
  * <p>Auction and mail reads are DB lookups, so they are served from {@link AsyncCache} (eventually
  * consistent: no value on the first read, refreshed every balance.yml {@code
- * skript.cache_seconds}). Selling, buying and auction listing happen only in the players' own
- * screens (no api to do it for them), and gold changes stay on {@code harbor gold} (ledger
- * SCRIPT_*).
+ * skript.cache_seconds}). Selling, shop buying, auction listing and buying, crafting and repair for
+ * a player go through the Economy api flows (SaleService, ShopService, AuctionService,
+ * CraftService, RepairService) and wait for the transaction; other gold changes stay on {@code
+ * harbor gold} (ledger SCRIPT_*).
  */
 public final class EconomySyntax {
 
@@ -91,6 +97,7 @@ public final class EconomySyntax {
     public static void register(Registrar r) {
         market(r);
         screens(r);
+        trades(r);
         auction(r);
         events(r);
     }
@@ -219,6 +226,145 @@ public final class EconomySyntax {
                     }
                 },
                 "open harbor craft[ing] (kind|menu) %string% (to|for) %players%");
+    }
+
+    // ------------------------------------------------------------------ trades for a player
+
+    /** Result targets appended to trade patterns (result key, then gold). */
+    private static final String STORE =
+            " [and (store|save) [the] result in %-objects%] [with [the] gold in %-objects%]";
+
+    /** [status key] and [gold] for the two result targets. */
+    private static CompletableFuture<List<?>[]> trade(CompletableFuture<TradeResult> future) {
+        return future.thenApply(
+                t -> new List<?>[] {List.of(t.status().key()), List.<Object>of(t.gold())});
+    }
+
+    /** Runs the trade if the player argument and the service are there (null = no result). */
+    private static <S> @Nullable CompletableFuture<List<?>[]> withPlayer(
+            Ctx c,
+            Class<S> service,
+            java.util.function.BiFunction<Player, S, @Nullable CompletableFuture<TradeResult>>
+                    run) {
+        Optional<Player> p = c.player(0);
+        Optional<S> s = service(service);
+        if (p.isEmpty() || s.isEmpty()) {
+            return null;
+        }
+        CompletableFuture<TradeResult> future = run.apply(p.get(), s.get());
+        return future == null ? null : trade(future);
+    }
+
+    /**
+     * Sell, shop buy, auction listing and purchase, crafting and repair done for a player through
+     * the same Economy flows as their own screens (TradeGuard, ledger, held items returned on
+     * failure), without the confirmation dialogs. The trigger waits for the transaction like {@code
+     * wait}; the result is a {@link TradeResult.Status} key.
+     */
+    private static void trades(Registrar r) {
+        Ext.await(
+                r,
+                "make player sell held harbor fish",
+                new int[] {1, 2},
+                c -> withPlayer(c, SaleService.class, (p, s) -> s.sellHeld(p)),
+                "make %player% sell [the] held harbor fish" + STORE);
+        Ext.await(
+                r,
+                "make player sell all harbor fish",
+                new int[] {2, 3},
+                c ->
+                        withPlayer(
+                                c,
+                                SaleService.class,
+                                (p, s) -> {
+                                    Optional<String> raw = c.string(1);
+                                    Optional<FishId> species = raw.flatMap(EconomySyntax::fish);
+                                    return raw.isPresent() && species.isEmpty()
+                                            ? null
+                                            : s.sellInventory(p, species.orElse(null));
+                                }),
+                "make %player% sell all [[of] [the]] harbor fish [of species %-string%]" + STORE);
+        Ext.await(
+                r,
+                "make player sell harbor sell box",
+                new int[] {1, 2},
+                c -> withPlayer(c, SaleService.class, (p, s) -> s.sellBox(p)),
+                "make %player% sell [the] [contents of [the]] harbor sell (box|chest)" + STORE);
+        Ext.await(
+                r,
+                "make player buy harbor shop entry",
+                new int[] {4, 5},
+                c ->
+                        withPlayer(
+                                c,
+                                ShopService.class,
+                                (p, s) -> {
+                                    int amount = c.number(1).map(Number::intValue).orElse(0);
+                                    Optional<String> entry = c.string(2);
+                                    Optional<HarborId> shop =
+                                            c.string(3).flatMap(x -> Ids.parse(x, "shop/"));
+                                    return amount <= 0 || entry.isEmpty() || shop.isEmpty()
+                                            ? null
+                                            : s.buy(p, shop.get(), entry.get(), amount);
+                                }),
+                "make %player% buy %number% [of] harbor shop entry %string% from [shop] %string%"
+                        + STORE);
+        Ext.await(
+                r,
+                "make player list held item on harbor auction",
+                new int[] {2, 3},
+                c -> {
+                    Optional<Player> p = c.player(0);
+                    Optional<AuctionService> s = service(AuctionService.class);
+                    long price = c.number(1).map(Number::longValue).orElse(0L);
+                    if (p.isEmpty() || s.isEmpty() || price <= 0) {
+                        return null;
+                    }
+                    return s.get()
+                            .listHeld(p.get(), price)
+                            .thenApply(
+                                    t ->
+                                            new List<?>[] {
+                                                List.of(t.status().key()),
+                                                t.isOk() ? List.<Object>of(t.id()) : List.of()
+                                            });
+                },
+                "make %player% list [the] held item on [the] harbor auction for %number% [gold]"
+                        + " [and (store|save) [the] result in %-objects%] [with [the] listing id"
+                        + " in %-objects%]");
+        Ext.await(
+                r,
+                "make player buy harbor auction listing",
+                new int[] {2, 3},
+                c ->
+                        withPlayer(
+                                c,
+                                AuctionService.class,
+                                (p, s) -> {
+                                    long id = c.number(1).map(Number::longValue).orElse(0L);
+                                    return id <= 0 ? null : s.buy(p, id);
+                                }),
+                "make %player% buy harbor auction listing %number%" + STORE);
+        Ext.await(
+                r,
+                "make player craft harbor recipe",
+                new int[] {2, 3},
+                c ->
+                        withPlayer(
+                                c,
+                                CraftService.class,
+                                (p, s) -> {
+                                    Optional<HarborId> recipe =
+                                            c.string(1).flatMap(x -> Ids.parse(x, "recipe/"));
+                                    return recipe.isEmpty() ? null : s.craft(p, recipe.get());
+                                }),
+                "make %player% craft harbor recipe %string%" + STORE);
+        Ext.await(
+                r,
+                "make player repair held harbor gear",
+                new int[] {1, 2},
+                c -> withPlayer(c, RepairService.class, (p, s) -> s.repairHeld(p)),
+                "make %player% repair [the] held harbor (gear|item)" + STORE);
     }
 
     // ------------------------------------------------------------------ auction and mail reads

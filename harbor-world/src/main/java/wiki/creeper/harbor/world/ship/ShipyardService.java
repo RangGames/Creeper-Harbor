@@ -259,6 +259,29 @@ final class ShipyardService {
                         kit.tasks().main());
     }
 
+    /** Admin: sets one ship's durability (1 .. max). False if the owner has no such ship here. */
+    boolean adminSetDurability(UUID owner, long shipId, int value) {
+        Optional<ShipRepository.Row> row =
+                fleet.rows(owner).stream().filter(r -> r.shipId() == shipId).findFirst();
+        Optional<ShipDef> def = row.flatMap(r -> fleet.def(r.type()));
+        if (row.isEmpty() || def.isEmpty()) {
+            return false;
+        }
+        int max = ShipMath.maxDurability(def.get(), row.get().upgrades());
+        int durability = Math.clamp(value, 1, Math.max(1, max));
+        ShipState state = fleet.isAfloat(shipId) ? ShipState.AFLOAT : ShipState.STORED;
+        fleet.replace(row.get().withDurability(durability, state));
+        Afloat a = fleet.afloat(shipId);
+        if (a != null) {
+            a.row = a.row.withDurability(durability, ShipState.AFLOAT);
+        }
+        var _ =
+                kit.api()
+                        .database()
+                        .asyncVoid(c -> ShipRepository.updateState(c, shipId, durability, state));
+        return true;
+    }
+
     /** Admin command: fully repair all ships. */
     void adminRepair(Player player) {
         for (ShipRepository.Row row : new ArrayList<>(fleet.rows(player.getUniqueId()))) {

@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -31,6 +32,7 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.core.task.Tasks;
+import wiki.creeper.harbor.economy.api.TradeResult;
 
 /**
  * Sell chest (/판매, proposed). Putting fish in the top 5 rows immediately shows the total quote on
@@ -432,6 +434,40 @@ public final class SellMenu implements Listener {
         }
         box.armed = false;
         render(player, box);
+    }
+
+    /**
+     * Api sale (SaleService.sellBox): sells the fish in the open sell chest without the confirm
+     * button. Valuable fish stay in the chest.
+     */
+    CompletableFuture<TradeResult> sellNow(Player player) {
+        Box box = open.get(player.getUniqueId());
+        if (box == null || box.done) {
+            return CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.NOTHING));
+        }
+        List<SellService.Line> lines =
+                sell.boxLines(player, box.inventory.getContents(), DEPOSIT).stream()
+                        .filter(l -> !l.protection().protects())
+                        .toList();
+        if (lines.isEmpty()) {
+            api.messages().send(player, "economy.sell.nothing");
+            return CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.NOTHING));
+        }
+        for (SellService.Line line : lines) {
+            box.inventory.setItem(line.slot(), null);
+        }
+        CompletableFuture<TradeResult> started = sell.sellTakenResult(player, lines);
+        if (started == null) {
+            // In progress: put back what was taken out
+            for (SellService.Line line : lines) {
+                box.inventory.setItem(line.slot(), line.stack());
+            }
+            render(player, box);
+            return CompletableFuture.completedFuture(TradeResult.of(TradeResult.Status.BUSY));
+        }
+        box.armed = false;
+        render(player, box);
+        return started;
     }
 
     private void returnProtected(Player player, Box box) {

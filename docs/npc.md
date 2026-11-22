@@ -92,6 +92,7 @@ NPC 엔티티는 본 서버(`role: main`)에만 세운다. 인스턴스 서버�
 ## 다른 모듈과의 연결
 
 - **제공 서비스:** `NpcService`, `DialogService`(액션·조건 등록, 대화 열기), `AffinityService`, `ReputationService`, `WandererService`, `CutsceneService`, `NpcMarkerRegistry`(머리 위 표시)
+- **배치 제어 (`NpcService`):** `spawn`(설정 자리 또는 지정 위치, 시간 제한 임시 소환 가능) · `despawn` · `teleport` · `release`(콘텐츠 배치로 복귀) · `lookAt`(위치·플레이어) · `resetLook`. `spawn_flag` · `hide_flag` · 떠돌이 일정보다 우선하고 메모리에만 있다 (모듈 꺼짐·재시작 때 사라짐). 본 서버에서만 동작한다. Skript 문법은 harbor-skript 문서의 "NPC 배치 · 시선".
 - **이벤트:** `NpcInteractEvent`, `DialogOptionSelectedEvent`, `DialogEndEvent`, `GiftGivenEvent`, `AffinityChangedEvent`, `AffinityLevelUpEvent`, `ReputationChangedEvent`, `ReputationTierChangedEvent`, `WandererMovedEvent`, `CutsceneStartEvent`, `CutsceneEndEvent`
 
 ## 주의 사항

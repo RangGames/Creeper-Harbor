@@ -32,4 +32,37 @@ public interface HousingService {
 
     /** Tank slots of a loaded plot (slot order). */
     List<DisplayAnchor> displayAnchors(long plotId);
+
+    /** Result of {@link #visit}. */
+    enum VisitResult {
+        /** Sent to the plot entry (a server move if housing runs on another server). */
+        SENT,
+        /** The owner has no plot (plots are created on the owner's first /부두). */
+        NO_PLOT,
+        /** The visit policy does not let this player in (notice sent). */
+        CLOSED
+    }
+
+    /**
+     * Sends the player to the owner's plot entry, the same as /부두 방문 (loads the plot if needed).
+     *
+     * @param bypassPolicy ignore the visit policy (admin)
+     */
+    CompletableFuture<VisitResult> visit(Player player, UUID owner, boolean bypassPolicy);
+
+    /**
+     * Adds or removes a co-builder on the owner's plot, the same as /부두 건축자 추가·제거 (DB row, then
+     * other servers are told to reload the plot so a removed builder cannot keep building).
+     * Co-builders are the only member role.
+     *
+     * @return false if the owner has no plot
+     */
+    CompletableFuture<Boolean> setMember(UUID owner, UUID member, boolean add);
+
+    /**
+     * Sets the owner's visit policy, the same as /부두 설정 (cache, DB row, cross-server notice).
+     *
+     * @return false if the owner has no plot
+     */
+    CompletableFuture<Boolean> setVisitPolicy(UUID owner, VisitPolicy policy);
 }

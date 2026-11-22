@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -178,6 +179,26 @@ final class AuctionListings {
                             return rows;
                         },
                         tasks.main());
+    }
+
+    /** One active, unexpired listing by ID (read on a virtual thread, completed on main). */
+    CompletableFuture<Optional<Row>> row(long id) {
+        return api.database()
+                .async(
+                        c -> {
+                            try (PreparedStatement ps =
+                                    c.prepareStatement(
+                                            "SELECT "
+                                                    + COLUMNS
+                                                    + " FROM auction_listing WHERE id = ? AND state = 'ACTIVE'"
+                                                    + " AND expires_at > CURRENT_TIMESTAMP(3)")) {
+                                ps.setLong(1, id);
+                                try (ResultSet rs = ps.executeQuery()) {
+                                    return rs.next() ? Optional.of(row(rs)) : Optional.<Row>empty();
+                                }
+                            }
+                        })
+                .thenApplyAsync(v -> v, tasks.main());
     }
 
     CompletableFuture<OptionalLong> lowestPrice(String itemId) {

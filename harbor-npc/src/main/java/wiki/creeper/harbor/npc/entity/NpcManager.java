@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.npc.entity;
 
 import io.papermc.paper.event.player.PlayerTrackEntityEvent;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -27,6 +28,7 @@ import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.event.world.EntitiesUnloadEvent;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.id.NpcId;
@@ -76,6 +78,19 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
 
     /** Markers currently shown to each player. */
     private final Map<UUID, Map<NpcId, QuestMarker>> shown = new HashMap<>();
+
+    /**
+     * Placement override from {@link #spawn} · {@link #despawn} (memory only).
+     *
+     * @param at null = hidden
+     * @param expiry task that releases a temporary spawn, or null
+     */
+    private record Placed(@Nullable Location at, @Nullable BukkitTask expiry) {}
+
+    private final Map<NpcId, Placed> overrides = new HashMap<>();
+
+    /** Gaze override: a fixed Location or a player UUID. */
+    private final Map<NpcId, Object> looks = new HashMap<>();
 
     private Placement placement = def -> Optional.ofNullable(def.location());
 
@@ -137,9 +152,19 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
     }
 
     public void shutdown() {
+        overrides.values().forEach(NpcManager::cancel);
+        overrides.clear();
+        looks.clear();
         spawned.values().forEach(SpawnedNpc::remove);
         spawned.clear();
         index.clear();
+    }
+
+    private static void cancel(Placed o) {
+        BukkitTask task = o.expiry();
+        if (task != null) {
+            task.cancel();
+        }
     }
 
     // ------------------------------------------------------------------ spawning · removal
@@ -154,6 +179,15 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
         for (NpcId id : List.copyOf(spawned.keySet())) {
             if (!defs.containsKey(id)) {
                 despawn(id, false);
+            }
+        }
+        for (NpcId id : List.copyOf(overrides.keySet())) {
+            if (!defs.containsKey(id)) {
+                Placed o = overrides.remove(id);
+                if (o != null) {
+                    cancel(o);
+                }
+                looks.remove(id);
             }
         }
         defs.values().forEach(this::sync);
@@ -171,6 +205,11 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
 
     /** Where the NPC should stand (applies spawn · hide flags and the wanderer schedule). */
     public Optional<Location> desired(NpcDef def) {
+        Placed override = overrides.get(def.id());
+        if (override != null) {
+            Location at = override.at();
+            return at == null ? Optional.empty() : Optional.of(at.clone());
+        }
         String spawnFlag = def.spawnFlag();
         if (spawnFlag != null && !api.flags().hasServer(spawnFlag)) {
             return Optional.empty();
@@ -363,7 +402,9 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        shown.remove(event.getPlayer().getUniqueId());
+        UUID uuid = event.getPlayer().getUniqueId();
+        shown.remove(uuid);
+        looks.values().removeIf(uuid::equals);
     }
 
     @EventHandler
@@ -446,7 +487,141 @@ public final class NpcManager implements NpcService, NpcMarkerRegistry, Listener
     // ------------------------------------------------------------------ gaze
 
     private void lookTick() {
-        NpcLook.tick(spawned.values(), index);
+        NpcLook.tick(spawned.values(), index, this::forcedLook);
+    }
+
+    /** Gaze override target of this NPC right now (null = default gaze). */
+    private @Nullable Location forcedLook(SpawnedNpc npc) {
+        Object target = looks.get(npc.def().id());
+        if (target instanceof Location l) {
+            return l.getWorld().equals(npc.home().getWorld()) ? l : null;
+        }
+        if (target instanceof UUID uuid) {
+            Player p = Bukkit.getPlayer(uuid);
+            return p != null && p.getWorld().equals(npc.home().getWorld()) ? Worlds.eye(p) : null;
+        }
+        return null;
+    }
+
+    // ------------------------------------------------------------------ placement control
+    // (NpcService)
+
+    @Override
+    public boolean spawn(NpcId id, @Nullable Location at, @Nullable Duration duration) {
+        Optional<NpcDef> def = def(id);
+        if (!entitiesEnabled || def.isEmpty()) {
+            return false;
+        }
+        Location where = at;
+        if (where == null) {
+            where = placement.spot(def.get()).flatMap(worlds::location).orElse(null);
+            Spot configured = def.get().location();
+            if (where == null && configured != null) {
+                where = worlds.location(configured).orElse(null);
+            }
+        }
+        if (where == null) {
+            return false;
+        }
+        place(id, where.clone(), duration, false);
+        return true;
+    }
+
+    /**
+     * @param keepExpiry keep the remaining time of an existing temporary spawn (teleport)
+     */
+    private void place(NpcId id, Location at, @Nullable Duration duration, boolean keepExpiry) {
+        Placed old = overrides.remove(id);
+        BukkitTask expiry = null;
+        if (old != null && keepExpiry && duration == null) {
+            expiry = old.expiry();
+        } else if (old != null) {
+            cancel(old);
+        }
+        if (duration != null) {
+            long ticks = Math.max(1, duration.toMillis() / 50);
+            expiry = Bukkit.getScheduler().runTaskLater(plugin, () -> expire(id), ticks);
+        }
+        overrides.put(id, new Placed(at, expiry));
+        sync(id);
+    }
+
+    private void expire(NpcId id) {
+        overrides.remove(id);
+        looks.remove(id);
+        sync(id);
+    }
+
+    @Override
+    public boolean despawn(NpcId id) {
+        if (!entitiesEnabled || def(id).isEmpty()) {
+            return false;
+        }
+        Placed old = overrides.put(id, new Placed(null, null));
+        if (old != null) {
+            cancel(old);
+        }
+        sync(id);
+        return true;
+    }
+
+    @Override
+    public boolean teleport(NpcId id, Location to) {
+        if (!entitiesEnabled || def(id).isEmpty()) {
+            return false;
+        }
+        place(id, to.clone(), null, true);
+        return true;
+    }
+
+    @Override
+    public boolean release(NpcId id) {
+        looks.remove(id);
+        Placed old = overrides.remove(id);
+        if (old == null) {
+            return false;
+        }
+        cancel(old);
+        sync(id);
+        return true;
+    }
+
+    @Override
+    public boolean controlled(NpcId id) {
+        return overrides.containsKey(id);
+    }
+
+    @Override
+    public boolean lookAt(NpcId id, Location target) {
+        if (def(id).isEmpty()) {
+            return false;
+        }
+        looks.put(id, target.clone());
+        lookNow(id);
+        return true;
+    }
+
+    @Override
+    public boolean lookAt(NpcId id, Player target) {
+        if (def(id).isEmpty()) {
+            return false;
+        }
+        looks.put(id, target.getUniqueId());
+        lookNow(id);
+        return true;
+    }
+
+    private void lookNow(NpcId id) {
+        SpawnedNpc npc = spawned.get(id);
+        Location at = npc == null ? null : forcedLook(npc);
+        if (npc != null && at != null) {
+            npc.body().lookAt(at);
+        }
+    }
+
+    @Override
+    public void resetLook(NpcId id) {
+        looks.remove(id);
     }
 
     // ------------------------------------------------------------------ NpcService

@@ -297,6 +297,24 @@ public final class ShipManager implements ShipService, Listener {
         return summoner.summon(player, shipId);
     }
 
+    @Override
+    public boolean summon(Player player, long shipId, boolean ignoreCooldown) {
+        if (ignoreCooldown) {
+            summoner.forgetCooldown(player.getUniqueId());
+        }
+        return summoner.summon(player, shipId);
+    }
+
+    @Override
+    public boolean recall(UUID owner) {
+        return recallOwned(owner);
+    }
+
+    @Override
+    public boolean setDurability(UUID owner, long shipId, int durability) {
+        return shipyard.adminSetDurability(owner, shipId, durability);
+    }
+
     /** Recalls the owner's launched boat (/선박 회수). */
     public boolean recallOwned(UUID owner) {
         boolean any = false;

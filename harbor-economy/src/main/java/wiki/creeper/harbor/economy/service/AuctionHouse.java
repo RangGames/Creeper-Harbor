@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -19,6 +20,7 @@ import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.economy.api.AuctionListingInfo;
 import wiki.creeper.harbor.economy.api.AuctionService;
+import wiki.creeper.harbor.economy.api.TradeResult;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
 import wiki.creeper.harbor.economy.content.StationDef;
 
@@ -233,7 +235,37 @@ public final class AuctionHouse implements AuctionService {
     // ------------------------------------------------------------------ Buying
 
     void buy(Player player, Row shown) {
-        settlement.buy(player, shown);
+        var _ = settlement.buy(player, shown);
+    }
+
+    @Override
+    public CompletableFuture<TradeResult> buy(Player player, long listingId) {
+        return listings.row(listingId)
+                .thenCompose(
+                        row -> {
+                            if (row.isEmpty()) {
+                                if (player.isOnline()) {
+                                    api.messages().send(player, "economy.auction.gone");
+                                }
+                                return CompletableFuture.completedFuture(
+                                        TradeResult.of(TradeResult.Status.GONE));
+                            }
+                            if (!player.isOnline()) {
+                                return CompletableFuture.completedFuture(
+                                        TradeResult.of(TradeResult.Status.FAILED));
+                            }
+                            return settlement.buy(player, row.get());
+                        });
+    }
+
+    @Override
+    public CompletableFuture<TradeResult> listHeld(Player player, long price) {
+        return lister.listNow(player, price);
+    }
+
+    @Override
+    public CompletableFuture<Optional<AuctionListingInfo>> listing(long listingId) {
+        return listings.row(listingId).thenApply(r -> r.map(Row::info));
     }
 
     // ------------------------------------------------------------------ Cancellation and expiry
