@@ -1,11 +1,14 @@
 package wiki.creeper.harbor.wildlife.sim;
 
-/** 위협 감지 규칙 ('17-3' 9.4 위협 감지 · 도망). 순수 계산. */
+/** Threat detection rules ('17-3' 9.4 threat detection, fleeing). Pure math. */
 public final class ThreatRules {
 
     private ThreatRules() {}
 
-    /** 실제 감지 반경. 웅크리면 ×sneak, 보트에 타고 있으면 ×boat, 같은 플레이어에게 최근 놀랐으면 ×habituate. */
+    /**
+     * Effective detection radius. ×sneak when sneaking, ×boat when in a boat, ×habituate if
+     * recently startled by the same player.
+     */
     public static double radius(
             double base,
             boolean sneaking,
@@ -28,9 +31,10 @@ public final class ThreatRules {
     }
 
     /**
-     * 발동 여부: 반경 안에서 물고기 쪽으로 다가오는 속도가 기준 이상이거나, 반경의 innerRatio 안까지 들어오면.
+     * Whether it triggers: within the radius, the approach speed toward the fish is at or above the
+     * threshold, or it comes within innerRatio of the radius.
      *
-     * @param closing 물고기 쪽으로 다가오는 속도 (블록/초, 멀어지면 음수)
+     * @param closing approach speed toward the fish (blocks/second, negative when moving away)
      */
     public static boolean triggered(
             double distance,
@@ -44,7 +48,7 @@ public final class ThreatRules {
         return closing >= closingThreshold || distance <= radius * innerRatio;
     }
 
-    /** 다가오는 속도 = 플레이어 속도를 (물고기 − 플레이어) 방향에 투영한 값. */
+    /** Approach speed = player velocity projected onto the (fish − player) direction. */
     public static double closing(
             double px,
             double py,

@@ -9,16 +9,17 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RegionId;
 
 /**
- * 출현 판정 컨텍스트 (docs 20 3.4 1단계).
+ * Spawn roll context (docs 20 3.4 step 1).
  *
  * @param time dawn · day · dusk · night
  * @param weather clear · rain · thunder
- * @param moon full · new · (그 밖은 빈 문자열)
- * @param serverFlags 서버 진행 플래그 확인 (unlock_flag)
- * @param caught 도감 등록 여부 (미등록 가중치)
- * @param areas 찌 위치의 세부 구역 (RegionKeyResolver)
- * @param areasKnown 세부 구역을 알 수 있는지. false면(World 미등록) 어종 area 조건을 검사하지 않는다
- * @param mythic 열려 있는 신화 창 (이 플레이어가 참가자인 해상 이벤트)
+ * @param moon full · new · (empty string otherwise)
+ * @param serverFlags server progress flag check (unlock_flag)
+ * @param caught codex registration status (unregistered weight)
+ * @param areas sub-areas at the bobber location (RegionKeyResolver)
+ * @param areasKnown whether sub-areas are known. If false (World not registered), species area
+ *     conditions are not checked
+ * @param mythic open mythic windows (sea events this player participates in)
  */
 public record RollContext(
         RegionId region,
@@ -39,10 +40,10 @@ public record RollContext(
     }
 
     /**
-     * 신화 창 하나 (해상 이벤트 fish_effects의 mythic).
+     * One mythic window (mythic in a sea event's fish_effects).
      *
-     * @param chance 캐스팅당 확률 (신화의 예감 mythic_chance를 더하기 전)
-     * @param cap 이벤트당 서버 최대 마릿수 (예약은 FishingManager가 한다)
+     * @param chance chance per cast (before adding mythic_chance from mythic premonition)
+     * @param cap server-wide maximum count per event (FishingManager does the reservation)
      */
     public record MythicWindow(String eventId, FishDef fish, double chance, int cap) {}
 }

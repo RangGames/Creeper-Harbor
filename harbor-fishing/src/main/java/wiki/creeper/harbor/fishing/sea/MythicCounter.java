@@ -5,9 +5,11 @@ import java.util.concurrent.CompletableFuture;
 import wiki.creeper.harbor.common.db.Database;
 
 /**
- * 신화 서버 마릿수 카운터 (docs 20 3.2, 문서의 Redis 키 harbor:mythic:<이벤트>:<어종>). Core가 다른 모듈에 Redis 원자 연산을 열어
- * 주지 않아서 DB 테이블 fishing_mythic_counter(추가 제안)의 조건부 UPDATE로 같은 효과(INCR로 예약, 한도 초과면 실패, 실패 시 DECR)를
- * 낸다. 모든 서버가 같은 DB를 보므로 서버 간에도 원자적이다. Core에 Redis 카운터 API가 생기면 이 클래스만 바꾼다.
+ * Mythic server count counter (docs 20 3.2, the Redis key harbor:mythic:<event>:<species> in the
+ * docs). Core does not expose Redis atomic operations to other modules, so a conditional UPDATE on
+ * the DB table fishing_mythic_counter (proposed) achieves the same effect (reserve with INCR, fail
+ * when over the limit, DECR on failure). All servers see the same DB, so it is atomic across
+ * servers too. If Core gains a Redis counter API, only this class changes.
  */
 public final class MythicCounter {
 
@@ -17,7 +19,7 @@ public final class MythicCounter {
         this.database = database;
     }
 
-    /** 한 마리를 예약한다. 한도를 넘으면 false. */
+    /** Reserves one. False if over the limit. */
     public CompletableFuture<Boolean> reserve(String eventId, String fishId, int cap) {
         return database.async(
                 c -> {
@@ -40,7 +42,7 @@ public final class MythicCounter {
                 });
     }
 
-    /** 예약을 돌려준다 (미니게임 실패·미리 감기·중단). */
+    /** Returns a reservation (minigame failure, early reel, abort). */
     public CompletableFuture<Void> release(String eventId, String fishId) {
         return database.asyncVoid(
                 c -> {
@@ -55,7 +57,7 @@ public final class MythicCounter {
                 });
     }
 
-    /** 서버 종료용: 기다려서 한 마리를 반납한다. 실패는 기록만 한다. */
+    /** For server shutdown: waits and returns one reservation. Failures are only logged. */
     public void releaseNow(String eventId, String fishId) {
         try {
             database.txVoid(
@@ -78,7 +80,7 @@ public final class MythicCounter {
         }
     }
 
-    /** 현재 마릿수 (관리 명령). */
+    /** Current count (admin command). */
     public CompletableFuture<Integer> count(String eventId, String fishId) {
         return database.async(
                 c -> {

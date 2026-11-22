@@ -13,9 +13,11 @@ import wiki.creeper.harbor.wildlife.sim.PlayerSnap;
 import wiki.creeper.harbor.wildlife.sim.SimWorld;
 
 /**
- * 계산 스레드 ('17-3' 9.4 스레드 2단계). 전용 플랫폼 스레드 하나(harbor-wildlife-sim, 계산 위주라 가상 스레드를 쓰지 않음)가
- * 주기(100ms)마다 모든 개체를 계산하고 출력 면({@link Frame})을 바꿔 끼운다 (이중 버퍼: 메인은 마지막 완성 면만 읽는다). 메인 스레드의 요청은
- * 줄({@link #submit})로 받아 다음 주기 시작에 실행한다.
+ * Simulation thread ('17-3' 9.4 thread stage 2). One dedicated platform thread
+ * (harbor-wildlife-sim; compute-heavy, so not a virtual thread) simulates every fish each period
+ * (100ms) and swaps in the output frame ({@link Frame}) (double buffer: main reads only the last
+ * completed frame). Requests from the main thread are queued ({@link #submit}) and run at the start
+ * of the next step.
  */
 final class SimEngine implements Runnable {
 
@@ -63,7 +65,7 @@ final class SimEngine implements Runnable {
         periodNanos = Math.max(20, millis) * 1_000_000L;
     }
 
-    /** 계산 스레드에서 실행할 요청 (다음 주기 시작). */
+    /** Request to run on the simulation thread (at the start of the next step). */
     void submit(Consumer<SimWorld> command) {
         queue.add(command);
     }
@@ -76,7 +78,7 @@ final class SimEngine implements Runnable {
         return latest;
     }
 
-    /** 최근 계산 시간 통계 (밀리초): 평균, 최대. 읽으면 초기화한다. */
+    /** Recent compute time stats (milliseconds): average, max. Reading resets them. */
     double[] takeStats() {
         long n = samples.getAndSet(0);
         long sum = sumNanos.getAndSet(0);
@@ -114,7 +116,7 @@ final class SimEngine implements Runnable {
             if (wait > 0) {
                 LockSupport.parkNanos(wait);
             } else {
-                next = System.nanoTime(); // 밀렸으면 따라잡지 않고 다음 주기부터
+                next = System.nanoTime(); // if behind, don't catch up; resume from the next period
             }
         }
     }

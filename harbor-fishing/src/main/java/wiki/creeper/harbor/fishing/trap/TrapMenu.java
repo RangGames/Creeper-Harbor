@@ -26,8 +26,10 @@ import wiki.creeper.harbor.core.gui.Menu;
 import wiki.creeper.harbor.fishing.api.TrapService;
 
 /**
- * 통발 화면 (docs 20 3.4 '열기'). 위 5줄은 미수확 어획(누르면 그 한 마리 수확), 마지막 줄은 정보·미끼 넣기·모두 수확·슬롯 확장·철거. 아이콘은 실제 어종
- * 아이템이 아니라 모양만 같은 표시용 아이템이다 (수확 트랜잭션이 커밋된 뒤에만 진짜 아이템을 만든다).
+ * Trap screen (docs 20 3.4 "open"). The top 5 rows are unharvested catches (click to harvest that
+ * one fish), the last row is info, add bait, harvest all, expand slot and remove. Icons are not
+ * real species items but display items that only look the same (real items are created only after
+ * the harvest transaction commits).
  */
 final class TrapMenu {
 

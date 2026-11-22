@@ -21,8 +21,10 @@ import wiki.creeper.harbor.fishing.Locs;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
 
 /**
- * 기본 그림자 구현: ItemDisplay 하나 (리그 없음). 숨긴 실제 엔티티로 만들고 캐스터에게만 보이며, 저장하지 않는다 (서버가 꺼지면 사라짐). 이동은
- * teleport_duration 보간으로 클라이언트가 부드럽게 그린다. 표시 부품 1개라 플레이어당 300개 상한('16. 플러그인 설계' 7장) 걱정이 없다.
+ * Default shadow implementation: a single ItemDisplay (no rig). Created as a hidden real entity,
+ * visible only to the caster and not saved (it disappears when the server stops). Movement is
+ * smoothed by the client via teleport_duration interpolation. With one display part there is no
+ * concern about the 300-per-player cap ("16. Plugin design" chapter 7).
  */
 public final class DisplayShadowPresenter implements ShadowPresenter {
 
@@ -47,7 +49,7 @@ public final class DisplayShadowPresenter implements ShadowPresenter {
             FishingPresets.GradePreset preset,
             boolean gradeGlow) {
         ItemStack model = ItemStack.of(Material.COD);
-        ItemModels.apply(model, preset.shadowModel()); // 못 쓰면 바닐라 대구 모양
+        ItemModels.apply(model, preset.shadowModel()); // Falls back to the vanilla cod look
         float scale = (float) Math.max(0.1, preset.shadowScale());
         String glow = preset.glowColor();
         ItemDisplay display =

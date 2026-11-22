@@ -20,8 +20,9 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.data.FishingRepository;
 
 /**
- * 매크로 · AFK 방지 (docs 20 3.4 MacroGuard). 점수는 제안값. 60 이상이면 확인 Dialog(버튼 순서 무작위, 30초)를 띄우고, 실패·시간 초과면
- * 5분 동안 낚시를 막고 fishing_flags에 남긴다. 자동 제재는 하지 않는다.
+ * Anti-macro and anti-AFK (docs 20 3.4 MacroGuard). Scores are proposed values. At 60 or above a
+ * confirmation Dialog is shown (random button order, 30 seconds); on failure or timeout fishing is
+ * blocked for 5 minutes and it is recorded in fishing_flags. No automatic sanctions.
  */
 final class MacroGuard {
 
@@ -30,7 +31,7 @@ final class MacroGuard {
     private static final Duration BLOCK = Duration.ofMinutes(5);
     private static final Duration ANSWER_TIME = Duration.ofSeconds(30);
 
-    /** 플레이어별 통계. */
+    /** Per-player statistics. */
     private static final class Stats {
         final Deque<Long> castTimes = new ArrayDeque<>();
         final Deque<Long> reactions = new ArrayDeque<>();
@@ -93,7 +94,7 @@ final class MacroGuard {
         }
     }
 
-    /** 10분마다 −5. */
+    /** −5 every 10 minutes. */
     private static void decay(Stats s) {
         long steps = Duration.between(s.lastDecay, Instant.now()).toMinutes() / 10;
         if (steps > 0) {
@@ -137,7 +138,7 @@ final class MacroGuard {
         return Math.sqrt(variance);
     }
 
-    /** 간단한 선택 문제. 정답 버튼 위치는 무작위. */
+    /** A simple multiple-choice question. The correct button position is random. */
     private void challenge(Player player, Stats s) {
         s.challenging = true;
         List<Integer> order = new ArrayList<>(List.of(0, 1, 2));

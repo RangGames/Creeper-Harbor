@@ -38,8 +38,9 @@ import wiki.creeper.harbor.fishing.roll.RollContext;
 import wiki.creeper.harbor.fishing.roll.RollEngine;
 
 /**
- * 캐스팅부터 챔질까지 (docs 20 3.4 CAST → WAITING → BITE → HOOKED → MINIGAME). 던짐, 찌 착수 판정, 입질, 챔질(미끼
- * 차감·미니게임 시작)과 미니게임 전에 끝난 캐스팅의 판정 보류를 맡는다. 메인 스레드 전용.
+ * From cast to hook (docs 20 3.4 CAST → WAITING → BITE → HOOKED → MINIGAME). Handles the throw, the
+ * bobber landing roll, the bite, hooking (bait deduction, minigame start) and holding the roll of
+ * casts that ended before the minigame. Main thread only.
  */
 final class CastHandler {
 
@@ -83,7 +84,7 @@ final class CastHandler {
         this.tensions = tensions;
     }
 
-    /** 던짐: 대기 시간을 정하고 찌가 물에 닿기를 기다린다 (판정은 착수 때). */
+    /** Throw: decides the wait time and waits for the bobber to hit water (rolled on landing). */
     void cast(PlayerFishEvent event, Player player, FishingSession s) {
         UUID uuid = player.getUniqueId();
         if (s.state == SessionState.MINIGAME
@@ -125,8 +126,10 @@ final class CastHandler {
             hook.setVelocity(hook.getVelocity().multiply(distance));
         }
         if (s.state != SessionState.IDLE) {
-            // 앞 캐스팅이 이벤트 없이 끝났다 (손에 든 칸 바꾸기·멀리 이동·텔레포트로 바닐라가 찌를 지움). clearCast만 하면 확정된 신화
-            // 예약과 그림자가 반납되지 않아 서버 한도가 영구히 줄어든다: 보통의 이른 종료로 처리한다 (판정은 보류로 남는다)
+            // The previous cast ended without an event (vanilla removed the bobber on hotbar slot
+            // change, moving far away or teleport). Only calling clearCast would not return a
+            // confirmed mythic reservation and the shadow, permanently shrinking the server limit:
+            // handle it as a normal early end (the roll stays pending)
             endEarly(player, s, FishingSessionEndEvent.Reason.INTERRUPTED);
         }
         s.clearCast();
@@ -150,7 +153,7 @@ final class CastHandler {
         }
     }
 
-    /** 찌 착수: 출현 판정과 대기 연출 (docs 20 3.4 CAST → WAITING). */
+    /** Bobber landing: spawn roll and waiting presentation (docs 20 3.4 CAST → WAITING). */
     private void land(Player player, FishingSession s, FishHook hook) {
         Location at = loc(hook);
         presenter.step(at, MinigameDisplay.landStep(at));
@@ -180,7 +183,7 @@ final class CastHandler {
                 mythic.releasePending(pending);
             }
         } else if (pending != null && Instant.now().isBefore(pending.expiresAt())) {
-            // 재판정 낚시 방지: 같은 지역·미끼면 보류 판정을 그대로 쓴다
+            // Prevent reroll fishing: for the same region and bait, reuse the pending roll as is
             fish = pending.fish();
             legends = pending.legends();
             hold = pending.mythic();
@@ -256,7 +259,8 @@ final class CastHandler {
         }
         s.state = SessionState.BITE;
         s.biteAtNanos = System.nanoTime();
-        // 전설 천장: 입질까지 간 캐스팅만 +1 (던지자마자 감아서 쌓는 것을 막음)
+        // Legendary pity: +1 only for casts that reached a bite (prevents stacking by reeling right
+        // after casting)
         if (!s.pityCounted && !s.legends.isEmpty()) {
             HarborPlayer hp = api.players().get(player);
             FishingData data = hp.get(COMPONENT);
@@ -278,7 +282,7 @@ final class CastHandler {
         Bukkit.getPluginManager().callEvent(new FishBiteEvent(player, fish));
     }
 
-    /** 챔질: 바닐라 루트를 막고, 미끼를 쓰고, 미니게임을 시작한다. */
+    /** Hook: blocks the vanilla loot, uses the bait and starts the minigame. */
     void hooked(PlayerFishEvent event, Player player, FishingSession s) {
         event.setCancelled(true);
         event.getHook().remove();
@@ -288,7 +292,7 @@ final class CastHandler {
             s.clearCast();
             return;
         }
-        // 대기 중 미끼를 바꾸거나 버렸으면 판정을 버린다
+        // Discard the roll if the bait was changed or dropped while waiting
         if (!Objects.equals(ctx.equippedBait(player), s.bait)) {
             endEarly(player, s, FishingSessionEndEvent.Reason.BAIT_CHANGED);
             mythic.discardPending(s);
@@ -297,7 +301,8 @@ final class CastHandler {
         }
         FishingSession.MythicHold hold = s.mythic;
         if (hold != null && !hold.confirmed) {
-            // 예약 확인이 늦으면 신화 대신 일반 판정 (복제 방지 우선)
+            // If the reservation confirmation is late, use a normal roll instead of the mythic
+            // (duplication prevention first)
             mythic.releaseMythic(hold);
             s.mythic = null;
             Location hookLoc = s.hookLoc;
@@ -344,7 +349,10 @@ final class CastHandler {
         api.messages().send(player, "fishing.minigame.help");
     }
 
-    /** 미니게임 전에 끝난 캐스팅 (미리 감기·입질 놓침·땅에 걸림). 판정은 60초 보류한다. */
+    /**
+     * A cast that ended before the minigame (early reel, missed bite, stuck in ground). The roll is
+     * held for 60 seconds.
+     */
     void endEarly(Player player, FishingSession s, FishingSessionEndEvent.Reason reason) {
         FishDef fish = s.fish;
         RegionId region = s.region;

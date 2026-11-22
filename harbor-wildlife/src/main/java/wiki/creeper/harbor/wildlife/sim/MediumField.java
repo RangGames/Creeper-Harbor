@@ -3,8 +3,9 @@ package wiki.creeper.harbor.wildlife.sim;
 import wiki.creeper.harbor.wildlife.api.Medium;
 
 /**
- * 매질 조회 ('17-3' 9.4 매질 격자). 칸마다 물·용암·공기 비트를 돌려준다. 적재되지 않았거나 격자가 없는 칸은 0 (막힌 칸으로 본다). 계산 스레드가 잠금 없이
- * 읽으므로 구현은 변경 불가 자료만 읽어야 한다.
+ * Medium lookup ('17-3' 9.4 medium grid). Returns water/lava/air bits per cell. Unloaded cells or
+ * cells without a grid are 0 (treated as blocked). The simulation thread reads without locking, so
+ * implementations must read only immutable data.
  */
 @FunctionalInterface
 public interface MediumField {
@@ -13,7 +14,7 @@ public interface MediumField {
     int LAVA = 2;
     int AIR = 4;
 
-    /** 아무것도 없는 필드 (모든 칸이 막힘). */
+    /** Empty field (every cell blocked). */
     MediumField EMPTY = (x, y, z) -> 0;
 
     int cell(int x, int y, int z);

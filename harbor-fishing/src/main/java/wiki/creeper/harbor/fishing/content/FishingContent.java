@@ -3,7 +3,9 @@ package wiki.creeper.harbor.fishing.content;
 import java.util.List;
 import wiki.creeper.harbor.common.content.ContentType;
 
-/** Fishing 콘텐츠 형식. 서버 API를 쓰지 않아 harbor-tools(CI)도 같은 코드로 검사한다. */
+/**
+ * Fishing content types. They use no server API, so harbor-tools (CI) validates with the same code.
+ */
 public final class FishingContent {
 
     public static final List<ContentType<?>> TYPES =

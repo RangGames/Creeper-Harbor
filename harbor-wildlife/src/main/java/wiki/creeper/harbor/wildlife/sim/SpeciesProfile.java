@@ -21,14 +21,16 @@ import wiki.creeper.harbor.wildlife.content.WildTemplate;
 import wiki.creeper.harbor.wildlife.content.WildlifeBalance;
 
 /**
- * species.yml 항목 + 어종 정의 + 리그 + behaviours.yml을 합친 실행용 값 ('17-3' 9.3 "리그·BEHAVE에서 기본값 자동 생성, 디자이너는
- * 덮어쓸 값만"). 변경 불가라 계산 스레드가 그대로 읽는다. 콘텐츠가 리로드되면 새로 만든다.
+ * Runtime values combining a species.yml entry + species definition + rig + behaviours.yml ('17-3'
+ * 9.3 "defaults generated automatically from the rig/BEHAVE, designers write only overrides").
+ * Immutable, so the simulation thread reads it as-is. Rebuilt when content reloads.
  *
- * @param animations 리그에 있는 동작 이름 → 길이 (틱)
- * @param threatAction 위협을 받으면 먼저 재생할 놀람 동작 (startle·ink·dart 순, 리그에 있는 것만)
- * @param biteAnimation 입질 동작 (bite, 없으면 고유 동작, 그것도 없으면 null)
- * @param radius 몸 반지름 (블록)
- * @param light 고정 밝기 (−1이면 없음)
+ * @param animations animation names in the rig → length (ticks)
+ * @param threatAction startle action played first when threatened (startle, ink, dart in order;
+ *     only those in the rig)
+ * @param biteAnimation bite animation (bite, else the special action, else null)
+ * @param radius body radius (blocks)
+ * @param light fixed brightness (−1 for none)
  */
 public record SpeciesProfile(
         HarborId species,
@@ -61,7 +63,7 @@ public record SpeciesProfile(
         int light,
         boolean enabled) {
 
-    /** 놀람 동작 후보 ('17-3' 9.4: startle·ink·dart). */
+    /** Startle action candidates ('17-3' 9.4: startle, ink, dart). */
     static final List<String> THREAT_ORDER = List.of("startle", "ink", "dart");
 
     public SpeciesProfile {
@@ -73,13 +75,13 @@ public record SpeciesProfile(
         return name != null && animations.containsKey(name);
     }
 
-    /** 동작 한 번 길이 (초). 리그에 없으면 fallback. */
+    /** Length of one play of an action (seconds). fallback if not in the rig. */
     public double animationSeconds(@Nullable String name, double fallback) {
         Integer ticks = name == null ? null : animations.get(name);
         return ticks == null ? fallback : ticks / 20.0;
     }
 
-    /** 기본 속도 (순항 × 성향 배율). */
+    /** Base speed (cruise × temperament multiplier). */
     public double baseSpeed() {
         return cruiseSpeed * (1 + groupDef.speedBase());
     }
@@ -92,9 +94,9 @@ public record SpeciesProfile(
     }
 
     /**
-     * 합친다.
+     * Combines them.
      *
-     * @param rigDef 그릴 리그 ({@link #rigFor} 결과)
+     * @param rigDef rig to draw (result of {@link #rigFor})
      */
     public static SpeciesProfile resolve(
             WildSpecies s, FishDef fish, RigDef rigDef, BehaviourBook book, WildlifeBalance bal) {
@@ -105,8 +107,9 @@ public record SpeciesProfile(
                         : special.map(ActionDef::group).orElse(WildGroup.NORMAL);
         GroupDef groupDef = book.group(group);
 
-        // 어종 리그(rig/fish/…, 리소스팩 변환)는 모델 길이가 실제 크기와 달라서 어종 크기(가운데 값)에 맞춰 그린다.
-        // 템플릿 리그(rig/wild/…)는 리그 length가 곧 몸길이다
+        // species rigs (rig/fish/…, converted from the resource pack) have model lengths that
+        // differ from real size, so they're drawn to the species size (midpoint). Template rigs
+        // (rig/wild/…) use the rig length as the body length
         boolean fishRig = rigDef.id().id().path().startsWith(FISH_RIG_PATH);
         double fit = fishRig ? FishRigs.fitScale(rigDef, sizeLength(fish)) : 1.0;
         double length =
@@ -195,7 +198,7 @@ public record SpeciesProfile(
                 s.enabled());
     }
 
-    /** 어종 크기(cm) 가운데 값을 블록(1m)으로. */
+    /** Species size (cm) midpoint in blocks (1m). */
     static double sizeLength(FishDef fish) {
         return FishRigs.naturalLength(fish);
     }
@@ -203,8 +206,9 @@ public record SpeciesProfile(
     private static final String FISH_RIG_PATH = "rig/fish/";
 
     /**
-     * 그릴 리그를 고른다: species.yml rig → 어종 리그 rig/fish/&lt;모델 이름&gt; (FishDef.model,
-     * Fishing·Collection과 같은 규칙, 없으면 rig/fish/&lt;어종 이름&gt;) → rig/wild/&lt;템플릿&gt;.
+     * Picks the rig to draw: species.yml rig → species rig rig/fish/&lt;model name&gt;
+     * (FishDef.model, same rule as Fishing/Collection, else rig/fish/&lt;species name&gt;) →
+     * rig/wild/&lt;template&gt;.
      */
     public static Optional<RigId> rigFor(WildSpecies s, FishDef fish, Set<RigId> known) {
         RigId explicit = s.rig();

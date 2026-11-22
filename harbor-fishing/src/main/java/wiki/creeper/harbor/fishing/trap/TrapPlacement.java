@@ -22,7 +22,10 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.session.FishingManager;
 
-/** 통발 설치(부표 자리·개수 제한·행 삽입 후 블록)와 열기(주인 확인 → 오프라인 계산 → GUI). 메인 스레드 전용. */
+/**
+ * Trap placement (buoy spot, count limit, block after row insert) and opening (owner check →
+ * offline calculation → GUI). Main thread only.
+ */
 final class TrapPlacement {
 
     private final HarborApi api;
@@ -80,7 +83,7 @@ final class TrapPlacement {
         int max =
                 TrapMath.maxTraps(
                         b.trapBaseCount(), traps.stat(uuid, "trap_count"), b.trapMaxCount());
-        // 아이템을 먼저 가져가고, 실패하면 돌려준다 (복제 방지)
+        // Take the item first and give it back on failure (duplication prevention)
         ItemStack taken = hand.asOne();
         hand.setAmount(hand.getAmount() - 1);
         int season = traps.season();
@@ -156,7 +159,7 @@ final class TrapPlacement {
                                         return;
                                     }
                                     if (row.isEmpty()) {
-                                        // 회수된 통발의 남은 블록 정리
+                                        // Clean up leftover blocks of a retrieved trap
                                         blocks.demolish(
                                                 block.getWorld().getName(),
                                                 block.getX(),

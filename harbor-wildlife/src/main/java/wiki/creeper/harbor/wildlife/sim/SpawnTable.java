@@ -15,21 +15,24 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.wildlife.api.Medium;
 
 /**
- * 자연 스폰 어종 고르기 ('17-3' 9.4 자연 스폰). 후보는 그 자리 지역(fishingKey)의 어종 중 species.yml에서 켜져 있고 어종 YAML의
- * 시간·날씨·달·세부 구역·해금 플래그를 지금 만족하는 것 (야생에서 보이는 어종이 그 시간 실제로 낚이는 어종이 되어 힌트가 된다). 가중치 = 등급 가중치 ×
- * spawn_weight × boost. 전설·신화는 자연 스폰하지 않는다. 순수 계산.
+ * Natural spawn species selection ('17-3' 9.4 natural spawns). Candidates are the species of the
+ * spot's region (fishingKey) that are enabled in species.yml and currently satisfy the species
+ * YAML's time, weather, moon, sub-area and unlock flag conditions (so fish seen in the wild are the
+ * ones actually catchable at that time, serving as a hint). Weight = grade weight × spawn_weight ×
+ * boost. Legendary and mythic fish never spawn naturally. Pure math.
  */
 public final class SpawnTable {
 
     /**
-     * 그 자리 조건.
+     * Conditions at the spot.
      *
-     * @param time dawn · day · dusk · night (Fishing과 같은 경계)
-     * @param weather clear · rain · thunder
-     * @param moon full · new · ""
-     * @param areas 세부 구역 (World fishingKey)
-     * @param mediums 그 자리에서 가능한 매질 (물 칸이면 WATER, 바닥이 모래면 FLOOR도)
-     * @param depth 수면 아래 깊이 (블록, 바닥 개체는 보지 않음)
+     * @param time dawn, day, dusk, night (same boundaries as Fishing)
+     * @param weather clear, rain, thunder
+     * @param moon full, new, ""
+     * @param areas sub-areas (World fishingKey)
+     * @param mediums media possible at the spot (WATER for a water cell, plus FLOOR if the floor is
+     *     sand)
+     * @param depth depth below the surface (blocks, ignored for floor fish)
      */
     public record Conditions(
             RegionId region,
@@ -78,7 +81,10 @@ public final class SpawnTable {
         return c.depth() >= p.depthMin() && (p.depthMax() <= 0 || c.depth() <= p.depthMax());
     }
 
-    /** Fishing과 같은 규칙: 뇌우는 비도 오는 날씨라 rain·storm 조건도 만족한다. */
+    /**
+     * Same rule as Fishing: a thunderstorm is also rainy weather, so it satisfies rain/storm
+     * conditions too.
+     */
     public static boolean weatherMatches(List<String> allowed, String weather) {
         if (allowed.contains(weather)) {
             return true;
@@ -127,7 +133,10 @@ public final class SpawnTable {
         return Optional.of(pool.getLast());
     }
 
-    /** 월드 시간 → 시간대 (Fishing FishingManager와 같은 경계). 네더·엔드도 오버월드 시간으로 판정한다. */
+    /**
+     * World time → time of day (same boundaries as Fishing FishingManager). The Nether and End are
+     * judged by overworld time too.
+     */
     public static String timeKey(long worldTime) {
         long t = Math.floorMod(worldTime, 24000L);
         if (t >= 23000 || t < 1000) {

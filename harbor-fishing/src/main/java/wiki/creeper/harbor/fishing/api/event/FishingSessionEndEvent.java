@@ -6,14 +6,16 @@ import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.common.content.type.FishDef;
 
 /**
- * 미니게임까지 가지 못하고 끝난 캐스팅 (추가 제안, docs 20 3.2). 미리 감기·입질 놓침·미끼 교체로 끝나면 보낸다. 미니게임으로 끝난 세션은 {@link
- * MinigameEndEvent}를 본다. Wildlife는 이 이벤트로 접근 개체를 풀어도 된다 (ShadowDriver.release도 따로 불린다).
+ * A cast that ended before reaching the minigame (proposed, docs 20 3.2). Fired when it ends by
+ * reeling early, missing the bite or switching bait. For sessions that ended through the minigame
+ * see {@link MinigameEndEvent}. Wildlife may release the approaching individual on this event
+ * (ShadowDriver.release is also called separately).
  */
 public final class FishingSessionEndEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();
 
-    /** 끝난 이유. */
+    /** Why it ended. */
     public enum Reason {
         REELED_EARLY,
         MISSED_BITE,

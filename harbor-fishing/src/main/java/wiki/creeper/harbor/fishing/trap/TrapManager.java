@@ -45,17 +45,21 @@ import wiki.creeper.harbor.fishing.session.FishingManager;
 import wiki.creeper.harbor.jobs.api.JobsService;
 
 /**
- * 통발 (docs 20 3.4 TrapService, '12. 월드 · 하우징 · 통발' 5장, 결정 D1). 메인 스레드에서 쓰고 DB 작업은 모두 즉시 트랜잭션(가상
- * 스레드)이다.
+ * Traps (docs 20 3.4 TrapService, "12. World, housing, traps" chapter 5, decision D1). Used on the
+ * main thread; all DB work is immediate transactions (virtual threads).
  *
  * <ul>
- *   <li>설치: 지역 trap_zone의 부표 자리(반경 buoy_radius)에서 통발 아이템을 블록에 대고 우클릭. 개수 = 2 + trap_count(최대 4). 행을
- *       즉시 넣고 배럴 블록 + ItemDisplay 외형을 놓는다 (배럴 PDC에 통발 ID)
- *   <li>열기: 배럴 열기를 취소하고 전용 GUI. 주인이 아니면 주인 이름만 액션바에. 열 때 한 번 오프라인 계산(최대 2주기, 계정 수익 상한)을 조건부 갱신으로
- *       저장한다
- *   <li>수확: contents에서 지우는 트랜잭션이 커밋된 뒤에만 아이템을 만든다. 수확물 custom_data에 trap 출처를 남긴다 (경매 감시)
- *   <li>자동 회수: 하루 한 번 본 서버 한 곳이 분산 잠금을 잡고, 7일 수확하지 않은 통발의 내용물을 Core MailService(구현 Economy)로 보낸 뒤
- *       행과 블록을 지운다. MailService가 없으면 보류한다
+ *   <li>Placement: right-click a block with a trap item at a buoy spot (radius buoy_radius) in a
+ *       region trap_zone. Count = 2 + trap_count (max 4). The row is inserted immediately and a
+ *       barrel block + ItemDisplay look is placed (trap ID in the barrel PDC)
+ *   <li>Open: cancels the barrel opening and shows a dedicated GUI. Non-owners only see the owner's
+ *       name in the action bar. On open, one offline calculation (up to 2 cycles, account income
+ *       cap) is saved with a conditional update
+ *   <li>Harvest: items are created only after the transaction removing them from contents commits.
+ *       The trap source is left in the catch custom_data (auction monitoring)
+ *   <li>Auto-retrieval: once a day one main server takes a distributed lock, sends the contents of
+ *       traps not harvested for 7 days via Core MailService (implemented by Economy), then removes
+ *       the rows and blocks. Deferred if MailService is missing
  * </ul>
  */
 public final class TrapManager implements TrapService, Listener {
@@ -93,7 +97,7 @@ public final class TrapManager implements TrapService, Listener {
         retrieval.start();
     }
 
-    /** Harbor-Season이 켜져 있으면 시즌 전환 훅을 등록한다 (선택 의존). */
+    /** Registers the season transition hook if Harbor-Season is enabled (optional dependency). */
     public void registerSeasonHook(Plugin plugin) {
         if (Bukkit.getPluginManager().getPlugin("Harbor-Season") != null) {
             TrapSeasonHook.register(plugin, this);
@@ -116,7 +120,9 @@ public final class TrapManager implements TrapService, Listener {
         return api.infra().season().value();
     }
 
-    /** 통발 작업이 진행 중이면 서버 이동을 잠깐 미룬다 (최대 5초, Core가 판단). */
+    /**
+     * Briefly delays server moves while trap work is in progress (up to 5 seconds, Core decides).
+     */
     public HandoffBlocker.Verdict handoffVerdict(Player player) {
         CompletableFuture<?> pending = inFlight.get(player.getUniqueId());
         return pending == null || pending.isDone()
@@ -130,8 +136,10 @@ public final class TrapManager implements TrapService, Listener {
                 future.whenComplete(
                         (v, e) -> {
                             var _ = tasks.sync(() -> inFlight.remove(player, future));
-                            // 통발 설치·미끼·수확·회수는 DB가 즉시 커밋되고 아이템은 지연 쓰기라, 인벤토리도 곧 저장한다 (지연 동안
-                            // 메인 스레드 콜백이 아이템을 주고받는다). 서버가 그 사이 죽으면 복제·유실된다
+                            // Trap placement, bait, harvest and retrieval commit to the DB
+                            // immediately while items are write-behind, so save the inventory soon
+                            // too (during the delay main thread callbacks give and take items). If
+                            // the server dies in between, items are duplicated or lost
                             api.players().saveSoon(player);
                         });
         return future;
@@ -240,7 +248,7 @@ public final class TrapManager implements TrapService, Listener {
         return harvests.isTrapCatch(stack);
     }
 
-    // ------------------------------------------------------------------ 설치 · 열기
+    // ------------------------------------------------------------------ Placement · open
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEvent event) {
@@ -259,7 +267,7 @@ public final class TrapManager implements TrapService, Listener {
             placement.open(player, id, clicked);
             return;
         }
-        // 이벤트의 아이템 대신 실제 손의 스택을 줄인다
+        // Shrink the actual hand stack instead of the event's item
         ItemStack hand = player.getInventory().getItemInMainHand();
         Optional<ItemDef> def = fishingItem(hand).filter(d -> d.type() == ItemDef.Type.TRAP);
         if (def.isEmpty()) {
@@ -283,14 +291,17 @@ public final class TrapManager implements TrapService, Listener {
                                         .get(ItemDef.TYPE, ((HarborItem.Plain) i).id().id()));
     }
 
-    /** 블록과 외형을 지운다 (청크가 로드되어 있을 때만, 아니면 다음에 누가 열 때 정리). */
+    /**
+     * Removes the block and look (only if the chunk is loaded; otherwise cleaned up the next time
+     * someone opens it).
+     */
     void demolish(String worldName, int x, int y, int z, long id) {
         blocks.demolish(worldName, x, y, z, id);
     }
 
-    // ------------------------------------------------------------------ 오프라인 계산
+    // ------------------------------------------------------------------ Offline calculation
 
-    /** 계산 결과 (메인 스레드에서 받음). */
+    /** Calculation result (received on the main thread). */
     public record Calc(TrapRow row, int produced, boolean capReached) {
         void message(HarborApi api, Player player) {
             if (produced > 0) {
@@ -306,19 +317,26 @@ public final class TrapManager implements TrapService, Listener {
         }
     }
 
-    /** 열 때 한 번 오프라인 계산 (docs 20 3.4). 주인이 접속해 있어야 한다 (직업 상한·스탯). */
+    /**
+     * Offline calculation once on open (docs 20 3.4). The owner must be online (job cap, stats).
+     */
     CompletableFuture<Calc> calculate(Player owner, long id) {
         return calculator.calculate(owner, id);
     }
 
-    // ------------------------------------------------------------------ 수확 · 미끼 · 철거
+    // ------------------------------------------------------------------ Harvest · bait · removal
 
-    /** 항목을 수확한다 (트랜잭션 커밋 후 아이템 생성). 가방 빈칸 수만큼만 꺼낸다. */
+    /**
+     * Harvests entries (items created after the transaction commits). Takes out only as many as
+     * there are free inventory slots.
+     */
     void harvest(Player player, TrapRow row, List<TrapCatch> entries) {
         harvests.harvest(player, row, entries);
     }
 
-    /** 통발 항목 → 어종 아이템 (trap 출처 표시). 콘텐츠에서 사라진 어종이면 null. */
+    /**
+     * Trap entry → species item (marked with the trap source). Null if the species left content.
+     */
     @Nullable ItemStack createCatch(Player owner, TrapCatch entry) {
         return harvests.createCatch(owner, entry);
     }
@@ -327,17 +345,17 @@ public final class TrapManager implements TrapService, Listener {
         harvests.reopen(player, id);
     }
 
-    /** 가방의 미끼를 통발에 넣는다 (사용 횟수 미끼·전설의 미끼 제외). */
+    /** Puts bait from the inventory into the trap (excluding bait with uses and legendary bait). */
     void addBait(Player player, TrapRow row) {
         harvests.addBait(player, row);
     }
 
-    /** 철거: 내용물이 비었을 때만. 통발 아이템과 남은 미끼를 돌려준다. */
+    /** Removal: only when empty. Returns the trap item and the remaining bait. */
     void remove(Player player, TrapRow row) {
         harvests.remove(player, row);
     }
 
-    /** 관리자 철거 (내용물은 버린다). */
+    /** Admin removal (contents are discarded). */
     public CompletableFuture<Boolean> adminRemove(long id) {
         return api.database()
                 .async(
@@ -357,7 +375,7 @@ public final class TrapManager implements TrapService, Listener {
                         tasks.main());
     }
 
-    /** 관리자 계산 (주인이 접속해 있어야 한다). */
+    /** Admin calculation (the owner must be online). */
     public CompletableFuture<Optional<Calc>> adminCalc(long id) {
         return api.database()
                 .async(c -> TrapRepository.byId(c, id, false))
@@ -372,7 +390,7 @@ public final class TrapManager implements TrapService, Listener {
                         tasks.main());
     }
 
-    // ------------------------------------------------------------------ 보호
+    // ------------------------------------------------------------------ Protection
 
     @EventHandler(ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
@@ -392,7 +410,7 @@ public final class TrapManager implements TrapService, Listener {
         event.blockList().removeIf(b -> blocks.trapIdAt(b) != null);
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ Helpers
 
     TrapMath.Spec spec(TrapRow row) {
         return api.content()

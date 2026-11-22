@@ -5,11 +5,13 @@ import java.util.concurrent.CompletableFuture;
 import wiki.creeper.harbor.core.api.FlagService;
 
 /**
- * 개인 낚시 설정 (/낚시 설정, docs 20 3.5). Core FlagService의 영구 플레이어 플래그에 둔다 (접속 중에는 메모리 캐시, 쓰기는 즉시 DB).
+ * Personal fishing settings (/낚시 설정, docs 20 3.5). Stored in Core FlagService persistent player
+ * flags (memory cache while online, writes go straight to the DB).
  *
- * @param lookMode 방향 입력을 시점 회전으로 (기본은 A·D 이동 키). 탈것 위에서는 자동으로 시점 회전
- * @param dialog 포획 결과 Dialog 자동 표시
- * @param intensity 연출 강도 0 최소 · 1 보통 · 2 최대
+ * @param lookMode direction input via camera rotation (default is the A/D movement keys).
+ *     Automatically camera rotation while riding a vehicle
+ * @param dialog show the catch result Dialog automatically
+ * @param intensity presentation intensity 0 minimum · 1 normal · 2 maximum
  */
 public record FishingSettings(boolean lookMode, boolean dialog, int intensity) {
 
@@ -36,7 +38,7 @@ public record FishingSettings(boolean lookMode, boolean dialog, int intensity) {
         return new FishingSettings(look, dialog, intensity);
     }
 
-    /** 저장한다. 완료(메인 스레드)되면 캐시에도 반영되어 있다. */
+    /** Saves. When complete (main thread), the cache is updated too. */
     static CompletableFuture<Void> save(FlagService flags, UUID player, FishingSettings s) {
         return CompletableFuture.allOf(
                 flags.setPlayer(

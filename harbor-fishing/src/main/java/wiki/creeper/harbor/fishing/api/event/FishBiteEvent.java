@@ -5,7 +5,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.common.content.type.FishDef;
 
-/** 입질 시작. */
+/** A bite starts. */
 public final class FishBiteEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();

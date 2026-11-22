@@ -58,11 +58,11 @@ class FishingLogicTest {
             assertTrue(r.sizeCm() >= 20 && r.sizeCm() <= 40);
             if (r.capped()) {
                 capped++;
-                // 상한 품질 구간 최댓값 바로 아래 (0.90 × 20cm 범위)
+                // Just below the top of the cap quality's range (0.90 × 20cm range)
                 assertEquals(38.0, r.sizeCm(), 0.05);
             }
         }
-        // ★4 이상 확률 10%
+        // ★4 or higher chance 10%
         assertTrue(capped > 800 && capped < 1200, "capped=" + capped);
     }
 

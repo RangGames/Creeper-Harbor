@@ -12,26 +12,31 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.model.Quality;
 
 /**
- * 통발 계산 (docs 20 3.4 TrapService, '7. 밸런스 기획' 8장, 결정 D1). 서버 API를 쓰지 않는다 (단위 테스트).
+ * Trap calculation (docs 20 3.4 TrapService, "7. Balance design" chapter 8, decision D1). Uses no
+ * server API (unit tests).
  *
  * <ul>
- *   <li>주기 = 8시간 × cycle_mult + trap_cycle_hours (통발 회전 −1·−2시간, 하한 min_cycle_h)
- *   <li>쌓인 주기 = min(floor((지금 − last_calc) ÷ 주기), 2). 2주기를 넘게 비우면 넘친 시간은 버린다
- *   <li>주기마다 미끼가 남은 슬롯(slots + 확장 + trap_slots) 수만큼 1마리, 슬롯당 미끼 1개. 풍어 통발이면 주기마다 확률로 1마리 추가(미끼 없음)
- *   <li>수익 상한: 계정의 모든 통발 24시간 산출 가치 합 ≤ 수동 낚시 1시간 골드 × 비율(0.4 / 생산 2차 0.5 / 3차 0.6). 넘으면 남은 슬롯은
- *       산출하지 않고 미끼도 쓰지 않는다
+ *   <li>Cycle = 8 hours × cycle_mult + trap_cycle_hours (trap turnover −1/−2 hours, floor
+ *       min_cycle_h)
+ *   <li>Accumulated cycles = min(floor((now − last_calc) ÷ cycle), 2). Time beyond 2 cycles of
+ *       absence is discarded
+ *   <li>Each cycle yields 1 fish per slot that still has bait (slots + expansion + trap_slots), 1
+ *       bait per slot. A bountiful trap adds 1 fish per cycle by chance (no bait)
+ *   <li>Income cap: sum of 24-hour yield value of all the account's traps ≤ manual fishing gold per
+ *       hour × ratio (0.4 / production 2nd tier 0.5 / 3rd tier 0.6). Beyond it, remaining slots
+ *       yield nothing and use no bait
  * </ul>
  */
 public final class TrapMath {
 
     /**
-     * 통발 아이템 stats (items의 type: trap).
+     * Trap item stats (items with type: trap).
      *
-     * @param slots 기본 슬롯 (나무 3 · 철 6 · 산호 9 · 심해 12)
-     * @param maxGrade 산출 최고 등급 (stats.max_grade 1 일반 ~ 4 영웅)
-     * @param cycleMult 주기 배율 (산호 0.9)
-     * @param tier 통발 단계 (나무 1 · 철 2 · 산호 3 · 심해 4, 슬롯 확장 가격)
-     * @param deep 심해 통발 (설치에 feature_deep_trap 필요)
+     * @param slots base slots (wood 3 · iron 6 · coral 9 · deep sea 12)
+     * @param maxGrade highest yield grade (stats.max_grade 1 common ~ 4 epic)
+     * @param cycleMult cycle multiplier (coral 0.9)
+     * @param tier trap tier (wood 1 · iron 2 · coral 3 · deep sea 4, slot expansion price)
+     * @param deep deep sea trap (placement requires feature_deep_trap)
      */
     public record Spec(int slots, Grade maxGrade, double cycleMult, int tier, boolean deep) {
 
@@ -53,31 +58,31 @@ public final class TrapMath {
         }
     }
 
-    /** 산출할 한 마리 (어종·크기·품질·가치). */
+    /** One fish to yield (species, size, quality, value). */
     public record Rolled(FishDef fish, double sizeCm, Quality quality, double value) {}
 
-    /** 어종 하나를 굴리는 함수. */
+    /** Function that rolls one species. */
     @FunctionalInterface
     public interface Roller {
         Rolled next();
     }
 
-    /** 쌓인 주기와 새 last_calc. */
+    /** Accumulated cycles and the new last_calc. */
     public record Accrual(int cycles, Instant lastCalc) {}
 
     /**
-     * 산출 결과.
+     * Yield result.
      *
-     * @param baitUsed 쓴 미끼 수
-     * @param value 이번에 더한 가치 (value_24h에 더함)
-     * @param capReached 계정 수익 상한에 걸려 멈췄는지
+     * @param baitUsed bait used
+     * @param value value added this time (added to value_24h)
+     * @param capReached whether it stopped at the account income cap
      */
     public record Production(
             List<TrapCatch> catches, int baitUsed, double value, boolean capReached) {}
 
     private TrapMath() {}
 
-    /** 주기 길이. delta는 trap_cycle_hours 스탯 (통발 회전이면 음수). */
+    /** Cycle length. delta is the trap_cycle_hours stat (negative with trap turnover). */
     public static Duration cycle(
             double baseHours, double cycleMult, double delta, double minHours) {
         double hours = Math.max(minHours, baseHours * cycleMult + delta);
@@ -90,39 +95,40 @@ public final class TrapMath {
         }
         long raw = Duration.between(lastCalc, now).toMillis() / cycle.toMillis();
         if (raw >= maxCycles) {
-            // 최대 주기를 넘게 비웠으면 넘친 시간은 버리고 지금부터 다시 센다
+            // If absent beyond the maximum cycles, discard the excess time and count again from now
             return new Accrual(maxCycles, now);
         }
         return new Accrual((int) raw, lastCalc.plus(cycle.multipliedBy(raw)));
     }
 
-    /** 통발 하나의 24시간 창 안 가치 (창이 지났으면 0). */
+    /** Value of one trap within its 24-hour window (0 if the window has passed). */
     public static double windowValue(
             double value, Instant windowStart, Instant now, Duration window) {
         return now.isBefore(windowStart.plus(window)) ? value : 0;
     }
 
-    /** 계정 수익 상한 (G). */
+    /** Account income cap (G). */
     public static double accountCap(double hourlyGold, double ratio) {
         return Math.max(0, hourlyGold) * Math.max(0, ratio);
     }
 
-    /** 한 주기에 쓰는 슬롯 수 = 통발 슬롯 + 확장 + 직업 보너스(trap_slots, 통발 1개당). */
+    /** Slots used per cycle = trap slots + expansion + job bonus (trap_slots, per trap). */
     public static int effectiveSlots(int baseSlots, int extraSlots, double bonusSlots) {
         return Math.max(0, baseSlots + extraSlots + (int) Math.floor(bonusSlots));
     }
 
-    /** 설치 가능 개수 = 기본 + trap_count (최대 max). */
+    /** Placeable count = base + trap_count (up to max). */
     public static int maxTraps(int base, double trapCount, int max) {
         return Math.min(max, base + (int) Math.floor(Math.max(0, trapCount)));
     }
 
     /**
-     * 주기만큼 산출한다.
+     * Yields for the given cycles.
      *
-     * @param bait 남은 미끼
-     * @param accountUsed 이 통발을 뺀 계정 24시간 산출 가치 + 이 통발의 창 안 가치
-     * @param accountCap 계정 수익 상한
+     * @param bait remaining bait
+     * @param accountUsed the account's 24-hour yield value excluding this trap + this trap's
+     *     in-window value
+     * @param accountCap account income cap
      */
     public static Production produce(
             int cycles,
@@ -155,7 +161,7 @@ public final class TrapMath {
                 baitLeft -= perSlot;
                 catches.add(toCatch(r, at));
             }
-            // 풍어 통발: 주기마다 확률로 1마리 추가 (미끼를 쓴 슬롯이 하나라도 있을 때)
+            // Bountiful trap: +1 fish per cycle by chance (when at least one slot used bait)
             if (filled > 0 && extraChance > 0 && random.nextDouble() < extraChance) {
                 Rolled r = roller.next();
                 if (used + r.value() > accountCap) {

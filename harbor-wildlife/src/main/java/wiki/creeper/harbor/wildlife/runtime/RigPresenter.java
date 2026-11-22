@@ -32,14 +32,15 @@ import wiki.creeper.harbor.wildlife.sim.SpeciesProfile;
 import wiki.creeper.harbor.wildlife.sim.ViewBudget;
 
 /**
- * 야생 개체 리그 표시 ('17-3' 9.4 스레드 3단계·표시 대상 선정). 출력 면을 예산 안에서 리그에 반영하고, 1초마다 플레이어별 표시 대상을 골라 리그를 띄우거나
- * 숨긴다. 반영이 밀리면 자동 감속 단계를 올린다. 메인 스레드 전용.
+ * Wild fish rig display ('17-3' 9.4 thread stage 3, display selection). Applies output frames to
+ * rigs within budget, and every second picks display targets per player to show or hide rigs.
+ * Raises the auto-throttle level when applying falls behind. Main thread only.
  */
 final class RigPresenter {
 
     private static final String INTENSITY_FLAG = "fishing/settings/intensity";
 
-    /** 보이는(또는 잠깐 숨긴) 개체의 표시 상태. */
+    /** Display state of a visible (or briefly hidden) fish. */
     static final class Shown {
         @Nullable RigInstance rig;
         final Set<UUID> viewers = new HashSet<>();
@@ -80,9 +81,12 @@ final class RigPresenter {
         rootIds.clear();
     }
 
-    // ---------------------------------------------------------------- 출력 반영
+    // ---------------------------------------------------------------- output apply
 
-    /** 새 면이 왔을 때: 지난 면의 반영이 덜 끝났으면 밀린 주기로 세고 감속 단계를 조정한다. */
+    /**
+     * On a new frame: if applying the previous frame wasn't finished, counts a lagged step and
+     * adjusts the throttle level.
+     */
     void measureLag(WildlifeBalance bal, long tick) {
         if (!applyQueue.isEmpty()) {
             lagCycles++;
@@ -99,7 +103,7 @@ final class RigPresenter {
         }
     }
 
-    /** 리그가 있는 개체를 모두 반영 대기열에 넣는다. */
+    /** Queues every fish with a rig for applying. */
     void queueAll() {
         for (Map.Entry<UUID, Shown> e : shown.entrySet()) {
             if (e.getValue().rig != null) {
@@ -182,7 +186,10 @@ final class RigPresenter {
         }
     }
 
-    /** 동작 파티클: 16블록 이하 플레이어에게만 ('17-3' 9.4 LOD 16~40블록은 생략). 용암에서는 물방울 대신 연기·용암 파티클. */
+    /**
+     * Action particles: only for players within 16 blocks ('17-3' 9.4 LOD skips 16~40 blocks). In
+     * lava, smoke/lava particles instead of water drops.
+     */
     void particle(SimEvent.Particle p, WildlifeBalance bal) {
         World w = Bukkit.getWorld(p.world());
         if (w == null) {
@@ -212,7 +219,7 @@ final class RigPresenter {
         }
     }
 
-    // ---------------------------------------------------------------- 표시 대상
+    // ---------------------------------------------------------------- display targets
 
     void viewerPass(WildlifeBalance bal, long tick) {
         Frame f = manager.frame();
@@ -313,7 +320,10 @@ final class RigPresenter {
         }
     }
 
-    /** Core 기준 300개 중 다른 모듈 리그가 쓰는 부품 (visibleParts − 우리 몫). 몇 초마다 다시 센다. */
+    /**
+     * Parts used by other modules' rigs out of Core's 300 (visibleParts − our share). Recounted
+     * every few seconds.
+     */
     private void refreshOtherParts(WildlifeBalance bal, long tick) {
         if (tick - lastOtherParts < bal.otherPartsRefreshSeconds() * 20L) {
             return;
@@ -327,7 +337,7 @@ final class RigPresenter {
         }
     }
 
-    /** 연출 강도 (Fishing 설정 '/낚시 설정', 0 최소 · 1 보통 · 2 최대). */
+    /** Effects intensity (Fishing setting '/낚시 설정', 0 minimum, 1 normal, 2 maximum). */
     private int intensity(UUID player) {
         return kit.api
                 .flags()
@@ -371,7 +381,8 @@ final class RigPresenter {
                 .getPersistentDataContainer()
                 .set(WildlifeKit.WILD_KEY, PersistentDataType.STRING, id.toString());
         rootIds.add(rig.root().getUniqueId());
-        // 재동기화: 시제품은 0번 프레임부터 다시 재생했지만, 개체 위상에서 지금 프레임을 계산해 그 자리부터 잇는다
+        // resync: the prototype restarted from frame 0, but we compute the current frame from the
+        // fish's phase and continue from there
         int fps =
                 Math.max(
                         1,
@@ -425,7 +436,7 @@ final class RigPresenter {
         s.viewers.clear();
     }
 
-    /** 개체가 사라졌을 때 표시 상태와 반영 대기를 지운다. */
+    /** Clears display state and pending applies when a fish disappears. */
     void destroy(UUID id) {
         Shown s = shown.remove(id);
         if (s != null) {
@@ -434,7 +445,9 @@ final class RigPresenter {
         applyQueue.remove(id);
     }
 
-    /** 그 개체의 리그만 내린다 (표시 상태는 남겨 다음 선정 때 다시 띄운다). */
+    /**
+     * Takes down only that fish's rig (display state is kept so the next selection shows it again).
+     */
     void removeRigOf(UUID id) {
         Shown s = shown.get(id);
         if (s != null) {
@@ -442,15 +455,18 @@ final class RigPresenter {
         }
     }
 
-    /** 리그가 있고 시청자가 한 명 이상인지 (WildFish.visible). */
+    /** Whether it has a rig and at least one viewer (WildFish.visible). */
     boolean displayed(UUID id) {
         Shown s = shown.get(id);
         return s != null && s.rig != null && !s.viewers.isEmpty();
     }
 
-    // ---------------------------------------------------------------- 시청자
+    // ---------------------------------------------------------------- viewers
 
-    /** 그 플레이어를 시청자 목록에서 뺀다. 남은 시청자가 없는 개체는 다음 선정 때 숨기고 2Hz로 내린다. */
+    /**
+     * Removes the player from viewer lists. Fish left with no viewers are hidden at the next
+     * selection and drop to 2Hz.
+     */
     void dropViewer(Player p, boolean online, long tick) {
         UUID pid = p.getUniqueId();
         for (Shown s : shown.values()) {
@@ -466,15 +482,18 @@ final class RigPresenter {
         }
     }
 
-    /** 퇴장한 플레이어의 부품 집계를 지운다. */
+    /** Clears the part tally of a player who left. */
     void forgetPlayer(UUID id) {
         otherParts.remove(id);
         ourParts.remove(id);
     }
 
-    // ---------------------------------------------------------------- 정리
+    // ---------------------------------------------------------------- cleanup
 
-    /** 시작 시 주인 잃은 harbor:wild 표시 엔티티를 지운다 (시제품의 주인 잃은 부품 정리와 같은 역할). */
+    /**
+     * Removes orphaned harbor:wild display entities on startup (same role as the prototype's
+     * orphaned part cleanup).
+     */
     void removeOrphans() {
         for (World w : Bukkit.getWorlds()) {
             for (Entity e : w.getEntities()) {
@@ -486,7 +505,7 @@ final class RigPresenter {
         }
     }
 
-    /** 청크 적재로 들어온 엔티티 중 주인 잃은 harbor:wild 엔티티를 지운다. */
+    /** Removes orphaned harbor:wild entities among those that came in with a chunk load. */
     void removeOrphans(List<Entity> entities) {
         for (Entity e : entities) {
             if (e.getPersistentDataContainer().has(WildlifeKit.WILD_KEY)
@@ -496,9 +515,9 @@ final class RigPresenter {
         }
     }
 
-    // ---------------------------------------------------------------- 진단
+    // ---------------------------------------------------------------- diagnostics
 
-    /** 지금 리그로 보이는 개체 수와 부품 수. */
+    /** Number of fish currently shown with rigs, and their part count. */
     int[] shownStats() {
         int rigs = 0;
         for (Shown s : shown.values()) {
@@ -534,7 +553,7 @@ final class RigPresenter {
         return lastDeferred;
     }
 
-    /** 이 플레이어의 지금 예산 (마릿수, 부품). */
+    /** This player's current budget (fish count, parts). */
     int[] budgetOf(Player p) {
         WildlifeBalance bal = kit.balance();
         int count =

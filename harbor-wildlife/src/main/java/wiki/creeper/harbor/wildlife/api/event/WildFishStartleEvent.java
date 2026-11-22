@@ -5,7 +5,11 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.player.PlayerEvent;
 import wiki.creeper.harbor.wildlife.api.WildFish;
 
-/** 플레이어 때문에 개체가 놀라 도망쳤을 때 (계산 스레드가 정한 뒤 메인 스레드에서 알림). 무리로 전파된 개체마다 따로 보내지 않고 처음 놀란 개체만 보낸다. */
+/**
+ * A fish was startled by a player and fled (decided on the simulation thread, announced on the main
+ * thread). Only the first startled fish fires this, not each fish the startle spreads to in the
+ * school.
+ */
 public final class WildFishStartleEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();

@@ -18,7 +18,7 @@ import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.wildlife.api.Medium;
 import wiki.creeper.harbor.wildlife.content.WildTemplate;
 
-/** 자연 스폰 어종 고르기·자리 찾기 ('17-3' 9.4). */
+/** Natural spawn species selection and spot finding ('17-3' 9.4). */
 class SpawnTest {
 
     private static SpawnTable.Conditions cond(
@@ -170,7 +170,7 @@ class SpawnTest {
 
     @Test
     void columnFindsDeepEnoughWater() {
-        // 물 50~62 (수면 63), 그 아래 단단한 바닥
+        // water 50~62 (surface 63), solid floor below
         MediumField field = Fixtures.slab(MediumField.WATER, 50, 62);
         RandomGenerator r = RandomGenerator.of("L64X128MixRandom");
         for (int i = 0; i < 50; i++) {
@@ -180,7 +180,7 @@ class SpawnTest {
             assertEquals(63 - s.pos().y(), s.depth(), 1e-9);
             assertEquals(50, s.floorY());
         }
-        // 1칸짜리 웅덩이는 거부
+        // a 1-cell puddle is rejected
         assertTrue(
                 SpawnPlanner.column(
                                 Fixtures.slab(MediumField.WATER, 60, 60),
@@ -193,7 +193,7 @@ class SpawnTest {
                                 3,
                                 r)
                         .isEmpty());
-        // 바닥 개체는 바닥 바로 위
+        // floor fish sit right on the floor
         SpawnPlanner.Spot floor =
                 SpawnPlanner.column(field, Medium.FLOOR, 0, 0, 70, 40, 2, 3, r).orElseThrow();
         assertEquals(50.15, floor.pos().y(), 1e-9);

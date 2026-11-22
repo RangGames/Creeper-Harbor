@@ -7,20 +7,20 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.wildlife.api.Medium;
 
-/** 야생 개체(또는 무리)가 생기기 직전 (메인 스레드). 취소하면 만들지 않는다. */
+/** Fired just before a wild fish (or school) is created (main thread). Cancelling prevents it. */
 public final class WildFishSpawnEvent extends Event implements Cancellable {
 
     private static final HandlerList HANDLERS = new HandlerList();
 
-    /** 생기는 이유. */
+    /** Why it spawns. */
     public enum Reason {
-        /** 플레이어 주변 자연 스폰. */
+        /** Natural spawn around a player. */
         NATURAL,
-        /** 물고기 떼 포인트 (World FishingSpotMovedEvent). */
+        /** Fish school spot (World FishingSpotMovedEvent). */
         SPOT,
-        /** spawnScripted (이벤트·연출·관리 명령). */
+        /** spawnScripted (events, cinematics, admin commands). */
         SCRIPTED,
-        /** spawnSchool (경로 무리). */
+        /** spawnSchool (school following a path). */
         PATH
     }
 
@@ -48,7 +48,7 @@ public final class WildFishSpawnEvent extends Event implements Cancellable {
         return location.clone();
     }
 
-    /** 무리 마릿수 (1이면 혼자). */
+    /** Number of fish in the school (1 means solitary). */
     public int count() {
         return count;
     }

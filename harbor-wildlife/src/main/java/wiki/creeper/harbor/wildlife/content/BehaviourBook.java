@@ -15,23 +15,26 @@ import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * wildlife/behaviours.yml (추가 제안 형식, '17-3' 9.3). 시제품 GROUPS·BEHAVE 표를 그대로 옮긴다: 성향별 1초 주사위(고유 동작·쉬기
- * 확률), 쉬기 길이, 기본 속도 배율, 위협 감지 반경, 미끼 반응 확률과 동작별 속도 배율·반복·순간 이동량·파티클.
+ * wildlife/behaviours.yml (proposed format, '17-3' 9.3). Carries over the prototype GROUPS/BEHAVE
+ * tables as-is: per-temperament 1-second dice (special action / rest chance), rest length, base
+ * speed multiplier, threat detection radius, bait reaction chance, and per-action speed multiplier,
+ * repetitions, impulse and particle.
  *
- * @param groups 성향 표. 파일에 없는 성향은 문서 값({@link #DEFAULT_GROUPS})
- * @param actions 동작 이름 → 정의
+ * @param groups temperament table. Temperaments missing from the file use the documented values
+ *     ({@link #DEFAULT_GROUPS})
+ * @param actions action name → definition
  */
 public record BehaviourBook(Map<WildGroup, GroupDef> groups, Map<String, ActionDef> actions) {
 
     /**
-     * 성향 하나.
+     * One temperament.
      *
-     * @param specialChance 1초 주사위에서 고유 동작이 나올 확률 (0~1, 파일에는 % 값)
-     * @param idleChance 쉬기가 나올 확률 (0~1)
-     * @param idleSeconds 쉬기 길이
-     * @param speedBase 기본 속도 배율 증감 (active +0.25, lazy −0.30)
-     * @param threatRadius 위협 감지 반경 (블록, 제안값)
-     * @param baitChance 찌가 떨어졌을 때 다가올 확률 (0~1, 제안값)
+     * @param specialChance chance the 1-second dice yields a special action (0~1, % in the file)
+     * @param idleChance chance of resting (0~1)
+     * @param idleSeconds rest length
+     * @param speedBase base speed multiplier delta (active +0.25, lazy −0.30)
+     * @param threatRadius threat detection radius (blocks, proposed value)
+     * @param baitChance chance to approach when a bobber lands (0~1, proposed value)
      */
     public record GroupDef(
             double specialChance,
@@ -42,16 +45,17 @@ public record BehaviourBook(Map<WildGroup, GroupDef> groups, Map<String, ActionD
             double baitChance) {}
 
     /**
-     * 동작 하나.
+     * One action.
      *
-     * @param group 이 동작을 고유 동작으로 가진 어종의 기본 성향
-     * @param speedDelta 속도 배율 증감 (dart 1.6이면 ×(1 + 1.6), bask −0.85면 ×0.15)
-     * @param reps 반복 횟수
-     * @param impulse 동작 시작 때 더하는 순간 이동량 (블록/초, leap [0, 0.65, 0])
-     * @param particle 파티클 (바닐라 파티클 키, 없으면 null)
-     * @param teleportMin 순간 이동 최소 거리 (블록, 0이면 순간 이동 없음, 추가 제안 필드)
-     * @param teleportMax 순간 이동 최대 거리
-     * @param threat 위협을 받으면 먼저 재생하는 놀람 동작인지 (startle·ink·dart, 추가 제안 필드)
+     * @param group default temperament of species that have this as their special action
+     * @param speedDelta speed multiplier delta (dart 1.6 means ×(1 + 1.6), bask −0.85 means ×0.15)
+     * @param reps number of repetitions
+     * @param impulse impulse added when the action starts (blocks/second, leap [0, 0.65, 0])
+     * @param particle particle (vanilla particle key, null if none)
+     * @param teleportMin minimum teleport distance (blocks, 0 means no teleport, proposed field)
+     * @param teleportMax maximum teleport distance
+     * @param threat whether this is a startle action played first when threatened (startle, ink,
+     *     dart; proposed field)
      */
     public record ActionDef(
             String name,
@@ -69,7 +73,10 @@ public record BehaviourBook(Map<WildGroup, GroupDef> groups, Map<String, ActionD
         }
     }
 
-    /** '17-3' 9.3 시제품 값 (파일에 성향이 빠졌을 때만). 위협 반경·미끼 확률은 9.4 제안값. */
+    /**
+     * '17-3' 9.3 prototype values (only when a temperament is missing from the file). Threat radius
+     * and bait chance are 9.4 proposed values.
+     */
     public static final Map<WildGroup, GroupDef> DEFAULT_GROUPS =
             Map.of(
                     WildGroup.ACTIVE, new GroupDef(0.09, 0.02, 2.0, 0.25, 10, 0.6),

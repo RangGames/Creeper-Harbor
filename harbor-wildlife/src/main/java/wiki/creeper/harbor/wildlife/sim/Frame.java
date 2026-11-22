@@ -9,10 +9,11 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 계산 한 주기의 출력 (이중 버퍼의 한 면). 만든 뒤에는 바뀌지 않으므로 메인 스레드가 그대로 읽는다. 위치 조회용으로 8블록 칸 색인을 함께 만든다.
+ * Output of one simulation step (one side of the double buffer). Immutable once built, so the main
+ * thread reads it as-is. Builds an 8-block cell index alongside for location queries.
  *
- * @param seq 주기 번호
- * @param computeNanos 이 주기 계산 시간
+ * @param seq step number
+ * @param computeNanos compute time of this step
  */
 public record Frame(
         long seq, List<FishOut> fish, List<SimEvent> events, long computeNanos, Index index) {
@@ -24,7 +25,7 @@ public record Frame(
         events = List.copyOf(events);
     }
 
-    /** 반경 안 개체 (가까운 순). */
+    /** Fish within a radius (nearest first). */
     public List<FishOut> nearby(String world, double x, double y, double z, double radius) {
         List<FishOut> result = new ArrayList<>();
         double r2 = radius * radius;
@@ -48,7 +49,7 @@ public record Frame(
         return i == null ? null : fish.get(i);
     }
 
-    /** 수평 8블록 칸 색인. */
+    /** Horizontal 8-block cell index. */
     public record Index(Map<String, Map<Long, int[]>> cells, Map<UUID, Integer> byId) {
 
         static final int CELL = 8;

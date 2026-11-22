@@ -34,10 +34,12 @@ import wiki.creeper.harbor.fishing.data.FishingData;
 import wiki.creeper.harbor.fishing.data.FishingRepository;
 
 /**
- * 요리 버프 (docs 20 0.1 "요리 사용과 보정자 등록은 Fishing"). 요리(type: food) 아이템을 다 먹으면 fishing/food.yml의 효과를 출처
- * {@code food:<이름>}, 만료 시각이 있는 보정자로 건다. 1종만 적용되어 다른 요리를 먹으면 앞 버프를 지운다. 먹는 순간 fishing_food에 즉시 쓰고,
- * 재접속· 서버 이동 뒤 남은 시간만큼 다시 건다. 연회 요리(feast_share)면 근처 파티원에게도 같은 버프를 건다 (파티는 Core PartyService, 구현
- * Boss). 메인 스레드 전용.
+ * Food buffs (docs 20 0.1 "food use and modifier registration belong to Fishing"). When a food item
+ * (type: food) is fully eaten, the effects from fishing/food.yml are applied as modifiers with the
+ * source {@code food:<name>} and an expiry time. Only one applies; eating another food removes the
+ * previous buff. Written to fishing_food the moment it is eaten and reapplied for the remaining
+ * time after rejoining or moving servers. A feast dish (feast_share) also applies the same buff to
+ * nearby party members (party is Core PartyService, implemented by Boss). Main thread only.
  */
 public final class FoodManager implements Listener {
 
@@ -85,7 +87,10 @@ public final class FoodManager implements Listener {
         }
     }
 
-    /** 연회 요리: 같은 월드의 가까운 파티원에게 같은 버프 (지속 시간은 먹은 사람 기준). */
+    /**
+     * Feast dish: the same buff for nearby party members in the same world (duration based on the
+     * eater).
+     */
     private void share(Player eater, FoodBuffs.Buff buff) {
         double radius =
                 new FishingBalance(api.content().snapshot().single(Balance.TYPE)).feastRadius();
@@ -107,7 +112,7 @@ public final class FoodManager implements Listener {
         }
     }
 
-    /** 버프를 건다 (앞 버프는 지운다). */
+    /** Applies the buff (removes the previous one). */
     public void apply(Player player, FoodBuffs.Buff buff, double durationBonus, boolean shared) {
         UUID uuid = player.getUniqueId();
         HarborPlayer hp = api.players().get(player);
@@ -120,7 +125,8 @@ public final class FoodManager implements Listener {
         }
         register(uuid, buff, r.next());
         hp.set(component, data.withFood(r.next()));
-        // 버프는 바로 DB에 쓰므로 먹은 음식이 빠진 인벤토리도 곧 저장한다 (서버가 죽으면 음식이 돌아오고 버프는 남는다)
+        // The buff goes straight to the DB, so also save the inventory without the eaten food soon
+        // (if the server dies, the food comes back and the buff remains)
         api.players().saveSoon(uuid);
         var _ =
                 api.database()
@@ -157,7 +163,7 @@ public final class FoodManager implements Listener {
         }
     }
 
-    /** 접속 (서버 이동 포함): 남은 시간이 있으면 다시 건다. */
+    /** Join (including server moves): reapplies the buff if time remains. */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
@@ -188,7 +194,7 @@ public final class FoodManager implements Listener {
                                                 event.getPlayer().getUniqueId(), food.source()));
     }
 
-    /** 지금 걸린 요리 버프 (관리 명령). */
+    /** The currently active food buff (admin command). */
     public @Nullable ActiveFood active(Player player) {
         ActiveFood food = api.players().get(player).get(component).food();
         return food != null && food.isActive(Instant.now()) ? food : null;

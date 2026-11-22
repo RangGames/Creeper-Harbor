@@ -16,10 +16,16 @@ import wiki.creeper.harbor.world.api.FishingSpotService;
 import wiki.creeper.harbor.world.api.RegionService;
 import wiki.creeper.harbor.world.api.SeaEventService;
 
-/** 모듈 안에서 같이 쓰는 것들. 어종 표·밸런스는 콘텐츠 리로드 때 통째로 바꾼다 (변경 불가 값이라 어느 스레드에서 읽어도 됨). */
+/**
+ * Shared pieces within the module. The species table and balance are replaced wholesale on content
+ * reload (immutable values, so any thread may read them).
+ */
 public final class WildlifeKit {
 
-    /** 야생 개체 리그 루트 표시 (값 = 개체 ID). 주인 잃은 표시 엔티티 정리용 ('17-3' 9.4 harbor:wild). */
+    /**
+     * Wild fish rig root tag (value = fish ID). Used to clean up orphaned display entities ('17-3'
+     * 9.4 harbor:wild).
+     */
     static final NamespacedKey WILD_KEY = new NamespacedKey(HarborId.DEFAULT_NAMESPACE, "wild");
 
     final HarborModule plugin;
@@ -59,13 +65,15 @@ public final class WildlifeKit {
         return balance;
     }
 
-    /** 새 스냅샷으로 어종 표·밸런스를 만든다 (가상 스레드에서 불러도 된다). */
+    /**
+     * Builds the species table and balance from a new snapshot (may be called on a virtual thread).
+     */
     ProfileIndex build(ContentSnapshot snapshot) {
         WildlifeBalance b = new WildlifeBalance(snapshot.single(Balance.TYPE));
         return ProfileIndex.build(snapshot, b);
     }
 
-    /** 메인 스레드에서 교체한다. */
+    /** Swaps them in on the main thread. */
     void apply(ContentSnapshot snapshot, ProfileIndex next) {
         this.balance = new WildlifeBalance(snapshot.single(Balance.TYPE));
         this.index = next;
@@ -74,7 +82,7 @@ public final class WildlifeKit {
         }
     }
 
-    /** 콘텐츠 월드 이름 (balance.yml world_alias). */
+    /** Content world name (balance.yml world_alias). */
     String contentWorld(World world) {
         return balance.worldAlias(world.getName());
     }

@@ -19,8 +19,9 @@ import wiki.creeper.harbor.fishing.session.FishingManager;
 import wiki.creeper.harbor.jobs.api.JobsService;
 
 /**
- * Harbor-Fishing (docs 20 3장): 캐스팅 판정, 미니게임, 크기·품질, 미끼·내구도, 잡템, 신화 이벤트, 그림자 연출, 통발, 요리 버프, 매크로 방지.
- * 다른 모듈은 ServicesManager의 {@link FishingService}·{@link TrapService}와 이벤트로 결과를 받는다.
+ * Harbor-Fishing (docs 20 chapter 3): cast rolls, minigame, size/quality, bait/durability, junk,
+ * mythic events, shadow presentation, traps, food buffs, anti-macro. Other modules receive results
+ * via {@link FishingService} and {@link TrapService} in the ServicesManager and via events.
  */
 public final class HarborFishingPlugin extends HarborModule {
 
@@ -36,7 +37,7 @@ public final class HarborFishingPlugin extends HarborModule {
         HarborApi api = ctx.api();
         ctx.migrate();
         FishingContent.TYPES.forEach(ctx::contentType);
-        // 파티클 이름은 서버 enum으로만 검사할 수 있다
+        // Particle names can only be checked against the server enum
         ctx.contentCheck(
                 FishingPresets.TYPE,
                 (presets, check) ->

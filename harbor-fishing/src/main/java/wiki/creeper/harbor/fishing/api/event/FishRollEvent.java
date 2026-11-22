@@ -8,7 +8,10 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.ItemId;
 
-/** 출현 판정 직후. 결과를 바꾸거나 취소할 수 있다 (Boss: 소환 미끼면 취소하고 보스전 시작, 미끼는 Boss가 처리). */
+/**
+ * Right after the spawn roll. The result can be changed or cancelled (Boss: cancels it for a
+ * summoning bait and starts the boss fight; Boss handles the bait).
+ */
 public final class FishRollEvent extends PlayerEvent implements Cancellable {
 
     private static final HandlerList HANDLERS = new HandlerList();

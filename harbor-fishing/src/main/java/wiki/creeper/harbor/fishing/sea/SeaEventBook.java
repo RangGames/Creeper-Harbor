@@ -18,16 +18,18 @@ import wiki.creeper.harbor.fishing.api.SeaEventMessage.FishEffect;
 import wiki.creeper.harbor.fishing.roll.RollContext.MythicWindow;
 
 /**
- * 진행 중인 해상 이벤트와 fish_effects (docs 20 3.2 harbor:event). harbor:event 메시지로 시작·종료를 받고, 판정 때 이
- * 플레이어(지역)에 적용되는 어종 배율과 신화 창을 돌려준다. Redis가 끊겨도 마지막 상태로 계속하고, 각 이벤트는 endsAt이 지나면 스스로 끝난다. 끝 시각이 없으면
- * 기본 지속 시간(제안값 2시간) 뒤에 끝난다. 메인 스레드 전용, 서버 API 없음 (단위 테스트).
+ * Active sea events and their fish_effects (docs 20 3.2 harbor:event). Receives start/end via
+ * harbor:event messages and, at roll time, returns the species multipliers and mythic windows that
+ * apply to this player (region). Continues with the last state if Redis disconnects, and each event
+ * ends on its own once endsAt passes. Without an end time it ends after the default duration
+ * (proposed value 2 hours). Main thread only, no server API (unit tests).
  */
 public final class SeaEventBook {
 
-    /** 기본 지속 시간 (endsAt이 없는 START, 제안값). */
+    /** Default duration (START without endsAt, proposed value). */
     public static final Duration DEFAULT_DURATION = Duration.ofHours(2);
 
-    /** 진행 중인 이벤트. region이 null이면 서버 전체. */
+    /** An active event. region null means the whole server. */
     public record Active(
             String eventId, @Nullable RegionId region, Instant endsAt, List<FishEffect> effects) {
 
@@ -38,7 +40,9 @@ public final class SeaEventBook {
 
     private final Map<String, Active> active = new LinkedHashMap<>();
 
-    /** 메시지를 반영한다. 지역 ID 형식이 틀리면 서버 전체로 보지 않고 무시한다. */
+    /**
+     * Applies a message. A malformed region ID is ignored rather than treated as the whole server.
+     */
     public void apply(SeaEventMessage message, Instant now) {
         if (message.state() == SeaEventMessage.State.END) {
             active.remove(message.eventId());
@@ -63,7 +67,7 @@ public final class SeaEventBook {
                         message.fishEffects()));
     }
 
-    /** 끝난 이벤트를 지우고 진행 중인 것을 돌려준다. */
+    /** Removes finished events and returns the active ones. */
     public List<Active> active(Instant now) {
         active.values().removeIf(a -> !now.isBefore(a.endsAt()));
         return List.copyOf(active.values());
@@ -74,7 +78,9 @@ public final class SeaEventBook {
         return Set.copyOf(active.keySet());
     }
 
-    /** 이 지역의 어종 배율 (이벤트끼리는 곱한다). 키는 어종 ID 문자열. */
+    /**
+     * Species multipliers for this region (multiplied across events). Keys are species ID strings.
+     */
     public Map<String, Double> speciesMult(RegionId region, Instant now) {
         Map<String, Double> result = new HashMap<>();
         for (Active a : active(now)) {
@@ -90,7 +96,9 @@ public final class SeaEventBook {
         return result;
     }
 
-    /** 이 지역에서 열려 있는 신화 창. 콘텐츠에 없는 어종·신화가 아닌 어종은 건너뛴다. */
+    /**
+     * Mythic windows open in this region. Species missing from content or not mythic are skipped.
+     */
     public List<MythicWindow> mythicWindows(
             RegionId region, Instant now, Function<String, Optional<FishDef>> fish) {
         List<MythicWindow> result = new ArrayList<>();
@@ -113,7 +121,7 @@ public final class SeaEventBook {
         return result;
     }
 
-    /** 네임스페이스가 없는 ID(fish/…)에 harbor:를 붙인다. */
+    /** Prefixes IDs without a namespace (fish/…) with harbor:. */
     static String normalize(String fish) {
         return fish.contains(":") ? fish : "harbor:" + fish;
     }

@@ -6,20 +6,22 @@ import java.util.random.RandomGenerator;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.fishing.content.JunkTable;
 
-/** 잡템 판정 (docs 20 3.4). 항목마다 따로 굴려 맞은 것을 모두 돌려준다. 서버 API 없음. */
+/** Junk roll (docs 20 3.4). Rolls each entry separately and returns all hits. No server API. */
 public final class JunkRoller {
 
     /**
-     * @param items 맞은 잡템
-     * @param treasure 보물 지도가 뽑혔는지 (TreasureDropHook 등록 시에만 의미)
+     * @param items junk hits
+     * @param treasure whether a treasure map was rolled (meaningful only with a registered
+     *     TreasureDropHook)
      */
     public record Drops(List<JunkTable.Entry> items, boolean treasure) {}
 
     private JunkRoller() {}
 
     /**
-     * @param treasureBonus treasure_map_chance 스탯 (보물 사냥꾼 +15%·랭크, 배율로 곱함)
-     * @param treasureEnabled TreasureDropHook이 등록되어 있는지
+     * @param treasureBonus treasure_map_chance stat (treasure hunter +15% per rank, applied as a
+     *     multiplier)
+     * @param treasureEnabled whether a TreasureDropHook is registered
      */
     public static Drops roll(
             JunkTable table,

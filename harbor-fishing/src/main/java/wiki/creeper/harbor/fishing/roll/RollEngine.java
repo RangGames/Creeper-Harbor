@@ -16,25 +16,29 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 
 /**
- * 출현 판정 (docs 20 3.4 RollEngine). 서버 API를 쓰지 않는다 (시뮬레이션·단위 테스트).
+ * Spawn roll (docs 20 3.4 RollEngine). Uses no server API (simulation, unit tests).
  *
  * <ol>
- *   <li>후보: 지역 인덱스에서 시간·날씨·달·미끼·직업 단계·해금 조건을 통과한 어종
- *   <li>전설: 후보 전설 어종마다 천장 확률로 따로 판정
- *   <li>신화: 참가 중인 해상 이벤트의 신화 창마다 이벤트 확률 + mythic_chance로 판정 (서버 마릿수 예약은 FishingManager)
- *   <li>등급: 지역에 있는 등급의 기본 가중치를 다시 100%로 맞추고, 희귀 이상에 보정 (합계 배율 1.6 상한)
- *   <li>어종: 등급 안에서 weight × 어종 배율(미등록, 이벤트)로 고른다
+ *   <li>Candidates: species from the region index that pass the time, weather, moon, bait, job tier
+ *       and unlock conditions
+ *   <li>Legendary: each candidate legendary species is rolled separately with its pity chance
+ *   <li>Mythic: each mythic window of the sea events being participated in is rolled with the event
+ *       chance + mythic_chance (FishingManager reserves the server count)
+ *   <li>Grade: the base weights of the grades present in the region are renormalized to 100%, and
+ *       rare-or-better are boosted (total multiplier capped at 1.6)
+ *   <li>Species: picked within the grade by weight × species multiplier (unregistered, event)
  * </ol>
  *
- * 신화 어종은 일반 후보에서 빼고 신화 창으로만 나온다.
+ * Mythic species are excluded from normal candidates and only come from mythic windows.
  */
 public final class RollEngine {
 
     /**
-     * 판정 결과.
+     * Roll result.
      *
-     * @param legendCandidates 조건을 통과한 전설 어종 (천장 카운터 증가 대상)
-     * @param mythic 신화 창에서 뽑혔으면 그 창 (서버 마릿수 예약 대상)
+     * @param legendCandidates legendary species that passed the conditions (pity counter increment
+     *     targets)
+     * @param mythic the window, if rolled from a mythic window (server count reservation target)
      */
     public record Outcome(
             FishDef fish,
@@ -60,7 +64,7 @@ public final class RollEngine {
         }
     }
 
-    /** 이 엔진이 만들어진 스냅샷 (리로드되면 새로 만든다). */
+    /** The snapshot this engine was built from (rebuilt on reload). */
     public ContentSnapshot snapshot() {
         return snapshot;
     }
@@ -69,7 +73,7 @@ public final class RollEngine {
         return index.containsKey(region);
     }
 
-    /** 조건을 통과한 후보 (등급별). */
+    /** Candidates that passed the conditions (per grade). */
     public Map<Grade, List<FishDef>> candidates(RollContext ctx) {
         Map<Grade, List<FishDef>> result = new EnumMap<>(Grade.class);
         for (Map.Entry<Grade, List<FishDef>> e :
@@ -102,17 +106,19 @@ public final class RollEngine {
         if (flag != null && !ctx.serverFlags().test(flag)) {
             return false;
         }
-        // 세부 구역: World가 지역 키를 알려 줄 때만 검사한다
+        // Sub-areas: checked only when World provides the region key
         if (ctx.areasKnown()
                 && !fish.area().isEmpty()
                 && fish.area().stream().noneMatch(ctx.areas()::contains)) {
             return false;
         }
-        // 신화는 이벤트 신화 창에서만
+        // Mythics only from event mythic windows
         return fish.grade() != Grade.MYTHIC;
     }
 
-    /** 뇌우(thunder·storm)는 비도 오는 날씨라 rain 조건도 만족한다. */
+    /**
+     * A thunderstorm (thunder, storm) is also rainy weather, so it satisfies rain conditions too.
+     */
     static boolean weatherMatches(List<String> allowed, String weather) {
         if (allowed.contains(weather)) {
             return true;
@@ -122,9 +128,9 @@ public final class RollEngine {
     }
 
     /**
-     * 판정한다.
+     * Rolls.
      *
-     * @param pity 어종별 천장 카운터
+     * @param pity pity counters per species
      */
     public Optional<Outcome> roll(
             RollContext ctx,
@@ -137,7 +143,7 @@ public final class RollEngine {
         }
         List<FishDef> legends = candidates.getOrDefault(Grade.LEGENDARY, List.of());
 
-        // 전설: 어종마다 따로
+        // Legendary: each species separately
         List<FishDef> legendHits = new ArrayList<>();
         for (FishDef legend : legends) {
             if (random.nextDouble() < legendChance(pity.getOrDefault(legend.id(), 0), mods)) {
@@ -148,7 +154,7 @@ public final class RollEngine {
             return Optional.of(new Outcome(pickSpecies(legendHits, ctx, mods, random), legends));
         }
 
-        // 신화: 열려 있는 창마다 따로 (먼저 맞은 창)
+        // Mythic: each open window separately (the first window that hits)
         for (RollContext.MythicWindow window : ctx.mythic()) {
             double chance =
                     (window.chance() > 0 ? window.chance() : balance.mythicChance())
@@ -158,7 +164,7 @@ public final class RollEngine {
             }
         }
 
-        // 등급
+        // Grade
         Map<Grade, Double> weights = new EnumMap<>(Grade.class);
         for (Grade grade : candidates.keySet()) {
             double base = balance.gradeWeight(grade);
@@ -179,7 +185,10 @@ public final class RollEngine {
                         legends));
     }
 
-    /** 전설 확률: min(base + step × max(0, n − s), max) × legend_chance ('7. 밸런스 기획' 4.3). */
+    /**
+     * Legendary chance: min(base + step × max(0, n − s), max) × legend_chance ("7. Balance design"
+     * 4.3).
+     */
     public double legendChance(int casts, RollModifiers mods) {
         int start = balance.legendPityStart() + mods.legendPityStartOffset();
         double p =
@@ -191,8 +200,9 @@ public final class RollEngine {
     }
 
     /**
-     * 지역별 기대 출현 비율 (Economy 시세 S₀용). 보정 없는 기본 가중치로 계산하고, 미끼·해금 플래그가 필요한 어종과 전설·신화는 0이다. 시간·날씨·달 조건은
-     * 무시한다.
+     * Expected spawn ratios per region (for the Economy price S₀). Computed from the base weights
+     * without modifiers; species that need bait or an unlock flag, and legendaries and mythics, are
+     * 0. Time, weather and moon conditions are ignored.
      */
     public double expectedShare(RegionId region, FishId fish) {
         Map<Grade, List<FishDef>> pool = new EnumMap<>(Grade.class);
@@ -226,7 +236,7 @@ public final class RollEngine {
         return 0;
     }
 
-    /** 지역의 어종 (등급별, 조건 무시). 통발 산출에 쓴다. */
+    /** Species of the region (per grade, ignoring conditions). Used for trap yields. */
     public Map<Grade, List<FishDef>> regionPool(RegionId region) {
         return index.getOrDefault(region, Map.of());
     }

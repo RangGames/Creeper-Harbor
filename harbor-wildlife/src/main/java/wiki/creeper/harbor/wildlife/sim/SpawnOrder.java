@@ -7,16 +7,18 @@ import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.wildlife.api.ScriptedBehaviour;
 
 /**
- * 메인 스레드가 정해 계산 스레드로 넘기는 생성 주문. 개체 ID는 메인이 미리 만든다 (spawnScripted가 바로 돌려줄 수 있게).
+ * Spawn order decided by the main thread and handed to the simulation thread. Fish IDs are created
+ * up front by main (so spawnScripted can return them immediately).
  *
- * @param ids 만들 개체 (첫 번째가 무리 대장)
- * @param center 무리 중심 (매질 안). 나머지는 주변 1.5블록 안 매질 칸에 흩어 놓는다
- * @param school 무리 ID (혼자면 null)
- * @param scripted 연출 개체면 행동, 자연 개체면 null
- * @param path 경로 무리 지점 (비면 없음)
- * @param tag 물고기 떼 포인트 ID (그 자리 무리면)
- * @param region 집 지역 이름 (경계 검사용)
- * @param airBaseY 공중 개체의 섬 기준 높이
+ * @param ids fish to create (the first is the school leader)
+ * @param center school center (inside the medium). The rest are scattered over medium cells within
+ *     1.5 blocks
+ * @param school school ID (null if solitary)
+ * @param scripted behaviour for a scripted fish, null for a natural one
+ * @param path path school points (empty for none)
+ * @param tag fish school spot ID (for a school at that spot)
+ * @param region home region name (for boundary checks)
+ * @param airBaseY island base height for air fish
  */
 public record SpawnOrder(
         List<UUID> ids,

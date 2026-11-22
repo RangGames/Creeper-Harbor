@@ -1,11 +1,11 @@
 package wiki.creeper.harbor.fishing.api;
 
-/** 어종 아이템이 어디서 나왔는지 (FishCaughtEvent, 통발 감시용 custom_data). */
+/** Where a fish item came from (FishCaughtEvent, custom_data for trap monitoring). */
 public enum CatchSource {
-    /** 낚싯대 미니게임. */
+    /** Rod minigame. */
     ROD,
-    /** 통발 수확. */
+    /** Trap harvest. */
     TRAP,
-    /** 보스전 확정 포획 ({@link FishingService#createCatch}). */
+    /** Guaranteed boss fight catch ({@link FishingService#createCatch}). */
     BOSS
 }

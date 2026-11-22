@@ -7,24 +7,26 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * 통발 (docs 20 3.4 TrapService, '12. 월드 · 하우징 · 통발' 5장). 설치·열기·수확은 플레이어가 통발 블록으로 하고, 다른 모듈은 이 조회·확장
- * API만 쓴다. 메인 스레드에서 부르고 future는 메인 스레드에서 완료된다.
+ * Traps (docs 20 3.4 TrapService, "12. World, housing, traps" chapter 5). Players place, open and
+ * harvest via the trap block; other modules use only this query/expansion API. Call on the main
+ * thread; futures complete on the main thread.
  */
 public interface TrapService {
 
-    /** 플레이어의 통발 목록 (이번 시즌). */
+    /** The player's traps (this season). */
     CompletableFuture<List<TrapInfo>> traps(UUID owner);
 
     /**
-     * 통발 슬롯 1칸 확장 (가격 = 슬롯당 balance.yml fishing.trap.slot_price × 통발 단계). 골드 차감(원장
-     * TRAP_SLOT_EXPAND)과 traps 갱신을 한 트랜잭션으로 처리한다. Economy 상점 화면에서 이 메서드를 불러 결제를 연결한다.
+     * Expands a trap by one slot (price = balance.yml fishing.trap.slot_price per slot × trap
+     * tier). The gold deduction (ledger TRAP_SLOT_EXPAND) and the traps update run in one
+     * transaction. The Economy shop screen calls this method to wire up payment.
      */
     CompletableFuture<SlotPurchase> purchaseSlot(Player owner, long trapId);
 
-    /** 통발 수확물이면 true (custom_data에 trap 출처, Economy 경매 감시용). */
+    /** True if it is a trap catch (trap source in custom_data, for Economy auction monitoring). */
     boolean isTrapCatch(ItemStack stack);
 
-    /** 슬롯 확장 결과. */
+    /** Slot expansion result. */
     enum SlotPurchase {
         OK,
         NOT_FOUND,

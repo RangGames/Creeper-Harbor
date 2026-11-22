@@ -7,16 +7,18 @@ import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.fishing.content.FoodBuffs;
 
 /**
- * 요리 버프 교체 규칙 (docs 20 0.1, '7. 밸런스 기획' 4.2 "요리 버프는 1종만"). 새 요리를 먹으면 앞의 버프 출처를 지우고 새 버프로 바꾼다. 같은
- * 요리를 다시 먹으면 시간을 새로 시작한다 (더하지 않음). 지속 시간 = 기본 × (1 + food_buff_duration). 서버 API 없음 (단위 테스트).
+ * Food buff replacement rule (docs 20 0.1, "7. Balance design" 4.2 "only one food buff"). Eating a
+ * new food removes the previous buff source and replaces it with the new buff. Eating the same food
+ * again restarts the timer (it does not add up). Duration = base × (1 + food_buff_duration). No
+ * server API (unit tests).
  */
 public final class FoodRule {
 
     /**
-     * 교체 결과.
+     * Replacement result.
      *
-     * @param removeSource 지워야 할 앞 버프의 출처 (없으면 null)
-     * @param next 새로 걸 버프
+     * @param removeSource source of the previous buff to remove (null if none)
+     * @param next the new buff to apply
      */
     public record Replacement(@Nullable String removeSource, ActiveFood next) {}
 
@@ -33,7 +35,8 @@ public final class FoodRule {
 
     public static Replacement replace(
             @Nullable ActiveFood current, FoodBuffs.Buff buff, Instant now, double durationBonus) {
-        // 앞 버프는 끝났든 아니든 출처를 지운다 (남은 보정자 정리)
+        // Remove the previous buff's source whether or not it expired (cleans up leftover
+        // modifiers)
         String remove = current == null ? null : current.source();
         return new Replacement(
                 remove, new ActiveFood(buff.item(), now.plus(duration(buff, durationBonus))));

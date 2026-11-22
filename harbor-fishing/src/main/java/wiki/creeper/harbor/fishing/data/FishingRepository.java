@@ -31,7 +31,7 @@ public final class FishingRepository {
                     try {
                         pity.put(FishId.parse(rs.getString(1)), rs.getInt(2));
                     } catch (IllegalArgumentException e) {
-                        // 형식이 틀린 행은 무시
+                        // Ignore malformed rows
                     }
                 }
             }
@@ -48,7 +48,7 @@ public final class FishingRepository {
                                         ItemId.parse(rs.getString(1)),
                                         rs.getTimestamp(2).toInstant());
                     } catch (IllegalArgumentException e) {
-                        // 형식이 틀린 행은 무시
+                        // Ignore malformed rows
                     }
                 }
             }
@@ -56,7 +56,7 @@ public final class FishingRepository {
         return new FishingData(pity, food);
     }
 
-    /** 요리 버프 저장 (먹을 때 즉시). null이면 지운다. */
+    /** Saves the food buff (immediately on eating). Deletes it when null. */
     public static void saveFood(Connection c, UUID uuid, @Nullable ActiveFood food)
             throws SQLException {
         if (food == null) {
@@ -79,7 +79,7 @@ public final class FishingRepository {
         }
     }
 
-    /** 천장 카운터 전체 저장 (지연 쓰기). 어종 수가 적어 전부 쓴다. */
+    /** Saves all pity counters (write-behind). There are few species, so all are written. */
     public static void save(Connection c, UUID uuid, SeasonId season, FishingData data)
             throws SQLException {
         try (PreparedStatement ps =
@@ -97,7 +97,7 @@ public final class FishingRepository {
         }
     }
 
-    /** 전설 포획: 그 어종의 카운터를 즉시 0으로. */
+    /** Legendary catch: resets that species' counter to 0 immediately. */
     public static void resetPity(Connection c, UUID uuid, SeasonId season, FishId fish)
             throws SQLException {
         try (PreparedStatement ps =

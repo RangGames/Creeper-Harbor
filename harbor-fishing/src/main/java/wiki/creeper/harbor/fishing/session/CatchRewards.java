@@ -47,8 +47,9 @@ import wiki.creeper.harbor.jobs.api.ExpSource;
 import wiki.creeper.harbor.jobs.api.JobsService;
 
 /**
- * 포획 결과 (docs 20 3.4 RESULT): 크기·품질, 어종 아이템, 전설 천장 초기화, 잡템·보물 지도, 직업 EXP, 축하 연출·전체 공지. Boss용
- * createCatch도 여기서 만든다. 메인 스레드 전용.
+ * Catch result (docs 20 3.4 RESULT): size/quality, species item, legendary pity reset, junk and
+ * treasure maps, job EXP, celebration presentation and server-wide announcement. createCatch for
+ * Boss is also built here. Main thread only.
  */
 final class CatchRewards {
 
@@ -87,7 +88,7 @@ final class CatchRewards {
         this.presentation = override;
     }
 
-    /** FishingService.createCatch (Boss 등 미니게임 밖 포획). */
+    /** FishingService.createCatch (catches outside the minigame, e.g. Boss). */
     Optional<CatchResult> createCatch(Player player, FishId fishId, CatchOptions options) {
         Optional<FishDef> def = api.content().snapshot().get(FishDef.TYPE, fishId.id());
         if (def.isEmpty()) {
@@ -171,7 +172,7 @@ final class CatchRewards {
                                 1));
     }
 
-    // ------------------------------------------------------------------ 결과 (성공)
+    // ------------------------------------------------------------------ Result (success)
 
     void catchFish(
             Player player,
@@ -232,12 +233,13 @@ final class CatchRewards {
             caught = readFish(stack, fish, qualityEvent, hp, now);
             gear.give(player, stack);
             if (fish.grade().compareTo(Grade.LEGENDARY) >= 0) {
-                // 전설 천장 초기화·신화 서버 마릿수는 즉시 쓰이므로 잡은 물고기도 곧 저장한다 (서버가 죽으면 물고기만 사라진다)
+                // The legendary pity reset and mythic server count are written immediately, so save
+                // the caught fish soon too (if the server dies, only the fish is lost)
                 api.players().saveSoon(uuid);
             }
         }
         if (fish.grade() == Grade.LEGENDARY) {
-            // 전설 포획: 그 어종의 천장 카운터를 즉시 0으로
+            // Legendary catch: reset that species' pity counter to 0 immediately
             hp.set(COMPONENT, hp.get(COMPONENT).withPity(fish.id(), 0));
             var _ =
                     api.database()
@@ -260,7 +262,8 @@ final class CatchRewards {
                                 firstCatch,
                                 rolled.capped()));
 
-        // EXP: 등급 기본 × 지역 배율 × 첫 포획 배율 (첫 만남 +1·랭크)
+        // EXP: grade base × region multiplier × first-catch multiplier (first encounter +1 per
+        // rank)
         double exp = b.gradeExp(fish.grade()) * b.regionExpMult(region.id().name());
         if (firstCatch) {
             exp *= b.firstCatchMult(fish.grade()) + ctx.stat(uuid, "first_catch_exp_bonus");
@@ -272,7 +275,10 @@ final class CatchRewards {
         celebrate(player, s, fish, caught, firstCatch);
     }
 
-    /** 잡템: 지역 표로 따로 굴려 추가 지급, 보물 지도는 World 확장 지점으로. */
+    /**
+     * Junk: rolled separately from the region table and given in addition; treasure maps go through
+     * the World extension point.
+     */
     private void junk(Player player, RegionId region, @Nullable Location hookLoc) {
         JunkTable table = api.content().snapshot().single(JunkTable.TYPE);
         TreasureDropHook hook = treasureHook;
@@ -335,7 +341,7 @@ final class CatchRewards {
                             Duration.ofMillis(300),
                             Duration.ofSeconds(3),
                             Duration.ofSeconds(1));
-            // 소리는 presets.yml 등급 포획음(catch.*)이 낸다
+            // The sound comes from the presets.yml grade catch sound (catch.*)
         }
         presenter.caught(
                 player,

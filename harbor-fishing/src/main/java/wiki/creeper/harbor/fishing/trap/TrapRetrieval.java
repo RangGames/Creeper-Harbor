@@ -17,8 +17,9 @@ import wiki.creeper.harbor.core.api.MailService;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 통발 자동 회수: 하루 한 번 본 서버 한 곳이 분산 잠금을 잡고, 7일 수확하지 않은 통발의 내용물을 Core MailService로 보낸 뒤 행과 블록을 지운다.
- * MailService가 없으면 보류한다. 메인 스레드에서 시작하고 DB·우편은 비동기.
+ * Trap auto-retrieval: once a day one main server takes a distributed lock, sends the contents of
+ * traps not harvested for 7 days via Core MailService, then removes the rows and blocks. Deferred
+ * if MailService is missing. Starts on the main thread; DB and mail are async.
  */
 final class TrapRetrieval {
 
@@ -52,14 +53,14 @@ final class TrapRetrieval {
         var _ = tasks.timer(20L * 60, RETRIEVE_CHECK_TICKS, this::autoRetrieve);
     }
 
-    /** 하루 한 번 (본 서버 한 곳): 7일 수확하지 않은 통발을 우편으로 회수한다. */
+    /** Once a day (one main server): retrieves traps not harvested for 7 days by mail. */
     private void autoRetrieve() {
         if (api.infra().role() != wiki.creeper.harbor.common.config.ServerRole.MAIN) {
             return;
         }
         Optional<MailService> mail = api.mail();
         if (mail.isEmpty()) {
-            // 우편함(Economy)이 없으면 보류 (docs 20 3.8)
+            // Defer if there is no mailbox (Economy) (docs 20 3.8)
             return;
         }
         if (api.locks()
@@ -86,7 +87,10 @@ final class TrapRetrieval {
                                 tasks.main());
     }
 
-    /** 한 개씩 차례로: 항목마다 우편이 커밋된 뒤 contents에서 지운다 (중간에 꺼져도 중복 지급은 최대 1개). */
+    /**
+     * One at a time: each entry is removed from contents after its mail commits (if interrupted,
+     * duplicate delivery is at most 1).
+     */
     private void retrieveNext(MailService mail, List<TrapRow> queue) {
         if (queue.isEmpty()) {
             return;
@@ -104,8 +108,9 @@ final class TrapRetrieval {
                 continue;
             }
             String ref = "trap:" + row.id() + ":" + entry.uid();
-            // 우편과 항목 삭제를 한 트랜잭션으로, 그 항목이 아직 통발에 있을 때만 (조회 뒤 주인이 직접 수확했으면 건너뛴다: 예전에는
-            // 조회 때의 목록으로 보내서 두 번 받았다)
+            // Mail and entry deletion in one transaction, only if the entry is still in the trap
+            // (skipped if the owner harvested it after the lookup: previously the list from the
+            // lookup was sent, so it was received twice)
             SqlConsumer entryMail = mail.sendItemInTx(row.owner(), stack, "trap_retrieve", ref);
             chain =
                     chain.thenCompose(
@@ -149,8 +154,10 @@ final class TrapRetrieval {
                 .get(ItemDef.TYPE, row.item().id())
                 .ifPresent(def -> extras.add(api.items().create(def, 1)));
         extras.addAll(harvest.refundBaitItems(row.bait()));
-        // 통발 아이템·미끼 환불 우편과 행 삭제를 한 트랜잭션으로 (중간에 서버가 죽어도 사라지거나 두 번 가지 않는다). 우편 참조 ID는 항목마다
-        // 달라야 한다 (같으면 우편함 유니크 키 때문에 두 번째부터 버려진다). 그 사이 주인이 미끼를 넣거나 통발을 치웠으면 이번에는 건너뛴다
+        // The trap item and bait refund mail and the row deletion happen in one transaction
+        // (nothing is lost or sent twice even if the server dies midway). Mail reference IDs must
+        // differ per entry (if equal, the mailbox unique key discards all but the first). If the
+        // owner added bait or removed the trap in the meantime, skip it this time
         List<SqlConsumer> extraMails = new ArrayList<>();
         for (int i = 0; i < extras.size(); i++) {
             extraMails.add(
@@ -169,7 +176,9 @@ final class TrapRetrieval {
                                                             Optional<TrapRow> now =
                                                                     TrapRepository.byId(
                                                                             c, row.id(), true);
-                                                            // 그사이 새 수확물이 생겼으면 다음 회수 때 함께 보낸다
+                                                            // If new catches appeared in the
+                                                            // meantime, send them with the next
+                                                            // retrieval
                                                             if (now.isEmpty()
                                                                     || now.get().bait()
                                                                             != row.bait()

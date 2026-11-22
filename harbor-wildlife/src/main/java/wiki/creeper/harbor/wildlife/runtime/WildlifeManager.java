@@ -43,20 +43,29 @@ import wiki.creeper.harbor.world.api.ActiveSeaEvent;
 import wiki.creeper.harbor.world.api.FishingSpot;
 
 /**
- * 메인 스레드 쪽 야생 개체 관리 ('17-3' 9.4). 계산 스레드({@link SimEngine})에 플레이어 상태를 넘기고, 출력 면을 받아 리그에 반영한다.
+ * Main-thread wild fish management ('17-3' 9.4). Hands player state to the simulation thread
+ * ({@link SimEngine}) and applies its output frames to rigs.
  *
  * <ul>
- *   <li>스레드 1단계: 틱 끝에 플레이어 스냅샷(위치·웅크림·보트)을 복사해 넘긴다
- *   <li>스레드 3단계: 숨긴 실제 엔티티 방식이라 메인 스레드가 틱마다 출력을 반영하되 1.0ms 예산을 넘으면 다음 틱으로 넘긴다 (차례 돌림). 반영이 2주기 넘게
- *       밀리면 16~40블록 전송을 4틱 → 6틱으로, 그래도 밀리면 표시 상한을 줄인다 (자동 감속)
- *   <li>표시 대상 선정: 1초마다 플레이어별로 40블록 안 개체를 거리순으로 예산(마릿수·부품)까지 채운다. 부품 예산은 연출 강도 50·75·100%와 Core 기준
- *       300개 중 다른 리그(낚시 그림자·수족관·보스)가 쓰고 남은 몫 중 작은 쪽
- *   <li>자연 스폰: 플레이어당 목표 12마리, 초당 무리 2개, 서버 틱당 20마리, 전체 2,000마리. 물고기 떼 포인트에는 무리를 하나 더 둔다
- *   <li>정리: 리그 엔티티는 저장하지 않고 루트에 harbor:wild를 단다. 시작·청크 적재 때 주인 잃은 것을 지운다
+ *   <li>Thread stage 1: at the end of each tick, copies player snapshots (position, sneaking, boat)
+ *       and hands them over
+ *   <li>Thread stage 3: with hidden real entities, the main thread applies output every tick but
+ *       defers to the next tick past a 1.0ms budget (round robin). If applying lags more than 2
+ *       steps, the 16~40 block send interval goes from 4 to 6 ticks, and if it still lags the
+ *       display cap is reduced (auto-throttle)
+ *   <li>Display selection: every second, fills each player's budget (fish count, parts) with fish
+ *       within 40 blocks, nearest first. The part budget is the smaller of the effects intensity
+ *       50/75/100% and what's left of Core's 300 after other rigs (fishing shadows, aquariums,
+ *       bosses)
+ *   <li>Natural spawns: 12 fish target per player, 2 schools per second, 20 fish per server tick,
+ *       2,000 fish total. Fish school spots get one extra school
+ *   <li>Cleanup: rig entities are not saved and carry harbor:wild on the root. Orphans are removed
+ *       on startup and chunk load
  * </ul>
  *
- * <p>틱 순서와 마지막 면·틱 수만 여기서 들고, 리그 표시는 {@link RigPresenter}, 생성은 {@link WildSpawner}, 밀도 배율은 {@link
- * SpawnBoosts}, 지역 경계는 {@link RegionFence}가 맡는다.
+ * <p>This class only holds the tick order, last frame and tick count; rig display is handled by
+ * {@link RigPresenter}, spawning by {@link WildSpawner}, density multipliers by {@link
+ * SpawnBoosts}, and region boundaries by {@link RegionFence}.
  */
 public final class WildlifeManager implements WildlifeService, Listener {
 
@@ -103,7 +112,7 @@ public final class WildlifeManager implements WildlifeService, Listener {
         return engine;
     }
 
-    // ================================================================== 틱
+    // ================================================================== tick
 
     private void tick() {
         tick++;
@@ -121,7 +130,7 @@ public final class WildlifeManager implements WildlifeService, Listener {
         fence.check(applied, tick);
     }
 
-    /** 스레드 1단계: 플레이어 상태 복사. */
+    /** Thread stage 1: copy player state. */
     private void snapshotPlayers() {
         Collection<? extends Player> online = Bukkit.getOnlinePlayers();
         List<PlayerSnap> list = new ArrayList<>(online.size());
@@ -139,7 +148,7 @@ public final class WildlifeManager implements WildlifeService, Listener {
         engine.players(list);
     }
 
-    // ---------------------------------------------------------------- 출력 반영
+    // ---------------------------------------------------------------- output apply
 
     private void pullFrame(WildlifeBalance bal) {
         Frame f = engine.latest();
@@ -184,10 +193,10 @@ public final class WildlifeManager implements WildlifeService, Listener {
         fence.prune(tick);
     }
 
-    // ---------------------------------------------------------------- 진단
-    // (WildCommands·DebugOverlay)
+    // ---------------------------------------------------------------- diagnostics
+    // (WildCommands, DebugOverlay)
 
-    /** 지금 리그로 보이는 개체 수와 부품 수. */
+    /** Number of fish currently shown with rigs, and their part count. */
     int[] shownStats() {
         return rigs.shownStats();
     }
@@ -216,7 +225,7 @@ public final class WildlifeManager implements WildlifeService, Listener {
         return rigs.deferred();
     }
 
-    /** 이 플레이어의 지금 예산 (마릿수, 부품). */
+    /** This player's current budget (fish count, parts). */
     int[] budgetOf(Player p) {
         return rigs.budgetOf(p);
     }
@@ -229,12 +238,12 @@ public final class WildlifeManager implements WildlifeService, Listener {
         return spawner.anchorCount();
     }
 
-    // ---------------------------------------------------------------- 생성 (WildCommands)
+    // ---------------------------------------------------------------- spawning (WildCommands)
 
     /**
-     * 생성 주문을 낸다 (WildFishSpawnEvent 취소 시 빈 목록).
+     * Places a spawn order (empty list if WildFishSpawnEvent is cancelled).
      *
-     * @return 만든 개체 ID (첫 번째가 대장)
+     * @return IDs of the created fish (the first is the leader)
      */
     List<UUID> order(
             SpeciesProfile p,
@@ -248,7 +257,10 @@ public final class WildlifeManager implements WildlifeService, Listener {
         return spawner.order(p, at, count, scripted, reason, tag, region, path);
     }
 
-    /** 위치가 매질 밖이면 위아래 3칸 안에서 매질 칸을 찾아 띄운다. */
+    /**
+     * If the location is outside the medium, finds a medium cell within 3 cells up/down to spawn
+     * in.
+     */
     List<UUID> spawnAt(
             SpeciesProfile p,
             Location at,
@@ -259,13 +271,17 @@ public final class WildlifeManager implements WildlifeService, Listener {
         return spawner.spawnAt(p, at, count, behaviour, reason, path);
     }
 
-    // ---------------------------------------------------------------- 물고기 떼·해상 이벤트 (WorldLink)
+    // ---------------------------------------------------------------- fish schools and sea events
+    // (WorldLink)
 
     void spotMoved(FishingSpot spot, @Nullable FishingSpot previous) {
         spawner.spotMoved(spot, previous);
     }
 
-    /** 물고기 대이동: 대상 어종 밀도 ×wildlifeBoost (World가 정한 배율, 없으면 balance 기본 ×2). */
+    /**
+     * Great migration: target species density ×wildlifeBoost (multiplier set by World, balance
+     * default ×2 if absent).
+     */
     void seaEventStarted(ActiveSeaEvent e) {
         boosts.seaEventStarted(e);
     }
@@ -274,7 +290,7 @@ public final class WildlifeManager implements WildlifeService, Listener {
         boosts.seaEventEnded(e);
     }
 
-    // ---------------------------------------------------------------- 정리
+    // ---------------------------------------------------------------- cleanup
 
     @EventHandler
     public void onEntitiesLoad(EntitiesLoadEvent event) {
@@ -294,7 +310,10 @@ public final class WildlifeManager implements WildlifeService, Listener {
         rigs.dropViewer(event.getPlayer(), true, tick);
     }
 
-    /** 콘텐츠 리로드: 리그가 바뀐 어종만 즉시 다시 만든다. 나머지는 다음 정리 때 자연스럽게 교체된다. */
+    /**
+     * Content reload: immediately recreates only species whose rig changed. The rest are replaced
+     * naturally at the next cleanup.
+     */
     void reloaded(ProfileIndex before, ProfileIndex after) {
         for (SpeciesProfile next : after.bySpecies().values()) {
             SpeciesProfile prev = before.bySpecies().get(next.species());
@@ -356,7 +375,7 @@ public final class WildlifeManager implements WildlifeService, Listener {
         return o == null ? Optional.empty() : Optional.ofNullable(view(o));
     }
 
-    /** ShadowDriver.isValid용: 마지막 면에 살아 있는지. */
+    /** For ShadowDriver.isValid: whether it is alive in the last frame. */
     boolean alive(UUID id) {
         FishOut o = applied.get(id);
         return o != null;

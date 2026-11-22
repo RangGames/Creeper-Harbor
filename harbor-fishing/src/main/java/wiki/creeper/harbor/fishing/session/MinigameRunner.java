@@ -33,8 +33,9 @@ import wiki.creeper.harbor.fishing.present.CatchPresenter;
 import wiki.creeper.harbor.fishing.roll.BaitRule;
 
 /**
- * 미니게임 진행 (docs 20 3.4 MINIGAME → RESULT). 낚시 미니게임과 Boss 텐션 세션을 매 틱 진행하고, 끝나면 미끼 차감·반환, 실패 연출, 성공 시
- * CatchRewards로 넘긴다. 메인 스레드 전용.
+ * Minigame progress (docs 20 3.4 MINIGAME → RESULT). Advances fishing minigames and Boss tension
+ * sessions every tick; when finished, handles bait deduction/return and failure presentation, and
+ * on success hands off to CatchRewards. Main thread only.
  */
 final class MinigameRunner {
 
@@ -78,7 +79,7 @@ final class MinigameRunner {
         this.tensions = tensions;
     }
 
-    // ------------------------------------------------------------------ 텐션 세션 (Boss)
+    // ------------------------------------------------------------------ Tension sessions (Boss)
 
     /** FishingService.openTension. */
     Optional<TensionSession> openTension(Player player, TensionSpec spec) {
@@ -140,7 +141,7 @@ final class MinigameRunner {
         display.lockMovement(player, false);
     }
 
-    // ------------------------------------------------------------------ 틱
+    // ------------------------------------------------------------------ Tick
 
     void tickMinigame(Player player, FishingSession s) {
         Minigame game = s.minigame;
@@ -249,9 +250,9 @@ final class MinigameRunner {
         return s != null && s.inputRight;
     }
 
-    // ------------------------------------------------------------------ 종료 · 중단
+    // ------------------------------------------------------------------ End · abort
 
-    /** 미니게임 종료 처리 (성공·실패·중단). */
+    /** Handles the minigame end (success, failure, abort). */
     private void end(Player player, FishingSession s, MinigameResult result) {
         FishDef fish = s.fish;
         Minigame game = s.minigame;
@@ -285,7 +286,7 @@ final class MinigameRunner {
         Bukkit.getPluginManager()
                 .callEvent(new MinigameEndEvent(player, fish, result, game.ticks()));
         if (hold != null && result != MinigameResult.CAUGHT) {
-            // 신화 예약 반환
+            // Return the mythic reservation
             mythic.releaseMythic(hold);
         }
         if (bait != null && player.isOnline()) {
@@ -319,12 +320,12 @@ final class MinigameRunner {
                 api.messages().send(player, "fishing.result.escaped");
             }
             case ABORTED -> {
-                // 강제 이동(점검) 등: 일반 미끼는 위에서 돌려줬다
+                // Forced move (maintenance) etc.: normal bait was returned above
             }
         }
     }
 
-    /** 미니게임 중이면 실패로 끝낸다 (미끼는 이미 차감, 천장 유지). */
+    /** Ends it as a failure if in a minigame (bait already deducted, pity kept). */
     void abort(Player player, MinigameResult reason) {
         FishingSession s = sessions.get(player.getUniqueId());
         Minigame game = s == null ? null : s.minigame;

@@ -8,8 +8,9 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.core.api.HarborItem;
 
 /**
- * 통발 수확 (docs 20 3.2). 수확 트랜잭션이 커밋되고 아이템을 준 뒤에 보낸다. Quest(통발 목표)·Collection이 듣는다. 통발 수확물은
- * FishCaughtEvent를 보내지 않으므로 도감 등록이 필요하면 이 이벤트를 듣는다.
+ * Trap harvest (docs 20 3.2). Fired after the harvest transaction commits and the items are given.
+ * Quest (trap objectives) and Collection listen. Trap catches do not fire FishCaughtEvent, so
+ * listen to this event if codex registration is needed.
  */
 public final class TrapHarvestEvent extends PlayerEvent {
 

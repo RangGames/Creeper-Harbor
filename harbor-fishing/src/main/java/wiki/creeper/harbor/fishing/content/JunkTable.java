@@ -14,19 +14,22 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 잡템 표 (fishing/junk.yml, 추가 제안, docs 20 3.4 '잡템'). 포획에 성공하면 지역 표의 항목마다 따로 굴려 맞은 것을 모두 추가 지급한다 (산호
- * 조각 5%·심해 결정 4%, '13. 제작 · 상점 가격' 4장). 보물 지도는 World가 TreasureDropHook을 등록했을 때만 판정한다.
+ * Junk table (fishing/junk.yml, proposed, docs 20 3.4 "junk"). On a successful catch, every entry
+ * of the region table is rolled separately and all hits are given in addition (coral fragment 5%,
+ * deep sea crystal 4%, "13. Crafting & shop prices" chapter 4). Treasure maps are rolled only when
+ * World has registered a TreasureDropHook.
  *
- * <p>지역 키는 맵 확정 전에 미리 적어 둘 수 있게 참조 검사를 하지 않는다 (regions.yml에 없는 지역은 판정에서 쓰이지 않을 뿐). 아이템은 검사한다.
+ * <p>Region keys are not reference-checked so they can be written before the map is finalized
+ * (regions missing from regions.yml are simply never used in rolls). Items are checked.
  *
- * @param regions 지역별 잡템
- * @param treasureChance 보물 지도 기본 확률 (× (1 + treasure_map_chance))
- * @param treasureRegions 보물 지도가 나오는 지역 (비우면 모든 지역)
+ * @param regions junk per region
+ * @param treasureChance base treasure map chance (× (1 + treasure_map_chance))
+ * @param treasureRegions regions where treasure maps drop (empty for all regions)
  */
 public record JunkTable(
         Map<RegionId, List<Entry>> regions, double treasureChance, Set<RegionId> treasureRegions) {
 
-    /** 잡템 하나. */
+    /** One junk entry. */
     public record Entry(ItemId item, double chance, int amount) {}
 
     public static final JunkTable EMPTY = new JunkTable(Map.of(), 0, Set.of());

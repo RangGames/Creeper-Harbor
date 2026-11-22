@@ -18,8 +18,9 @@ import org.bukkit.persistence.PersistentDataType;
 import wiki.creeper.harbor.wildlife.sim.FishOut;
 
 /**
- * /harbor wildlife debug ('17-3' 9.5): 개체 위에 상태·성향·위상 Text Display, 조향 벡터 파티클. 켠 관리자에게만 보인다. 저장하지
- * 않는 엔티티이고 harbor:wild 표시를 달아 남으면 정리된다.
+ * /harbor wildlife debug ('17-3' 9.5): state, temperament and phase Text Displays above fish, and
+ * steering vector particles. Visible only to admins who turned it on. The entities are not saved
+ * and carry the harbor:wild tag so leftovers get cleaned up.
  */
 final class DebugOverlay {
 
@@ -38,7 +39,7 @@ final class DebugOverlay {
         var _ = kit.tasks.timer(10, 10, this::tick);
     }
 
-    /** 켜고 끈다. 켜졌으면 true. */
+    /** Toggles it. Returns true if now on. */
     boolean toggle(Player admin) {
         Map<UUID, TextDisplay> own = labels.remove(admin.getUniqueId());
         if (own != null) {
@@ -127,7 +128,7 @@ final class DebugOverlay {
                                             "dist",
                                             String.format(
                                                     java.util.Locale.ROOT, "%.0f", o.nearest()))));
-            // 조향 벡터: 속도(흰 점) · 원하는 방향(불꽃)
+            // steering vectors: velocity (white dust) and desired direction (flame)
             for (int i = 1; i <= 4; i++) {
                 double k = i * 0.25;
                 admin.spawnParticle(

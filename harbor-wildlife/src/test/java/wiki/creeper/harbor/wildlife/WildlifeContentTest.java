@@ -28,7 +28,10 @@ import wiki.creeper.harbor.wildlife.content.WildlifeContent;
 import wiki.creeper.harbor.wildlife.sim.ProfileIndex;
 import wiki.creeper.harbor.wildlife.sim.SpeciesProfile;
 
-/** 저장소의 content/를 서버와 같은 로더로 읽어 Wildlife 파일에 오류가 없는지 본다 (다른 모듈 파일의 오류는 대상이 아님). */
+/**
+ * Reads the repository's content/ with the same loader as the server and checks the Wildlife files
+ * have no errors (errors in other modules' files are out of scope).
+ */
 class WildlifeContentTest {
 
     private static final Set<String> OWNED = Set.of("wildlife/", "rigs/wildlife.yml");
@@ -94,7 +97,8 @@ class WildlifeContentTest {
 
         SpeciesProfile squid = index.byFish().get(FishId.parse("fish/little_squid"));
         assertNotNull(squid);
-        // 어종 ID(little_squid)와 모델 이름(baby_squid)이 달라도 FishDef.model로 어종 리그를 찾는다
+        // finds the species rig via FishDef.model even when the species ID (little_squid) and model
+        // name (baby_squid) differ
         assertEquals("harbor:rig/fish/baby_squid", squid.rig().toString());
         assertNotNull(squid.threatAction());
         assertEquals("ink", squid.threatAction().name());

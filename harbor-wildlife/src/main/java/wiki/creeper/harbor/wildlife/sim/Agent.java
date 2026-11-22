@@ -9,7 +9,7 @@ import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.wildlife.api.WildState;
 import wiki.creeper.harbor.wildlife.content.BehaviourBook.ActionDef;
 
-/** 가상 개체 하나 ('17-3' 9.4 개체 상태 기계). 계산 스레드 전용 (잠금 없음). */
+/** One virtual fish ('17-3' 9.4 fish state machine). Simulation thread only (no locking). */
 final class Agent {
 
     final UUID id;
@@ -44,12 +44,12 @@ final class Agent {
     @Nullable UUID school;
     boolean leader;
 
-    // 위협
+    // threat
     Vec3 threat = Vec3.ZERO;
     @Nullable Vec3 pendingThreat;
     final Map<UUID, Double> startled = new HashMap<>();
 
-    // 찌 접근
+    // bobber approach
     @Nullable Vec3 hook;
     double deadline;
     boolean claimed;
@@ -58,7 +58,7 @@ final class Agent {
     double biteEnds;
     boolean hidden;
 
-    // 연출
+    // scripted
     final boolean scripted;
     final boolean hold;
     final boolean ignoreThreat;
@@ -68,14 +68,14 @@ final class Agent {
     final double airBaseY;
     final double bobPhase;
 
-    // 출력
+    // output
     String animation;
     double animationSpeed = 1;
     @Nullable String oneShot;
     int oneShotSeq;
     int teleportSeq;
 
-    // 계산
+    // simulation
     double farAccum;
     double surfaceY = Double.NaN;
     double surfaceAt;
@@ -124,7 +124,7 @@ final class Agent {
         return school != null && !leader;
     }
 
-    /** 고유 동작·쉬기·도주가 끝나면 돌아갈 상태. */
+    /** State to return to after a special action, rest or flight ends. */
     WildState cruiseState() {
         return member() ? WildState.SCHOOL : WildState.CRUISE;
     }

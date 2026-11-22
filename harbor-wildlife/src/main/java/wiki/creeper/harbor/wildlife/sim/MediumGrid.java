@@ -5,7 +5,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 월드별 매질 격자 ('17-3' 9.4). 청크 단위 {@link ChunkCells}를 담는다. 청크 객체는 변경 불가라 교체만 하고, 계산 스레드는 잠금 없이 읽는다.
+ * Per-world medium grid ('17-3' 9.4). Holds per-chunk {@link ChunkCells}. Chunk objects are
+ * immutable and only replaced, so the simulation thread reads without locking.
  */
 public final class MediumGrid {
 
@@ -43,7 +44,7 @@ public final class MediumGrid {
         worlds.remove(world);
     }
 
-    /** 한 월드의 조회기. */
+    /** Lookup for one world. */
     public MediumField field(String world) {
         return (x, y, z) -> {
             Map<Long, ChunkCells> chunks = worlds.get(world);

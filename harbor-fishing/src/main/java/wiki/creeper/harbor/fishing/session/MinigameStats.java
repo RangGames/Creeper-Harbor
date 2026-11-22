@@ -10,8 +10,9 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.fishing.api.MinigameResult;
 
 /**
- * 등급별 미니게임 성공률·평균 시간 (docs 20 3.4 '목표 성공률 확인', /harbor fishing stats). 최근 24시간만 메모리에 둔다 (서버별, 지연 쓰기
- * 대상인 통계 테이블은 다음 단계). 메인 스레드 전용, 서버 API 없음.
+ * Per-grade minigame success rate and average time (docs 20 3.4 "check target success rate",
+ * /harbor fishing stats). Only the last 24 hours are kept in memory (per server; a write-behind
+ * statistics table is a later step). Main thread only, no server API.
  */
 public final class MinigameStats {
 
@@ -20,7 +21,7 @@ public final class MinigameStats {
 
     private record Entry(Instant at, Grade grade, MinigameResult result, int ticks) {}
 
-    /** 한 등급의 요약. */
+    /** Summary for one grade. */
     public record Summary(int attempts, int caught, double averageSeconds) {
         public double successRate() {
             return attempts == 0 ? 0 : (double) caught / attempts;

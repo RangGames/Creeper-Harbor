@@ -35,15 +35,16 @@ import wiki.creeper.harbor.wildlife.sim.ProfileIndex;
 import wiki.creeper.harbor.wildlife.sim.SpeciesProfile;
 
 /**
- * /harbor wildlife … ('17-3' 9.5). Core가 harbor.admin.wildlife를 걸고, 하위 명령마다
- * harbor.admin.wildlife.wild를 더 본다.
+ * /harbor wildlife … ('17-3' 9.5). Core gates on harbor.admin.wildlife, and each subcommand also
+ * checks harbor.admin.wildlife.wild.
  *
  * <ul>
- *   <li>spawn &lt;어종&gt; [수량] [동작]: 시선 앞 4블록에 소환 (시제품 wild·wild5 대체)
- *   <li>clear [반경]: 주변 또는 전체 제거
- *   <li>debug: 개체 위에 상태·성향·위상 Text Display, 조향 벡터 파티클
- *   <li>stats: 개체 수, 표시 부품 수(플레이어별), 계산 시간, 반영 지연
- *   <li>budget &lt;플레이어&gt;: 그 플레이어의 표시 목록과 예산 사용량
+ *   <li>spawn &lt;species&gt; [count] [action]: summons 4 blocks ahead of the line of sight
+ *       (replaces the prototype's wild/wild5)
+ *   <li>clear [radius]: removes nearby or all fish
+ *   <li>debug: state, temperament and phase Text Displays above fish, steering vector particles
+ *   <li>stats: fish count, displayed part count (per player), compute time, apply lag
+ *   <li>budget &lt;player&gt;: that player's display list and budget usage
  * </ul>
  */
 final class WildCommands {

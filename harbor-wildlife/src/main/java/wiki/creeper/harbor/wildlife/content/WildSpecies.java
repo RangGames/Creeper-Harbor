@@ -13,8 +13,9 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.wildlife.api.Medium;
 
 /**
- * wildlife/species.yml 항목 (추가 제안 형식, '17-3' 9.3). 어종별 이동 값. 비운 값(0·null)은 리그 몸길이와 behaviours.yml에서
- * 자동으로 채운다 ({@code SpeciesProfile.resolve}). 디자이너는 덮어쓸 값만 적는다.
+ * wildlife/species.yml entry (proposed format, '17-3' 9.3). Per-species movement values. Empty
+ * values (0/null) are filled automatically from the rig body length and behaviours.yml ({@code
+ * SpeciesProfile.resolve}). Designers write only the values they want to override.
  *
  * <pre>
  * - id: wild/harbor_mackerel
@@ -25,18 +26,19 @@ import wiki.creeper.harbor.wildlife.api.Medium;
  *   depth: [1, 6]
  * </pre>
  *
- * @param special 고유 동작 (behaviours.yml actions 이름). 성향을 정하지 않으면 이 동작의 group이 성향이 된다
- * @param group 성향 덮어쓰기
- * @param cruiseSpeed 순항 속도 (블록/초, 0이면 몸길이로 계산)
- * @param turnRate 최대 회전 속도 (도/초, 0이면 템플릿 기본)
- * @param depthMin 수면 아래 최소 깊이 (블록, 물·용암)
- * @param depthMax 수면 아래 최대 깊이 (0이면 제한 없음)
- * @param schoolMin 무리 최소 마릿수 (0이면 몸길이로 계산)
- * @param spawnWeight 자연 스폰 가중치 (등급 가중치에 곱함)
- * @param threatRadius 위협 감지 반경 덮어쓰기 (0이면 성향 값)
- * @param rig 리그 (없으면 rig/fish/&lt;이름&gt;, 그것도 없으면 rig/wild/&lt;템플릿&gt;)
- * @param scale 리그 크기 배율
- * @param enabled 끄면 자연 스폰하지 않는다 (spawnScripted는 가능)
+ * @param special special action (name from behaviours.yml actions). If no temperament is set, this
+ *     action's group becomes the temperament
+ * @param group temperament override
+ * @param cruiseSpeed cruise speed (blocks/second, 0 computes it from body length)
+ * @param turnRate max turn rate (degrees/second, 0 uses the template default)
+ * @param depthMin minimum depth below the surface (blocks, water/lava)
+ * @param depthMax maximum depth below the surface (0 means unlimited)
+ * @param schoolMin minimum school size (0 computes it from body length)
+ * @param spawnWeight natural spawn weight (multiplied into the grade weight)
+ * @param threatRadius threat detection radius override (0 uses the temperament value)
+ * @param rig rig (defaults to rig/fish/&lt;name&gt;, then rig/wild/&lt;template&gt;)
+ * @param scale rig scale multiplier
+ * @param enabled if off, no natural spawns (spawnScripted still works)
  */
 public record WildSpecies(
         HarborId id,

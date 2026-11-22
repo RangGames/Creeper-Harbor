@@ -21,10 +21,12 @@ import wiki.creeper.harbor.world.api.RegionService;
 import wiki.creeper.harbor.world.api.SeaEventService;
 
 /**
- * Harbor-Wildlife ('17-3' 9장): 바다를 살아 보이게 하는 야생 물고기. 바닐라 몹 뇌 대신 자체 조향(가상 개체, 9.4 비교표)으로 계산 스레드에서
- * 움직이고, 보이는 개체만 Core 리그(RigInstance)로 그린다. 출현 판정에는 영향을 주지 않는다 (판정은 Fishing 단독, 9.1 원칙). Fishing과는
- * Wildlife → Fishing 한 방향 (FishingCastEvent·claimShadow·ShadowDriver). DB·Redis 없음 (개체는 저장하지 않고
- * 서버마다 독립).
+ * Harbor-Wildlife ('17-3' chapter 9): wild fish that make the sea look alive. Moves on a simulation
+ * thread with its own steering (virtual fish, 9.4 comparison table) instead of vanilla mob brains,
+ * and draws only visible fish with Core rigs (RigInstance). Does not affect catch rolls (rolls are
+ * Fishing's alone, 9.1 principle). Depends on Fishing one way, Wildlife → Fishing
+ * (FishingCastEvent, claimShadow, ShadowDriver). No DB or Redis (fish are not saved and each server
+ * is independent).
  */
 public final class HarborWildlifePlugin extends HarborModule {
 

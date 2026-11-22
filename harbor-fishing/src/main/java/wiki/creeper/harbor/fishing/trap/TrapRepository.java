@@ -19,7 +19,10 @@ import wiki.creeper.harbor.common.ledger.LedgerError;
 import wiki.creeper.harbor.common.ledger.LedgerException;
 import wiki.creeper.harbor.common.util.Json;
 
-/** traps SQL. 설치·계산·수확·회수는 모두 즉시 트랜잭션이다 (CLAUDE.md 쓰기 원칙). */
+/**
+ * traps SQL. Placement, calculation, harvest and retrieval are all immediate transactions
+ * (CLAUDE.md write principles).
+ */
 public final class TrapRepository {
 
     private static final String COLUMNS =
@@ -74,7 +77,10 @@ public final class TrapRepository {
         return rows;
     }
 
-    /** 설치. 같은 부표 자리(시즌·월드·x·z)에 이미 있으면 SQLIntegrityConstraintViolationException. */
+    /**
+     * Placement. SQLIntegrityConstraintViolationException if one already exists at the same buoy
+     * spot (season, world, x, z).
+     */
     public static long insert(
             Connection c,
             UUID owner,
@@ -159,9 +165,10 @@ public final class TrapRepository {
     }
 
     /**
-     * 계산 결과 저장. 조건부 갱신(WHERE last_calc = 이전 값)으로 두 번 계산을 막는다.
+     * Saves a calculation result. A conditional update (WHERE last_calc = previous value) prevents
+     * double calculation.
      *
-     * @return 갱신했으면 true
+     * @return true if updated
      */
     public static boolean saveCalc(
             Connection c,
@@ -188,7 +195,10 @@ public final class TrapRepository {
         }
     }
 
-    /** 수확: 항목을 지우고 last_harvest를 갱신한다. 지운 항목을 돌려준다 (이미 없으면 빠진다). */
+    /**
+     * Harvest: removes entries and updates last_harvest. Returns the removed entries (ones already
+     * gone are left out).
+     */
     public static List<TrapCatch> take(
             Connection c, long id, UUID owner, Set<String> uids, Instant now) throws SQLException {
         Optional<TrapRow> row = byId(c, id, true);
@@ -214,7 +224,7 @@ public final class TrapRepository {
         return taken;
     }
 
-    /** 우편 회수 중 한 항목을 지운다 (우편 커밋 뒤). */
+    /** Removes one entry during mail retrieval (after the mail commits). */
     public static void dropEntry(Connection c, long id, String uid) throws SQLException {
         Optional<TrapRow> row = byId(c, id, true);
         if (row.isEmpty()) {
@@ -230,7 +240,7 @@ public final class TrapRepository {
         }
     }
 
-    /** 미끼를 넣는다. 용량을 넘으면 false (아무것도 바뀌지 않음). */
+    /** Adds bait. False if it would exceed capacity (nothing changes). */
     public static boolean addBait(Connection c, long id, UUID owner, int amount, int capacity)
             throws SQLException {
         try (PreparedStatement ps =
@@ -246,7 +256,10 @@ public final class TrapRepository {
         }
     }
 
-    /** 슬롯 확장 (CurrencyService.atomic의 추가 SQL). 한도를 넘으면 LedgerException(REJECTED)으로 트랜잭션을 되돌린다. */
+    /**
+     * Slot expansion (extra SQL for CurrencyService.atomic). Over the limit, rolls back the
+     * transaction with LedgerException (REJECTED).
+     */
     public static void expandSlot(Connection c, long id, UUID owner, int maxExtra)
             throws SQLException {
         try (PreparedStatement ps =
@@ -263,8 +276,10 @@ public final class TrapRepository {
     }
 
     /**
-     * 철거 (주인 확인, 내용물이 비었을 때만): 빈 통발을 지운다. 지웠으면 그때 들어 있던 미끼 수, 못 지웠으면 -1. 미끼 수는 같은 트랜잭션에서 잠그고 읽는다:
-     * 메뉴를 열 때 읽은 값으로 돌려주면 그 사이 넣은 미끼가 환불 없이 사라졌다.
+     * Removal (owner check, only when empty): deletes an empty trap. Returns the bait count it held
+     * if deleted, -1 if not. The bait count is locked and read in the same transaction: returning
+     * the value read when the menu was opened made bait added in the meantime vanish without a
+     * refund.
      */
     public static int deleteEmpty(Connection c, long id, UUID owner) throws SQLException {
         int bait;
@@ -293,7 +308,7 @@ public final class TrapRepository {
         }
     }
 
-    /** last_harvest가 before보다 오래된 통발 (자동 회수 대상). */
+    /** Traps whose last_harvest is older than before (auto-retrieval targets). */
     public static List<TrapRow> stale(Connection c, int season, Instant before, int limit)
             throws SQLException {
         try (PreparedStatement ps =

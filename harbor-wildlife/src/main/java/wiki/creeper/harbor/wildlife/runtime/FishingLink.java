@@ -29,20 +29,24 @@ import wiki.creeper.harbor.wildlife.sim.FishOut;
 import wiki.creeper.harbor.wildlife.sim.MediumField;
 
 /**
- * 먹이 · 미끼 반응 (Fishing 연결, '17-3' 9.4). Wildlife → Fishing 한 방향: Fishing 이벤트를 듣고 Fishing
- * api(claimShadow·ShadowDriver)만 부른다. 야생 개체는 출현 판정에 영향을 주지 않는다 (판정 결과가 연출을 고른다).
+ * Feeding and bait reactions (Fishing link, '17-3' 9.4). One way, Wildlife → Fishing: listens to
+ * Fishing events and calls only the Fishing api (claimShadow, ShadowDriver). Wild fish do not
+ * affect catch rolls (the roll result picks the presentation).
  *
  * <ol>
- *   <li>FishingCastEvent: 같은 매질 반경 10블록 안 CRUISE 개체 중 최대 2마리가 성향별 확률로 APPROACH
- *   <li>접근 개체 중 판정된 어종과 같은 개체가 있으면 claimShadow로 대기 중 그림자를 맡고, 입질 때 bite 후 찌 아래로 잠겨 Fishing 그림자가 같은
- *       자리에서 이어받는다
- *   <li>FishBiteEvent: 다른 접근 개체는 "빼앗긴" 모습으로 dart 후 CRUISE
- *   <li>MinigameEndEvent · FishingSessionEndEvent: 접근 개체를 풀어 준다. 줄이 끊기면 주변 개체가 놀란다
+ *   <li>FishingCastEvent: up to 2 CRUISE fish of the same medium within 10 blocks APPROACH, with a
+ *       per-temperament chance
+ *   <li>If an approaching fish matches the rolled species, it takes over the pending shadow via
+ *       claimShadow; on bite it plays bite, sinks under the bobber, and the Fishing shadow takes
+ *       over from the same spot
+ *   <li>FishBiteEvent: the other approaching fish dart away "beaten to it" and return to CRUISE
+ *   <li>MinigameEndEvent, FishingSessionEndEvent: releases the approaching fish. If the line snaps,
+ *       nearby fish are startled
  * </ol>
  */
 final class FishingLink implements Listener {
 
-    /** 캐스팅 하나에 다가온 개체. */
+    /** Fish that approached for one cast. */
     private record Cast(Location hook, List<UUID> approachers, @Nullable UUID claimed) {}
 
     private final WildlifeKit kit;
@@ -111,7 +115,8 @@ final class FishingLink implements Listener {
             if (claimed == null && o.profile().fish().id().equals(event.fish().id())) {
                 if (event.claimShadow(new WildShadow(id, angler, hook))) {
                     claimed = id;
-                    // Fishing도 ShadowDriver.approach를 부른다 (같은 값으로 다시 맞출 뿐)
+                    // Fishing also calls ShadowDriver.approach (this just sets the same value
+                    // again)
                     manager.engine()
                             .submit(world -> world.approach(id, hookPos, seconds, true, angler));
                     continue;
@@ -177,7 +182,11 @@ final class FishingLink implements Listener {
         return casts.size();
     }
 
-    /** 대기 중 그림자 대행 (Fishing api SPI). 모든 메서드는 메인 스레드에서 불리고, 계산 스레드에는 요청만 넣는다. 위치는 마지막 계산 면 기준. */
+    /**
+     * Stand-in for the pending shadow (Fishing api SPI). Every method is called on the main thread
+     * and only queues requests to the simulation thread. Positions are as of the last simulation
+     * frame.
+     */
     private final class WildShadow implements ShadowDriver {
 
         private final UUID fish;

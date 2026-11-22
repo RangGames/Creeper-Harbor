@@ -1,19 +1,19 @@
 package wiki.creeper.harbor.wildlife.api;
 
-/** 개체 상태 기계 ('17-3' 9.4 표). */
+/** Fish state machine ('17-3' 9.4 table). */
 public enum WildState {
-    /** 집 위치 반경 안 목표점을 골라 헤엄. */
+    /** Swims toward targets picked within a radius of home. */
     CRUISE,
-    /** 쉬기 (속도 ×0.15, idle 재생). */
+    /** Resting (speed ×0.15, plays idle). */
     IDLE,
-    /** 고유 동작 재생. */
+    /** Plays a special action. */
     ACTION,
-    /** 위협 반대 방향으로 도주. */
+    /** Flees away from the threat. */
     FLEE,
-    /** 찌 주변을 천천히 돎. */
+    /** Slowly circles the bobber. */
     APPROACH,
-    /** 입질 (Fishing 그림자로 넘김). */
+    /** Bite (handed over to the Fishing shadow). */
     BITE,
-    /** 무리 대장을 따라 분리·정렬·응집. */
+    /** Follows the school leader with separation, alignment and cohesion. */
     SCHOOL
 }

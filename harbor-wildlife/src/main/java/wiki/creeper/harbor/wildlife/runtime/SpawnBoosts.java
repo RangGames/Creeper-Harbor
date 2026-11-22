@@ -10,7 +10,10 @@ import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.world.api.ActiveSeaEvent;
 
-/** 스폰 밀도 배율 (해상 이벤트 물고기 대이동·WildlifeService.boost). 지역 목표 마릿수와 어종 가중치에 곱한다. 메인 스레드 전용. */
+/**
+ * Spawn density multipliers (sea event great migration, WildlifeService.boost). Multiplied into the
+ * region target count and species weight. Main thread only.
+ */
 final class SpawnBoosts {
 
     private record Boost(
@@ -22,7 +25,10 @@ final class SpawnBoosts {
 
     private final Map<String, Boost> boosts = new HashMap<>();
 
-    /** 물고기 대이동: 대상 어종 밀도 ×wildlifeBoost (World가 정한 배율, 없으면 balance 기본 ×2). */
+    /**
+     * Great migration: target species density ×wildlifeBoost (multiplier set by World, balance
+     * default ×2 if absent).
+     */
     void seaEventStarted(ActiveSeaEvent e) {
         if (e.phase() != ActiveSeaEvent.Phase.ACTIVE || e.wildlifeBoost() <= 1) {
             return;
@@ -35,7 +41,7 @@ final class SpawnBoosts {
                             try {
                                 fish.add(FishId.parse(fx.fish()));
                             } catch (IllegalArgumentException ignored) {
-                                // 잘못된 어종 ID는 World 콘텐츠 검사가 잡는다
+                                // invalid species IDs are caught by World's content checks
                             }
                         });
         boosts.put(
@@ -60,7 +66,7 @@ final class SpawnBoosts {
         boosts.remove(source);
     }
 
-    /** 끝난 배율을 지운다. */
+    /** Clears expired multipliers. */
     void prune() {
         Instant now = Instant.now();
         boosts.values().removeIf(b -> b.until().isBefore(now));

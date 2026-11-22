@@ -15,11 +15,13 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
 
 /**
- * Core RigInstance로 그리는 그림자 (docs 20 3.4, '16. 플러그인 설계' 5.10). 어종 리그 {@code rig/fish/<모델
- * 이름>}(FishRigs)이 있으면 그것, 없으면 등급 프리셋의 shadow_rig(예: rig/fish/shadow_small)를 캐스터에게만 띄운다. 크기는 프리셋
- * shadow_scale(전설은 배보다 크게). 동작은 대기 swim, 입질 bite, 점프 leap(한 번 재생 후 swim)이고 리그에 없는 동작은 건너뛴다. 둘 다 없으면
- * {@link DisplayShadowPresenter}로 대신한다. 그림자 감별(feature_shadow_grade)은 모든 부품 발광으로 표시한다 (색은 리그
- * glow_color).
+ * Shadow drawn with Core RigInstance (docs 20 3.4, "16. Plugin design" 5.10). Shows the species rig
+ * {@code rig/fish/<model name>} (FishRigs) if present, otherwise the grade preset's shadow_rig
+ * (e.g. rig/fish/shadow_small), to the caster only. Size is the preset shadow_scale (legendaries
+ * are bigger than the boat). Animations are swim while waiting, bite on the bite and leap for the
+ * jump (played once, then swim); animations missing from the rig are skipped. If neither rig
+ * exists, {@link DisplayShadowPresenter} is used instead. Shadow identification
+ * (feature_shadow_grade) is shown by making all parts glow (color from the rig glow_color).
  */
 public final class RigShadowPresenter implements ShadowPresenter {
 
@@ -39,9 +41,10 @@ public final class RigShadowPresenter implements ShadowPresenter {
         this.tasks = tasks;
     }
 
-    /** 이 어종의 그림자 리그 (어종 리그 → 등급 기본). */
+    /** Shadow rig of this species (species rig → grade default). */
     Optional<RigId> rigFor(FishDef fish, FishingPresets.GradePreset preset) {
-        // 어종 리그는 모델 이름(FishDef.model)을 따른다. 없으면 예전 규칙(어종 ID 이름)
+        // The species rig follows the model name (FishDef.model). Otherwise the old rule (species
+        // ID name)
         RigId own = FishRigs.rigOf(fish);
         if (rigs.ids().contains(own)) {
             return Optional.of(own);
@@ -73,7 +76,8 @@ public final class RigShadowPresenter implements ShadowPresenter {
         if (rig.isEmpty()) {
             return fallback.spawn(viewer, at, fish, preset, gradeGlow);
         }
-        // shadow_scale은 그림자 몸길이(블록)로 본다. 몸길이(length)가 있는 리그(어종 리그)는 그 길이에 맞추고, 없으면 배율 그대로
+        // shadow_scale is treated as the shadow body length (blocks). Rigs with a body length
+        // (species rigs) are fitted to it; otherwise the multiplier is used as is
         double size = Math.max(0.1, preset.shadowScale());
         double scale =
                 rigs.definition(rig.get())
@@ -137,7 +141,7 @@ public final class RigShadowPresenter implements ShadowPresenter {
                 }
             }
             if (!rig.playOnce(LEAP, SWIM)) {
-                // 리그에 점프 동작이 없으면 루트를 올렸다 내린다
+                // If the rig has no jump animation, raise and lower the root
                 Location base = rig.location();
                 rig.moveTo(base.clone().add(0, JUMP_HEIGHT, 0), JUMP_TICKS / 2);
                 var _ = tasks.later(JUMP_TICKS / 2, () -> rig.moveTo(base, JUMP_TICKS / 2));

@@ -16,8 +16,10 @@ import wiki.creeper.harbor.fishing.roll.RollEngine;
 import wiki.creeper.harbor.fishing.roll.RollModifiers;
 
 /**
- * 결과 검산 (docs 20 3.4, /harbor fishing simulate). 보정 없는 기본 조건(낮·맑음·미끼 없음·3차·모든 서버 플래그)으로 판정해 등급 비율을
- * 보고, 전설은 천장 확률로 첫 포획까지 평균 캐스팅 수를 계산한다 (목표 약 200회).
+ * Result verification (docs 20 3.4, /harbor fishing simulate). Rolls under the base conditions
+ * without modifiers (day, clear, no bait, 3rd tier, all server flags) and reports grade ratios; for
+ * legendaries it computes the average number of casts until the first catch from the pity chance
+ * (target about 200).
  */
 final class Simulation {
 
@@ -58,7 +60,10 @@ final class Simulation {
         return new SimulationResult(count, grades, species, legendAverage);
     }
 
-    /** 어종 하나 기준: 조건을 만족한 캐스팅마다 천장 확률로 판정해 첫 성공까지 평균. */
+    /**
+     * Per species: rolls the pity chance on every cast that meets the conditions and averages until
+     * the first success.
+     */
     private static double averageCastsToLegend(RollEngine engine, SplittableRandom random) {
         long total = 0;
         for (int trial = 0; trial < LEGEND_TRIALS; trial++) {

@@ -4,33 +4,35 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * 희귀 이상 출현 보정 합성 (docs 20 3.4 5단계, '7. 밸런스 기획' 4.2). 최종 배율 = (1 + 미끼)(1 + 직업)(1 + 요리)(1 + 이벤트)이고,
- * 합계 배율은 1 + 상한(0.6)을 넘지 않는다. 범주별 값은 보정자 출처 접두사로 묶은 ADD 합이고, 요리는 가장 큰 1종만 쓴다. 서버 API 없음 (단위 테스트).
+ * Combines rare-or-better spawn modifiers (docs 20 3.4 step 5, "7. Balance design" 4.2). Final
+ * multiplier = (1 + bait)(1 + job)(1 + food)(1 + event), and the total multiplier never exceeds 1 +
+ * cap (0.6). Per-category values are ADD sums grouped by modifier source prefix; for food only the
+ * single largest is used. No server API (unit tests).
  */
 public final class GradeBonus {
 
-    /** 보정 범주. */
+    /** Modifier category. */
     public enum Category {
-        /** 미끼·장비 (bait:, 낚싯대·미끼 아이템 stats). */
+        /** Bait and gear (bait:, rod and bait item stats). */
         BAIT,
-        /** 직업 (job:, skill:, 그 밖의 출처). */
+        /** Job (job:, skill:, other sources). */
         JOB,
-        /** 요리·도감·수족관 (food:, codex_season, aquarium_stage). */
+        /** Food, codex, aquarium (food:, codex_season, aquarium_stage). */
         FOOD,
-        /** 이벤트·낚시터 (event:, spot:). */
+        /** Events and fishing spots (event:, spot:). */
         EVENT
     }
 
-    /** 범주별 누적기. */
+    /** Per-category accumulator. */
     public static final class Sum {
         private final Map<Category, Double> sums = new EnumMap<>(Category.class);
         private double bestFood;
 
-        /** 보정자 하나를 출처로 분류해 더한다. */
+        /** Classifies one modifier by its source and adds it. */
         public Sum add(String source, double value) {
             Category category = categoryOf(source);
             if (source.startsWith("food:")) {
-                // 요리는 가장 큰 1종만
+                // Food: only the single largest
                 bestFood = Math.max(bestFood, value);
             } else {
                 sums.merge(category, value, Double::sum);
@@ -48,7 +50,7 @@ public final class GradeBonus {
             return category == Category.FOOD ? v + bestFood : v;
         }
 
-        /** 범주 곱 − 1 (상한 적용 전). */
+        /** Product of categories − 1 (before the cap). */
         public double combined() {
             double mult = 1;
             for (Category c : Category.values()) {
@@ -57,7 +59,7 @@ public final class GradeBonus {
             return mult - 1;
         }
 
-        /** 상한 적용. */
+        /** Applies the cap. */
         public double capped(double cap) {
             return Math.clamp(combined(), -1, cap);
         }

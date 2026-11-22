@@ -75,15 +75,18 @@ import wiki.creeper.harbor.fishing.trap.TrapManager;
 import wiki.creeper.harbor.jobs.api.JobsService;
 
 /**
- * 낚시 한 번의 판정과 진행 (docs 20 3.4). 바닐라 낚시 이벤트를 세션 상태 기계에 연결한다. 바닐라 루트는 모두 취소하고 모든 포획은 미니게임을 거친다. 메인
- * 스레드 전용.
+ * Rolls and progress of a single fishing attempt (docs 20 3.4). Connects vanilla fishing events to
+ * the session state machine. All vanilla loot is cancelled and every catch goes through the
+ * minigame. Main thread only.
  *
- * <p>흐름: 던짐(CAST, 대기 시간 설정) → 찌가 물에 닿음(출현 판정, FishingCastEvent, 그림자 접근, WAITING) → 입질(BITE) →
- * 챔질(HOOKED, 미끼 차감) → 미니게임(MINIGAME) → 결과(RESULT, 크기·품질·아이템·잡템·EXP·연출) → IDLE.
+ * <p>Flow: throw (CAST, sets the wait time) → bobber hits water (spawn roll, FishingCastEvent,
+ * shadow approach, WAITING) → bite (BITE) → hook (HOOKED, bait deduction) → minigame (MINIGAME) →
+ * result (RESULT, size/quality/item/junk/EXP/presentation) → IDLE.
  *
- * <p>미니게임 조작: Shift(웅크리기)를 누르고 있으면 감기, A·D로 물고기 방향 따라가기 (Player Input 동기화). 설정에서 시점 회전 방식을 고를 수 있고
- * 탈것 위에서는 자동으로 시점 회전이다. 문서의 "낚싯대 consumable을 누르고 있기" 방식은 바닐라 낚싯대 동작과의 충돌 여부를 Phase 1에서 확인한 뒤 바꾼다
- * (docs 20 3.8 열린 질문).
+ * <p>Minigame controls: holding Shift (sneak) reels, A/D follows the fish direction (Player Input
+ * sync). A camera-rotation mode can be chosen in settings, and it is automatically camera rotation
+ * while riding a vehicle. The docs' "hold the rod consumable" approach will be switched to after
+ * Phase 1 confirms whether it conflicts with vanilla rod behaviour (docs 20 3.8 open question).
  */
 public final class FishingManager implements FishingService, Listener {
 
@@ -123,7 +126,8 @@ public final class FishingManager implements FishingService, Listener {
         this.ctx = new CastContext(api, seaEvents, log);
         this.engine = new RollEngine(api.content().snapshot(), balance());
         this.mythicCounter = new MythicCounter(api.database());
-        // 그림자: Core 리그(어종 리그 → 등급 기본 리그), 리그가 없으면 ItemDisplay 하나
+        // Shadow: Core rig (species rig → grade default rig); a single ItemDisplay if there is no
+        // rig
         this.shadows =
                 new RigShadowPresenter(
                         api.rigs(), new DisplayShadowPresenter(plugin, tasks), tasks);
@@ -152,14 +156,15 @@ public final class FishingManager implements FishingService, Listener {
                         sessions, tensions);
     }
 
-    /** Paper의 위치 조회는 null 가능으로 표시되어 있지만 접속 중인 엔티티는 항상 위치가 있다. */
+    /** Paper marks location lookups as nullable, but an online entity always has a location. */
     static Location loc(Entity entity) {
         return Locs.of(entity);
     }
 
     public void start() {
         var _ = tasks.timer(1, 1, this::tick);
-        // harbor:event 해상 이벤트 (World 발행). 핸들러는 Lettuce 스레드라 메인으로 넘긴다
+        // harbor:event sea events (published by World). The handler runs on a Lettuce thread, so
+        // hand off to the main thread
         api.bus()
                 .subscribe(
                         SeaEventMessage.CHANNEL,
@@ -177,7 +182,10 @@ public final class FishingManager implements FishingService, Listener {
         return traps;
     }
 
-    /** 서버 이동 전 (Core HandoffBlocker): 미니게임 중이면 실패로 끝내고 이동을 허용한다. */
+    /**
+     * Before a server move (Core HandoffBlocker): if in a minigame, ends it as a failure and allows
+     * the move.
+     */
     public HandoffBlocker handoffBlocker() {
         return (player, destination) -> {
             abort(player, MinigameResult.ESCAPED);
@@ -323,16 +331,20 @@ public final class FishingManager implements FishingService, Listener {
         return rewards.createCatch(player, fishId, options);
     }
 
-    // ------------------------------------------------------------------ 컨텍스트
+    // ------------------------------------------------------------------ Context
 
     /**
-     * 위치의 지역 (regions.yml 경계). 월드 이름은 balance.yml world_alias로 harbor_main 등에 대응시킬 수 있다 (개발 서버용).
+     * Region of a location (regions.yml bounds). World names can be mapped to harbor_main etc. via
+     * balance.yml world_alias (for development servers).
      */
     public Optional<RegionDef> regionAt(Location loc) {
         return ctx.regionAt(loc);
     }
 
-    /** 찌 위치의 지역 키. World가 등록한 RegionKeyResolver가 먼저, 없으면 regions.yml. */
+    /**
+     * Region key at the bobber location. The RegionKeyResolver registered by World first, otherwise
+     * regions.yml.
+     */
     Optional<RegionKeyResolver.RegionKey> regionKey(Location bobber) {
         return ctx.regionKey(bobber);
     }
@@ -345,7 +357,7 @@ public final class FishingManager implements FishingService, Listener {
         return ctx.context(player, key, bait);
     }
 
-    /** 판정 보정 (범주 곱, '7. 밸런스 기획' 4.2). */
+    /** Roll modifiers (category product, "7. Balance design" 4.2). */
     RollModifiers modifiers(UUID uuid, Map<String, Double> gearStats, RegionId region) {
         return ctx.modifiers(uuid, gearStats, region);
     }
@@ -359,8 +371,11 @@ public final class FishingManager implements FishingService, Listener {
     }
 
     /**
-     * 인벤토리가 가득 차면 발밑에 떨어뜨리고 60초 동안 본인만 주울 수 있게 한다. 통발 수확·회수·환불처럼 DB 커밋 뒤 주는 아이템. 그 사이 나갔거나 서버 이동
-     * 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 (DB에서는 이미 빠졌다) 우편으로 보낸다. 우편함이 없으면 기록만 남긴다.
+     * If the inventory is full, drops it at the feet and lets only the owner pick it up for 60
+     * seconds. For items given after a DB commit, such as trap harvests, retrievals and refunds. If
+     * the player left in the meantime or the server-move snapshot was already taken, putting it in
+     * the inventory would not be saved (it is already gone from the DB), so it is sent by mail. If
+     * there is no mailbox, it is only logged.
      */
     public void give(Player player, ItemStack stack) {
         UUID uuid = player.getUniqueId();
@@ -384,7 +399,7 @@ public final class FishingManager implements FishingService, Listener {
                                 });
     }
 
-    // ------------------------------------------------------------------ 낚시 이벤트
+    // ------------------------------------------------------------------ Fishing events
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onFish(PlayerFishEvent event) {
@@ -400,12 +415,12 @@ public final class FishingManager implements FishingService, Listener {
             case IN_GROUND, CAUGHT_ENTITY ->
                     casts.endEarly(player, s, FishingSessionEndEvent.Reason.INTERRUPTED);
             default -> {
-                // LURED: 무시
+                // LURED: ignored
             }
         }
     }
 
-    // ------------------------------------------------------------------ 틱
+    // ------------------------------------------------------------------ Tick
 
     private void tick() {
         ticks++;
@@ -420,7 +435,8 @@ public final class FishingManager implements FishingService, Listener {
                 case WAITING, BITE -> {
                     FishHook hook = s.hook;
                     if (hook == null || !hook.isValid()) {
-                        // 바닐라가 이벤트 없이 찌를 지웠다: 끝내야 신화 예약·그림자가 반납되고 낚는 중 표시가 풀린다
+                        // Vanilla removed the bobber without an event: end the cast so the mythic
+                        // reservation and shadow are returned and the fishing indicator is cleared
                         casts.endEarly(player, s, FishingSessionEndEvent.Reason.INTERRUPTED);
                         continue;
                     }
@@ -432,7 +448,7 @@ public final class FishingManager implements FishingService, Listener {
                 }
                 case MINIGAME -> minigames.tickMinigame(player, s);
                 default -> {
-                    // IDLE·HOOKED·RESULT: 할 일 없음
+                    // IDLE, HOOKED, RESULT: nothing to do
                 }
             }
             if (ticks % 20 == 0) {
@@ -444,9 +460,11 @@ public final class FishingManager implements FishingService, Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 입력 · 중단
+    // ------------------------------------------------------------------ Input · abort
 
-    /** 배 위에서 Shift(감기)를 누르면 내리게 되므로 미니게임 중에는 내리지 않게 한다. */
+    /**
+     * Pressing Shift (reel) on a boat dismounts, so dismounting is prevented during the minigame.
+     */
     @EventHandler(ignoreCancelled = true)
     public void onDismount(EntityDismountEvent event) {
         if (event.getEntity() instanceof Player player && event.isCancellable() && locked(player)) {
@@ -522,12 +540,12 @@ public final class FishingManager implements FishingService, Listener {
         macro.reset(player.getUniqueId());
     }
 
-    /** 미니게임 중이면 실패로 끝낸다 (미끼는 이미 차감, 천장 유지). */
+    /** Ends it as a failure if in a minigame (bait already deducted, pity kept). */
     void abort(Player player, MinigameResult reason) {
         minigames.abort(player, reason);
     }
 
-    /** 서버 종료: 진행 중인 미니게임을 중단(미끼 반환)하고 그림자를 지운다. */
+    /** Server shutdown: aborts running minigames (bait returned) and removes shadows. */
     public void shutdown() {
         for (Map.Entry<UUID, FishingSession> e : sessions.entrySet()) {
             Player player = Bukkit.getPlayer(e.getKey());
@@ -536,8 +554,9 @@ public final class FishingManager implements FishingService, Listener {
             }
             FishingSession s = e.getValue();
             CastHandler.closeShadow(s, false);
-            // 종료 때는 퇴장 이벤트가 오지 않으므로 신화 예약을 여기서 반납한다 (DB 연결이 곧 닫히므로 기다려서 쓴다).
-            // 안 하면 재시작마다 그 이벤트의 서버 한도가 줄어든다
+            // No quit event arrives on shutdown, so return mythic reservations here (the DB
+            // connection closes soon, so wait for the write). Otherwise the event's server limit
+            // shrinks on every restart
             FishingSession.MythicHold hold = s.mythic;
             if (hold != null) {
                 mythic.releaseMythicNow(hold);
@@ -558,7 +577,8 @@ public final class FishingManager implements FishingService, Listener {
 
     @EventHandler
     public void onReload(ContentReloadedEvent event) {
-        // 진행 중 세션은 시작 때의 FishDef로 끝까지, 새 캐스팅부터 새 데이터. 보류 판정은 모두 버린다
+        // Running sessions finish with the FishDef from their start; new data applies from the next
+        // cast. All pending rolls are discarded
         engine = new RollEngine(event.snapshot(), balance());
         sessions.values().forEach(mythic::discardPending);
     }

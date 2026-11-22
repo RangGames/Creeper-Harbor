@@ -14,8 +14,10 @@ import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.roll.QualityRoller;
 
 /**
- * 통발 어종 판정 ('7. 밸런스 기획' 8장). 설치 지역 어종 중 통발 max_grade 이하 등급만, 보정 없는 기본 등급 가중치로 고른다. 전설·신화, 미끼가 필요한
- * 어종, release_only, 해금 플래그를 못 맞춘 어종은 나오지 않는다. 크기·품질은 주인의 직업 상한을 적용하고 행운은 0. 서버 API 없음.
+ * Trap species roll ("7. Balance design" chapter 8). Picks only species of the placement region at
+ * or below the trap max_grade, using the base grade weights without modifiers. Legendaries,
+ * mythics, species needing bait, release_only and species whose unlock flag is not met never
+ * appear. Size and quality apply the owner's job cap, with luck 0. No server API.
  */
 public final class TrapRoller implements TrapMath.Roller {
 

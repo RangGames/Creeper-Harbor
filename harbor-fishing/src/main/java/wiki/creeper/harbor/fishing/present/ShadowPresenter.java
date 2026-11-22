@@ -7,18 +7,21 @@ import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
 
 /**
- * 물고기 그림자·점프 연출 (docs 20 3.4 '그림자 · 점프 연출'). 문서는 Core RigInstance(어종 리그, 캐스터에게만 표시)를 쓰지만 아직 없으므로 이
- * 인터페이스 뒤에 두고 기본 구현({@link DisplayShadowPresenter})은 ItemDisplay 하나로 그린다. RigInstance가 생기면 이 인터페이스의
- * 구현만 바꾼다 (리그 연결 필요 지점). 메인 스레드 전용.
+ * Fish shadow and jump presentation (docs 20 3.4 "shadow · jump presentation"). The docs use Core
+ * RigInstance (species rig, shown only to the caster), but since it did not exist yet it sits
+ * behind this interface and the default implementation ({@link DisplayShadowPresenter}) draws a
+ * single ItemDisplay. Once RigInstance exists, only the implementation of this interface changes
+ * (rig integration point). Main thread only.
  */
 public interface ShadowPresenter {
 
     /**
-     * 그림자를 만든다 (캐스터에게만 보임).
+     * Creates a shadow (visible only to the caster).
      *
-     * @param at 처음 위치 (물속)
-     * @param preset 등급 연출 (기본 그림자 모델·크기·글로우 색)
-     * @param gradeGlow 그림자 감별(feature_shadow_grade)이면 등급 색 테두리
+     * @param at initial location (underwater)
+     * @param preset grade presentation (default shadow model, size, glow color)
+     * @param gradeGlow grade-colored outline when shadow identification (feature_shadow_grade) is
+     *     on
      */
     Shadow spawn(
             Player viewer,
@@ -27,18 +30,21 @@ public interface ShadowPresenter {
             FishingPresets.GradePreset preset,
             boolean gradeGlow);
 
-    /** 그림자 하나. */
+    /** One shadow. */
     interface Shadow {
 
         Location location();
 
-        /** 입질: 그림자가 찌 아래로 잠긴다 (리그 bite 동작). */
+        /** Bite: the shadow dives under the bobber (rig bite animation). */
         default void bite() {}
 
-        /** 보간 이동 (teleport_duration, 최대 59틱). */
+        /** Interpolated move (teleport_duration, up to 59 ticks). */
         void moveTo(Location target, int ticks);
 
-        /** 점프 패턴: 수면 위로 뛰어올랐다가 돌아온다. extraViewers에게는 이 장면만 잠깐 보인다. */
+        /**
+         * Jump pattern: leaps above the surface and comes back. extraViewers briefly see only this
+         * scene.
+         */
         void jump(Collection<Player> extraViewers);
 
         boolean isValid();
