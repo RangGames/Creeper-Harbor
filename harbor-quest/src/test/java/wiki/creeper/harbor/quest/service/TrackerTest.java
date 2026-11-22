@@ -12,7 +12,7 @@ class TrackerTest {
 
     @Test
     void facingSouth() {
-        // yaw 0 = +Z(남). 오른쪽은 -X(서)
+        // yaw 0 = +Z (south). Right is -X (west)
         assertEquals("↑", arrowTo(0, 10, 0));
         assertEquals("→", arrowTo(-10, 0, 0));
         assertEquals("←", arrowTo(10, 0, 0));
@@ -22,7 +22,7 @@ class TrackerTest {
 
     @Test
     void facingEastWithWrappedYaw() {
-        // yaw -90 = 270 = +X(동). 오른쪽은 +Z(남)
+        // yaw -90 = 270 = +X (east). Right is +Z (south)
         assertEquals("↑", arrowTo(10, 0, -90));
         assertEquals("↑", arrowTo(10, 0, 270));
         assertEquals("→", arrowTo(0, 10, -90));

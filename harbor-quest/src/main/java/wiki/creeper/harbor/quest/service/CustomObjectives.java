@@ -14,7 +14,10 @@ import wiki.creeper.harbor.quest.content.Objective;
 import wiki.creeper.harbor.quest.content.QuestDef;
 import wiki.creeper.harbor.quest.logic.Matchers;
 
-/** 다른 모듈이 등록한 목표 유형 (ObjectiveTypeRegistry). 등록한 플러그인이 꺼지면 지운다. 어느 스레드에서 읽어도 된다. */
+/**
+ * Objective types registered by other modules (ObjectiveTypeRegistry). Removed when the registering
+ * plugin is disabled. Safe to read from any thread.
+ */
 final class CustomObjectives {
 
     private record CustomType(Plugin owner, Validator validator, Matcher matcher) {}
@@ -43,7 +46,7 @@ final class CustomObjectives {
         types.values().removeIf(t -> t.owner().equals(owner));
     }
 
-    /** 콘텐츠 검사: 다른 모듈 유형의 인자 확인. */
+    /** Content check: validates arguments of other modules' types. */
     void validate(QuestDef quest, Consumer<String> error) {
         for (Objective o : quest.objectives()) {
             CustomType custom = types.get(o.type());

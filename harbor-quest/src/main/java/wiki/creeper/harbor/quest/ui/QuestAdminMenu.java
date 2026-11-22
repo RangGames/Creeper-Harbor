@@ -22,18 +22,20 @@ import wiki.creeper.harbor.quest.service.QuestEngine;
 import wiki.creeper.harbor.quest.service.QuestServices;
 
 /**
- * 플레이어 퀘스트 관리 GUI (/harbor quest gui &lt;플레이어&gt;, 추가 제안). 명령(info·set·progress·complete·reset)과 같은
- * 엔진 호출·권한·admin_log를 쓰고, 클릭 한 번으로 상태를 바꾼다.
+ * Player quest admin GUI (/harbor quest gui &lt;player&gt;, proposed). Uses the same engine calls,
+ * permissions and admin_log as the commands (info, set, progress, complete, reset), and changes
+ * state with a single click.
  *
  * <ul>
- *   <li>목록: 필터(진행 중 · 완료 · 전체), 아이콘 색이 상태
- *   <li>퀘스트 화면: 진행 중으로 · 보고 가능으로 · 완료(보상) · 완료(보상 없음) · 초기화, 목표별 좌클릭 +1 · 우클릭 -1 · Shift+좌클릭 채움 ·
- *       Shift+우클릭 0
+ *   <li>List: filter (in progress · completed · all), icon color shows the state
+ *   <li>Quest screen: to in progress · to ready · complete (rewards) · complete (no rewards) ·
+ *       reset; per objective left click +1 · right click -1 · Shift+left click fill · Shift+right
+ *       click 0
  * </ul>
  */
 final class QuestAdminMenu {
 
-    /** 목록 필터. */
+    /** List filter. */
     enum Filter {
         OPEN,
         COMPLETED,
@@ -64,7 +66,7 @@ final class QuestAdminMenu {
         return admin.hasPermission("harbor.admin.quest." + perm);
     }
 
-    // ------------------------------------------------------------------ 목록
+    // ------------------------------------------------------------------ List
 
     void open(Player admin, Player target) {
         list(admin, target, Filter.OPEN, 0);
@@ -165,7 +167,7 @@ final class QuestAdminMenu {
         };
     }
 
-    // ------------------------------------------------------------------ 퀘스트 하나
+    // ------------------------------------------------------------------ Single quest
 
     private void quest(Player admin, Player target, QuestDef def, Runnable back) {
         if (!target.isOnline()) {
@@ -183,7 +185,8 @@ final class QuestAdminMenu {
                                         Placeholder.unparsed("name", def.name()),
                                         Placeholder.unparsed("player", target.getName())),
                         4);
-        // 상태 변경은 메모리에 바로 반영되므로 곧바로 다시 그린다 (보상 완료는 처리 중으로 보인다)
+        // state changes apply to memory immediately, so redraw right away (completion with rewards
+        // shows as processing)
         Runnable reopen = () -> quest(admin, target, def, back);
         action(
                 menu,
@@ -331,7 +334,7 @@ final class QuestAdminMenu {
         menu.open(admin);
     }
 
-    /** 좌 +1 · 우 -1 · Shift+좌 채움 · Shift+우 0. */
+    /** Left +1 · right -1 · Shift+left fill · Shift+right 0. */
     static int nextValue(int value, int count, @Nullable ClickType click) {
         if (click == null) {
             return value;

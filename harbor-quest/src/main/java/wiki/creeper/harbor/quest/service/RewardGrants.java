@@ -27,8 +27,10 @@ import wiki.creeper.harbor.quest.logic.RefIds;
 import wiki.creeper.harbor.season.api.TitleId;
 
 /**
- * 보상 지급 3~4단계 (docs 20 6.4): 재화는 원장 참조 ID 유니크로, 평판·플래그·칭호·연대기는 멱등으로, 경험치·호감도·힌트·아이템(grant 묶음)은 완료
- * 트랜잭션에 기록한 뒤 준다. 모두 끝나면 paid에 done을 기록한다. 순서와 복구 규칙은 {@link RewardPayer} 참고.
+ * Reward payout steps 3~4 (docs 20 6.4): currency via the ledger reference ID unique key;
+ * reputation, flags, titles and chronicle idempotently; experience, affinity, hints and items (the
+ * grant bundle) are given after being recorded in the completion transaction. When everything is
+ * done, done is recorded in paid. See {@link RewardPayer} for the order and recovery rules.
  */
 final class RewardGrants {
 
@@ -39,9 +41,10 @@ final class RewardGrants {
     }
 
     /**
-     * 3~4단계.
+     * Steps 3~4.
      *
-     * @param fresh 방금 완료한 것 (grant 묶음을 준다). 복구면 grant가 기록돼 있지 않을 때만 준다
+     * @param fresh just completed (gives the grant bundle). On recovery it is given only if grant
+     *     has not been recorded
      */
     void pay(UUID uuid, QuestDef def, QuestEntry entry, boolean fresh) {
         Progress progress = entry.progress();
@@ -49,7 +52,7 @@ final class RewardGrants {
         Rewards rewards = def.rewards();
         String ref = RefIds.reward(def.id(), entry.season(), progress.cycle());
         List<CompletableFuture<Boolean>> idempotent = new ArrayList<>();
-        // 3단계: 재화 (원장 참조 ID 유니크)
+        // step 3: currency (ledger reference ID unique key)
         if (snap.gold() > 0) {
             idempotent.add(
                     engine.api
@@ -70,7 +73,7 @@ final class RewardGrants {
                             .thenApply(r -> r.isOk() || isDuplicate(r)));
         }
         Player player = Bukkit.getPlayer(uuid);
-        // 4단계: 멱등 보상 (평판 refId, 플래그, 칭호, 연대기)
+        // step 4: idempotent rewards (reputation refId, flags, titles, chronicle)
         if (snap.reputation() > 0) {
             idempotent.add(
                     engine.deps
@@ -115,14 +118,15 @@ final class RewardGrants {
         if (piece != null) {
             idempotent.add(engine.chronicle().award(uuid, piece));
         }
-        // grant 묶음: 경험치·호감도·힌트·아이템
+        // grant bundle: experience, affinity, hints, items
         List<String> itemNames = new ArrayList<>();
         boolean grantNow = fresh || !progress.paid(Progress.PAID_GRANT);
         CompletableFuture<Boolean> grantDone;
         if (!grantNow) {
             grantDone = CompletableFuture.completedFuture(true);
         } else if (player == null) {
-            // 완료 트랜잭션 뒤 퇴장: grant 기록을 지워 다음 접속 때 준다
+            // quit after the completion transaction: clear the grant record so it is given on the
+            // next join
             Progress undo =
                     new Progress(
                             progress.version(),
@@ -142,7 +146,7 @@ final class RewardGrants {
                                 return false;
                             });
         } else if (!fresh) {
-            // 복구: grant 기록을 먼저 커밋한 뒤 준다 (복제 방지)
+            // recovery: commit the grant record first, then give (prevents duplication)
             Progress marked = progress.withPaid(Progress.PAID_GRANT);
             grantDone =
                     engine.serial(
@@ -227,7 +231,7 @@ final class RewardGrants {
                 && err.error() == LedgerError.DUPLICATE;
     }
 
-    /** 경험치·호감도·힌트·아이템 (메인 스레드, 접속 중). */
+    /** Experience, affinity, hints and items (main thread, online). */
     void grant(
             Player player,
             QuestDef def,
@@ -247,7 +251,8 @@ final class RewardGrants {
                     h.region() != null ? h.region() : engine.highestRegion(uuid).orElse(null);
             for (int i = 0; i < h.count(); i++) {
                 if (engine.deps.hints().grantRandom(uuid, region, "quest").isEmpty()) {
-                    // 줄 힌트가 없으면 대체 골드 (docs 20 4.4 grantRandom 규칙, 제안값)
+                    // substitute gold when there is no hint left to give (docs 20 4.4 grantRandom
+                    // rule, proposed value)
                     long gold = engine.boardRules().hintFallbackGold();
                     if (gold > 0) {
                         var _ =

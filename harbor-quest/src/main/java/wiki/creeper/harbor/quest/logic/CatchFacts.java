@@ -7,12 +7,13 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.Grade;
 
 /**
- * 목표 판정에 쓰는 아이템·포획 정보 (서버 API와 분리해 단위 테스트로 검사한다).
+ * Item and catch information used to judge objectives (kept separate from the server API so it can
+ * be unit tested).
  *
- * @param fish 어종 (어종 아이템이 아니면 null)
- * @param item 일반 아이템 ID (어종이면 null)
- * @param region 포획 지역 (catch), 어종 출현 지역 (deliver·donate)
- * @param trap 통발 수확인지
+ * @param fish the fish species (null if not a fish item)
+ * @param item plain item ID (null for fish)
+ * @param region catch region (catch), the species' spawn region (deliver, donate)
+ * @param trap whether it is a trap harvest
  */
 public record CatchFacts(
         @Nullable FishId fish,

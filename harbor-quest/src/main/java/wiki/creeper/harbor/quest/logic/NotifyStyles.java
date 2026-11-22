@@ -5,10 +5,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
-/** 알림 형태 목록 파싱 ("chat,title" → [CHAT, TITLE]). 모르는 값은 건너뛰고, "none"이면 아무것도 보내지 않는다. 서버 API 없음. */
+/**
+ * Parses a notification style list ("chat,title" → [CHAT, TITLE]). Unknown values are skipped;
+ * "none" sends nothing. No server API.
+ */
 public final class NotifyStyles {
 
-    /** 알림 형태. */
+    /** Notification style. */
     public enum Style {
         CHAT,
         TITLE,

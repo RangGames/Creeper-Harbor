@@ -8,7 +8,10 @@ import ch.njol.util.Kleenean;
 import org.bukkit.event.Event;
 import org.jspecify.annotations.Nullable;
 
-/** 람다 효과. 오래 걸리는 일(DB·Redis)은 Harbor API가 비동기로 처리하므로 여기서는 부르기만 한다. */
+/**
+ * Lambda effect. Slow work (DB, Redis) is handled asynchronously by the Harbor API, so this only
+ * calls it.
+ */
 public final class LambdaEffect extends Effect {
 
     private final Spec spec;

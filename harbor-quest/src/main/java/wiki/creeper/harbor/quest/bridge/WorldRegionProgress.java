@@ -9,8 +9,9 @@ import wiki.creeper.harbor.quest.api.RegionProgressProvider;
 import wiki.creeper.harbor.world.api.RegionService;
 
 /**
- * World 연결 (선택). Quest 기본 구현(레벨 + 해금 퀘스트)보다 높은 우선순위로 World 판정(진입 조건 전체)의 "해금한 가장 높은 지역"을 등록한다.
- * Harbor-World가 켜져 있을 때만 이 클래스를 불러온다.
+ * World link (optional). Registers World's "highest unlocked region" (full entry requirements) with
+ * a higher priority than Quest's default implementation (level + unlock quest). This class is
+ * loaded only when Harbor-World is enabled.
  */
 public final class WorldRegionProgress {
 

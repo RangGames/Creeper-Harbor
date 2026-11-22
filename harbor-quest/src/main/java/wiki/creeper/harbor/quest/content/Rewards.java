@@ -13,14 +13,15 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 보상 ('11. 데이터 설계' 2.6 + 추가 제안 title·hints·chronicle·job_advance).
+ * Rewards ('11. Data Design' 2.6 + proposed title, hints, chronicle, job_advance).
  *
- * @param gold 골드. -1이면 게시판 의뢰 기본값(board.yml gold_by_region, 해금한 가장 높은 지역 기준)
- * @param mulbineul 물비늘. -1이면 게시판 기본값 (일일·주간 1개당 1)
- * @param reputation 평판. -1이면 게시판 기본값 (그 밖의 유형은 0)
- * @param title 칭호 ID (Season TitleService)
- * @param chronicle 진실의 조각 ID (chronicle.yml)
- * @param jobAdvance 2 · 3이면 마지막 보고에서 Jobs requestAdvance (0이면 없음)
+ * @param gold gold. -1 means the board request default (board.yml gold_by_region, based on the
+ *     highest unlocked region)
+ * @param mulbineul mulbineul. -1 means the board default (1 per daily/weekly request)
+ * @param reputation reputation. -1 means the board default (0 for other types)
+ * @param title title ID (Season TitleService)
+ * @param chronicle piece-of-truth ID (chronicle.yml)
+ * @param jobAdvance 2 or 3 means Jobs requestAdvance on the final turn-in (0 means none)
  */
 public record Rewards(
         long gold,
@@ -39,16 +40,19 @@ public record Rewards(
 
     public record AffinityReward(NpcId npc, int value) {}
 
-    /** scope: perm · season. server면 서버 플래그 (seasonal은 scope가 season일 때). */
+    /** scope: perm · season. server means a server flag (seasonal when scope is season). */
     public record FlagReward(String flag, boolean server, boolean seasonal) {}
 
-    /** region이 없으면 해금한 가장 높은 지역 (Collection grantRandom). */
+    /** Without region, the highest unlocked region (Collection grantRandom). */
     public record HintReward(@Nullable RegionId region, int count) {}
 
     public static final Rewards NONE =
             new Rewards(0, 0, 0, List.of(), 0, List.of(), List.of(), null, List.of(), null, 0);
 
-    /** 게시판 의뢰에 rewards가 없을 때: 골드·물비늘·평판 모두 board.yml 기본값. */
+    /**
+     * When a board request has no rewards: gold, mulbineul and reputation all use the board.yml
+     * defaults.
+     */
     public static final Rewards BOARD_DEFAULT =
             new Rewards(-1, 0, -1, List.of(), -1, List.of(), List.of(), null, List.of(), null, 0);
 

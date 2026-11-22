@@ -2,11 +2,11 @@ package wiki.creeper.harbor.quest.content;
 
 import wiki.creeper.harbor.common.model.Keyed;
 
-/** 목표 진행 방식 (추가 제안 objectives_mode). */
+/** How objectives progress (proposed objectives_mode). */
 public enum ObjectiveMode implements Keyed {
-    /** 위에서부터 하나씩. 지금 목표만 진행된다. */
+    /** One at a time from the top. Only the current objective progresses. */
     SEQUENCE,
-    /** 모든 목표가 함께 진행된다. */
+    /** All objectives progress together. */
     ALL;
 
     @Override

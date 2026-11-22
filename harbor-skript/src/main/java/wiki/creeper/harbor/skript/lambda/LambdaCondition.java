@@ -7,7 +7,10 @@ import ch.njol.util.Kleenean;
 import org.bukkit.event.Event;
 import org.jspecify.annotations.Nullable;
 
-/** 람다 조건. 패턴 번호가 홀수면 부정형 (등록할 때 긍정·부정 패턴을 번갈아 둔다). */
+/**
+ * Lambda condition. An odd pattern index is the negated form (positive and negative patterns
+ * alternate at registration).
+ */
 public final class LambdaCondition extends Condition {
 
     private final Spec spec;

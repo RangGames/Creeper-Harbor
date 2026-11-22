@@ -10,13 +10,15 @@ import wiki.creeper.harbor.quest.content.Objective;
 import wiki.creeper.harbor.quest.content.QuestType;
 
 /**
- * 편집 중인 퀘스트 항목 (서버 API 없음). YAML을 일반 Java 값(LinkedHashMap·ArrayList·String)으로 들고 있어서 편집기가 모르는 키도
- * 그대로 저장된다. 목표는 불러올 때 기본형({key, type, target, count, …})으로 바꾸고 key를 적어 둔다 (축약형 기본 key·순서 번호
- * o&lt;n&gt;와 같은 값이라 진행이 이어진다). 메인 스레드에서만 고친다.
+ * The quest entry being edited (no server API). Holds the YAML as plain Java values (LinkedHashMap,
+ * ArrayList, String), so keys the editor does not know are saved unchanged. Objectives are
+ * converted to the full form ({key, type, target, count, …}) on load with an explicit key (the same
+ * value as the short form's default key or the order number o&lt;n&gt;, so progress carries over).
+ * Modified on the main thread only.
  */
 public final class QuestDraft {
 
-    /** 축약형에서 값이 수량인 유형 (Objective와 같다). */
+    /** Types whose value in the short form is an amount (same as Objective). */
     private static final Set<String> VALUE_IS_COUNT = Set.of("job_level", "job_tier", "reputation");
 
     private final String id;
@@ -32,7 +34,7 @@ public final class QuestDraft {
         this.data = data;
     }
 
-    /** 파일에서 읽은 항목. */
+    /** An entry read from a file. */
     public static QuestDraft of(String file, Map<String, Object> entry) {
         Map<String, Object> data = mutable(entry);
         String id = String.valueOf(data.getOrDefault("id", ""));
@@ -41,7 +43,7 @@ public final class QuestDraft {
         return draft;
     }
 
-    /** 새 퀘스트 (유형 견본). */
+    /** New quest (template per type). */
     public static QuestDraft create(String id, String name, QuestType type) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("id", id);
@@ -64,7 +66,7 @@ public final class QuestDraft {
         return draft;
     }
 
-    /** 새 퀘스트를 넣을 파일 (quests/ 아래). */
+    /** File to put a new quest in (under quests/). */
     public static String fileFor(QuestType type) {
         return switch (type) {
             case MAIN -> "main.yml";
@@ -94,7 +96,7 @@ public final class QuestDraft {
         return v;
     }
 
-    /** 축약형·key 없는 목표를 기본형 + 명시 key로. */
+    /** Short-form or keyless objectives to the full form + explicit key. */
     private void normalizeObjectives() {
         List<Map<String, Object>> list = objectives();
         for (int i = 0; i < list.size(); i++) {
@@ -130,13 +132,13 @@ public final class QuestDraft {
         }
     }
 
-    // ------------------------------------------------------------------ 기본
+    // ------------------------------------------------------------------ Basics
 
     public String id() {
         return id;
     }
 
-    /** quests/ 아래 파일 이름. */
+    /** File name under quests/. */
     public String file() {
         return file;
     }
@@ -153,7 +155,7 @@ public final class QuestDraft {
         dirty = false;
     }
 
-    /** 저장할 항목 (복사본). */
+    /** The entry to save (a copy). */
     public Map<String, Object> entry() {
         return mutable(data);
     }
@@ -182,7 +184,7 @@ public final class QuestDraft {
         return QuestType.REGION;
     }
 
-    // ------------------------------------------------------------------ 설명
+    // ------------------------------------------------------------------ Description
 
     public List<String> description() {
         Object v = data.get("description");
@@ -192,7 +194,7 @@ public final class QuestDraft {
         return v == null ? List.of() : List.of(String.valueOf(v));
     }
 
-    /** 줄마다 한 줄 (빈 줄은 뺀다). */
+    /** One line per line (blank lines are dropped). */
     public void description(String text) {
         List<Object> lines = new ArrayList<>();
         for (String line : text.lines().toList()) {
@@ -204,7 +206,7 @@ public final class QuestDraft {
         dirty = true;
     }
 
-    // ------------------------------------------------------------------ 목표
+    // ------------------------------------------------------------------ Objectives
 
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> objectives() {
@@ -222,7 +224,7 @@ public final class QuestDraft {
         return (List<Map<String, Object>>) (List<?>) raw;
     }
 
-    /** 새 목표. key는 유형 + 겹치지 않는 번호. */
+    /** New objective. The key is the type + a number that does not collide. */
     public Map<String, Object> addObjective(String type) {
         Map<String, Object> o = new LinkedHashMap<>();
         o.put("key", freeKey(type));
@@ -257,7 +259,10 @@ public final class QuestDraft {
         dirty = true;
     }
 
-    /** 순서를 바꾼다 (key는 그대로라 진행은 이어진다. sequence 퀘스트는 진행 순서가 바뀐다). */
+    /**
+     * Changes the order (keys stay the same so progress carries over; sequence quests change their
+     * progress order).
+     */
     public void moveObjective(int index, int delta) {
         List<Map<String, Object>> list = objectives();
         int to = index + delta;
@@ -278,7 +283,7 @@ public final class QuestDraft {
         dirty = true;
     }
 
-    // ------------------------------------------------------------------ 보상 · 요구
+    // ------------------------------------------------------------------ Rewards · requirements
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> section(String key) {
@@ -302,7 +307,7 @@ public final class QuestDraft {
         }
     }
 
-    /** 수치를 더한다 (0 이하면 키를 지운다). */
+    /** Adds to a number (removes the key at 0 or below). */
     public int add(String section, String key, int delta) {
         Map<String, Object> s = section(section);
         int next = Math.max(0, integer(s, key, 0) + delta);
@@ -315,7 +320,7 @@ public final class QuestDraft {
         return next;
     }
 
-    /** section 안의 목록 (rewards.items, requires.quests 등). */
+    /** A list inside section (rewards.items, requires.quests etc.). */
     @SuppressWarnings("unchecked")
     public List<Object> list(String section, String key) {
         Map<String, Object> s = section(section);

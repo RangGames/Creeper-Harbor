@@ -13,12 +13,13 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 「항구 연대기」와 메인 스토리 장 (chronicle.yml, 추가 제안, docs 20 6.3·6.4, '5. 서버 스토리' 3·6장).
+ * "Harbor Chronicle" and main story chapters (chronicle.yml, proposed, docs 20 6.3·6.4, '5. Server
+ * Story' ch. 3·6).
  *
- * @param completeTitle 조각을 모두 모으면 주는 칭호
- * @param recapMulbineul 연대기 회상 물비늘 (장당, D9)
- * @param recapReputation 연대기 회상 평판 (장당, 제안값)
- * @param recapMax 시즌당 회상 물비늘 상한 (D9: 27)
+ * @param completeTitle title given when all pieces are collected
+ * @param recapMulbineul chronicle recap mulbineul (per chapter, D9)
+ * @param recapReputation chronicle recap reputation (per chapter, proposed value)
+ * @param recapMax per-season cap on recap mulbineul (D9: 27)
  */
 public record ChronicleDef(
         List<Chapter> chapters,
@@ -29,11 +30,13 @@ public record ChronicleDef(
         long recapMax) {
 
     /**
-     * 장. final 퀘스트를 완료하면 장 클리어.
+     * Chapter. Completing the final quest clears the chapter.
      *
-     * @param region 연대기 회상 판정 지역 (이 장의 지역. 새 시즌 처음 들어가면 회상 보상)
-     * @param area 지역 안 세부 범위 (World가 지역을 나누기 전 임시, 비우면 지역 전체)
-     * @param cutscene /연대기 다시 보기 컷씬
+     * @param region region used for the chronicle recap check (this chapter's region; first entry
+     *     in a new season gives the recap reward)
+     * @param area sub-area within the region (temporary until World splits regions; empty means the
+     *     whole region)
+     * @param cutscene cutscene replayed from /연대기
      */
     public record Chapter(
             int chapter,
@@ -43,7 +46,7 @@ public record ChronicleDef(
             @Nullable Area area,
             @Nullable HarborId cutscene) {}
 
-    /** 수평 원 (x, z, 반지름). */
+    /** Horizontal circle (x, z, radius). */
     public record Area(double x, double z, double radius) {
         public boolean contains(double px, double pz) {
             double dx = px - x;
@@ -53,9 +56,10 @@ public record ChronicleDef(
     }
 
     /**
-     * 진실의 조각.
+     * A piece of the truth.
      *
-     * @param advancement 커스텀 발전과제 키 (harbor-tools 데이터팩이 만든다. 서버에 없으면 건너뜀)
+     * @param advancement custom advancement key (created by the harbor-tools datapack; skipped if
+     *     absent on the server)
      */
     public record Piece(
             String id,

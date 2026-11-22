@@ -86,7 +86,10 @@ class QuestYamlTest {
         assertEquals("300", QuestYaml.scalar("300", false));
     }
 
-    /** 저장소의 모든 퀘스트를 읽어 다시 쓰고 같은 로더로 읽으면 이름·목표·보상이 같다 (편집기 저장이 내용을 바꾸지 않는다). */
+    /**
+     * Reading every quest in the repository, writing it back and reading it with the same loader
+     * yields the same name, objectives and rewards (editor saves do not change content).
+     */
     @Test
     void repositoryQuestsRoundTrip() throws IOException {
         Path content = Path.of("..", "content").toAbsolutePath().normalize();

@@ -2,16 +2,19 @@ package wiki.creeper.harbor.quest.content;
 
 import wiki.creeper.harbor.common.model.Keyed;
 
-/** 퀘스트 유형 ('11. 데이터 설계' 2.6). main·region·job은 목표를 차례대로(sequence) 진행하는 것이 기본이다. */
+/**
+ * Quest type ('11. Data Design' 2.6). main, region and job progress objectives in order (sequence)
+ * by default.
+ */
 public enum QuestType implements Keyed {
     MAIN,
     REGION,
     JOB,
-    /** 어부 길드 게시판 일일 의뢰. */
+    /** Fishermen's guild board daily request. */
     DAILY,
-    /** 어부 길드 게시판 주간 의뢰. */
+    /** Fishermen's guild board weekly request. */
     WEEKLY,
-    /** 수족관 관장 수집 의뢰 (주간 풀과 별도). */
+    /** Aquarium curator collection request (separate from the weekly pool). */
     COLLECT,
     HIDDEN,
     EVENT;
@@ -21,7 +24,7 @@ public enum QuestType implements Keyed {
         return Keyed.keyOf(this);
     }
 
-    /** 게시판에서 뽑는 의뢰인지. */
+    /** Whether this request is drawn from the board. */
     public boolean board() {
         return this == DAILY || this == WEEKLY || this == COLLECT;
     }

@@ -24,10 +24,13 @@ import wiki.creeper.harbor.npc.content.CutsceneDef;
 import wiki.creeper.harbor.npc.content.NpcDef;
 import wiki.creeper.harbor.quest.content.QuestDef;
 
-/** 편집기 선택 목록 (상자 GUI, 페이지). 콘텐츠 스냅샷에서 어종·아이템·NPC·지역·퀘스트·컷씬·등급을 아이콘으로 보여주고 고른 값(ID 글)을 돌려준다. */
+/**
+ * Editor pickers (chest GUI, paged). Shows fish, items, NPCs, regions, quests, cutscenes and grades
+ * from the content snapshot as icons and returns the chosen value (ID text).
+ */
 final class EditorPickers {
 
-    /** 고를 수 있는 것 하나. value는 YAML에 쓸 글. */
+    /** One choice. value is the text written to the YAML. */
     record Option(ItemStack icon, String value) {}
 
     private static final int PER_PAGE = 45;
@@ -92,7 +95,7 @@ final class EditorPickers {
         menu.open(player);
     }
 
-    // ------------------------------------------------------------------ 목록
+    // ------------------------------------------------------------------ Lists
 
     private Option option(Material material, String label, String value) {
         return new Option(
@@ -135,7 +138,7 @@ final class EditorPickers {
         return out;
     }
 
-    /** 아무 물고기 · 등급 이상 · 등급 정확히. */
+    /** Any fish · grade or higher · exact grade. */
     List<Option> catchTargets() {
         List<Option> out = new ArrayList<>();
         out.add(option(Material.BUCKET, plain("quest.target.any"), "any"));

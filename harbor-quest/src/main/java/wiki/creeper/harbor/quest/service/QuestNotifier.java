@@ -14,14 +14,15 @@ import wiki.creeper.harbor.quest.content.QuestDef;
 import wiki.creeper.harbor.quest.logic.NotifyStyles;
 
 /**
- * 퀘스트 알림 (수락·보고 가능·완료·포기·실패·추적). 어떤 형태로 보일지는 balance.yml {@code quest.notify.<사건>}(메인 퀘스트는 {@code
- * <사건>_main})에 쉼표로 적는다: chat · title · actionbar · none. 채팅 문구는 기존 키(quest.accepted 등), 타이틀은 {@code
- * quest.notify.title.<사건>} · {@code quest.notify.subtitle.<사건>}, 액션바는 {@code
- * quest.notify.actionbar.<사건>}.
+ * Quest notifications (accept, ready to turn in, complete, abandon, fail, tracking). How each is
+ * shown is written comma-separated in balance.yml {@code quest.notify.<event>} ({@code
+ * <event>_main} for main quests): chat · title · actionbar · none. Chat text uses the existing keys
+ * (quest.accepted etc.), titles {@code quest.notify.title.<event>} · {@code
+ * quest.notify.subtitle.<event>}, the action bar {@code quest.notify.actionbar.<event>}.
  */
 final class QuestNotifier {
 
-    /** 알림 사건. 키는 balance.yml·messages_ko.yml 이름. */
+    /** Notification event. The key is the name used in balance.yml and messages_ko.yml. */
     enum Kind {
         ACCEPTED("accepted", "quest.accepted"),
         READY("ready", "quest.ready"),
@@ -50,7 +51,10 @@ final class QuestNotifier {
         player.playSound(player, Sound.UI_TOAST_IN, 1f, 1.2f);
     }
 
-    /** 보고할 수 있게 됨. npc가 비어 있으면 보고 NPC 없이 바로 완료되는 퀘스트. */
+    /**
+     * Became ready to turn in. An empty npc means a quest that completes immediately without a
+     * turn-in NPC.
+     */
     void ready(Player player, QuestDef def, String npc) {
         send(
                 player,
@@ -71,7 +75,7 @@ final class QuestNotifier {
                         Placeholder.unparsed("money", String.valueOf(summary.gold())),
                         Placeholder.unparsed("mulbineul", String.valueOf(summary.mulbineul())),
                         Placeholder.unparsed("exp", String.valueOf(summary.exp()))));
-        HarborSounds.play(player, "harbor:ui.quest_complete"); // '15. 사운드' 4.5 의뢰 완료
+        HarborSounds.play(player, "harbor:ui.quest_complete"); // '15. Sound' 4.5 request completed
     }
 
     void abandoned(Player player, QuestDef def) {
@@ -126,7 +130,10 @@ final class QuestNotifier {
         }
     }
 
-    /** balance.yml 설정. 메인은 {@code <사건>_main}이 있으면 그것을 쓴다. 없으면 채팅만 (기존 동작). */
+    /**
+     * balance.yml setting. Main quests use {@code <event>_main} if present. Otherwise chat only
+     * (previous behavior).
+     */
     List<NotifyStyles.Style> styles(QuestDef def, Kind kind) {
         var balance = engine.balance();
         String base = "quest.notify." + kind.key;

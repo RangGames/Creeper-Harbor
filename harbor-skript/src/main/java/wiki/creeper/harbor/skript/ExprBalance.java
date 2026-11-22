@@ -19,8 +19,9 @@ import wiki.creeper.harbor.core.api.Harbor;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 
 /**
- * {@code harbor gold of %players%} · {@code harbor mulbineul of %players%}. 이 서버에 접속한 플레이어만 값이 있다
- * (캐시 잔액). add · remove · set은 원장 트랜잭션으로 처리한다 (비동기, 잔액이 모자라면 차감하지 않는다).
+ * {@code harbor gold of %players%} · {@code harbor mulbineul of %players%}. Only players online on
+ * this server have a value (cached balance). add · remove · set are processed as ledger
+ * transactions (async; nothing is deducted if the balance is insufficient).
  */
 public final class ExprBalance extends SimpleExpression<Long> {
 

@@ -23,26 +23,26 @@ import wiki.creeper.harbor.quest.api.QuestState;
 import wiki.creeper.harbor.quest.content.QuestType;
 import wiki.creeper.harbor.quest.logic.Progress;
 
-/** Quest SQL (quest_progress · quest_board). 트랜잭션은 호출하는 쪽이 연다. */
+/** Quest SQL (quest_progress · quest_board). The caller opens the transaction. */
 public final class QuestRepository {
 
     static final String MAIN_LIKE = "harbor:quest/main/%";
 
-    /** 수락 결과. */
+    /** Accept result. */
     public enum AcceptResult {
         OK,
-        /** 이미 진행 중이거나 같은 cycle에 완료함. */
+        /** Already in progress or completed in the same cycle. */
         ALREADY
     }
 
-    /** 관리 명령 /harbor quest info 한 줄. */
+    /** One line of the admin command /harbor quest info. */
     public record Row(QuestId quest, int season, String state, String progress, String updatedAt) {}
 
     private QuestRepository() {}
 
-    // ------------------------------------------------------------------ 로드
+    // ------------------------------------------------------------------ Loading
 
-    /** 접속 전 로드: 현재 시즌 행 + 모든 시즌의 메인 행, 게시판 행. */
+    /** Pre-login load: current season rows + main rows of every season, board rows. */
     public static QuestData load(Connection c, UUID uuid, SeasonId season) throws SQLException {
         Map<QuestId, QuestEntry> entries = new HashMap<>();
         try (PreparedStatement ps =
@@ -60,7 +60,8 @@ public final class QuestRepository {
                     if (quest.isEmpty() || state.isEmpty()) {
                         continue;
                     }
-                    // 같은 메인 퀘스트가 여러 시즌에 있으면 나중 시즌 행을 쓴다 (ORDER BY season)
+                    // If the same main quest exists in several seasons, the later season's row is
+                    // used (ORDER BY season)
                     entries.put(
                             quest.get(),
                             new QuestEntry(
@@ -95,9 +96,13 @@ public final class QuestRepository {
         return new QuestData(entries, boards, null);
     }
 
-    // ------------------------------------------------------------------ 상태 전이 (즉시)
+    // ------------------------------------------------------------------ State transitions
+    // (immediate)
 
-    /** 수락: 행을 잠그고, 진행 중이거나 같은 cycle에 완료했으면 거절한다. 다른 cycle의 완료 행·실패 행은 새 진행으로 덮어쓴다. */
+    /**
+     * Accept: locks the row and refuses if it is in progress or was completed in the same cycle.
+     * Completed rows of another cycle and failed rows are overwritten with new progress.
+     */
     public static AcceptResult accept(
             Connection c, UUID uuid, int season, QuestId quest, Progress progress)
             throws SQLException {
@@ -136,7 +141,11 @@ public final class QuestRepository {
         }
     }
 
-    /** 지연 쓰기 큐의 진행 저장. 진행 중(ACTIVE·READY) 행만 바꾼다: 그 사이 완료·포기·만료로 즉시 쓴 상태를 오래된 진행이 덮어쓰지 않게. */
+    /**
+     * Progress save from the write-behind queue. Only changes in-progress (ACTIVE, READY) rows, so
+     * stale progress never overwrites a state written immediately in the meantime (complete,
+     * abandon, expire).
+     */
     public static void saveProgress(
             Connection c, UUID uuid, int season, QuestId quest, QuestState state, Progress progress)
             throws SQLException {
@@ -153,7 +162,10 @@ public final class QuestRepository {
         }
     }
 
-    /** 완료 (보고 2단계): READY·ACTIVE 행만 COMPLETED로 바꾼다. 다른 서버·이전 보고가 먼저 끝냈으면 false. */
+    /**
+     * Complete (turn-in step 2): only changes READY or ACTIVE rows to COMPLETED. false if another
+     * server or an earlier turn-in finished first.
+     */
     public static boolean complete(
             Connection c, UUID uuid, int season, QuestId quest, Progress progress)
             throws SQLException {
@@ -169,7 +181,7 @@ public final class QuestRepository {
         }
     }
 
-    /** 지급 기록 갱신 (완료 행). */
+    /** Updates the payout record (completed row). */
     public static void savePaid(
             Connection c, UUID uuid, int season, QuestId quest, Progress progress)
             throws SQLException {
@@ -185,7 +197,7 @@ public final class QuestRepository {
         }
     }
 
-    /** 상태만 바꾼다 (이벤트 기간 종료 FAILED, 관리 명령). */
+    /** Changes only the state (FAILED when the event period ends, admin commands). */
     public static void setState(
             Connection c, UUID uuid, int season, QuestId quest, QuestState state)
             throws SQLException {
@@ -200,7 +212,7 @@ public final class QuestRepository {
         }
     }
 
-    /** 포기·만료·관리자 초기화 (행 삭제). */
+    /** Abandon, expire or admin reset (deletes the row). */
     public static void delete(Connection c, UUID uuid, int season, QuestId quest)
             throws SQLException {
         try (PreparedStatement ps =
@@ -211,9 +223,9 @@ public final class QuestRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 게시판
+    // ------------------------------------------------------------------ Board
 
-    /** 게시판 행을 쓰고, 같은 종류의 지난 cycle 행은 지운다. */
+    /** Writes the board row and deletes rows of past cycles of the same kind. */
     public static void saveBoard(Connection c, UUID uuid, BoardState board) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
@@ -248,9 +260,9 @@ public final class QuestRepository {
         }
     }
 
-    // ------------------------------------------------------------------ 서버 진행도
+    // ------------------------------------------------------------------ Server progress
 
-    /** 이번 시즌에 이 퀘스트를 완료한 인원. */
+    /** Number of players who completed this quest this season. */
     public static long completedCount(Connection c, QuestId quest, int season) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
@@ -264,8 +276,8 @@ public final class QuestRepository {
     }
 
     /**
-     * 장 클리어 인원 (docs 20 6.4): 이번 시즌에 final 퀘스트를 완료했거나, 연대기 회상 플래그(이번 시즌 player_flags)가 있는 인원. Core
-     * 소유 player_flags는 읽기만 한다.
+     * Chapter clear count (docs 20 6.4): players who completed the final quest this season or have
+     * the chronicle recap flag (player_flags of this season). Core-owned player_flags is only read.
      */
     public static long chapterClears(Connection c, QuestId finalQuest, String recapFlag, int season)
             throws SQLException {
@@ -286,7 +298,7 @@ public final class QuestRepository {
         }
     }
 
-    /** 시즌 활동 유저 (Core player_season 행 수, 읽기만). */
+    /** Season active players (row count of Core player_season, read only). */
     public static long activePlayers(Connection c, int season) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement("SELECT COUNT(*) FROM player_season WHERE season = ?")) {
@@ -297,7 +309,7 @@ public final class QuestRepository {
         }
     }
 
-    /** 관리 명령: 이 플레이어의 모든 행. */
+    /** Admin command: all rows of this player. */
     public static List<Row> rows(Connection c, UUID uuid) throws SQLException {
         List<Row> rows = new ArrayList<>();
         try (PreparedStatement ps =
@@ -323,7 +335,7 @@ public final class QuestRepository {
         return rows;
     }
 
-    // ------------------------------------------------------------------ 내부
+    // ------------------------------------------------------------------ Internal
 
     private static void bindKey(PreparedStatement ps, UUID uuid, int season, QuestId quest)
             throws SQLException {
@@ -358,7 +370,7 @@ public final class QuestRepository {
                     .getAsJsonArray()
                     .forEach(e -> quest(e.getAsString()).ifPresent(result::add));
         } catch (JsonParseException | IllegalStateException e) {
-            // 깨진 행은 빈 목록 (다음 초기화에 다시 뽑는다)
+            // A broken row becomes an empty list (rolled again on the next reset)
         }
         return result;
     }

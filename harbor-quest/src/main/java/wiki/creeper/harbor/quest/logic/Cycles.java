@@ -4,8 +4,8 @@ import java.time.LocalDate;
 import wiki.creeper.harbor.quest.content.Repeat;
 
 /**
- * 반복 주기 키 (progress JSON의 cycle, quest_board.cycle). 일일 = 게임 날짜(일일 초기화 기준), 주간 = 시즌·주차. 한 번만 하는
- * 퀘스트는 "once".
+ * Repeat cycle key (cycle in the progress JSON, quest_board.cycle). Daily = game date (daily reset
+ * boundary), weekly = season and week. One-time quests use "once".
  */
 public final class Cycles {
 

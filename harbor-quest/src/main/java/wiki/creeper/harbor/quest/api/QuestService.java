@@ -7,7 +7,8 @@ import org.bukkit.entity.Player;
 import wiki.creeper.harbor.common.id.QuestId;
 
 /**
- * Harbor-Quest 공개 API (docs 20 6.2). ServicesManager에 등록된다. 메인 스레드에서 쓰고, future는 메인 스레드에서 완료된다.
+ * Harbor-Quest public API (docs 20 6.2). Registered in the ServicesManager. Use it on the main
+ * thread; futures complete on the main thread.
  *
  * <pre>{@code
  * QuestService quests = Harbor.api().service(QuestService.class).orElseThrow();
@@ -16,24 +17,27 @@ import wiki.creeper.harbor.common.id.QuestId;
  */
 public interface QuestService {
 
-    /** 계산 상태 포함 (LOCKED·AVAILABLE). 접속 중이 아니면 LOCKED. */
+    /** Includes computed states (LOCKED, AVAILABLE). LOCKED if the player is not online. */
     QuestState state(UUID player, QuestId quest);
 
-    /** 진행 중(ACTIVE·READY·COMPLETING) 퀘스트. */
+    /** Quests in progress (ACTIVE, READY, COMPLETING). */
     List<QuestView> active(UUID player);
 
-    /** 이번 cycle에 완료했는지 (메인은 시즌과 관계없이). */
+    /** Whether it was completed in this cycle (main quests regardless of season). */
     boolean isCompleted(UUID player, QuestId quest);
 
-    /** 조건을 다시 확인하고 수락한다. 실패 이유는 채팅으로 알린다. */
+    /** Checks the requirements again and accepts. Failure reasons are sent in chat. */
     CompletableFuture<Boolean> accept(Player player, QuestId quest);
 
-    /** 포기 (메인 불가). */
+    /** Abandons (not allowed for main quests). */
     CompletableFuture<Boolean> abandon(Player player, QuestId quest);
 
-    /** 보고 (READY만). deliver 아이템 확인·제거 → 완료 → 보상. 전직 퀘스트는 Jobs 전직 화면을 연다. */
+    /**
+     * Turns in (READY only). Check and remove deliver items → complete → rewards. Job advancement
+     * quests open the Jobs advancement screen.
+     */
     CompletableFuture<Boolean> turnIn(Player player, QuestId quest);
 
-    /** 추적할 퀘스트를 바꾼다 (액션바·위치 표시). */
+    /** Changes the tracked quest (action bar and location marker). */
     boolean track(Player player, QuestId quest);
 }

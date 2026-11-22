@@ -17,10 +17,13 @@ import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
 /**
- * Harbor-Quest가 켜져 있을 때: 퀘스트 상태·완료 여부·진행 중 수, 수락·포기·추적, 목표 신호(다른 모듈 유형처럼 스크립트가 목표를 진행), 수락·완료 이벤트.
+ * When Harbor-Quest is enabled: quest state, completion and number in progress, accept, abandon and
+ * track, objective signals (scripts advance objectives like another module's type), accept and
+ * complete events.
  *
- * <p>목표 신호의 type은 퀘스트 콘텐츠가 쓰는 목표 유형이어야 한다 (기본 유형이나 다른 모듈이 등록한 유형). 스크립트가 새 유형을 등록하지는 않는다: 콘텐츠 검사가
- * Skript보다 먼저 돌아서 모르는 유형은 검사에서 걸린다.
+ * <p>The type of an objective signal must be an objective type used by quest content (a built-in
+ * type or one registered by another module). Scripts do not register new types: the content check
+ * runs before Skript, so an unknown type fails the check.
  */
 public final class QuestSyntax {
 

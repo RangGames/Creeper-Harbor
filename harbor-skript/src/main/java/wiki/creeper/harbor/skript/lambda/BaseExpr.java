@@ -11,8 +11,8 @@ import org.bukkit.event.Event;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 람다 식의 공통 부분. 반환 형식마다 하위 클래스가 하나씩 있다 ({@link NumberExpr} · {@link TextExpr} · {@link
- * OfflinePlayerExpr}).
+ * Common part of lambda expressions. There is one subclass per return type ({@link NumberExpr} ·
+ * {@link TextExpr} · {@link OfflinePlayerExpr}).
  */
 abstract class BaseExpr<T> extends SimpleExpression<T> {
 

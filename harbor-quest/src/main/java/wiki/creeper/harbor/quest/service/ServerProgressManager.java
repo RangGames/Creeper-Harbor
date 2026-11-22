@@ -17,10 +17,12 @@ import wiki.creeper.harbor.quest.data.QuestRepository;
 import wiki.creeper.harbor.quest.logic.ClimaxMath;
 
 /**
- * 서버 진행도 · 클라이맥스 개방 (docs 20 6.4). 본 서버가 check_interval마다 분산 잠금 harbor:lock:climax를 잡고 7장 클리어 인원(이번
- * 시즌 클리어 + 연대기 회상)과 수족관 기부율을 확인한다. 충족하면 서버 플래그 climax_ready(FlagService가 harbor:flag로 전파)와
- * harbor:announce 공지. 운영자 확인 뒤 월드 보스 시작은 Boss가 맡는다 (서버 플래그 climax_start 요청, Boss가 CLEARED 뒤
- * climax_done을 세운다).
+ * Server progress and climax unlock (docs 20 6.4). Every check_interval the main server takes the
+ * distributed lock harbor:lock:climax and checks the ch. 7 clear count (clears this season +
+ * chronicle recaps) and the aquarium donation rate. When met, it sets the server flag climax_ready
+ * (FlagService propagates it via harbor:flag) and posts a harbor:announce announcement. Starting
+ * the world boss after operator confirmation is up to Boss (requested via the server flag
+ * climax_start; Boss sets climax_done after CLEARED).
  */
 public final class ServerProgressManager implements ServerProgressService {
 
@@ -94,7 +96,7 @@ public final class ServerProgressManager implements ServerProgressService {
                 .thenApplyAsync(s -> s, engine.tasks.main());
     }
 
-    /** 주기 판정 (메인 서버 한 곳만, 분산 잠금). */
+    /** Periodic check (on one main server only, distributed lock). */
     void check() {
         if (engine.api.flags().hasServer(READY_FLAG)) {
             return;
@@ -133,7 +135,7 @@ public final class ServerProgressManager implements ServerProgressService {
                                 engine.tasks.main());
     }
 
-    /** climax_ready를 세우고 공지한다 (관리 명령으로 강제도 가능). */
+    /** Sets climax_ready and announces it (can also be forced with an admin command). */
     public void openClimax(boolean forced) {
         engine.log.info("클라이맥스 개방 조건 충족{} → climax_ready", forced ? " (관리자 강제)" : "");
         var _ = engine.api.flags().setServer(READY_FLAG, "1", true);
@@ -148,7 +150,10 @@ public final class ServerProgressManager implements ServerProgressService {
         Bukkit.getOnlinePlayers().forEach(p -> engine.refreshMarkers(p.getUniqueId()));
     }
 
-    /** 운영자 확인: 월드 보스 시작 요청 (Boss가 서버 플래그 climax_start를 듣고 WorldBossService.start). */
+    /**
+     * Operator confirmation: requests the world boss start (Boss listens for the server flag
+     * climax_start and calls WorldBossService.start).
+     */
     public void requestClimaxStart() {
         var _ = engine.api.flags().setServer(START_FLAG, "1", true);
     }

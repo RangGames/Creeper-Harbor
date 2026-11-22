@@ -39,13 +39,16 @@ import wiki.creeper.harbor.quest.logic.RefIds;
 import wiki.creeper.harbor.season.api.TitleId;
 
 /**
- * 「항구 연대기」와 연대기 회상 (docs 20 6.4, '5. 서버 스토리' 6장, D9).
+ * "Harbor Chronicle" and chronicle recaps (docs 20 6.4, '5. Server Story' ch. 6, D9).
  *
  * <ul>
- *   <li>조각: 영구 플레이어 플래그 {@code chronicle/<id>} + 커스텀 발전과제 기준 달성 + /연대기 GUI. 모두 모으면 연대기 칭호
- *   <li>회상: 이미 완료한 장(이월)의 지역에 새 시즌 처음 들어가면 물비늘 3 + 평판 +150 (물비늘은 시즌당 최대 27, 참조 ID
- *       recap:&lt;시즌&gt;:&lt;uuid&gt;:&lt;장&gt;). 시즌 범위 플래그 quest/recap/ch&lt;N&gt;로 한 번만 (클라이맥스 7장
- *       클리어 인원에도 센다)
+ *   <li>Pieces: permanent player flag {@code chronicle/<id>} + custom advancement criterion + /연대기
+ *       GUI. Collecting all gives the chronicle title
+ *   <li>Recap: entering the region of an already completed (carried-over) chapter for the first
+ *       time in a new season gives 3 mulbineul + 150 reputation (mulbineul capped at 27 per season,
+ *       reference ID recap:&lt;season&gt;:&lt;uuid&gt;:&lt;chapter&gt;). Only once, via the
+ *       season-scoped flag quest/recap/ch&lt;N&gt; (also counted in the ch. 7 clear count for the
+ *       climax)
  * </ul>
  */
 public final class ChronicleManager implements ChronicleService {
@@ -71,7 +74,7 @@ public final class ChronicleManager implements ChronicleService {
         return owned;
     }
 
-    /** 조각 지급 (멱등: 플래그가 있으면 칭호만 다시 확인). */
+    /** Grants a piece (idempotent: if the flag exists, only the title is rechecked). */
     CompletableFuture<Boolean> award(UUID uuid, String pieceId) {
         ChronicleDef def = engine.chronicleDef();
         Optional<ChronicleDef.Piece> piece = def.piece(pieceId);
@@ -135,7 +138,9 @@ public final class ChronicleManager implements ChronicleService {
                 .thenApply(g -> g.owned());
     }
 
-    /** 커스텀 발전과제 「항구 연대기」 기준 달성 (데이터팩이 없으면 건너뜀). */
+    /**
+     * Awards the "Harbor Chronicle" custom advancement criterion (skipped without the datapack).
+     */
     private void advancement(Player player, @Nullable String key) {
         if (key == null) {
             return;
@@ -151,9 +156,12 @@ public final class ChronicleManager implements ChronicleService {
         }
     }
 
-    // ------------------------------------------------------------------ 연대기 회상 (D9)
+    // ------------------------------------------------------------------ Chronicle recap (D9)
 
-    /** 위치가 바뀔 때 (Tracker): 회상 대상 장의 지역·범위 안이면 지급. */
+    /**
+     * On location change (Tracker): grants if inside the region/area of a chapter eligible for
+     * recap.
+     */
     void onMove(
             Player player,
             HarborPlayer hp,
@@ -351,7 +359,7 @@ public final class ChronicleManager implements ChronicleService {
         return stack;
     }
 
-    /** 장 다시 보기 (보상 없음). */
+    /** Replays a chapter (no reward). */
     void replay(Player player, ChronicleDef.Chapter chapter) {
         HarborId cutscene = chapter.cutscene();
         if (cutscene == null || !cleared(player.getUniqueId(), chapter)) {

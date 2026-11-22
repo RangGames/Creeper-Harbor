@@ -6,8 +6,8 @@ import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
 /**
- * Harbor-Fishing이 켜져 있을 때: 물고기를 낚은 이벤트와 그 안에서 쓰는 식 (어종 · 등급 · 지역 · 크기 · 품질). event-player는 Skript
- * 기본 값(PlayerEvent)이다.
+ * When Harbor-Fishing is enabled: the fish caught event and the expressions used inside it (species
+ * · grade · region · size · quality). event-player is Skript's default value (PlayerEvent).
  */
 public final class FishingSyntax {
 

@@ -9,23 +9,24 @@ import java.util.Map;
 import wiki.creeper.harbor.quest.content.Objective;
 
 /**
- * deliver 목표의 아이템 고르기 (docs 20 6.4): 미리 세지 않고 보고할 때 인벤토리를 검사한다. 조건에 맞는 아이템을 품질 낮은 순으로 고르고, 한 아이템은
- * 목표 하나에만 쓴다. 순수 계산 (인벤토리는 {@link Slot} 목록으로 받는다).
+ * Item selection for deliver objectives (docs 20 6.4): nothing is counted in advance; the inventory
+ * is checked on turn-in. Matching items are picked lowest quality first, and one item serves only
+ * one objective. Pure computation (the inventory comes in as a list of {@link Slot}).
  */
 public final class DeliverPlan {
 
     /**
-     * 인벤토리 한 칸.
+     * One inventory slot.
      *
-     * @param precious ★5·고유 ID 아이템 (확인 Dialog를 거친다)
+     * @param precious ★5 or unique-ID item (goes through a confirmation Dialog)
      */
     public record Slot(int index, CatchFacts facts, int amount, boolean precious) {}
 
     /**
-     * 결과.
+     * Result.
      *
-     * @param take 칸 번호 → 가져갈 수
-     * @param missing 목표 key → 모자란 수 (비어 있으면 충족)
+     * @param take slot number → amount to take
+     * @param missing objective key → missing amount (empty means satisfied)
      */
     public record Result(
             Map<Integer, Integer> take, Map<String, Integer> missing, boolean precious) {
@@ -43,7 +44,7 @@ public final class DeliverPlan {
         Map<String, Integer> missing = new LinkedHashMap<>();
         boolean precious = false;
         List<Slot> sorted = new ArrayList<>(slots);
-        // 품질 낮은 순 → 귀한 아이템은 뒤로 → 칸 순서
+        // lowest quality first → precious items last → slot order
         sorted.sort(
                 Comparator.comparingInt((Slot s) -> s.facts().quality())
                         .thenComparing(Slot::precious)

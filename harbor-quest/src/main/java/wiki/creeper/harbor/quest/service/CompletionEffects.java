@@ -22,7 +22,10 @@ import wiki.creeper.harbor.quest.data.QuestEntry;
 import wiki.creeper.harbor.quest.data.QuestRepository;
 import wiki.creeper.harbor.quest.logic.Progress;
 
-/** 완료 5단계: QuestCompletedEvent, 알림·효과음, 완료 컷씬, 추적 전환, 장 클리어·서버 최초 클리어 공지. 메인 스레드 전용. */
+/**
+ * Completion step 5: QuestCompletedEvent, notification and sound, completion cutscene, tracking
+ * switch, chapter clear and server-first clear announcements. Main thread only.
+ */
 final class CompletionEffects {
 
     private final QuestEngine engine;
@@ -42,7 +45,7 @@ final class CompletionEffects {
                 def.rewards().chronicle());
     }
 
-    /** 5단계: 이벤트·효과음·컷씬·장 클리어·게시판·표시. */
+    /** Step 5: event, sound, cutscene, chapter clear, board, markers. */
     void afterComplete(UUID uuid, QuestDef def, QuestEntry entry, QuestRewardSummary summary) {
         Bukkit.getPluginManager()
                 .callEvent(
@@ -65,7 +68,7 @@ final class CompletionEffects {
         QuestEntry tracked = null;
         Optional<HarborPlayer> hp = engine.api.players().get(uuid);
         if (hp.isPresent() && def.id().equals(hp.get().get(QuestEngine.COMPONENT).tracked())) {
-            // 추적 중이던 퀘스트가 끝나면 진행 중인 다른 퀘스트(메인 우선)로
+            // when the tracked quest ends, switch to another quest in progress (main first)
             for (Map.Entry<QuestDef, QuestEntry> e : engine.open(hp.get())) {
                 if (tracked == null || e.getKey().main()) {
                     tracked = e.getValue();
@@ -81,7 +84,10 @@ final class CompletionEffects {
         chapterCheck(uuid, def);
     }
 
-    /** 장 마지막 퀘스트면 ChapterCompletedEvent, 서버 최초 클리어면 harbor:announce 공지. */
+    /**
+     * ChapterCompletedEvent if it is the chapter's last quest, a harbor:announce announcement if it
+     * is the server-first clear.
+     */
     void chapterCheck(UUID uuid, QuestDef def) {
         if (!def.main()) {
             return;

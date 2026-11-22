@@ -24,7 +24,8 @@ import wiki.creeper.harbor.quest.logic.Progress;
 import wiki.creeper.harbor.quest.logic.QuestMachine;
 
 /**
- * 수락·포기·추적 (docs 20 6.4 상태 기계). 행 쓰기는 {@link QuestEngine#serial}로 플레이어별 순서를 지키고, 결과는 메인 스레드에서 반영한다.
+ * Accept, abandon and tracking (docs 20 6.4 state machine). Row writes keep per-player order
+ * through {@link QuestEngine#serial}, and results are applied on the main thread.
  */
 final class QuestLifecycle {
 
@@ -131,7 +132,7 @@ final class QuestLifecycle {
         engine.refreshMarkers(hp.uuid());
     }
 
-    /** 잠긴 이유 안내 (주차 잠금이면 "N주차에 열립니다 (D-n)"). */
+    /** Explains why it is locked (for a week lock, "opens in week N (D-n)"). */
     void explainLocked(Player player, QuestDef def, QuestEngine.Avail avail) {
         var messages = engine.api.messages();
         switch (avail.state()) {
@@ -166,7 +167,7 @@ final class QuestLifecycle {
         }
     }
 
-    /** 그 주차가 시작할 때까지 남은 날 (D-n). */
+    /** Days left until that week starts (D-n). */
     long daysUntilWeek(int week) {
         long days =
                 Duration.between(engine.api.time().now(), engine.deps.clock().weekStart(week))

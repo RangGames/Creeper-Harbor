@@ -26,14 +26,17 @@ import wiki.creeper.harbor.quest.logic.Matchers;
 import wiki.creeper.harbor.quest.logic.QuestMachine;
 
 /**
- * 추적 UI와 위치 판정 (docs 20 6.4):
+ * Tracking UI and location checks (docs 20 6.4):
  *
  * <ul>
- *   <li>진행 액션바 "항구 고등어 3/10" (플레이어당 1초에 한 번으로 묶음)
- *   <li>추적 중인 퀘스트의 현재 목표 방향·거리 (액션바, 2초마다). 바닐라 위치 표시 막대 waypoint는 Phase 1 검증 뒤 숨김 표식 엔티티로 바꾼다
- *   <li>visit 목표: World 지역 진입 이벤트가 없으면 활성 visit 목표가 있는 플레이어만 블록 좌표가 바뀐 이동에서 10틱에 한 번 regions.yml
- *       다각형 판정
- *   <li>지역 진입 → 연대기 회상 (D9)
+ *   <li>Progress action bar "Harbor Mackerel 3/10" (batched to once per second per player)
+ *   <li>Direction and distance to the current objective of the tracked quest (action bar, every 2
+ *       seconds). The vanilla locator bar waypoint will be replaced with a hidden marker entity
+ *       after Phase 1 verification
+ *   <li>visit objectives: without World region entry events, a regions.yml polygon check once per
+ *       10 ticks on moves that change block coordinates, only for players with an active visit
+ *       objective
+ *   <li>Region entry → chronicle recap (D9)
  * </ul>
  */
 public final class Tracker {
@@ -45,7 +48,10 @@ public final class Tracker {
     private final Map<UUID, Pos> lastPos = new HashMap<>();
     private final Map<UUID, HarborId> lastRegion = new HashMap<>();
 
-    /** 마지막으로 보낸 방향 안내와 시각 (바뀌었거나 사라질 때가 됐을 때만 다시 보낸다). */
+    /**
+     * Last direction hint sent and its time (sent again only when it changed or is about to
+     * disappear).
+     */
     private final Map<UUID, Component> lastWaypoint = new HashMap<>();
 
     private final Map<UUID, Long> lastWaypointAt = new HashMap<>();
@@ -62,7 +68,7 @@ public final class Tracker {
         lastWaypointAt.remove(uuid);
     }
 
-    /** 목표가 진행됐을 때 (액션바는 1초 묶음). */
+    /** When an objective progresses (action bar batched per second). */
     void progressed(Player player, QuestDef def, Objective o, int value) {
         pendingBar.put(
                 player.getUniqueId(),
@@ -77,12 +83,12 @@ public final class Tracker {
                                 Placeholder.unparsed("count", String.valueOf(o.count()))));
     }
 
-    /** 20틱마다: 묶어 둔 진행 액션바. */
+    /** Every 20 ticks: the batched progress action bar. */
     void flushBars() {
         for (Map.Entry<UUID, Component> e : Map.copyOf(pendingBar).entrySet()) {
             Player player = Bukkit.getPlayer(e.getKey());
             if (player != null && engine.deps.cutscenes().isPlaying(player)) {
-                continue; // 컷씬 대사(액션바)를 덮지 않게 끝난 뒤에 보낸다
+                continue; // sent after it ends so it does not cover cutscene lines (action bar)
             }
             pendingBar.remove(e.getKey());
             if (player != null) {
@@ -92,8 +98,9 @@ public final class Tracker {
     }
 
     /**
-     * balance.yml quest.tracker.waypoint_refresh_ticks마다: 추적 목표 방향. 화살표·거리가 바뀌었거나 액션바가 사라질 때가 됐을 때만
-     * 보낸다. 낚시·컷씬 중이거나 다른 액션바가 떠 있으면 덮지 않고 건너뛴다.
+     * Every balance.yml quest.tracker.waypoint_refresh_ticks: direction to the tracked objective.
+     * Sent only when the arrow or distance changed or the action bar is about to disappear. Skipped
+     * without covering it while fishing, in a cutscene, or while another action bar is showing.
      */
     void showWaypoints() {
         if (!engine.balance().bool("quest.tracker.waypoint_actionbar", true)) {
@@ -204,13 +211,16 @@ public final class Tracker {
 
     private static final String HERE = "●";
 
-    /** 바라보는 방향 기준 목표의 각도 (-180~180, 양수 = 오른쪽). 마인크래프트 yaw는 0 = +Z(남), 90 = -X(서)로 시계 방향이다. */
+    /**
+     * Angle of the objective relative to the facing direction (-180~180, positive = right).
+     * Minecraft yaw is clockwise with 0 = +Z (south), 90 = -X (west).
+     */
     static double relativeAngle(double dx, double dz, double yaw) {
         double bearing = Math.toDegrees(Math.atan2(-dx, dz));
         return ((bearing - yaw) % 360 + 540) % 360 - 180;
     }
 
-    /** -180~180도 → 8방향 화살표. */
+    /** -180~180 degrees → 8-direction arrow. */
     static String arrow(double relative) {
         String[] arrows = {"↑", "↗", "→", "↘", "↓", "↙", "←", "↖"};
         int index = (int) Math.floorMod(Math.round(relative / 45.0), 8L);
@@ -242,7 +252,10 @@ public final class Tracker {
         return null;
     }
 
-    /** 콘텐츠의 정수 좌표는 블록 모서리라서 블록 가운데를 가리킨다 (소수 좌표는 그대로). */
+    /**
+     * Integer coordinates in content are block corners, so point at the block center (decimal
+     * coordinates are kept as is).
+     */
     private static Location blockCenter(World world, double x, double y, double z) {
         return new Location(world, center(x), y, center(z));
     }
@@ -251,7 +264,7 @@ public final class Tracker {
         return v == Math.rint(v) ? v + 0.5 : v;
     }
 
-    /** 10틱마다: 블록 좌표가 바뀐 플레이어만 지역·지점 판정. */
+    /** Every 10 ticks: region and point checks only for players whose block coordinates changed. */
     void pollPositions() {
         for (HarborPlayer hp : engine.api.players().online()) {
             Player player = Bukkit.getPlayer(hp.uuid());
@@ -298,7 +311,9 @@ public final class Tracker {
         }
     }
 
-    /** 위치의 지역 (regions.yml 경계, balance.yml world_alias, Fishing과 같은 규칙). */
+    /**
+     * Region of a location (regions.yml bounds, balance.yml world_alias, same rules as Fishing).
+     */
     @Nullable HarborId regionAt(String worldId, double x, double z) {
         for (RegionDef r : engine.snapshot().all(RegionDef.TYPE).values()) {
             if (r.world().equals(worldId) && r.contains(x, z)) {

@@ -31,19 +31,23 @@ import wiki.creeper.harbor.quest.service.QuestEngine;
 import wiki.creeper.harbor.quest.service.QuestServices;
 
 /**
- * 퀘스트북 (상자 GUI, 추가 제안). /퀘스트로 연다. 윗줄은 탭(진행 중 · 받을 수 있음 · 완료)과 바로 가기(게시판 · 연대기 · 추적 표시 · 닫기), 가운데
- * 4줄은 퀘스트 아이콘, 아랫줄은 페이지 이동. 아이콘 설명에 목표 진행 막대·보상·조작법이 들어간다.
+ * Quest book (chest GUI, proposed). Opened with /퀘스트. The top row has tabs (in progress · available
+ * · completed) and shortcuts (board · chronicle · tracker display · close), the middle 4 rows quest
+ * icons, and the bottom row page navigation. Icon lore includes the objective progress bar, rewards
+ * and controls.
  *
  * <ul>
- *   <li>진행 중: 좌클릭 추적 · 우클릭 상세(Dialog) · Shift+우클릭 포기 · 보고 NPC가 없는 READY는 좌클릭 보고
- *   <li>받을 수 있음: 시작 NPC가 없으면 좌클릭 수락 제안, 있으면 그 NPC를 알려 준다
+ *   <li>In progress: left click track · right click details (Dialog) · Shift+right click abandon ·
+ *       left click turns in a READY quest without a turn-in NPC
+ *   <li>Available: left click shows the accept offer if there is no start NPC; otherwise tells
+ *       which NPC
  * </ul>
  *
- * 메인 스레드 전용. 화면을 다시 그릴 때는 새 Menu를 만든다 (상태는 탭·페이지뿐).
+ * Main thread only. Redrawing creates a new Menu (the only state is tab and page).
  */
 public final class QuestBook {
 
-    /** 탭. */
+    /** Tab. */
     public enum Tab {
         ACTIVE,
         AVAILABLE,
@@ -141,7 +145,7 @@ public final class QuestBook {
         menu.open(player);
     }
 
-    // ------------------------------------------------------------------ 윗줄
+    // ------------------------------------------------------------------ Top row
 
     private void tabs(Menu menu, Player player, Tab current) {
         Balance b = balance();
@@ -239,9 +243,12 @@ public final class QuestBook {
         return tab.name().toLowerCase(java.util.Locale.ROOT);
     }
 
-    // ------------------------------------------------------------------ 목록
+    // ------------------------------------------------------------------ List
 
-    /** 탭의 퀘스트. 진행 중은 메인 → 보고 가능 → 나머지, 그 밖은 ID 순. 게시판 의뢰는 진행 중일 때만. */
+    /**
+     * Quests of the tab. In progress: main → ready to turn in → the rest; other tabs in ID order.
+     * Board requests only while in progress.
+     */
     List<QuestDef> quests(HarborPlayer hp, Tab tab) {
         List<QuestDef> found = new ArrayList<>();
         if (tab == Tab.ACTIVE) {
@@ -270,7 +277,7 @@ public final class QuestBook {
         return found;
     }
 
-    // ------------------------------------------------------------------ 아이콘
+    // ------------------------------------------------------------------ Icons
 
     private ItemStack icon(Player player, HarborPlayer hp, QuestDef def, Tab tab) {
         Optional<QuestEntry> entry = hp.get(QuestEngine.COMPONENT).entry(def.id());
@@ -347,7 +354,10 @@ public final class QuestBook {
                         Placeholder.unparsed("count", String.valueOf(o.count())));
     }
 
-    /** ■■■□□ (balance.yml quest.book.bar_width, 문자는 messages quest.book.bar_full/bar_empty). */
+    /**
+     * ■■■□□ (balance.yml quest.book.bar_width, characters from messages
+     * quest.book.bar_full/bar_empty).
+     */
     private Component bar(int value, int count) {
         int width = Math.max(1, balance().integer("quest.book.bar_width", 10));
         int filled = TrackerLine.filledCells(value, count, width);
@@ -416,7 +426,7 @@ public final class QuestBook {
         };
     }
 
-    // ------------------------------------------------------------------ 클릭
+    // ------------------------------------------------------------------ Clicks
 
     private void click(Player player, QuestDef def, Tab tab, int page, @Nullable ClickType click) {
         HarborPlayer hp = api.players().get(player);

@@ -11,21 +11,25 @@ import wiki.creeper.harbor.quest.content.ObjectiveMode;
 import wiki.creeper.harbor.quest.content.QuestDef;
 
 /**
- * 퀘스트 상태 기계와 목표 진행 계산 (docs 20 6.4). 순수 계산만 한다 (서버 API·입출력 없음).
+ * Quest state machine and objective progress computation (docs 20 6.4). Pure computation only (no
+ * server API or I/O).
  *
  * <pre>
- * LOCKED ⇄ AVAILABLE → ACTIVE → READY → COMPLETING → COMPLETED (반복이면 다음 cycle에 AVAILABLE)
- *                         ↘ ABANDONED(행 삭제) · FAILED(이벤트 기간 종료)        ↘ 실패 시 READY
+ * LOCKED ⇄ AVAILABLE → ACTIVE → READY → COMPLETING → COMPLETED (repeatable: AVAILABLE in the next cycle)
+ *                         ↘ ABANDONED(row deleted) · FAILED(event period ended)        ↘ READY on failure
  * </pre>
  */
 public final class QuestMachine {
 
     private QuestMachine() {}
 
-    /** 진행 결과. */
+    /** Progress result. */
     public record Step(Progress progress, boolean changed, List<String> completedKeys) {}
 
-    /** 지금 진행되는 목표 (sequence는 현재 목표 하나, all은 아직 못 채운 목표 전부). deliver는 보고할 때 보므로 빠진다. */
+    /**
+     * Objectives currently progressing (the single current objective for sequence, all unfilled
+     * objectives for all). deliver is excluded since it is checked on turn-in.
+     */
     public static List<Objective> current(QuestDef quest, Progress progress) {
         List<Objective> result = new ArrayList<>();
         List<Objective> objectives = quest.objectives();
@@ -47,7 +51,7 @@ public final class QuestMachine {
         return result;
     }
 
-    /** 추적 목표를 모두 채웠는지 (deliver 제외). */
+    /** Whether all tracked objectives are filled (excluding deliver). */
     public static boolean ready(QuestDef quest, Progress progress) {
         for (Objective o : quest.objectives()) {
             if (o.tracked() && progress.count(o.key()) < o.count()) {
@@ -57,7 +61,10 @@ public final class QuestMachine {
         return true;
     }
 
-    /** 목표를 amount만큼 진행한다. 지금 진행되는 목표가 아니면 바뀌지 않는다 (sequence 순서 보호). 목표 수를 넘지 않는다. */
+    /**
+     * Advances the objective by amount. Nothing changes if it is not a currently progressing
+     * objective (protects sequence order). Never exceeds the objective count.
+     */
     public static Step add(QuestDef quest, Progress progress, String key, int amount) {
         if (amount <= 0) {
             return new Step(progress, false, List.of());
@@ -71,7 +78,10 @@ public final class QuestMachine {
         return apply(quest, progress, key, before, after, target);
     }
 
-    /** 게이지 목표 (도달 값): 지금 값으로 덮어쓴다. 내려가지는 않는다 (한 번 채운 목표 유지). */
+    /**
+     * Gauge objective (reached value): overwritten with the current value. It never goes down (an
+     * objective once filled stays filled).
+     */
     public static Step set(QuestDef quest, Progress progress, String key, int value) {
         Objective target = activeObjective(quest, progress, key);
         if (target == null) {
@@ -82,7 +92,7 @@ public final class QuestMachine {
         return apply(quest, progress, key, before, after, target);
     }
 
-    /** 관리 명령: 값을 그대로 넣는다 (순서와 무관). */
+    /** Admin command: sets the value as is (regardless of order). */
     public static Progress force(QuestDef quest, Progress progress, String key, int value) {
         Map<String, Integer> counts = new LinkedHashMap<>(progress.counts());
         quest.objective(key)
@@ -117,7 +127,10 @@ public final class QuestMachine {
         return null;
     }
 
-    /** sequence: 아직 못 채운 첫 추적 목표의 순서 (모두 채웠으면 목표 수). */
+    /**
+     * sequence: index of the first unfilled tracked objective (the objective count if all are
+     * filled).
+     */
     static int firstOpen(QuestDef quest, Map<String, Integer> counts) {
         List<Objective> objectives = quest.objectives();
         for (int i = 0; i < objectives.size(); i++) {
@@ -130,8 +143,9 @@ public final class QuestMachine {
     }
 
     /**
-     * 리로드 때 진행 이전 (docs 20 6.4 예외 상황): 목표 key로 진행을 옮겨 붙인다. 없어진 목표는 버리고, 목표 수가 줄면 초과분을 자르고, 새 목표는
-     * 0부터.
+     * Progress migration on reload (docs 20 6.4 edge cases): carries progress over by objective
+     * key. Removed objectives are dropped, excess is trimmed when the count shrinks, and new
+     * objectives start at 0.
      */
     public static Progress migrate(QuestDef quest, Progress progress) {
         Map<String, Integer> counts = new LinkedHashMap<>();
@@ -145,7 +159,10 @@ public final class QuestMachine {
         return progress.withCounts(counts, index).withVersion(quest.hash());
     }
 
-    /** 진행 뒤 상태: 추적 목표를 모두 채우면 READY, 리로드로 다시 못 채운 상태가 되면 ACTIVE. */
+    /**
+     * State after progress: READY when all tracked objectives are filled, ACTIVE when a reload made
+     * it unfilled again.
+     */
     public static QuestState afterProgress(QuestState state, boolean ready) {
         if (state == QuestState.ACTIVE && ready) {
             return QuestState.READY;
@@ -156,7 +173,10 @@ public final class QuestMachine {
         return state;
     }
 
-    /** 수락할 수 있는 상태인지 (반복 퀘스트는 cycle이 바뀌면 COMPLETED도 다시 수락 가능). */
+    /**
+     * Whether the state can be accepted (repeatable quests can accept again from COMPLETED once the
+     * cycle changes).
+     */
     public static boolean canAccept(QuestState state, boolean sameCycle) {
         return switch (state) {
             case LOCKED, ACTIVE, READY, COMPLETING, ORPHANED -> false;

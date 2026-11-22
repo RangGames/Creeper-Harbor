@@ -3,10 +3,11 @@ package wiki.creeper.harbor.quest.content;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 컷씬 재생 시점 (추가 제안 cutscene_at): accept · complete · objective:&lt;key&gt;. 이 컷씬은 진행을 막지 않는다. 진행을 막는
- * 컷씬은 {@code type: cutscene} 목표로 둔다.
+ * When a cutscene plays (proposed cutscene_at): accept · complete · objective:&lt;key&gt;. This
+ * cutscene does not block progress. A cutscene that blocks progress is a {@code type: cutscene}
+ * objective.
  *
- * @param objectiveKey objective:&lt;key&gt;일 때 그 목표 키
+ * @param objectiveKey the objective key when objective:&lt;key&gt;
  */
 public record CutsceneAt(Kind kind, @Nullable String objectiveKey) {
 

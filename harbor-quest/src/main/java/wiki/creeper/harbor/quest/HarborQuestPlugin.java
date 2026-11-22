@@ -25,8 +25,10 @@ import wiki.creeper.harbor.quest.ui.QuestCommands;
 import wiki.creeper.harbor.quest.ui.QuestDialogs;
 
 /**
- * Harbor-Quest (docs 20 6장): YAML 퀘스트를 상태 기계(조건 → 목표 → 보상)로 돌리는 엔진, 어부 길드 게시판(일일·주간 의뢰), 수집 의뢰, 「항구
- * 연대기」와 연대기 회상(D9), 클라이맥스 개방 판정. NPC 엔티티·대화 화면·컷씬은 NPC, 전직 실행은 Jobs가 맡는다.
+ * Harbor-Quest (docs 20 ch. 6): an engine that runs YAML quests as a state machine (requirements →
+ * objectives → rewards), the fishermen's guild board (daily and weekly requests), collection
+ * requests, the "Harbor Chronicle" with chronicle recaps (D9), and the climax unlock check. NPC
+ * entities, dialog screens and cutscenes belong to NPC; job advancement is run by Jobs.
  */
 public final class HarborQuestPlugin extends HarborModule {
 
@@ -48,7 +50,8 @@ public final class HarborQuestPlugin extends HarborModule {
         services = s;
         QuestEngine engine = s.engine();
         ctx.contentCheck(QuestDef.TYPE, QuestContent.QUEST_CHECK);
-        // 목표 유형: 기본 유형 + 다른 모듈이 ObjectiveTypeRegistry로 등록한 유형 (검사 때마다 지금 목록을 본다)
+        // Objective types: the built-in types + types other modules registered through
+        // ObjectiveTypeRegistry (each check looks at the current list)
         ctx.contentCheck(
                 QuestDef.TYPE,
                 (quest, check) -> {
@@ -83,7 +86,8 @@ public final class HarborQuestPlugin extends HarborModule {
         registry.register(QuestService.class, engine, this, ServicePriority.Normal);
         registry.register(ObjectiveSignal.class, engine, this, ServicePriority.Normal);
         registry.register(ObjectiveTypeRegistry.class, engine, this, ServicePriority.Normal);
-        // 기본 구현은 가장 낮은 우선순위: World가 더 높은 우선순위로 등록하면 그 구현을 쓴다
+        // The default implementation has the lowest priority: if World registers with a higher
+        // priority, its implementation is used
         registry.register(RegionProgressProvider.class, engine, this, ServicePriority.Lowest);
         if (getServer().getPluginManager().isPluginEnabled("Harbor-World")) {
             var _ = WorldRegionProgress.register(this);

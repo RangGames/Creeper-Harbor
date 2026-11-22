@@ -24,9 +24,9 @@ import wiki.creeper.harbor.quest.content.QuestType;
 import wiki.creeper.harbor.quest.ui.QuestDialogs;
 
 /**
- * NPC 연동 (docs 20 5.2·6.2): 대화 액션 quest:list · quest:offer · quest:accept · quest:turn_in ·
- * quest:talk, 조건 quest_state · quest_available, 머리 위 표시(MarkerProvider), 낚시 미니게임 중 NPC 클릭 차단(busy
- * check "minigame").
+ * NPC integration (docs 20 5.2·6.2): dialog actions quest:list · quest:offer · quest:accept ·
+ * quest:turn_in · quest:talk, conditions quest_state · quest_available, overhead markers
+ * (MarkerProvider), blocking NPC clicks during the fishing minigame (busy check "minigame").
  */
 public final class NpcLink {
 
@@ -83,7 +83,8 @@ public final class NpcLink {
                                                                 == QuestState.AVAILABLE)
                                         .orElse(false)));
         engine.deps.markers().register(plugin, this::marker);
-        // NPC 보고서 요청: 낚시 미니게임 중에는 NPC 클릭·컷씬을 막는다 (문구 npc.busy.minigame)
+        // NPC busy check: blocks NPC clicks and cutscenes during the fishing minigame (message
+        // npc.busy.minigame)
         engine.deps
                 .npcs()
                 .registerBusyCheck(
@@ -95,7 +96,7 @@ public final class NpcLink {
                         });
     }
 
-    // ------------------------------------------------------------------ 액션
+    // ------------------------------------------------------------------ Actions
 
     private ActionResult list(DialogContext ctx) {
         if (dialogs.npcList(ctx.player(), ctx.npc())) {
@@ -125,7 +126,7 @@ public final class NpcLink {
     private ActionResult turnIn(DialogContext ctx, DialogArgs args) {
         Optional<QuestDef> def = quest(args);
         if (def.isEmpty()) {
-            // 값이 없으면 이 NPC에 보고할 수 있는 퀘스트 전부
+            // without a value, every quest that can be turned in to this NPC
             HarborPlayer hp = engine.api.players().get(ctx.player());
             for (var e : engine.open(hp)) {
                 if (e.getValue().state() == QuestState.READY
@@ -146,7 +147,7 @@ public final class NpcLink {
                                                         args.string("fail").orElse(null))));
     }
 
-    /** talk 목표 (특정 노드 도달): node 인자가 없으면 지금 노드. */
+    /** talk objective (reaching a specific node): the current node if there is no node argument. */
     private ActionResult talk(DialogContext ctx, DialogArgs args) {
         String node = args.string("node").orElse(ctx.node());
         NpcId npc = ctx.npc();
@@ -161,7 +162,7 @@ public final class NpcLink {
         return ActionResult.CONTINUE;
     }
 
-    // ------------------------------------------------------------------ 조건
+    // ------------------------------------------------------------------ Conditions
 
     private boolean stateIs(DialogContext ctx, DialogArgs args) {
         Optional<QuestDef> def = quest(args);
@@ -177,9 +178,12 @@ public final class NpcLink {
         };
     }
 
-    // ------------------------------------------------------------------ 표시
+    // ------------------------------------------------------------------ Markers
 
-    /** 우선순위: 노란 ?(보고) > 금색 !(메인 수락) > !(수락) > 회색 ?(진행 중·주차 잠금). 히든 퀘스트는 표시하지 않는다. */
+    /**
+     * Priority: yellow ? (turn in) > gold ! (main accept) > ! (accept) > gray ? (in progress or
+     * week locked). Hidden quests show no marker.
+     */
     QuestMarker marker(Player player, NpcId npc) {
         Optional<HarborPlayer> found = engine.api.players().get(player.getUniqueId());
         if (found.isEmpty()) {
@@ -231,7 +235,7 @@ public final class NpcLink {
         return false;
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ Helpers
 
     private Optional<QuestDef> quest(DialogArgs args) {
         return args.value()
@@ -240,7 +244,7 @@ public final class NpcLink {
                 .flatMap(id -> engine.def(new QuestId(id)));
     }
 
-    /** 인자 검사: 퀘스트 ID가 콘텐츠에 있는지. */
+    /** Argument check: whether the quest ID exists in the content. */
     private static void checkQuest(DialogArgs args, ArgCheck check, boolean required) {
         Optional<String> raw = args.value().or(() -> args.string("quest"));
         if (raw.isEmpty()) {

@@ -17,13 +17,15 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 퀘스트 정의 (quests/*.yml, '11. 데이터 설계' 2.6·2.9, docs 20 6.3). ID 규칙: {@code quest/<유형>/<이름>}. 메인은
- * {@code quest/main/ch<N>_<이름>} (DB에는 네임스페이스를 붙인 전체 ID).
+ * Quest definition (quests/*.yml, '11. Data Design' 2.6·2.9, docs 20 6.3). ID rule: {@code
+ * quest/<type>/<name>}. Main quests are {@code quest/main/ch<N>_<name>} (the full namespaced ID in
+ * the DB).
  *
- * @param chapter 메인 스토리 장 (프롤로그 0, 1~7, 최종장 8). 메인이 아니면 -1
- * @param offerStyle 수락 제안을 보여주는 방식 (dialog · hologram · title · chat · actionbar, 비우면 시작 NPC의 대화
- *     방식, 추가 제안)
- * @param hash 목표 구성 해시 (progress JSON의 v, 리로드 때 바뀐 퀘스트 수 보고)
+ * @param chapter main story chapter (prologue 0, 1~7, final chapter 8). -1 if not a main quest
+ * @param offerStyle how the accept offer is shown (dialog · hologram · title · chat · actionbar;
+ *     empty means the start NPC's dialog style, proposed)
+ * @param hash objective layout hash (v in the progress JSON; reports the number of changed quests
+ *     on reload)
  */
 public record QuestDef(
         QuestId id,
@@ -51,14 +53,15 @@ public record QuestDef(
     public static final String MAIN_PREFIX = "quest/main/";
 
     /**
-     * 게시판 후보 (추가 제안 pool).
+     * Board candidate (proposed pool).
      *
      * @param board daily · weekly · collect
-     * @param region 의뢰가 나오는 지역 (해금한 가장 높은 지역까지만 후보)
+     * @param region region the request appears in (candidates only up to the highest unlocked
+     *     region)
      */
     public record Pool(QuestType board, @Nullable RegionId region, int weight) {}
 
-    /** 이벤트 기간 (Asia/Seoul 지역 시각, Core HarborTime 시간대). */
+    /** Event period (Asia/Seoul local time, the Core HarborTime time zone). */
     public record TimeWindow(@Nullable LocalDateTime start, @Nullable LocalDateTime end) {}
 
     private static final Set<String> FIELDS =
@@ -83,7 +86,7 @@ public record QuestDef(
                     "time_window",
                     "offer_style");
 
-    /** offer_style에 쓸 수 있는 값 (Npc DialogStyle 키와 같다). */
+    /** Values allowed for offer_style (same as the Npc DialogStyle keys). */
     public static final Set<String> OFFER_STYLES =
             Set.of("dialog", "hologram", "title", "chat", "actionbar");
 
@@ -96,12 +99,12 @@ public record QuestDef(
         objectives = List.copyOf(objectives);
     }
 
-    /** 메인 퀘스트 (시즌 이월, 포기 불가). */
+    /** Main quest (carried over between seasons, cannot be abandoned). */
     public boolean main() {
         return type == QuestType.MAIN;
     }
 
-    /** 보고 받는 NPC (없으면 시작 NPC). */
+    /** NPC that receives the turn-in (start NPC if absent). */
     public Optional<NpcId> turnInNpc() {
         return Optional.ofNullable(endNpc != null ? endNpc : startNpc);
     }
@@ -154,7 +157,7 @@ public record QuestDef(
                                 .orElse(type.defaultMode())
                         : type.defaultMode();
         if (mode == ObjectiveMode.SEQUENCE) {
-            // deliver는 보고할 때 확인하므로 sequence에서는 맨 뒤에만 둔다
+            // deliver is checked on turn-in, so in sequence mode it may only be last
             boolean seenDeliver = false;
             for (int i = 0; i < objectives.size(); i++) {
                 if (!objectives.get(i).tracked()) {
@@ -297,7 +300,7 @@ public record QuestDef(
         }
     }
 
-    /** 목표 구성 해시 (key·type·대상·수량). */
+    /** Objective layout hash (key, type, target, count). */
     static int hash(List<Objective> objectives) {
         StringBuilder sb = new StringBuilder();
         for (Objective o : objectives) {

@@ -12,10 +12,12 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * quest_progress.progress JSON (docs 20 6.3): {@code {v: 콘텐츠 해시, o: {목표 key: 수}, i: 현재 목표 순서,
- * cycle: "d2027-05-03", r: {snap: 수락 시 보상 스냅샷, paid: [지급 완료 항목]}, a: 수락 시각(ms)}}. 변경 불가.
+ * quest_progress.progress JSON (docs 20 6.3): {@code {v: content hash, o: {objective key: count},
+ * i: current objective index, cycle: "d2027-05-03", r: {snap: reward snapshot at accept, paid:
+ * [paid entries]}, a: accept time (ms)}}. Immutable.
  *
- * @param paid 지급 기록: {@code grant}(경험치·호감도·힌트·아이템을 줬음, 완료 트랜잭션과 같이 씀), {@code done}(모든 보상 처리 끝)
+ * @param paid payout record: {@code grant} (experience, affinity, hints and items were given;
+ *     written together with the completion transaction), {@code done} (all rewards processed)
  */
 public record Progress(
         int version,
@@ -27,9 +29,10 @@ public record Progress(
         long acceptedAt) {
 
     /**
-     * 수락할 때 정한 재화·평판 (의뢰 골드는 해금한 가장 높은 지역 기준이라 수락 시점 값으로 고정).
+     * Currency and reputation fixed at accept time (request gold depends on the highest unlocked
+     * region, so it is fixed to the value at accept time).
      *
-     * @param region 수락 시점의 해금한 가장 높은 지역 (기록용)
+     * @param region highest unlocked region at accept time (for the record)
      */
     public record Snapshot(
             long gold, long mulbineul, int reputation, long exp, @Nullable String region) {
@@ -99,7 +102,7 @@ public record Progress(
         return root.toString();
     }
 
-    /** 깨진 JSON이면 빈 진행 (cycle "once")으로 읽는다. */
+    /** Broken JSON is read as empty progress (cycle "once"). */
     public static Progress fromJson(@Nullable String json) {
         if (json == null || json.isBlank()) {
             return start(0, "once", Snapshot.NONE, 0);

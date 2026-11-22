@@ -13,7 +13,10 @@ import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.QuestId;
 
-/** Quest 콘텐츠 형식과 검사. 서버 API를 쓰지 않아 harbor-tools(CI)도 같은 코드로 검사한다. */
+/**
+ * Quest content types and checks. Uses no server API, so harbor-tools (CI) checks with the same
+ * code.
+ */
 public final class QuestContent {
 
     public static final List<ContentType<?>> TYPES =
@@ -21,7 +24,10 @@ public final class QuestContent {
 
     private QuestContent() {}
 
-    /** 형식과 서버 API가 필요 없는 검사를 등록한다 (harbor-tools). 목표 유형은 기본 유형만 안다. */
+    /**
+     * Registers the types and the checks that need no server API (harbor-tools). Only the built-in
+     * objective types are known.
+     */
     public static void register(ContentLoader loader) {
         TYPES.forEach(loader::register);
         loader.addCheck(QuestDef.TYPE, QUEST_CHECK);
@@ -30,8 +36,8 @@ public final class QuestContent {
     }
 
     /**
-     * 퀘스트 하나 검사 (docs 20 6.6 콘텐츠 검사): 순환 선행 퀘스트, 품질 상한 위반, 연대기 조각 ID, deliver·talk 대상 NPC,
-     * job_advance는 job 유형만.
+     * Checks one quest (docs 20 6.6 content check): circular prerequisites, quality cap violations,
+     * chronicle piece IDs, deliver/talk target NPCs, job_advance only on the job type.
      */
     public static final ContentCheck<QuestDef> QUEST_CHECK =
             (quest, check) -> {
@@ -91,7 +97,10 @@ public final class QuestContent {
                 }
             };
 
-    /** 목표 유형이 등록되어 있는지 (서버는 ObjectiveTypeRegistry 목록, harbor-tools는 기본 유형). */
+    /**
+     * Whether the objective type is registered (the ObjectiveTypeRegistry list on the server, the
+     * built-in types in harbor-tools).
+     */
     public static ContentCheck<QuestDef> objectiveTypes(Set<String> known) {
         Set<String> types = Set.copyOf(known);
         return (quest, check) -> {
@@ -103,7 +112,10 @@ public final class QuestContent {
         };
     }
 
-    /** 장의 final이 메인 퀘스트인지, 조각의 장이 장 목록에 있는지. */
+    /**
+     * Whether a chapter's final is a main quest, and whether a piece's chapter is in the chapter
+     * list.
+     */
     public static final ContentCheck<ChronicleDef> CHRONICLE_CHECK =
             (chronicle, check) -> {
                 Map<HarborId, QuestDef> quests = check.snapshot().all(QuestDef.TYPE);
@@ -128,7 +140,10 @@ public final class QuestContent {
                 }
             };
 
-    /** 직업 단계별 품질 상한 (balance.yml jobs.quality_cap, 기본 1차 ★3 · 2차 ★4 · 3차 ★5). */
+    /**
+     * Quality cap per job tier (balance.yml jobs.quality_cap, default tier 1 ★3 · tier 2 ★4 · tier
+     * 3 ★5).
+     */
     static int qualityCap(ContentSnapshot snapshot, int tier) {
         int fallback = Math.min(5, 2 + tier);
         if (!snapshot.typeNames().contains(Balance.TYPE.name())) {
@@ -142,7 +157,9 @@ public final class QuestContent {
         return visit(start.id(), all, color);
     }
 
-    /** DFS (0 미방문, 1 방문 중, 2 끝). 방문 중인 노드를 다시 만나면 순환. */
+    /**
+     * DFS (0 unvisited, 1 visiting, 2 done). Meeting a node that is being visited means a cycle.
+     */
     private static boolean visit(
             HarborId id, Map<HarborId, QuestDef> all, Map<HarborId, Integer> color) {
         int c = color.getOrDefault(id, 0);

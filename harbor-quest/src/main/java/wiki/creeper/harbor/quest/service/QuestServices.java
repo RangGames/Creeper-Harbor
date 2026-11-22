@@ -18,7 +18,10 @@ import wiki.creeper.harbor.quest.data.BoardState;
 import wiki.creeper.harbor.quest.data.QuestEntry;
 import wiki.creeper.harbor.quest.logic.Progress;
 
-/** Quest 서비스 묶음 (엔진·보상·게시판·추적·연대기·서버 진행도)과 UI·명령이 쓰는 창구. */
+/**
+ * Bundle of Quest services (engine, rewards, board, tracking, chronicle, server progress) and the
+ * entry point used by the UI and commands.
+ */
 public final class QuestServices {
 
     private final QuestEngine engine;
@@ -65,8 +68,9 @@ public final class QuestServices {
     }
 
     /**
-     * 주기 작업: 액션바 묶음(20틱), 추적 보스바(20틱), 위치 판정(10틱), 추적 방향(balance.yml, 기본 5틱), 게시판 엔티티(600틱), 이벤트 기간
-     * 종료(1200틱), 클라이맥스.
+     * Periodic tasks: batched action bar (20 ticks), tracker boss bar (20 ticks), location check
+     * (10 ticks), tracking direction (balance.yml, default 5 ticks), board entities (600 ticks),
+     * event period end (1200 ticks), climax.
      */
     public void start(java.util.function.Consumer<Player> openBoard) {
         board.setOpener(openBoard);
@@ -82,7 +86,7 @@ public final class QuestServices {
         progress.start();
     }
 
-    /** 이벤트 구독·NPC 연동·선택 의존 연결·시즌 훅. */
+    /** Event subscriptions, NPC integration, optional dependency links, season hook. */
     public void registerHooks(Plugin plugin) {
         new OptionalBridges(engine).register(plugin);
         wiki.creeper.harbor.season.api.SeasonServices.hooks()
@@ -102,7 +106,7 @@ public final class QuestServices {
         return engine.open(hp);
     }
 
-    /** NPC 대화 엔진 (수락 제안·퀘스트 목록을 NPC 대화 방식으로 보여줄 때). */
+    /** NPC dialog engine (when showing accept offers and quest lists in the NPC's dialog style). */
     public wiki.creeper.harbor.npc.api.DialogService npcDialogs() {
         return engine.deps.dialogs();
     }
@@ -111,7 +115,7 @@ public final class QuestServices {
         return engine.deps.npcs();
     }
 
-    /** 콘텐츠 월드 ID (balance.yml world_alias). */
+    /** Content world ID (balance.yml world_alias). */
     public String worldId(org.bukkit.World world) {
         return tracker.worldId(world);
     }
@@ -128,12 +132,12 @@ public final class QuestServices {
         return board.ensure(player, kind, false);
     }
 
-    /** 보상 미리보기 (수락 전, 지금 지역 기준). */
+    /** Reward preview (before accepting, based on the current region). */
     public Progress.Snapshot preview(HarborPlayer hp, QuestDef def) {
         return payer.snapshot(hp, def);
     }
 
-    /** 관리 명령: 강제 완료. */
+    /** Admin command: force complete. */
     public CompletableFuture<Boolean> forceComplete(Player player, QuestDef def, boolean reward) {
         return payer.complete(player, def, reward);
     }

@@ -3,21 +3,23 @@ package wiki.creeper.harbor.quest.logic;
 import java.util.List;
 
 /**
- * 추적 표시 한 줄 계산 (보스바·GUI 공용, 서버 API 없음). 지금 목표가 여러 개면(all 모드) 덜 채운 첫 목표를 보여 주고 나머지 수를 붙인다. 진행률은 지금
- * 목표들의 합 (세지 않는 목표는 0 또는 1로 친다).
+ * Computes one tracker line (shared by the boss bar and the GUI, no server API). With several
+ * current objectives (all mode) it shows the first least-filled objective and appends the remaining
+ * count. The progress rate is the sum over the current objectives (non-counting objectives count as
+ * 0 or 1).
  */
 public final class TrackerLine {
 
-    /** 표시 종류. */
+    /** Display kind. */
     public enum Kind {
         ACTIVE,
         READY
     }
 
     /**
-     * 지금 목표 하나.
+     * One current objective.
      *
-     * @param value 진행 값. 세지 않는 목표(납품 등)는 -1
+     * @param value progress value. -1 for non-counting objectives (delivery etc.)
      */
     public record Goal(String text, int value, int count) {
 
@@ -27,10 +29,10 @@ public final class TrackerLine {
     }
 
     /**
-     * 표시 내용.
+     * Display content.
      *
-     * @param value 보여 줄 목표의 진행 값 (-1이면 숫자 없이)
-     * @param more 보여 주지 않은 나머지 목표 수
+     * @param value progress value of the shown objective (-1 means no number)
+     * @param more number of remaining objectives not shown
      */
     public record View(
             Kind kind,
@@ -66,7 +68,7 @@ public final class TrackerLine {
                 progress(goals));
     }
 
-    /** 0~1. 세는 목표는 value/count, 세지 않는 목표는 0. */
+    /** 0~1. value/count for counting objectives, 0 for non-counting objectives. */
     public static float progress(List<Goal> goals) {
         if (goals.isEmpty()) {
             return 0f;
@@ -80,7 +82,7 @@ public final class TrackerLine {
         return (float) Math.clamp(sum / goals.size(), 0.0, 1.0);
     }
 
-    /** 칸 수만큼의 채움 칸 (0~width). GUI 진행 막대용. */
+    /** Filled cells out of width (0~width). For the GUI progress bar. */
     public static int filledCells(int value, int count, int width) {
         if (count <= 0 || value <= 0) {
             return 0;

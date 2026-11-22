@@ -14,7 +14,10 @@ import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.quest.content.Objective;
 import wiki.creeper.harbor.quest.content.QuestDef;
 
-/** 사람이 읽는 목표·대상 이름 (액션바·목록·GUI). 메인 스레드 전용 (NPC 이름 변형을 읽는다). */
+/**
+ * Human-readable objective and target names (action bar, lists, GUI). Main thread only (reads NPC
+ * name variants).
+ */
 final class QuestTexts {
 
     private final QuestEngine engine;
@@ -27,7 +30,10 @@ final class QuestTexts {
         return PlainTextComponentSerializer.plainText().serialize(c);
     }
 
-    /** 목표 문구: text가 있으면 그것, 없으면 quest.objective.<유형> 키에 대상 이름·수량. */
+    /**
+     * Objective text: text if present, otherwise the quest.objective.<type> key with the target
+     * name and amount.
+     */
     String objectiveText(Player viewer, QuestDef def, Objective o) {
         String text = o.text();
         if (text != null) {

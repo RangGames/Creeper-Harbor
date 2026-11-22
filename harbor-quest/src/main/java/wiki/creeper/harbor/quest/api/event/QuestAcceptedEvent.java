@@ -5,7 +5,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.QuestId;
 
-/** 퀘스트 수락 (수락 행을 쓴 뒤 메인 스레드). NPC 표시 갱신·통계. 메인 스레드에서 발생한다. */
+/**
+ * A quest was accepted (on the main thread after the accept row is written). NPC marker refresh,
+ * statistics. Fired on the main thread.
+ */
 public final class QuestAcceptedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

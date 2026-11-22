@@ -22,7 +22,10 @@ import wiki.creeper.harbor.quest.data.QuestEntry;
 import wiki.creeper.harbor.quest.logic.QuestMachine;
 import wiki.creeper.harbor.quest.logic.Requirements;
 
-/** 퀘스트 상태 계산과 캐시 (docs 20 6.4): 수락 가능 여부, 기간, 요구 조건, 포기 대기, 목표 역색인. 메인 스레드 전용. */
+/**
+ * Quest state computation and caches (docs 20 6.4): acceptability, period, requirements, abandon
+ * cooldown, objective inverted index. Main thread only.
+ */
 final class QuestAvailability {
 
     private final QuestEngine engine;
@@ -44,7 +47,7 @@ final class QuestAvailability {
         index.clear();
     }
 
-    /** 계산 상태 (캐시). */
+    /** Computed state (cached). */
     QuestEngine.Avail avail(HarborPlayer hp, QuestDef def) {
         Map<QuestId, QuestEngine.Avail> cache =
                 availCache.computeIfAbsent(hp.uuid(), u -> new HashMap<>());
@@ -147,7 +150,10 @@ final class QuestAvailability {
         };
     }
 
-    /** 목표 역색인: 목표 유형 → 지금 진행되는 목표가 있는 퀘스트 (docs 20 6.4, sequence는 현재 목표만). */
+    /**
+     * Objective inverted index: objective type → quests with a currently progressing objective of
+     * that type (docs 20 6.4, only the current objective for sequence).
+     */
     Map<String, List<QuestId>> index(HarborPlayer hp) {
         Map<String, List<QuestId>> cached = index.get(hp.uuid());
         if (cached != null) {
@@ -174,7 +180,10 @@ final class QuestAvailability {
         return built;
     }
 
-    /** 진행 중인 퀘스트 정의·행 (정의가 사라진 ORPHANED는 빠진다). */
+    /**
+     * Definitions and rows of quests in progress (ORPHANED ones whose definition disappeared are
+     * excluded).
+     */
     List<Map.Entry<QuestDef, QuestEntry>> open(HarborPlayer hp) {
         List<Map.Entry<QuestDef, QuestEntry>> result = new ArrayList<>();
         for (QuestEntry e : hp.get(QuestEngine.COMPONENT).entries().values()) {
@@ -186,14 +195,20 @@ final class QuestAvailability {
         return result;
     }
 
-    /** 포기한 뒤 같은 cycle을 다시 받기까지 대기 시작 (제안값 10분, 메모리). */
+    /**
+     * Start of the cooldown before the same cycle can be taken again after abandoning (proposed
+     * value 10 minutes, in memory).
+     */
     void startAbandonCooldown(UUID uuid, QuestId quest, String cycle) {
         int minutes = engine.balance().integer("quest.abandon_cooldown_minutes", 10);
         abandonCooldown.put(
                 uuid + "|" + quest + "|" + cycle, Instant.now().plus(Duration.ofMinutes(minutes)));
     }
 
-    /** 포기 후 같은 cycle 재수락 대기 (제안값 10분, 메모리). */
+    /**
+     * Cooldown before re-accepting the same cycle after abandoning (proposed value 10 minutes, in
+     * memory).
+     */
     Optional<Instant> abandonCooldown(UUID uuid, QuestDef def) {
         String key = uuid + "|" + def.id() + "|" + engine.cycleOf(def);
         Instant until = abandonCooldown.get(key);

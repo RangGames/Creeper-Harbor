@@ -5,7 +5,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.QuestId;
 
-/** 퀘스트 포기 (행 삭제 뒤). 메인 스레드에서 발생한다. */
+/** A quest was abandoned (after the row is deleted). Fired on the main thread. */
 public final class QuestAbandonedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

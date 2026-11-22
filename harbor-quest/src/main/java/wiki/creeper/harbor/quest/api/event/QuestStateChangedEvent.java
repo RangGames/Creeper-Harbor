@@ -6,7 +6,7 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.quest.api.QuestState;
 
-/** 상태 변경 (NPC 표시 갱신). from·to는 QuestState. 메인 스레드에서 발생한다. */
+/** State change (NPC marker refresh). from and to are QuestState. Fired on the main thread. */
 public final class QuestStateChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

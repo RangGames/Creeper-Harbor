@@ -14,9 +14,9 @@ import wiki.creeper.harbor.core.api.Harbor;
 import wiki.creeper.harbor.core.api.HarborApi;
 
 /**
- * {@code harbor item %string%}: Harbor 아이템 1개. {@code item/x}는 ItemService, {@code furniture/x}는
- * 가구, {@code block/x}는 커스텀 블록. 개수는 Skript의 {@code 5 of harbor item "item/bait/worm"}처럼 쓴다. 없는 ID면
- * 값이 없다.
+ * {@code harbor item %string%}: one Harbor item. {@code item/x} uses ItemService, {@code
+ * furniture/x} furniture, {@code block/x} custom blocks. For an amount use Skript's {@code 5 of
+ * harbor item "item/bait/worm"}. No value for an unknown ID.
  */
 public final class ExprItem extends SimpleExpression<ItemStack> {
 

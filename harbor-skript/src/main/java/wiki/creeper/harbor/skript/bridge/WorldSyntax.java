@@ -9,7 +9,8 @@ import wiki.creeper.harbor.world.api.event.SeaEventEndEvent;
 import wiki.creeper.harbor.world.api.event.SeaEventStartEvent;
 
 /**
- * Harbor-World가 켜져 있을 때: 해역 이벤트 시작·끝 (event-string = 해역 이벤트 ID, harbor sea event name · region).
+ * When Harbor-World is enabled: sea event start and end (event-string = sea event ID, harbor sea
+ * event name · region).
  */
 public final class WorldSyntax {
 

@@ -12,7 +12,10 @@ import wiki.creeper.harbor.quest.content.QuestDef;
 import wiki.creeper.harbor.quest.logic.CatchFacts;
 import wiki.creeper.harbor.quest.logic.DeliverPlan;
 
-/** 보고 때 deliver 목표 재검사: 인벤토리에서 낼 아이템 칸을 정하고, 모자라면 무엇이 모자란지 알려 준다. 메인 스레드 전용. */
+/**
+ * Rechecks deliver objectives on turn-in: picks the inventory slots to hand in and reports what is
+ * missing. Main thread only.
+ */
 final class DeliverCheck {
 
     private final QuestEngine engine;

@@ -10,7 +10,7 @@ import wiki.creeper.harbor.skript.lambda.Args;
 import wiki.creeper.harbor.skript.lambda.Registrar;
 import wiki.creeper.harbor.skript.lambda.Spec;
 
-/** Harbor-Season이 켜져 있을 때: 시즌 주차·이름, 칭호 보유·장착. */
+/** When Harbor-Season is enabled: season week and name, title ownership and equipping. */
 public final class SeasonSyntax {
 
     private SeasonSyntax() {}

@@ -4,10 +4,10 @@ import java.util.Map;
 import wiki.creeper.harbor.common.id.QuestId;
 
 /**
- * 다른 모듈에 보여주는 퀘스트 진행 (QuestService.active).
+ * Quest progress shown to other modules (QuestService.active).
  *
- * @param type 퀘스트 유형 키 (main · region · job · daily · weekly · collect · hidden · event)
- * @param progress 목표 key → 진행 값
+ * @param type quest type key (main · region · job · daily · weekly · collect · hidden · event)
+ * @param progress objective key → progress value
  */
 public record QuestView(
         QuestId quest,

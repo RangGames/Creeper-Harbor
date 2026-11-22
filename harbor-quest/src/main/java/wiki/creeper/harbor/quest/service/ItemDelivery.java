@@ -10,7 +10,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 
-/** 보상·반환 아이템 전달: 인벤토리가 차면 우편함, 우편함이 없으면 발밑. 메인 스레드 전용. */
+/**
+ * Delivers reward and returned items: the mailbox when the inventory is full, at the player's feet
+ * without a mailbox. Main thread only.
+ */
 final class ItemDelivery {
 
     private final QuestEngine engine;
@@ -19,10 +22,14 @@ final class ItemDelivery {
         this.engine = engine;
     }
 
-    /** 인벤토리가 차면 우편함 (Core api MailService, 구현 Economy). 우편함이 없으면 발밑에 떨어뜨린다. */
+    /**
+     * Mailbox when the inventory is full (Core api MailService, implemented by Economy). Dropped at
+     * the player's feet without a mailbox.
+     */
     void deliverItem(Player player, ItemStack stack, String ref) {
         if (engine.api.players().frozen(player.getUniqueId())) {
-            // 서버 이동 저장본을 뜬 뒤라 인벤토리에 넣어도 저장되지 않는다
+            // the server-move snapshot has already been taken, so items put in the inventory would
+            // not be saved
             sendMail(player.getUniqueId(), stack, ref, null);
             return;
         }
@@ -49,10 +56,11 @@ final class ItemDelivery {
         }
     }
 
-    /** 실패한 보고에서 뺀 아이템 반환 (오프라인이면 우편함). */
+    /** Returns items taken by a failed turn-in (mailbox if offline). */
     void giveBack(UUID uuid, List<ItemStack> removed) {
         Player player = Bukkit.getPlayer(uuid);
-        // 서버 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 우편으로
+        // after the server-move snapshot is taken, items put in the inventory are not saved, so
+        // mail them
         boolean frozen = player != null && engine.api.players().frozen(uuid);
         for (ItemStack stack : removed) {
             if (player != null && !frozen) {

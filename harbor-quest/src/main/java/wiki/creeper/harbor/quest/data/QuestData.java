@@ -9,8 +9,10 @@ import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.quest.content.QuestType;
 
 /**
- * 플레이어 퀘스트 데이터 (PlayerComponent, 변경 불가, docs 20 6.3). 활성·완료 행(현재 시즌 + 모든 시즌의 메인), 게시판 후보, 추적 중인
- * 퀘스트. 쓰기는 상태 전이마다 즉시, 진행은 지연 쓰기 큐로 따로 넣으므로 컴포넌트 저장 함수는 아무것도 하지 않는다.
+ * Player quest data (PlayerComponent, immutable, docs 20 6.3). Active and completed rows (current
+ * season + main quests of every season), board candidates, the tracked quest. Writes happen
+ * immediately on each state transition and progress goes through the write-behind queue separately,
+ * so the component's save function does nothing.
  */
 public record QuestData(
         Map<QuestId, QuestEntry> entries,
