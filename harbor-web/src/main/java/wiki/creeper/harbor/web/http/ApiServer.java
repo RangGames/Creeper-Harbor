@@ -18,15 +18,17 @@ import org.slf4j.Logger;
 import wiki.creeper.harbor.common.util.Json;
 
 /**
- * 읽기 전용 REST API (추가 제안). JDK HttpServer + 가상 스레드. 모든 요청은 {@code Authorization: Bearer <토큰>}이
- * 필요하고(GET /v1/health 제외), 토큰마다 분당 요청 수를 제한한다. 응답은 {@code {"ok":true,"data":…}} 또는 {@code
+ * Read-only REST API (proposed). JDK HttpServer + virtual threads. Every request needs {@code
+ * Authorization: Bearer <token>} (except GET /v1/health), and requests per minute are limited per
+ * token. Responses are {@code {"ok":true,"data":…}} or {@code
  * {"ok":false,"error":{"code","message"}}}.
  *
- * <p>HTTPS는 앞단 리버스 프록시에서 한다 (기본 bind 127.0.0.1). 경로 목록은 GET /v1.
+ * <p>HTTPS is terminated at a front reverse proxy (default bind 127.0.0.1). The route list is at
+ * GET /v1.
  */
 public final class ApiServer {
 
-    /** 토큰 하나. */
+    /** One token. */
     public record Token(String name, String token) {}
 
     private final Router router;
@@ -111,7 +113,8 @@ public final class ApiServer {
                 String rawQuery = ex.getRequestURI().getRawQuery();
                 query = Router.query(rawQuery == null ? "" : rawQuery);
             } catch (IllegalArgumentException e) {
-                // URLDecoder가 잘못된 % 인코딩에 던진다: 연결을 끊지 않고 400으로 답한다
+                // URLDecoder throws on malformed % encoding: answer 400 instead of dropping the
+                // connection
                 write(ex, 400, error("bad_request", "경로·쿼리 인코딩이 잘못되었습니다"));
                 return;
             }
@@ -131,7 +134,7 @@ public final class ApiServer {
         }
     }
 
-    /** 고정 시간 비교. */
+    /** Constant-time comparison. */
     Optional<Token> auth(@Nullable String header) {
         if (header == null || !header.startsWith("Bearer ")) {
             return Optional.empty();

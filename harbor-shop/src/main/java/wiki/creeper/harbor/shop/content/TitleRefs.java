@@ -4,7 +4,7 @@ import wiki.creeper.harbor.common.content.ParseContext;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 import wiki.creeper.harbor.season.api.TitleId;
 
-/** 칭호 참조 검사 도우미 (Season titles.yml, 형식 이름 title). */
+/** Title reference check helper (Season titles.yml, type name title). */
 final class TitleRefs {
 
     private TitleRefs() {}

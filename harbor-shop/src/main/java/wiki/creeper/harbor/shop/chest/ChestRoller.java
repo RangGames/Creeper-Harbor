@@ -5,16 +5,18 @@ import java.util.function.IntSupplier;
 import wiki.creeper.harbor.shop.content.ChestDef;
 
 /**
- * 진주 보물함 추첨 (docs 20 12.4, 서버 없이 테스트한다). 0~999,999 정수 하나를 뽑아 누적 확률표(백만분율)에서 고른다. 천장 카운터가 count−1이면
- * (이번이 count번째) 최상위 등급이 나오지 않았을 때 최상위 등급 안에서만 다시 고른다. 최상위를 얻으면 카운터 0.
+ * Pearl chest roll (docs 20 12.4, tested without a server). Draws one integer 0~999,999 and picks
+ * from the cumulative odds table (parts per million). If the pity counter is count−1 (this is the
+ * count-th open) and the top grade did not come up, re-picks only within the top grade. Getting the
+ * top grade resets the counter to 0.
  */
 public final class ChestRoller {
 
     /**
-     * 추첨 한 번의 결과.
+     * Result of one roll.
      *
-     * @param roll 첫 추첨 값 (0~999,999, chest_open_log.roll)
-     * @param pityHit 천장으로 확정됐는지
+     * @param roll first roll value (0~999,999, chest_open_log.roll)
+     * @param pityHit whether it was guaranteed by pity
      */
     public record Outcome(
             ChestDef.Entry entry, int roll, boolean pityHit, int pityBefore, int pityAfter) {
@@ -27,7 +29,8 @@ public final class ChestRoller {
     private ChestRoller() {}
 
     /**
-     * @param random 0 이상 {@link ChestDef#PPM_TOTAL} 미만 정수를 주는 난수 (운영은 SecureRandom)
+     * @param random random source returning an integer from 0 inclusive to {@link
+     *     ChestDef#PPM_TOTAL} exclusive (SecureRandom in production)
      */
     public static Outcome roll(ChestDef chest, int pityBefore, IntSupplier random) {
         int roll = bounded(random.getAsInt());
@@ -45,7 +48,7 @@ public final class ChestRoller {
         return new Outcome(picked, roll, pityHit, pityBefore, top ? 0 : pityBefore + 1);
     }
 
-    /** 누적 확률표에서 고른다. value는 0 이상 total 미만. */
+    /** Picks from the cumulative odds table. value is from 0 inclusive to total exclusive. */
     static ChestDef.Entry pick(List<ChestDef.Entry> entries, int value, int total) {
         if (entries.isEmpty()) {
             throw new IllegalArgumentException("구성품이 없습니다");

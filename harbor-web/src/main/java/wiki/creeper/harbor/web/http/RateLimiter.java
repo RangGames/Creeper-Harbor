@@ -3,7 +3,7 @@ package wiki.creeper.harbor.web.http;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** 토큰마다 1분 창 요청 수 제한 (서버 API 없음). 스레드 안전. */
+/** Per-token request limit over a 1-minute window (no server API). Thread-safe. */
 public final class RateLimiter {
 
     private record Window(long minute, int count) {}
@@ -16,7 +16,7 @@ public final class RateLimiter {
     }
 
     /**
-     * @param nowMillis 지금 시각 (테스트용)
+     * @param nowMillis current time (for tests)
      */
     public boolean allow(String key, long nowMillis) {
         if (perMinute <= 0) {

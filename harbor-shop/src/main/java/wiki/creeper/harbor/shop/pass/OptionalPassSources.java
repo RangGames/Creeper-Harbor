@@ -15,19 +15,20 @@ import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 
 /**
- * 선택 의존 모듈(Quest·World·Boss)의 이벤트를 패스 경험치로 잇는다 (docs 20 12.2 구독 표). 그 모듈들은 Shop과 같은 시기에 만들어지고 있어
- * 컴파일 의존을 두지 않고, 플러그인이 켜져 있으면 이벤트 클래스를 이름으로 찾아 구독한다 (Quest의 OptionalBridges와 같은 방식). 없으면 아무 일도 하지
- * 않는다.
+ * Bridges events from optional-dependency modules (Quest, World, Boss) to pass exp (docs 20 12.2
+ * subscription table). Those modules are being built alongside Shop, so there is no compile
+ * dependency; if the plugin is enabled, the event class is looked up by name and subscribed (same
+ * approach as Quest's OptionalBridges). Otherwise it does nothing.
  *
  * <ul>
  *   <li>Harbor-Quest {@code QuestCompletedEvent}: type daily → quest_daily, weekly → quest_weekly
- *   <li>Harbor-World {@code ChartProgressEvent}: 해도 1%p마다 chart_percent
- *   <li>Harbor-Boss {@code BossEncounterEndEvent}: CLEARED이고 스토리 전투가 아니면 보상 대상(eligible) 참여자에게
- *       boss_clear
+ *   <li>Harbor-World {@code ChartProgressEvent}: chart_percent per 1%p of chart
+ *   <li>Harbor-Boss {@code BossEncounterEndEvent}: if CLEARED and not a story fight, to
+ *       reward-eligible participants boss_clear
  * </ul>
  *
- * 이 모듈들은 같은 출처 키로 {@code SeasonPassService.registerSource}를 또 부르지 않는다 (중복 지급). 이벤트 이름·접근자가 바뀌면 여기만
- * 고친다.
+ * These modules do not call {@code SeasonPassService.registerSource} again with the same source
+ * keys (double grants). If event names or accessors change, only this needs fixing.
  */
 public final class OptionalPassSources implements Listener {
 
@@ -65,7 +66,8 @@ public final class OptionalPassSources implements Listener {
                     String key = player.getUniqueId() + "|" + region;
                     int floor = (int) Math.floor(percent);
                     Integer before = chartFloor.put(key, floor);
-                    // 처음 보는 지역은 이번 변화 1칸만 센다 (이벤트는 1%p 이상 바뀔 때만 온다)
+                    // For a region seen for the first time, count only this one-step change (the
+                    // event only fires on changes of 1%p or more)
                     int units = before == null ? 1 : floor - before;
                     if (units > 0) {
                         passes.addExp(player.getUniqueId(), "chart_percent", units);

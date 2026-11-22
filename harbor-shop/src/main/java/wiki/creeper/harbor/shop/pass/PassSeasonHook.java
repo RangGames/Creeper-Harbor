@@ -16,10 +16,12 @@ import wiki.creeper.harbor.shop.data.ShopRepository;
 import wiki.creeper.harbor.shop.pearl.PearlManager;
 
 /**
- * 시즌 패스 마감 (Season SeasonHook, docs 20 12.4 '시즌 마감'). 전환 6단계(ARCHIVE)의 onArchive에서 끝나는 시즌의 미수령 보상을
- * 자동 지급한다. season_pass_claim 유니크와 참조 ID(pass:&lt;시즌&gt;:&lt;단계&gt;:&lt;트랙&gt;)로 여러 번 불려도 결과가 같다. 이후
- * 그 시즌 패스는 팔지 않는다 (구매는 지금 시즌 패스만 받음). season_pass·season_pass_claim 행은 reset_plan(archive_keep)이
- * 아카이브만 하고 남긴다.
+ * Season pass close-out (Season SeasonHook, docs 20 12.4 'Season close'). In onArchive at
+ * transition step 6 (ARCHIVE), auto-grants the ending season's unclaimed rewards. The
+ * season_pass_claim unique key and reference ID (pass:&lt;season&gt;:&lt;level&gt;:&lt;track&gt;)
+ * make repeated calls idempotent. Afterwards that season's pass is no longer sold (purchases only
+ * accept the current season's pass). season_pass and season_pass_claim rows are only archived and
+ * kept by reset_plan (archive_keep).
  */
 public final class PassSeasonHook implements SeasonHook {
 
@@ -77,7 +79,8 @@ public final class PassSeasonHook implements SeasonHook {
                             .value();
             pearlSum += result.pearls();
             for (String title : result.titles()) {
-                // TitleService는 메인 스레드에서 부르고, 끝날 때까지 기다린다 (재실행해도 같은 결과: grant는 멱등)
+                // Call TitleService on the main thread and wait until it finishes (re-running gives
+                // the same result: grant is idempotent)
                 CompletableFuture<TitleService.Grant> done = new CompletableFuture<>();
                 rt.tasks()
                         .main()

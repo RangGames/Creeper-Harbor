@@ -16,11 +16,13 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 시즌 패스 「항해 일지」 (shop/pass_s&lt;n&gt;.yml, docs 20 12.4, '6. BM 기획' 3.1). 50단계,
- * 무료·프리미엄(990)·프리미엄+(1,990, 즉시 10단계). 경험치는 평소 플레이로만 오르고, 진주 단계 구매는 보상 코스메틱만 앞당긴다.
+ * Season pass "Voyage Log" (shop/pass_s&lt;n&gt;.yml, docs 20 12.4, '6. BM plan' 3.1). 50 levels,
+ * free · premium (990) · premium+ (1,990, 10 levels instantly). Exp only rises through normal play;
+ * buying levels with pearls only advances reward cosmetics.
  *
- * @param expSources 출처 키 → 경험치 (catch.&lt;등급&gt;, quest_daily, quest_weekly, chart_percent,
- *     boss_clear …). Shop 밖 모듈은 {@code SeasonPassService.registerSource}로 같은 키를 쓴다
+ * @param expSources source key → exp (catch.&lt;grade&gt;, quest_daily, quest_weekly,
+ *     chart_percent, boss_clear …). Modules outside Shop use the same keys with {@code
+ *     SeasonPassService.registerSource}
  */
 public record PassDef(
         HarborId id,
@@ -34,14 +36,14 @@ public record PassDef(
         List<Reward> rewards) {
 
     /**
-     * 가격 (진주).
+     * Prices (pearls).
      *
-     * @param upgrade 프리미엄 → 프리미엄+ 추가 가격 (제안값: 차액)
-     * @param level 단계 하나 구매 (제안값 100)
+     * @param upgrade extra price for premium → premium+ (proposed value: the difference)
+     * @param level price of buying one level (proposed value 100)
      */
     public record Prices(int premium, int premiumPlus, int upgrade, int level) {}
 
-    /** 보상 트랙. premium_plus는 프리미엄+ 전용 (시즌 한정 칭호 테두리 등). */
+    /** Reward track. premium_plus is premium+ only (season-limited title frame, etc.). */
     public enum Track implements Keyed {
         FREE,
         PREMIUM,
@@ -52,7 +54,9 @@ public record PassDef(
             return Keyed.keyOf(this);
         }
 
-        /** 이 프리미엄 단계(0 무료 · 1 프리미엄 · 2 프리미엄+)에서 받을 수 있는 트랙인지. */
+        /**
+         * Whether this track is available at this premium tier (0 free · 1 premium · 2 premium+).
+         */
         public boolean openAt(int premium) {
             return switch (this) {
                 case FREE -> true;
@@ -63,9 +67,9 @@ public record PassDef(
     }
 
     /**
-     * 단계 보상 하나. cosmetic · pearls · title 중 하나만.
+     * A single level reward. Exactly one of cosmetic · pearls · title.
      *
-     * @param pearls 무료 묶음 진주 (PASS_REWARD)
+     * @param pearls free-bucket pearls (PASS_REWARD)
      */
     public record Reward(
             int level,
@@ -75,7 +79,10 @@ public record PassDef(
             int pearls,
             @Nullable String title) {
 
-        /** season_pass_claim의 track 열·참조 ID에 쓰는 이름. 같은 단계·트랙에 보상이 둘 이상이면 순번이 붙는다. */
+        /**
+         * Name used for season_pass_claim's track column and reference ID. A sequence number is
+         * appended when a level and track have more than one reward.
+         */
         public String claimKey() {
             return slot == 0 ? track.key() : track.key() + "_" + slot;
         }
@@ -91,12 +98,12 @@ public record PassDef(
                     PassDef::parse,
                     PassDef::id);
 
-    /** 경험치 출처의 양. 없으면 0. */
+    /** Amount for an exp source. 0 if absent. */
     public int exp(String source) {
         return expSources.getOrDefault(source, 0);
     }
 
-    /** 이 단계의 보상. */
+    /** Rewards for this level. */
     public List<Reward> rewardsAt(int level) {
         return rewards.stream().filter(r -> r.level() == level).toList();
     }

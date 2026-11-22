@@ -17,12 +17,15 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * Shop 수치·기능 스위치 (shop/shop.yml, 추가 제안). 문서 수치는 그대로, 문서에 없는 수치는 파일에 "제안값"으로 표시한다. 리로드하면 바로 반영된다.
+ * Shop numbers and feature switches (shop/shop.yml, proposed). Documented numbers as-is;
+ * undocumented ones are marked as proposed values in the file. Applied immediately on reload.
  *
- * @param features 기능 스위치 (시즌 2 이후 기능은 꺼 둔다, docs 20 12.1)
- * @param topup 충전 검증 (통화 KRW, 자유 금액 10원 단위·최소 1,000원)
- * @param adminConfirmOver 관리자 진주 지급이 이 값을 넘으면 다른 관리자 확인 필요 (제안값 5,000)
- * @param codexRewards Collection CodexMilestoneEvent 키(total_25, 지역 이름) → 지급 코스메틱 ('17-2' 4.4)
+ * @param features feature switches (post-season-2 features stay off, docs 20 12.1)
+ * @param topup top-up validation (currency KRW, free amount in 10 KRW steps, minimum 1,000 KRW)
+ * @param adminConfirmOver admin pearl grants above this need confirmation from another admin
+ *     (proposed value 5,000)
+ * @param codexRewards Collection CodexMilestoneEvent key (total_25, region name) → cosmetic granted
+ *     ('17-2' 4.4)
  */
 public record ShopSettings(
         Features features,
@@ -40,7 +43,7 @@ public record ShopSettings(
         Map<Grade, FxStrength> catchFx,
         Map<String, HarborId> codexRewards) {
 
-    /** 기능 스위치. */
+    /** Feature switches. */
     public record Features(
             boolean chest,
             boolean festival,
@@ -48,29 +51,32 @@ public record ShopSettings(
             boolean gifting,
             boolean nameChange) {}
 
-    /** 충전 검증 규칙 (docs 20 12.4 6단계). */
+    /** Top-up validation rules (docs 20 12.4 step 6). */
     public record Topup(String currency, long minKrw, long unitKrw) {}
 
-    /** 선물하기 제한 (제안값, 현금 거래 우회 방지). */
+    /** Gifting limits (proposed value, to prevent real-money trade workarounds). */
     public record Gift(int dailyLimit, int minPlaytimeHours) {}
 
-    /** 닉네임 표시 변경권 (500 진주, '6. BM 기획' 3.6). */
+    /** Display name change ticket (500 pearls, '6. BM plan' 3.6). */
     public record NameChange(int price, int minLength, int maxLength) {}
 
     /**
-     * 후원 등급별 상태형 혜택 (구독 기간에만, '6. BM 기획' 3.2).
+     * Status perks per donor tier (only during the subscription, '6. BM plan' 3.2).
      *
-     * @param nameColor 이름 색 MiniMessage 여는 태그 (예 {@code <aqua>})
-     * @param chatIcon 채팅 아이콘 글리프 (Proxy 채팅 형식이 읽는다)
-     * @param title 후원자 칭호 (Season, 구독이 끝나면 회수)
+     * @param nameColor name color MiniMessage opening tag (e.g. {@code <aqua>})
+     * @param chatIcon chat icon glyph (read by the Proxy chat format)
+     * @param title donor title (Season, revoked when the subscription ends)
      */
     public record DonorPerk(
             long monthlyPearls, String nameColor, String chatIcon, @Nullable String title) {}
 
-    /** 웹훅 수신함 재시도 (docs 20 12.4: 1분·5분·30분, 5번 실패하면 관리자 알림). */
+    /** Webhook inbox retries (docs 20 12.4: 1 min, 5 min, 30 min; admin alert after 5 failures). */
     public record Inbox(List<Integer> retryMinutes, int maxAttempts, int pollSeconds) {
 
-        /** n번째 실패 뒤 다음 시도까지 분. 목록보다 많이 실패하면 마지막 값. */
+        /**
+         * Minutes until the next attempt after the n-th failure. The last value if failures exceed
+         * the list.
+         */
         public int retryAfterMinutes(int attempts) {
             if (retryMinutes.isEmpty()) {
                 return 30;
@@ -79,10 +85,16 @@ public record ShopSettings(
         }
     }
 
-    /** 펫 표시 (docs 20 12.6: 32블록 밖 갱신 생략, 플레이어당 표시 부품 20개 이하). */
+    /**
+     * Pet display (docs 20 12.6: skip updates beyond 32 blocks, at most 20 display parts per
+     * player).
+     */
     public record Pet(int viewDistance, double followDistance, int updateTicks, int maxParts) {}
 
-    /** 포획 연출 등급 강도 (빛기둥 높이 0이면 없음, 폭죽 여부). Fishing 등급 프리셋의 pillar·firework 플래그와 맞춘다. */
+    /**
+     * Catch effect grade intensity (pillar height 0 means none, fireworks or not). Matches the
+     * pillar/firework flags of Fishing's grade presets.
+     */
     public record FxStrength(int pillarHeight, boolean firework) {}
 
     public static final ContentType.Single<ShopSettings> TYPE =
@@ -98,7 +110,7 @@ public record ShopSettings(
         return strength != null ? strength : new FxStrength(0, false);
     }
 
-    /** 이 달(YYYY-MM)의 선단 후원자 한정 코스메틱. */
+    /** Fleet-sponsor-only cosmetic for this month (YYYY-MM). */
     public Optional<HarborId> monthlyCosmetic(String yearMonth) {
         return Optional.ofNullable(donorMonthlyCosmetics.get(yearMonth));
     }

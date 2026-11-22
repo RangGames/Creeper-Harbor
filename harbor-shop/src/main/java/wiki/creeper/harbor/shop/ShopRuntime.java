@@ -30,12 +30,16 @@ import wiki.creeper.harbor.shop.data.ShopRepository;
 import wiki.creeper.harbor.shop.pearl.PearlLedger;
 
 /**
- * Shop 서비스들이 함께 쓰는 것: Core API, 작업 예약, 진주 원장, 플레이어 캐시(ShopProfile), 서버 간 알림(harbor:shop). 캐시를 읽고
- * 바꾸는 메서드는 메인 스레드 전용이다.
+ * What the Shop services share: Core API, task scheduling, pearl ledger, player cache
+ * (ShopProfile), cross-server notices (harbor:shop). Methods that read or change the cache are
+ * main-thread only.
  */
 public final class ShopRuntime {
 
-    /** 플레이어 캐시. 쓰기는 기능별로 즉시 트랜잭션 또는 지연 쓰기 큐로 따로 하므로 저장 함수는 아무것도 하지 않는다. */
+    /**
+     * Player cache. Writes go through per-feature immediate transactions or the write-behind queue,
+     * so the save function does nothing.
+     */
     public static final PlayerComponent<ShopProfile> COMPONENT =
             new PlayerComponent<>(
                     "shop",
@@ -44,12 +48,16 @@ public final class ShopRuntime {
                     (c, uuid, season, value) -> {});
 
     /**
-     * 결제·환불·선물 처리 결과를 플레이어가 있는 서버에 알린다 (harbor:shop, 추가 제안). 받은 서버는 캐시를 DB에서 다시 읽고, 접속 중이면 미확인 알림을
-     * 보여 준다.
+     * Notifies the server the player is on of a payment, refund or gift result (harbor:shop,
+     * proposed). The receiving server re-reads the cache from the DB and, if the player is online,
+     * shows unacknowledged notices.
      */
     public record ShopNotice(UUID player, String kind, long amount) {}
 
-    /** 운영 알림 (HELD 결제, 수신함 5회 실패, 대조 불일치). harbor.admin.alerts 권한자에게. */
+    /**
+     * Ops alert (HELD payment, 5 inbox failures, reconciliation mismatch). Sent to holders of
+     * harbor.admin.alerts.
+     */
     public record ShopAlert(String key, String detail) {}
 
     public static final Channel<ShopNotice> NOTICES =
@@ -107,12 +115,12 @@ public final class ShopRuntime {
         return SeasonServices.clock();
     }
 
-    /** 지금 시즌 번호. */
+    /** Current season number. */
     public int season() {
         return clock().current().value();
     }
 
-    /** 지금 시즌의 패스 (없으면 빈 값). */
+    /** Pass for the current season (empty if none). */
     public Optional<PassDef> currentPass() {
         int season = season();
         return snapshot().all(PassDef.TYPE).values().stream()
@@ -124,7 +132,7 @@ public final class ShopRuntime {
         return snapshot().get(CosmeticDef.TYPE, id);
     }
 
-    // ------------------------------------------------------------------ 캐시 (메인 스레드)
+    // ------------------------------------------------------------------ cache (main thread)
 
     public Optional<HarborPlayer> online(UUID player) {
         return api.players().get(player);
@@ -134,12 +142,12 @@ public final class ShopRuntime {
         return online(player).map(p -> p.get(COMPONENT)).orElse(ShopProfile.EMPTY);
     }
 
-    /** 접속 중이면 캐시를 바꾼다. */
+    /** Changes the cache if the player is online. */
     public void update(UUID player, UnaryOperator<ShopProfile> change) {
         online(player).ifPresent(p -> p.set(COMPONENT, change.apply(p.get(COMPONENT))));
     }
 
-    /** DB 작업을 가상 스레드에서 하고 결과를 메인 스레드에서 받는다. */
+    /** Runs DB work on a virtual thread and receives the result on the main thread. */
     public <T> CompletableFuture<T> db(SqlFunction<T> work) {
         return api.database().async(work).thenApplyAsync(v -> v, tasks.main());
     }
@@ -148,20 +156,23 @@ public final class ShopRuntime {
         Bukkit.getPluginManager().callEvent(event);
     }
 
-    // ------------------------------------------------------------------ 알림
+    // ------------------------------------------------------------------ notices
 
-    /** 다른 서버(또는 이 서버)의 그 플레이어에게 알린다. Redis가 끊겨도 shop_notice 행이 남아 다음 접속 때 보인다. */
+    /**
+     * Notifies the player on another server (or this one). If Redis is down, the shop_notice row
+     * remains and is shown on next join.
+     */
     public void notifyPlayer(UUID player, String kind, long amount) {
         api.bus().publish(NOTICES, new ShopNotice(player, kind, amount));
     }
 
-    /** 운영 알림 (로그 + 접속 중인 관리자, 다른 서버에도). */
+    /** Ops alert (log + online admins, also on other servers). */
     public void alert(String key, String detail) {
         log.warn("[상점 알림] {} {}", key, detail);
         api.bus().publish(ALERTS, new ShopAlert(key, detail));
     }
 
-    /** 이 서버의 관리자에게 보여 준다 (메인 스레드). */
+    /** Shows it to admins on this server (main thread). */
     public void showAlert(ShopAlert alert) {
         for (Player p : Bukkit.getOnlinePlayers()) {
             if (p.hasPermission("harbor.admin.alerts")) {
@@ -174,7 +185,7 @@ public final class ShopRuntime {
         }
     }
 
-    /** 관리자 작업 기록 (admin_log). */
+    /** Admin action record (admin_log). */
     public void adminLog(
             @Nullable Player admin,
             String action,

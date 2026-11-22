@@ -160,11 +160,11 @@ class WebhookTest {
         assertEquals(500, grant.pearls());
         assertEquals(PLAYER, grant.player());
         assertEquals("tx-ok", grant.lineTxId());
-        // 금액 불일치 → HELD
+        // amount mismatch → HELD
         assertInstanceOf(
                 PaymentRules.Verdict.Held.class,
                 evaluate(body("b", "payment.completed", "tx-b", "4900", 2)));
-        // 자유 금액: 10원 단위·최소 1,000원
+        // free amount: multiples of 10 won, minimum 1,000 won
         PaymentRules.Verdict custom = evaluate(body("c", "payment.completed", "tx-c", "12340", 5));
         assertEquals(1234, ((PaymentRules.Verdict.Ok) custom).grants().getFirst().pearls());
         assertInstanceOf(
@@ -173,17 +173,17 @@ class WebhookTest {
         assertInstanceOf(
                 PaymentRules.Verdict.Held.class,
                 evaluate(body("e", "payment.completed", "tx-e", "990", 5)));
-        // 매핑 없는 패키지, 원 단위가 아닌 금액
+        // unmapped package, amount not in whole won
         assertInstanceOf(
                 PaymentRules.Verdict.Held.class,
                 evaluate(body("f", "payment.completed", "tx-f", "5000", 99)));
         assertInstanceOf(
                 PaymentRules.Verdict.Held.class,
                 evaluate(body("g", "payment.completed", "tx-g", "5000.5", 2)));
-        // 구독 월 진주
+        // subscription monthly pearls
         PaymentRules.Verdict sub = evaluate(body("h", "payment.completed", "tx-h", "9900", 11));
         assertEquals(700, ((PaymentRules.Verdict.Ok) sub).grants().getFirst().pearls());
-        // 통화
+        // currency
         String usd = body("i", "payment.completed", "tx-i", "5000", 2).replace("KRW", "USD");
         assertInstanceOf(PaymentRules.Verdict.Held.class, evaluate(usd));
     }

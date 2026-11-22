@@ -16,17 +16,22 @@ import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 진주 보물함 확률표 (shop/chests.yml, docs 20 12.3·12.4, '6. BM 기획' 3.4). 시즌 2 이후 기능이라 shop/shop.yml
- * features.chest로 켠다.
+ * Pearl treasure chest drop table (shop/chests.yml, docs 20 12.3·12.4, '6. BM plan' 3.4). A
+ * post-season-2 feature, enabled by shop/shop.yml features.chest.
  *
- * <p>확률은 백분율 문자열(소수점 4자리까지, 예 {@code "0.5000"})로 적고 백만분율(ppm)로 바꿔 쓴다. 합계는 정확히 100%여야 하며 (부동소수 오차 없이
- * 정수로 검사), 구성품은 코스메틱만 받는다 (성능 아이템 금지: 참조 형식이 cosmetic뿐). 게임 안 확률표는 이 파일에서 그대로 만들어 실제 추첨표와 어긋나지 않는다
- * (확률형 아이템 정보 공개 의무).
+ * <p>Probabilities are written as percentage strings (up to 4 decimal places, e.g. {@code
+ * "0.5000"}) and converted to parts per million (ppm). The total must be exactly 100% (checked as
+ * integers, without floating-point error), and entries may only be cosmetics (no performance items:
+ * the only reference type is cosmetic). The in-game drop table is built directly from this file so
+ * it never diverges from the actual roll table (loot box disclosure obligation).
  *
- * @param tableVersion 확률표 버전. 표를 바꾸면 올리고, 바꾸기 전에 공지한다. chest_open_log에 함께 기록
- * @param pity 천장: count회째에 grade 이상 확정. 카운터는 시즌 안에서 이월 (chest_pity)
- * @param shards 중복 획득 때 주는 진주 조각 (등급별, 진주로 되바꿀 수 없음)
- * @param exchange 진주 조각으로 이 보물함 구성품을 바꾸는 가격 (등급별, 없으면 교환 불가)
+ * @param tableVersion drop table version. Bump it when the table changes, and announce before
+ *     changing. Recorded in chest_open_log
+ * @param pity pity: guarantees grade or higher on the count-th open. The counter carries over
+ *     within the season (chest_pity)
+ * @param shards pearl shards given for duplicates (per grade, cannot be converted back to pearls)
+ * @param exchange price in pearl shards to exchange for an entry of this chest (per grade, no
+ *     exchange if absent)
  */
 public record ChestDef(
         HarborId id,
@@ -40,17 +45,17 @@ public record ChestDef(
         Map<Grade, Integer> exchange,
         List<Entry> entries) {
 
-    /** 백만분율 합계. */
+    /** Total in parts per million. */
     public static final int PPM_TOTAL = 1_000_000;
 
-    /** 천장. */
+    /** Pity. */
     public record Pity(int count, Grade grade) {}
 
     /**
-     * 구성품 하나.
+     * A single entry.
      *
-     * @param ppm 확률 (백만분율)
-     * @param display 원본 표기 (백분율, 게임 안 확률표에 그대로 보여 줌)
+     * @param ppm probability (parts per million)
+     * @param display original notation (percentage, shown as-is in the in-game drop table)
      */
     public record Entry(HarborId cosmetic, Grade grade, int ppm, String display) {}
 
@@ -60,7 +65,7 @@ public record ChestDef(
             new ContentType.Entries<>(
                     "chest", List.of("shop/chests.yml"), PREFIX, ChestDef::parse, ChestDef::id);
 
-    /** 천장 등급 이상인 구성품. */
+    /** Entries at or above the pity grade. */
     public List<Entry> topEntries() {
         return entries.stream().filter(e -> e.grade().isAtLeast(pity.grade())).toList();
     }
@@ -136,7 +141,7 @@ public record ChestDef(
                 List.copyOf(entries));
     }
 
-    /** "0.5000" (백분율, 소수점 4자리까지) → 5000 ppm. */
+    /** "0.5000" (percentage, up to 4 decimal places) → 5000 ppm. */
     static int toPpm(String raw, YamlNode at) {
         try {
             BigDecimal percent = new BigDecimal(raw.trim());

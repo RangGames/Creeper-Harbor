@@ -27,6 +27,7 @@ import wiki.creeper.harbor.shop.content.CreatorDef;
 import wiki.creeper.harbor.shop.content.RotationPlan;
 import wiki.creeper.harbor.shop.content.ShopSettings;
 import wiki.creeper.harbor.shop.cosmetic.CosmeticManager;
+import wiki.creeper.harbor.shop.data.NoticeRepository;
 import wiki.creeper.harbor.shop.data.ShopRepository;
 import wiki.creeper.harbor.shop.donor.DonorManager;
 import wiki.creeper.harbor.shop.pearl.PearlLedger;
@@ -34,10 +35,12 @@ import wiki.creeper.harbor.shop.pearl.PearlManager;
 import wiki.creeper.harbor.shop.pearl.ShopReject;
 
 /**
- * 게임 안 진주 사용 주문 (docs 20 12.4 '게임 안 구매'·'선물하기'·'닉네임 표시 변경권'·'첫 항해 패키지', '6. BM 기획' 3.6 크리에이터 코드).
- * 버튼마다 만든 order_id(UUID v7)를 참조 ID로 써서 연타·지연 재전송이 와도 한 번만 차감된다. 주문 기록·진주 차감·소유 기록이 한 트랜잭션이다.
+ * In-game pearl spending orders (docs 20 12.4 'in-game purchase', 'gifting', 'nickname display
+ * change ticket', 'first voyage package'; '6. BM plan' 3.6 creator codes). The order_id (UUID v7)
+ * created per button is used as the reference ID, so repeated clicks or delayed resends deduct only
+ * once. Order record, pearl deduction and ownership record are one transaction.
  *
- * <p>결과 future는 메인 스레드에서 완료되고, 실패면 보여 줄 문구 키를 담는다.
+ * <p>The result future completes on the main thread and, on failure, holds the message key to show.
  */
 public final class ShopOrders {
 
@@ -56,9 +59,12 @@ public final class ShopOrders {
         this.donors = donors;
     }
 
-    // ------------------------------------------------------------------ 진열
+    // ------------------------------------------------------------------ listings
 
-    /** 지금 진주 상점에 진열된 코스메틱인지 (상시·이번 주 로테이션·이번 시즌 한정). */
+    /**
+     * Whether the cosmetic is currently listed in the pearl shop (permanent, this week's rotation,
+     * this season's limited).
+     */
     public boolean onSale(CosmeticDef def) {
         if (!def.sellableIn(rt.season())) {
             return false;
@@ -73,7 +79,10 @@ public final class ShopOrders {
         return rt.snapshot().single(RotationPlan.TYPE).itemsFor(rt.clock().week());
     }
 
-    /** 구매 조건 (전설 어종 기념 스킨: 그 어종을 직접 잡았어야 함, Collection codex_total). 접속 중인 플레이어만 확인할 수 있다. */
+    /**
+     * Purchase condition (legendary fish commemorative skin: must have caught that fish yourself,
+     * Collection codex_total). Only checkable for online players.
+     */
     public boolean meetsRequirement(UUID player, CosmeticDef def) {
         Optional<FishId> fish = def.fishRequirement();
         if (fish.isEmpty()) {
@@ -85,7 +94,7 @@ public final class ShopOrders {
                 .orElse(false);
     }
 
-    // ------------------------------------------------------------------ 코스메틱 구매
+    // ------------------------------------------------------------------ cosmetic purchase
 
     public CompletableFuture<Optional<String>> buyCosmetic(
             Player player, CosmeticDef def, UUID orderId) {
@@ -125,7 +134,8 @@ public final class ShopOrders {
                                             "order:" + orderId));
                             if (!ShopRepository.insertOwned(
                                     tx.connection(), uuid, def.id(), "SHOP", "order:" + orderId)) {
-                                throw new ShopReject("shop.error.owned"); // 롤백되어 차감도 취소된다
+                                // Rolled back, so the charge is cancelled too
+                                throw new ShopReject("shop.error.owned");
                             }
                             return Set.of(def.id());
                         }),
@@ -133,7 +143,8 @@ public final class ShopOrders {
                 "SHOP");
     }
 
-    // ------------------------------------------------------------------ 묶음 (첫 항해 패키지)
+    // ------------------------------------------------------------------ bundles (first voyage
+    // package)
 
     public boolean bundleOnSale(BundleDef bundle) {
         return bundle.onSale(rt.season(), rt.clock().week());
@@ -153,7 +164,8 @@ public final class ShopOrders {
                         tx -> {
                             ShopRepository.lockWallet(tx.connection(), uuid);
                             tx.requireUnlocked(uuid);
-                            // 계정당 구매 한도 (account_limit, 추가 제안): 주문 기록으로 센다
+                            // Per-account purchase limit (account_limit, proposed): counted from
+                            // order records
                             if (bundle.accountLimit() > 0
                                     && ShopRepository.countOrders(
                                                     tx.connection(),
@@ -191,7 +203,8 @@ public final class ShopOrders {
                                 }
                             }
                             if (added.isEmpty()) {
-                                throw new ShopReject("shop.error.owned"); // 그사이 다른 경로로 전부 얻었다
+                                // All of it was obtained some other way in the meantime
+                                throw new ShopReject("shop.error.owned");
                             }
                             return Set.copyOf(added);
                         }),
@@ -199,11 +212,14 @@ public final class ShopOrders {
                 "BUNDLE");
     }
 
-    // ------------------------------------------------------------------ 선물하기
+    // ------------------------------------------------------------------ gifting
 
     /**
-     * 선물한다: 산 사람이 진주를 내고 받는 사람의 소유 기록에 source = GIFT로 남긴다. 받는 사람이 이미 가졌거나 구매 조건(기념 스킨)을 못 채우면 거부한다.
-     * 하루 5회, 플레이 5시간 미만 계정 간 선물 금지 (제안값). 기념 스킨은 받는 사람이 이 서버에 접속 중일 때만 조건을 확인할 수 있다.
+     * Gifts: the buyer pays the pearls and the recipient's ownership record gets source = GIFT.
+     * Rejected if the recipient already owns it or fails the purchase condition (commemorative
+     * skin). 5 per day; gifts between accounts with under 5 hours of play are forbidden (proposed
+     * value). Commemorative skin conditions can only be checked while the recipient is online on
+     * this server.
      */
     public CompletableFuture<Optional<String>> gift(
             Player sender, String recipientName, CosmeticDef def, UUID orderId) {
@@ -268,7 +284,8 @@ public final class ShopOrders {
                                             def.price(),
                                             LedgerReason.GIFT,
                                             "order:" + orderId));
-                            // 받는 사람 쪽 동시 선물은 산 사람 잠금으로 막히지 않는다: 넣기 결과로 판정하고 롤백한다
+                            // Concurrent gifts to the recipient are not serialized by the buyer's
+                            // lock: decide by the insert result and roll back
                             if (!ShopRepository.insertOwned(
                                     tx.connection(),
                                     recipient,
@@ -277,7 +294,7 @@ public final class ShopOrders {
                                     "order:" + orderId)) {
                                 throw new ShopReject("shop.gift.owned");
                             }
-                            ShopRepository.insertNotice(
+                            NoticeRepository.insertNotice(
                                     tx.connection(),
                                     recipient,
                                     "GIFT",
@@ -304,9 +321,13 @@ public final class ShopOrders {
                                 });
     }
 
-    // ------------------------------------------------------------------ 닉네임 표시 변경권
+    // ------------------------------------------------------------------ nickname display change
+    // ticket
 
-    /** 표시 이름 형식 검사 (한글·영문·숫자·밑줄, 길이 제안값). */
+    /**
+     * Display name format check (Hangul, Latin letters, digits, underscore; length is a proposed
+     * value).
+     */
     public static boolean validName(String name, ShopSettings.NameChange rule) {
         int length = name.codePointCount(0, name.length());
         return length >= rule.minLength()
@@ -365,9 +386,12 @@ public final class ShopOrders {
                                 });
     }
 
-    // ------------------------------------------------------------------ 크리에이터 코드
+    // ------------------------------------------------------------------ creator codes
 
-    /** 크리에이터 코드를 등록한다 (시즌 2 이후 기능). 다음 충전부터 정산 기록에 들어가고, 구매자에게 칭호를 준다. */
+    /**
+     * Registers a creator code (post-season-2 feature). Included in settlement records from the
+     * next top-up, and grants the buyer a title.
+     */
     public CompletableFuture<Optional<String>> supportCreator(Player player, String rawCode) {
         if (!rt.settings().features().creatorCodes()) {
             return done("shop.creator.disabled");
@@ -409,7 +433,7 @@ public final class ShopOrders {
                         });
     }
 
-    // ------------------------------------------------------------------ 공용
+    // ------------------------------------------------------------------ shared
 
     private static CompletableFuture<Optional<String>> done(String key) {
         return CompletableFuture.completedFuture(Optional.of(key));

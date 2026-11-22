@@ -23,23 +23,26 @@ import wiki.creeper.harbor.shop.ShopRuntime;
 import wiki.creeper.harbor.shop.content.ChestDef;
 import wiki.creeper.harbor.shop.content.CosmeticDef;
 import wiki.creeper.harbor.shop.cosmetic.CosmeticManager;
+import wiki.creeper.harbor.shop.data.ChestRepository;
 import wiki.creeper.harbor.shop.data.ShopRepository;
 import wiki.creeper.harbor.shop.pearl.PearlLedger;
 import wiki.creeper.harbor.shop.pearl.PearlManager;
 import wiki.creeper.harbor.shop.pearl.ShopReject;
 
 /**
- * 진주 보물함 (docs 20 12.4, '6. BM 기획' 3.4). 시즌 2 이후 기능이라 shop.yml features.chest가 켜져 있어야 연다. 1회 150 ·
- * 10회 1,350 진주, 50회 안에 최상위 등급 확정(시즌 안에서 이월). 10회 묶음은 진주 차감·10번 추첨·천장·소유 기록·개봉 기록을 한 트랜잭션으로 처리하고,
- * 중간에 실패하면 전부 되돌린다. 추첨은 SecureRandom.
+ * Pearl chest (docs 20 12.4, '6. BM plan' 3.4). A post-season-2 feature, so it opens only when
+ * shop.yml features.chest is on. 1 open 150 · 10 opens 1,350 pearls, top grade guaranteed within 50
+ * opens (carried over within the season). A 10-open processes pearl deduction, 10 rolls, pity,
+ * ownership records and open records in one transaction, and reverts everything on failure midway.
+ * Rolls use SecureRandom.
  */
 public final class ChestManager {
 
-    /** 개봉 한 번의 결과. */
+    /** Result of one open. */
     public record Pull(
             HarborId cosmetic, Grade grade, boolean duplicate, int shards, boolean pityHit) {}
 
-    /** 개봉 결과 묶음. */
+    /** Batch of open results. */
     public record Opened(List<Pull> pulls, int pityAfter, long shardsAfter) {}
 
     private final ShopRuntime rt;
@@ -57,7 +60,7 @@ public final class ChestManager {
         return rt.settings().features().chest();
     }
 
-    /** 지금 시즌에 여는 보물함. */
+    /** Chest opened in the current season. */
     public List<ChestDef> available() {
         int season = rt.season();
         return rt.snapshot().all(ChestDef.TYPE).values().stream()
@@ -67,13 +70,13 @@ public final class ChestManager {
 
     public CompletableFuture<Integer> pity(UUID player, ChestDef chest) {
         int season = rt.season();
-        return rt.db(c -> ShopRepository.pity(c, player, season, chest.id()));
+        return rt.db(c -> ChestRepository.pity(c, player, season, chest.id()));
     }
 
     /**
-     * 연다.
+     * Opens.
      *
-     * @param count 1 또는 10
+     * @param count 1 or 10
      */
     public CompletableFuture<Result<Opened, PearlManager.Failure>> open(
             Player player, ChestDef chest, int count, UUID orderId) {
@@ -87,7 +90,8 @@ public final class ChestManager {
         long price = count == 1 ? chest.priceSingle() : chest.priceTen();
         return pearls.<Opened>transact(
                         tx -> {
-                            // 지갑 잠금이 첫 문장이어야 아래 소유 목록 읽기가 앞선 개봉의 커밋을 본다
+                            // The wallet lock must be the first statement so the ownership read
+                            // below sees the previous opening's commit
                             ShopRepository.lockWallet(tx.connection(), uuid);
                             tx.requireUnlocked(uuid);
                             if (!ShopRepository.insertOrder(
@@ -107,7 +111,7 @@ public final class ChestManager {
                                             LedgerReason.CHEST_OPEN,
                                             "order:" + orderId));
                             int pity =
-                                    ShopRepository.lockPity(
+                                    ChestRepository.lockPity(
                                             tx.connection(), uuid, season, chest.id());
                             Set<HarborId> owned = ShopRepository.owned(tx.connection(), uuid);
                             List<Pull> pulls = new ArrayList<>();
@@ -132,9 +136,9 @@ public final class ChestManager {
                                             "CHEST",
                                             "order:" + orderId + ":" + i);
                                 }
-                                ShopRepository.logOpen(
+                                ChestRepository.logOpen(
                                         tx.connection(),
-                                        new ShopRepository.OpenLog(
+                                        new ChestRepository.OpenLog(
                                                 uuid,
                                                 chest.id(),
                                                 chest.tableVersion(),
@@ -154,14 +158,15 @@ public final class ChestManager {
                                                 o.pityHit()));
                                 pity = o.pityAfter();
                             }
-                            ShopRepository.setPity(tx.connection(), uuid, season, chest.id(), pity);
+                            ChestRepository.setPity(
+                                    tx.connection(), uuid, season, chest.id(), pity);
                             if (shards > 0) {
-                                ShopRepository.addShards(tx.connection(), uuid, shards);
+                                ChestRepository.addShards(tx.connection(), uuid, shards);
                             }
                             return new Opened(
                                     List.copyOf(pulls),
                                     pity,
-                                    ShopRepository.shards(tx.connection(), uuid));
+                                    ChestRepository.shards(tx.connection(), uuid));
                         })
                 .thenApply(
                         outcome -> {
@@ -185,7 +190,7 @@ public final class ChestManager {
                         });
     }
 
-    /** 진주 조각으로 보물함 구성품을 바꾼다 (진주로 되바꿀 수 없음). */
+    /** Exchanges pearl shards for chest contents (cannot be exchanged back to pearls). */
     public CompletableFuture<Result<HarborId, PearlManager.Failure>> exchange(
             Player player, ChestDef chest, HarborId cosmetic, UUID orderId) {
         UUID uuid = player.getUniqueId();
@@ -214,7 +219,7 @@ public final class ChestManager {
                             if (ShopRepository.ownsRow(tx.connection(), uuid, cosmetic)) {
                                 throw new ShopReject("shop.error.owned");
                             }
-                            if (!ShopRepository.addShards(tx.connection(), uuid, -cost)) {
+                            if (!ChestRepository.addShards(tx.connection(), uuid, -cost)) {
                                 throw new ShopReject("shop.chest.no_shards");
                             }
                             ShopRepository.insertOwned(
@@ -232,7 +237,7 @@ public final class ChestManager {
                         });
     }
 
-    /** 관리자: 실제 등급별 비율 대 공개 확률 (지금 표 버전 기준). */
+    /** Admin: actual per-grade ratios vs published odds (for the current table version). */
     public CompletableFuture<Map<Grade, long[]>> stats(ChestDef chest) {
         return rt.db(
                 c -> {
@@ -260,7 +265,7 @@ public final class ChestManager {
                 });
     }
 
-    /** 표시용: 코스메틱 이름. */
+    /** For display: cosmetic name. */
     public String name(HarborId cosmetic) {
         return rt.cosmetic(cosmetic).map(CosmeticDef::name).orElse(cosmetic.toString());
     }

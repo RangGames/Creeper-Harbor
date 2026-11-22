@@ -7,7 +7,10 @@ import java.util.List;
 import java.util.UUID;
 import wiki.creeper.harbor.shop.data.ShopRepository;
 
-/** 한 트랜잭션 안의 진주 변경 모음. 커밋 뒤 PearlManager가 바뀐 지갑마다 캐시·이벤트를 갱신한다. */
+/**
+ * Pearl changes within one transaction. After commit, PearlManager updates the cache and events for
+ * each changed wallet.
+ */
 public final class PearlTx {
 
     private final Connection connection;
@@ -31,7 +34,7 @@ public final class PearlTx {
         return result;
     }
 
-    /** 상점 이용 정지 중이면 거부한다 (지불 거절 debt 등). */
+    /** Rejects if the shop ban is active (chargeback debt, etc.). */
     public void requireUnlocked(UUID player) throws SQLException {
         if (ShopRepository.locked(connection, player)) {
             throw new ShopReject("shop.error.locked");

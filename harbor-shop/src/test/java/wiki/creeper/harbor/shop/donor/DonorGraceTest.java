@@ -32,7 +32,7 @@ class DonorGraceTest {
                 DonorTier.NONE,
                 DonorGrace.effective(
                         DonorGrace.State.ACTIVE, DonorTier.FLEET, END, END.plus(GRACE), GRACE));
-        // 해지 요청도 기간 끝까지 (+유예) 유지
+        // a cancellation request also keeps the tier until the period ends (+grace)
         assertEquals(
                 DonorTier.HARBOR,
                 DonorGrace.effective(

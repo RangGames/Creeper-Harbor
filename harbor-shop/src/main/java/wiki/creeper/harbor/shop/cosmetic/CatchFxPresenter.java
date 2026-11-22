@@ -17,9 +17,11 @@ import wiki.creeper.harbor.shop.content.CosmeticDef;
 import wiki.creeper.harbor.shop.content.ShopSettings;
 
 /**
- * 포획 연출 코스메틱 (Fishing CatchPresentationOverride 구현, docs 20 12.4). 장착한 catch_fx의 색·모양으로 빛기둥·폭죽·효과음을
- * 대신 재생한다. 강도(빛기둥 높이·폭죽 여부)는 등급 값(shop.yml catch_fx, Fishing 등급 프리셋과 같은 값)을 그대로 쓰고, 플레이어 연출 강도 설정(0
- * 최소 · 1 보통 · 2 최대)도 따른다. 채팅 문구·공지·타이틀은 Fishing이 그대로 보낸다.
+ * Catch effect cosmetic (Fishing CatchPresentationOverride implementation, docs 20 12.4). Plays the
+ * light beam, fireworks and sound in the equipped catch_fx's colors and shape instead. Intensity
+ * (beam height, fireworks or not) uses the per-grade values as-is (shop.yml catch_fx, same values
+ * as the Fishing grade presets), and follows the player's effect intensity setting (0 minimal · 1
+ * normal · 2 maximum). Chat text, announcements and titles are still sent by Fishing.
  */
 public final class CatchFxPresenter implements CatchPresentationOverride, Listener {
 
@@ -53,7 +55,8 @@ public final class CatchFxPresenter implements CatchPresentationOverride, Listen
         ShopSettings.FxStrength strength = rt.settings().fx(info.fish().grade());
         Location at = info.at();
         Fx.spawn(fx.splashParticle(), fx.pillarColors().getFirst(), at, 12, 0.4, VIEW_RADIUS);
-        // 낚아 올림·등급 포획음은 Fishing이 낸다. 코스메틱 소리(harbor: 또는 바닐라)는 있을 때만 덧붙인다
+        // Fishing plays the reel-in and grade catch sounds. The cosmetic sound (harbor: or vanilla)
+        // is added only if present
         HarborSounds.playAt(
                 at, fx.sound(), HarborSounds.Options.DEFAULT.withSource(Sound.Source.PLAYER));
         if (info.intensity() >= 1 && strength.pillarHeight() > 0) {
@@ -77,7 +80,7 @@ public final class CatchFxPresenter implements CatchPresentationOverride, Listen
         return true;
     }
 
-    /** 연출용 폭죽은 피해를 주지 않는다. */
+    /** Effect fireworks deal no damage. */
     @EventHandler(ignoreCancelled = true)
     public void onFireworkDamage(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Firework fw

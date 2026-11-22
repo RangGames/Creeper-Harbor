@@ -75,15 +75,16 @@ class PassMathTest {
 
     @Test
     void latePremiumClaimsAllReachedPremiumRewardsOnce() {
-        // 무료로 6단계까지 와서 무료 보상 둘을 받음
+        // reach level 6 on free and claim the two free rewards
         Set<String> claimed = Set.of("1:free", "5:free");
         assertTrue(PassMath.claimable(PASS, 6, PassMath.FREE, claimed).isEmpty());
-        // 프리미엄을 늦게 사면 이미 도달한 1·5단계 프리미엄 보상을 한꺼번에 (20단계는 아직)
+        // buying premium late grants the already-reached level 1 and 5 premium rewards at once
+        // (level 20 not yet)
         List<PassDef.Reward> late = PassMath.claimable(PASS, 6, PassMath.PREMIUM, claimed);
         assertEquals(2, late.size());
         assertTrue(
                 late.stream().allMatch(r -> r.track() == PassDef.Track.PREMIUM && r.level() <= 6));
-        // 프리미엄+는 테두리까지
+        // premium+ includes the border
         assertEquals(3, PassMath.claimable(PASS, 6, PassMath.PREMIUM_PLUS, claimed).size());
         assertEquals("1:premium_plus", PassMath.claimKey(PASS.rewards().get(2)));
         assertEquals(

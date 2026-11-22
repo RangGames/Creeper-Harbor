@@ -32,9 +32,11 @@ import wiki.creeper.harbor.shop.content.ShopSettings;
 import wiki.creeper.harbor.shop.util.Locs;
 
 /**
- * 동반 펫·선박 장식·찌 효과 (docs 20 12.4 '펫·선박 스킨', 12.6). 펫은 Core 리그로 플레이어당 1마리, 32블록 안 플레이어에게만 보이고(밖은 갱신
- * 생략), 숨김 조건(보스 경기장 등)에서는 치운다. 선박 장식은 플레이어가 보트에 타면 리그를 보트에 태워 모두에게 보여 준다. 찌 효과는 찌가 물에 있는 동안 파티클을
- * 뿌린다. 메인 스레드 전용.
+ * Companion pets, ship decorations and bobber effects (docs 20 12.4 'pet and ship skins', 12.6). A
+ * pet is one Core rig per player, visible only to players within 32 blocks (updates skipped
+ * beyond), and removed under hide conditions (boss arena, etc.). A ship decoration mounts the rig
+ * on the boat when the player boards and shows it to everyone. Bobber effects spawn particles while
+ * the bobber is in water. Main thread only.
  */
 public final class PetManager implements Listener {
 
@@ -73,7 +75,7 @@ public final class PetManager implements Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 펫
+    // ------------------------------------------------------------------ pets
 
     private @Nullable CosmeticDef equippedDef(Player player, CosmeticDef.Category slot) {
         HarborId id = rt.profile(player.getUniqueId()).equipped().get(slot);
@@ -129,7 +131,7 @@ public final class PetManager implements Listener {
             pet.setViewers(viewers);
         }
         if (viewers.isEmpty()) {
-            return; // 볼 사람이 없으면 이동 생략 (LOD)
+            return; // Skip movement if nobody can see it (LOD)
         }
         if (pet.location().distanceSquared(target) > 0.04) {
             pet.moveTo(target);
@@ -162,7 +164,7 @@ public final class PetManager implements Listener {
         return list;
     }
 
-    // ------------------------------------------------------------------ 선박 장식
+    // ------------------------------------------------------------------ ship decorations
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEnter(VehicleEnterEvent event) {
@@ -204,7 +206,7 @@ public final class PetManager implements Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 찌 효과
+    // ------------------------------------------------------------------ bobber effects
 
     private void lineFx() {
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -221,7 +223,7 @@ public final class PetManager implements Listener {
         }
     }
 
-    // ------------------------------------------------------------------ 수명
+    // ------------------------------------------------------------------ lifecycle
 
     @EventHandler
     public void onEquip(CosmeticEquipEvent event) {

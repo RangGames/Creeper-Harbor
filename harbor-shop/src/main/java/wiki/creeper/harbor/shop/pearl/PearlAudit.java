@@ -13,9 +13,10 @@ import wiki.creeper.harbor.common.redis.DistributedLock;
 import wiki.creeper.harbor.shop.ShopRuntime;
 
 /**
- * 진주 정합성 검사 (docs 20 12.6: pearl_ledger 합계 = pearl_wallet.balance, 매일 새벽). Common LedgerAuditor로 원장
- * 합계를 맞추고, 묶음(pearl_lot) 남은 양 합계 = 잔액, 유료 묶음 합계 = paid_balance도 함께 본다. 한 서버만
- * (harbor:lock:pearl-audit). 틀리면 관리자에게 알린다.
+ * Pearl consistency check (docs 20 12.6: pearl_ledger sum = pearl_wallet.balance, daily before
+ * dawn). Matches ledger sums with Common LedgerAuditor and also checks that the remaining lot
+ * (pearl_lot) sum = balance and the paid lot sum = paid_balance. Runs on one server only
+ * (harbor:lock:pearl-audit). Alerts admins on mismatch.
  */
 public final class PearlAudit {
 
@@ -40,7 +41,7 @@ public final class PearlAudit {
                                 });
     }
 
-    /** 검사 한 번 (가상 스레드). 불일치 줄 목록. */
+    /** Runs one check (virtual thread). Returns the list of mismatch lines. */
     public List<String> runOnce() {
         List<String> problems = new ArrayList<>();
         Optional<DistributedLock.Handle> lock;

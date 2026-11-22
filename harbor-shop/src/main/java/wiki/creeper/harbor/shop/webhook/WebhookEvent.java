@@ -14,10 +14,10 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Tebex 웹훅 본문 해석 (서버 없이 테스트한다). 형식: {@code {id, type, date, subject}}. 필드 이름은 Tebex Webhooks 문서
- * 기준이며 Phase 3 착수 때 다시 확인한다.
+ * Tebex webhook body parsing (tested without a server). Format: {@code {id, type, date, subject}}.
+ * Field names follow the Tebex Webhooks docs and are to be rechecked at Phase 3 start.
  *
- * @param id 웹훅 ID (수신함 webhook_id, 재전송 멱등의 기준)
+ * @param id webhook ID (inbox webhook_id, the basis for resend idempotency)
  */
 public record WebhookEvent(String id, String type, JsonObject subject) {
 
@@ -35,14 +35,14 @@ public record WebhookEvent(String id, String type, JsonObject subject) {
     public static final String RECURRING_CANCEL_ABORTED = "recurring-payment.cancellation.aborted";
     public static final String RECURRING_ENDED = "recurring-payment.ended";
 
-    /** 결제 한 품목. */
+    /** One payment item. */
     public record Line(long packageId, String name, int quantity, BigDecimal paid) {}
 
     /**
-     * payment.* 의 subject.
+     * The subject of payment.*.
      *
-     * @param amount 실제 결제액 (price_paid.amount, 없으면 price.amount)
-     * @param recurringRef 반복 결제(구독) 참조 (없으면 일회성)
+     * @param amount actual paid amount (price_paid.amount, or price.amount if absent)
+     * @param recurringRef recurring payment (subscription) reference (absent for one-off)
      */
     public record Payment(
             String txId,
@@ -52,14 +52,14 @@ public record WebhookEvent(String id, String type, JsonObject subject) {
             List<Line> lines,
             @Nullable String recurringRef) {}
 
-    /** recurring-payment.* 의 subject. */
+    /** The subject of recurring-payment.*. */
     public record Recurring(
             String reference,
             @Nullable Instant nextPaymentAt,
             @Nullable Payment initial,
             @Nullable Payment last) {
 
-        /** 구독 대상 플레이어 (마지막 결제 → 첫 결제 순). */
+        /** Subscription target player (last payment → first payment order). */
         public Optional<UUID> player() {
             if (last != null && last.player() != null) {
                 return Optional.of(last.player());
@@ -67,14 +67,14 @@ public record WebhookEvent(String id, String type, JsonObject subject) {
             return initial == null ? Optional.empty() : Optional.ofNullable(initial.player());
         }
 
-        /** 구독 패키지 번호. */
+        /** Subscription package number. */
         public long packageId() {
             Payment p = last != null ? last : initial;
             return p == null || p.lines().isEmpty() ? 0 : p.lines().getFirst().packageId();
         }
     }
 
-    /** 본문 해석. 형식이 틀리면 빈 Optional. */
+    /** Parses the body. Empty Optional if malformed. */
     public static Optional<WebhookEvent> parse(String body) {
         try {
             JsonObject json = JsonParser.parseString(body).getAsJsonObject();
@@ -93,7 +93,10 @@ public record WebhookEvent(String id, String type, JsonObject subject) {
         }
     }
 
-    /** 결제 거래 ID (payment.*: subject.transaction_id, recurring: 마지막 결제). 없으면 null. */
+    /**
+     * Payment transaction ID (payment.*: subject.transaction_id, recurring: last payment). Null if
+     * absent.
+     */
     public @Nullable String txId() {
         String tx = str(subject, "transaction_id");
         if (tx != null) {
@@ -174,7 +177,7 @@ public record WebhookEvent(String id, String type, JsonObject subject) {
                         str(s, "recurring_payment_reference")));
     }
 
-    /** 마인크래프트 UUID (대시 있음·없음 모두). 틀리면 null. */
+    /** Minecraft UUID (with or without dashes). Null if invalid. */
     static @Nullable UUID uuid(@Nullable String raw) {
         if (raw == null) {
             return null;

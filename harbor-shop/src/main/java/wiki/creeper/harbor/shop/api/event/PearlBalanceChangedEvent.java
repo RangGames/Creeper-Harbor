@@ -5,7 +5,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 
-/** 진주 잔액이 바뀐 뒤 (커밋 후, 메인 스레드). 스코어보드·GUI 갱신용. */
+/** After the pearl balance changes (after commit, main thread). For scoreboard and GUI updates. */
 public final class PearlBalanceChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

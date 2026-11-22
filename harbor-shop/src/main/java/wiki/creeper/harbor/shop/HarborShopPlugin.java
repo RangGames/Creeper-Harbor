@@ -42,8 +42,11 @@ import wiki.creeper.harbor.shop.webhook.WebhookIntake;
 import wiki.creeper.harbor.shop.webhook.WebhookServer;
 
 /**
- * Harbor-Shop (docs 20 12장): 유료 재화 진주와 사용처(코스메틱 상점, 시즌 패스, 진주 보물함), 후원 등급 구독, Tebex 결제 수신. 원칙은 '6.
- * BM 기획' 1장: 진주는 골드·물비늘·어종과 교환 불가, 유료 상품은 거래·경매 불가, 코스메틱은 영구 소유, 확률 공개, 결제로 성능이 오르지 않음.
+ * Harbor-Shop (docs 20 ch. 12): the paid currency pearls and where they are spent (cosmetic shop,
+ * season pass, pearl chest), donor tier subscriptions, and Tebex payment intake. Principles from
+ * '6. BM plan' ch. 1: pearls cannot be exchanged for gold, water scales or fish; paid products
+ * cannot be traded or auctioned; cosmetics are owned permanently; odds are published; payment never
+ * improves performance.
  */
 public final class HarborShopPlugin extends HarborModule {
 
@@ -63,7 +66,7 @@ public final class HarborShopPlugin extends HarborModule {
         ShopContent.registerChecks(ctx::contentCheck);
         ctx.playerComponent(ShopRuntime.COMPONENT);
         saveDefaultConfig();
-        // 새 버전에서 생긴 설정 항목을 채운다 (서버 값·주석은 그대로)
+        // Fill in config entries added in a new version (server values and comments are kept)
         try (java.io.InputStream in = getResource("config.yml")) {
             YamlDefaults.Result filled =
                     YamlDefaults.fillFile(getDataFolder().toPath().resolve("config.yml"), in);
@@ -172,7 +175,8 @@ public final class HarborShopPlugin extends HarborModule {
         services.register(CosmeticService.class, cosmetics, this, ServicePriority.Normal);
         services.register(DonorService.class, donors, this, ServicePriority.Normal);
         services.register(SeasonPassService.class, passes, this, ServicePriority.Normal);
-        // Collection 어항 테마 보유 확인 (Collection은 Shop에 의존할 수 없어서 이 서비스로 묻는다)
+        // Collection aquarium theme ownership check (Collection cannot depend on Shop, so it asks
+        // through this service)
         services.register(
                 AquariumThemeOwnership.class, cosmetics::owns, this, ServicePriority.Normal);
         if (getServer().getPluginManager().isPluginEnabled("Harbor-World")) {

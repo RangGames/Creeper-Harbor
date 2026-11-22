@@ -17,15 +17,17 @@ import wiki.creeper.harbor.shop.api.event.PearlBalanceChangedEvent;
 import wiki.creeper.harbor.shop.data.ShopRepository;
 
 /**
- * 진주 지갑 (PearlService 구현, docs 20 12.4 '진주 원장'). 모든 진주 사용처(상점·패스·보물함·선물·닉네임)는 {@link #transact}로 주문
- * 기록·진주 차감·소유 기록을 한 트랜잭션에 넣는다. 커밋 뒤에만 캐시와 PearlBalanceChangedEvent를 갱신한다.
+ * Pearl wallet (PearlService implementation, docs 20 12.4 'pearl ledger'). Every pearl sink (shop,
+ * pass, chest, gift, nickname) uses {@link #transact} to put order record, pearl deduction and
+ * ownership record in one transaction. The cache and PearlBalanceChangedEvent are updated only
+ * after commit.
  */
 public final class PearlManager implements PearlService {
 
-    /** 실패 사유와 보여 줄 문구 키. */
+    /** Failure reason and the message key to show. */
     public record Failure(LedgerError error, String messageKey) {}
 
-    /** 트랜잭션 작업. */
+    /** Transaction work. */
     @FunctionalInterface
     public interface Work<T> {
         T run(PearlTx tx) throws SQLException;
@@ -82,7 +84,7 @@ public final class PearlManager implements PearlService {
                 .thenApply(r -> r.mapError());
     }
 
-    /** 관리자 회수 (ADMIN_TAKE). 상점 이용 정지 중이어도 처리한다. */
+    /** Admin take (ADMIN_TAKE). Processed even while the shop ban is active. */
     public CompletableFuture<Result<Long, LedgerError>> spendAdmin(
             UUID player, long amount, String refId) {
         return transact(
@@ -97,7 +99,7 @@ public final class PearlManager implements PearlService {
                 .thenApply(r -> r.mapError());
     }
 
-    /** 결과 래퍼 (Failure → LedgerError 변환 도우미). */
+    /** Result wrapper (helper converting Failure → LedgerError). */
     public record Outcome<T>(Result<T, Failure> result) {
 
         public Result<T, LedgerError> mapError() {
@@ -109,8 +111,9 @@ public final class PearlManager implements PearlService {
     }
 
     /**
-     * 가상 스레드에서 한 트랜잭션으로 실행하고, 커밋 뒤 메인 스레드에서 바뀐 지갑 캐시·이벤트를 갱신한 다음 결과를 돌려준다. {@link
-     * ShopReject}·{@link LedgerException}은 롤백 후 실패로 돌려준다.
+     * Runs as one transaction on a virtual thread; after commit, updates the changed wallet cache
+     * and events on the main thread, then returns the result. {@link ShopReject} and {@link
+     * LedgerException} are rolled back and returned as failures.
      */
     public <T> CompletableFuture<Outcome<T>> transact(Work<T> work) {
         return rt.api()
@@ -133,13 +136,16 @@ public final class PearlManager implements PearlService {
                         rt.tasks().main());
     }
 
-    /** 커밋된 트랜잭션 결과. 커밋 뒤 {@link #afterCommit(Committed)}로 캐시를 맞춘다. */
+    /**
+     * Committed transaction result. After commit, {@link #afterCommit(Committed)} syncs the cache.
+     */
     public record Committed<T>(
             T value, List<PearlLedger.Applied> applied, List<PearlLedger.Change> changes) {}
 
     /**
-     * 지금 스레드에서 한 트랜잭션으로 실행한다 (가상 스레드 전용: 웹훅 처리기, 시즌 전환 훅). 캐시 갱신은 호출한 쪽이 메인 스레드에서 {@link
-     * #afterCommit(Committed)}로 한다.
+     * Runs as one transaction on the current thread (virtual threads only: webhook processor,
+     * season rollover hook). The caller syncs the cache on the main thread with {@link
+     * #afterCommit(Committed)}.
      */
     public <T> Committed<T> runBlocking(Work<T> work) throws SQLException {
         return rt.api()
@@ -157,7 +163,10 @@ public final class PearlManager implements PearlService {
         afterCommit(committed.applied(), committed.changes());
     }
 
-    /** 커밋된 진주 변경을 캐시에 반영한다 (메인 스레드). 웹훅 처리처럼 직접 트랜잭션을 돌린 쪽도 부른다. */
+    /**
+     * Applies committed pearl changes to the cache (main thread). Also called by code that ran its
+     * own transaction, such as webhook processing.
+     */
     public void afterCommit(List<PearlLedger.Applied> applied, List<PearlLedger.Change> changes) {
         Map<UUID, PearlLedger.Applied> last = new LinkedHashMap<>();
         Map<UUID, Long> delta = new LinkedHashMap<>();
@@ -192,7 +201,10 @@ public final class PearlManager implements PearlService {
 
     private record WalletRow(Balance balance, boolean locked) {}
 
-    /** DB에서 지갑·정지 상태를 다시 읽어 캐시에 넣는다 (다른 서버에서 처리된 결제·환불). */
+    /**
+     * Re-reads wallet and ban state from the DB into the cache (payments and refunds processed on
+     * another server).
+     */
     public CompletableFuture<Void> refresh(UUID player) {
         return rt.db(
                         c ->

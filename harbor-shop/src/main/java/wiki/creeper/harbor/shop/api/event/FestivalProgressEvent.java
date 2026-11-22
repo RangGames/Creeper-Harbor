@@ -4,7 +4,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.HarborId;
 
-/** 항구 축제 게이지가 바뀐 뒤 (harbor:festival 수신, 메인 스레드). reached는 이번에 목표에 닿았는지. */
+/**
+ * After the harbor festival gauge changes (harbor:festival received, main thread). reached is
+ * whether the goal was reached this time.
+ */
 public final class FestivalProgressEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

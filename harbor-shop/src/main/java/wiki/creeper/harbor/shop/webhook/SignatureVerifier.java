@@ -11,22 +11,27 @@ import javax.crypto.spec.SecretKeySpec;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 웹훅 서명 검증 (docs 20 12.4 2단계). 서명 형식은 Phase 3 착수 때 Tebex 최신 문서로 재확인할 법률·기술 검토 항목이라 바꿔 끼울 수 있게 둔다
+ * Webhook signature verification (docs 20 12.4 step 2). The signature format is a legal/technical
+ * review item to recheck against the latest Tebex docs at Phase 3 start, so it is kept swappable
  * (config.yml webhook.signature).
  *
  * <ul>
- *   <li>{@code tebex_v1}: X-Signature = hex(HMAC-SHA256(비밀키, hex(SHA-256(본문)))) (문서 기준, 기본값)
- *   <li>{@code hmac_body}: X-Signature = hex(HMAC-SHA256(비밀키, 본문))
+ *   <li>{@code tebex_v1}: X-Signature = hex(HMAC-SHA256(secret, hex(SHA-256(body)))) (per the docs,
+ *       default)
+ *   <li>{@code hmac_body}: X-Signature = hex(HMAC-SHA256(secret, body))
  * </ul>
  *
- * 비교는 {@link MessageDigest#isEqual}로 상수 시간에 한다.
+ * Comparison is constant-time via {@link MessageDigest#isEqual}.
  */
 @FunctionalInterface
 public interface SignatureVerifier {
 
     boolean verify(byte[] body, @Nullable String header);
 
-    /** 설정 이름으로 만든다. 모르는 이름이거나 비밀키가 비면 모두 거부하는 검증기를 돌려준다. */
+    /**
+     * Creates one by config name. For an unknown name or an empty secret, returns a verifier that
+     * rejects everything.
+     */
     static SignatureVerifier create(String mode, String secret) {
         if (secret.isBlank()) {
             return (body, header) -> false;

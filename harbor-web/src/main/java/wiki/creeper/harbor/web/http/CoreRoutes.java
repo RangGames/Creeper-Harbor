@@ -13,8 +13,9 @@ import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.web.relay.EventRelay;
 
 /**
- * 기본 경로: 서버, 플레이어 요약, 플레이어 도감·퀘스트(그 모듈이 켜져 있을 때), 최근 이벤트, 어종 목록. 플레이어 자료는 DB(읽기 전용)에서 읽는다 — 접속 중이면
- * 아직 쓰이지 않은 진행이 몇 분 늦을 수 있다 (지연 쓰기 큐).
+ * Core routes: server, player summary, player codex and quests (when those modules are enabled),
+ * recent events, fish list. Player data is read from the DB (read-only), so for online players
+ * progress not yet written may lag a few minutes (write-behind queue).
  */
 public final class CoreRoutes {
 
@@ -76,7 +77,7 @@ public final class CoreRoutes {
         return out;
     }
 
-    /** UUID 또는 이름 → UUID (이름은 마지막 접속 기준). */
+    /** UUID or name → UUID (names resolve by last login). */
     static UUID resolve(Calls calls, String id) throws Router.ApiException {
         try {
             return UUID.fromString(id);

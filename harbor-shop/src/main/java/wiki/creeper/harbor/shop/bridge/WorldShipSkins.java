@@ -6,7 +6,10 @@ import wiki.creeper.harbor.shop.api.CosmeticService;
 import wiki.creeper.harbor.shop.content.CosmeticDef;
 import wiki.creeper.harbor.world.api.ShipSkinProvider;
 
-/** World 연결 (선택). 선박 스킨 장착 여부를 World에 알린다. Harbor-World가 켜져 있을 때만 이 클래스를 불러온다. */
+/**
+ * World bridge (optional). Tells World whether a ship skin is equipped. This class is loaded only
+ * when Harbor-World is enabled.
+ */
 public final class WorldShipSkins {
 
     private WorldShipSkins() {}

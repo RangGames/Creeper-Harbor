@@ -32,16 +32,17 @@ import wiki.creeper.harbor.web.webhook.WebhookDispatcher;
 import wiki.creeper.harbor.web.webhook.WebhookTarget;
 
 /**
- * Harbor-Web (추가 제안): 외부 연동.
+ * Harbor-Web (proposed): external integration.
  *
  * <ul>
- *   <li>이벤트 발행 (모든 서버): 게임 모듈 이벤트 → Redis harbor:events ({@link EventRelay})
- *   <li>웹훅 (한 서버): harbor:events → 디스코드·JSON POST ({@link WebhookDispatcher})
- *   <li>REST API (한 서버): 읽기 전용 조회 ({@link ApiServer})
+ *   <li>Event publishing (every server): game module events → Redis harbor:events ({@link
+ *       EventRelay})
+ *   <li>Webhooks (one server): harbor:events → Discord/JSON POST ({@link WebhookDispatcher})
+ *   <li>REST API (one server): read-only queries ({@link ApiServer})
  * </ul>
  *
- * 설정은 plugins/Harbor-Web/config.yml (비밀이 들어가므로 저장소 content/가 아니다). 관리: /harbor web status · test ·
- * events.
+ * Settings live in plugins/Harbor-Web/config.yml (not the repository content/, since it holds
+ * secrets). Admin: /harbor web status · test · events.
  */
 public final class HarborWebPlugin extends HarborModule {
 
@@ -193,7 +194,7 @@ public final class HarborWebPlugin extends HarborModule {
         return out;
     }
 
-    // ------------------------------------------------------------------ 관리 명령
+    // ------------------------------------------------------------------ admin commands
 
     private LiteralArgumentBuilder<CommandSourceStack> adminCommand(HarborApi api) {
         return Commands.literal("web")

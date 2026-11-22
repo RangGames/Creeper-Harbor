@@ -17,21 +17,27 @@ import wiki.creeper.harbor.common.ledger.LedgerWriter;
 import wiki.creeper.harbor.common.model.Currency;
 
 /**
- * 진주 원장 한 건을 이미 열린 트랜잭션 안에서 처리한다 (docs 20 12.4 '쓰기 순서'). Common 원장 도구로 지갑 행 잠금 → 음수 검사 →
- * pearl_ledger 기록(참조 ID 유니크) → 잔액 갱신을 하고, 같은 트랜잭션에서 묶음(pearl_lot) 차감·유료 잔액·처리 후 잔액 열을 맞춘다. 실패하면
- * {@link LedgerException}을 던지고 호출한 쪽 트랜잭션이 통째로 롤백된다.
+ * Processes one pearl ledger entry inside an already open transaction (docs 20 12.4 'write order').
+ * Using the Common ledger tools: lock wallet row → negative check → pearl_ledger record (unique
+ * reference ID) → balance update, then in the same transaction deducts lots (pearl_lot) and syncs
+ * the paid balance and balance-after columns. On failure throws {@link LedgerException} and the
+ * caller's whole transaction is rolled back.
  *
- * <p>골드·물비늘로 바꾸는 함수는 없다 (경제 분리, '6. BM 기획' 1장).
+ * <p>There is no function converting to gold or water scales (economy separation, '6. BM plan' ch.
+ * 1).
  */
 public final class PearlLedger {
 
     /**
-     * 변경 한 건.
+     * One change.
      *
-     * @param refId 참조 ID (필수). 같은 (uuid, 사유, 참조 ID)는 한 번만 기록된다
-     * @param paid 지급일 때 유료 묶음인지 (결제·구독 월 진주 = 유료, 패스·이벤트·관리자 = 무료)
-     * @param lotRef 지급 묶음의 source_ref (null이면 refId)
-     * @param fromLot 차감할 묶음을 지정 (환불·지불 거절 회수). null이면 무료 먼저·오래된 유료 순
+     * @param refId reference ID (required). The same (uuid, reason, reference ID) is recorded only
+     *     once
+     * @param paid for grants, whether it is a paid lot (payment and monthly subscription pearls =
+     *     paid; pass, events, admin = free)
+     * @param lotRef source_ref of the granted lot (refId if null)
+     * @param fromLot lot to deduct from (refund and chargeback recovery). If null, free first, then
+     *     oldest paid
      */
     public record Change(
             UUID player,
@@ -52,7 +58,7 @@ public final class PearlLedger {
         }
     }
 
-    /** 처리 결과. */
+    /** Processing result. */
     public record Applied(UUID player, long balance, long paidBalance, long paidDelta) {}
 
     private final PearlWalletStore store = new PearlWalletStore();
@@ -126,7 +132,7 @@ public final class PearlLedger {
         return new Applied(change.player(), balance, paidBalance, paidDelta);
     }
 
-    /** 여러 건을 순서대로 처리한다 (10회 개봉, 선물 등). */
+    /** Processes several entries in order (10-open, gifts, etc.). */
     public List<Applied> applyAll(Connection c, List<Change> changes) throws SQLException {
         List<Applied> result = new ArrayList<>();
         for (Change change : changes) {
@@ -156,7 +162,8 @@ public final class PearlLedger {
         try {
             return PearlLots.allocate(lots, amount);
         } catch (IllegalArgumentException e) {
-            // 지갑 잔액은 충분했는데 묶음이 모자라면 불변식이 깨진 것. 쓰지 않고 거부한다 (일일 검사가 알려 준다)
+            // Wallet balance was enough but lots are short: the invariant is broken. Refuse without
+            // writing (the daily check reports it)
             throw new LedgerException(LedgerError.REJECTED, "묶음 잔량 불일치: " + change);
         }
     }

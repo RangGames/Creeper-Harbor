@@ -14,11 +14,14 @@ import wiki.creeper.harbor.shop.content.CosmeticDef;
 import wiki.creeper.harbor.shop.donor.DonorGrace;
 
 /**
- * 접속 중인 플레이어의 Shop 캐시 (PlayerComponent, docs 20 12.3). 변경 불가 값이며 바꿀 때는 with…로 새 값을 만들어
- * HarborPlayer.set으로 넣는다. 진주·소유·구독은 커밋 뒤에만 바뀌고, 패스 경험치만 메모리에서 먼저 오른 뒤 지연 쓰기 큐로 저장된다.
+ * Shop cache of an online player (PlayerComponent, docs 20 12.3). An immutable value; to change it,
+ * build a new value with with… and put it with HarborPlayer.set. Pearls, ownership and
+ * subscriptions change only after commit; only pass experience rises in memory first and is saved
+ * via the write-behind queue.
  *
- * @param pass 이번 시즌 패스 진행
- * @param displayName 닉네임 표시 변경권으로 바꾼 표시 이름 (players.display_name)
+ * @param pass pass progress for this season
+ * @param displayName display name changed with the nickname display change ticket
+ *     (players.display_name)
  */
 public record ShopProfile(
         PearlService.Balance wallet,
@@ -53,11 +56,11 @@ public record ShopProfile(
     }
 
     /**
-     * 시즌 패스 진행.
+     * Season pass progress.
      *
-     * @param exp 누적 경험치
-     * @param bought 진주로 산 단계 (프리미엄+ 즉시 단계 포함)
-     * @param claimed 받은 보상 (단계:트랙 키, PassMath.claimKey)
+     * @param exp cumulative experience
+     * @param bought levels bought with pearls (including premium+ instant levels)
+     * @param claimed claimed rewards (level:track keys, PassMath.claimKey)
      */
     public record Pass(int season, long exp, int bought, int premium, Set<String> claimed) {
 

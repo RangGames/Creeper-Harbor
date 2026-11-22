@@ -92,7 +92,7 @@ class ChestRollerTest {
         Map<Grade, Integer> counts = new EnumMap<>(Grade.class);
         int n = 200_000;
         for (int i = 0; i < n; i++) {
-            // 천장 없이 표 자체만 (카운터 0 고정)
+            // the table alone without pity (counter fixed at 0)
             counts.merge(
                     ChestRoller.roll(CHEST, 0, () -> random.nextInt(ChestDef.PPM_TOTAL))
                             .entry()

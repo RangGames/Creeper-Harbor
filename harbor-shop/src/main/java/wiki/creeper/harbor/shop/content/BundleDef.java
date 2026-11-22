@@ -9,12 +9,13 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 코스메틱 묶음 진열 (shop/bundles.yml, 추가 제안). 「첫 항해 패키지」처럼 진주로 사는 입문 코스메틱 묶음 ('6. BM 기획' 4장: 계정당 1회, 진주
- * 추가 지급 없음). docs 20 12.4의 account_limit(추가 제안)으로 두 번째 구매를 막는다 (shop_order 기록).
+ * Cosmetic bundle listing (shop/bundles.yml, proposed). Starter cosmetic bundles bought with
+ * pearls, like the "First Voyage Pack" ('6. BM plan' ch. 4: once per account, no extra pearls).
+ * account_limit from docs 20 12.4 (proposed) blocks a second purchase (shop_order records).
  *
- * @param accountLimit 계정당 구매 한도 (0이면 없음)
- * @param weeks 파는 시즌 주차 (비우면 상시). 첫 항해 패키지는 1~2주차
- * @param season 파는 시즌 (0이면 모든 시즌)
+ * @param accountLimit purchase limit per account (0 means none)
+ * @param weeks season weeks it is sold (empty means always). The First Voyage Pack is weeks 1–2
+ * @param season season it is sold (0 means every season)
  */
 public record BundleDef(
         HarborId id,
@@ -37,7 +38,7 @@ public record BundleDef(
                     BundleDef::parse,
                     BundleDef::id);
 
-    /** 이 시즌·주차에 진열하는지. */
+    /** Whether it is listed in this season and week. */
     public boolean onSale(int currentSeason, int week) {
         return (season == 0 || season == currentSeason)
                 && (weeks.isEmpty() || weeks.contains(week));

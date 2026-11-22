@@ -4,7 +4,7 @@ import java.util.Objects;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 
-/** 엔티티 위치 (Paper API가 @Nullable로 표시해 둔 getLocation을 널 아님으로 받는다). */
+/** Entity location (takes getLocation, which the Paper API marks @Nullable, as non-null). */
 public final class Locs {
 
     private Locs() {}

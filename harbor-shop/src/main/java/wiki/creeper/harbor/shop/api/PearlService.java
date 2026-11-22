@@ -7,19 +7,22 @@ import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.util.Result;
 
 /**
- * 진주(유료 재화) 지갑 (docs 20 12.2). Core CurrencyService와 분리되어 있고, 골드·물비늘·어종으로 바꾸는 함수는 일부러 두지 않는다 (경제
- * 분리, '6. BM 기획' 1장). 모든 변경은 pearl_ledger 원장에 참조 ID 유니크로 기록되어 같은 참조 ID는 한 번만 처리된다.
+ * Pearl (paid currency) wallet (docs 20 12.2). Separate from Core CurrencyService, and deliberately
+ * has no functions converting to gold, water scales or fish (economy separation, '6. BM plan' ch.
+ * 1). Every change is recorded in the pearl_ledger with a unique reference ID, so the same
+ * reference ID is processed only once.
  *
- * <p>future는 커밋 뒤 메인 스레드에서 완료되고, 그때 잔액 캐시와 {@code PearlBalanceChangedEvent}가 갱신된다. 결제로 들어오는 유료 진주는
- * Tebex 웹훅만 만들 수 있다 (이 API의 {@link #grant}는 무료 묶음).
+ * <p>Futures complete on the main thread after commit, at which point the balance cache and {@code
+ * PearlBalanceChangedEvent} are updated. Paid pearls from payments can only be created by the Tebex
+ * webhook ({@link #grant} in this API uses the free bucket).
  */
 public interface PearlService {
 
     /**
-     * 잔액.
+     * Balance.
      *
-     * @param paid 유료 묶음 잔액 (청약철회 판단)
-     * @param debt 환불·지불 거절 뒤 부족분 (잔액은 음수가 되지 않는다)
+     * @param paid paid-bucket balance (for withdrawal-right decisions)
+     * @param debt shortfall after refunds or chargebacks (the balance never goes negative)
      */
     record Balance(long total, long paid, long debt) {
 
@@ -30,24 +33,25 @@ public interface PearlService {
         }
     }
 
-    /** 접속 중인 플레이어의 잔액 캐시 (메인 스레드). 접속 중이 아니면 {@link Balance#EMPTY}. */
+    /** Balance cache of an online player (main thread). {@link Balance#EMPTY} if not online. */
     Balance balance(UUID player);
 
-    /** DB에서 읽는다 (접속 여부와 무관). */
+    /** Reads from the DB (regardless of whether online). */
     CompletableFuture<Balance> balanceAsync(UUID player);
 
     /**
-     * 진주를 쓴다 (무료 묶음 먼저, 그다음 오래된 유료 묶음). 상점 이용 정지(shop_flags) 중이면 {@link LedgerError#REJECTED}.
+     * Spends pearls (free bucket first, then the oldest paid buckets). {@link LedgerError#REJECTED}
+     * while shop-banned (shop_flags).
      *
-     * @param refId 참조 ID (주문 ID 등, 1~64자)
+     * @param refId reference ID (order ID etc., 1–64 chars)
      */
     CompletableFuture<Result<Long, LedgerError>> spend(
             UUID player, long amount, LedgerReason reason, String refId);
 
-    /** 무료 묶음으로 준다 (패스 보상·이벤트·관리자). */
+    /** Grants from the free bucket (pass rewards, events, admins). */
     CompletableFuture<Result<Long, LedgerError>> grant(
             UUID player, long amount, LedgerReason reason, String refId);
 
-    /** 상점 이용 정지 중인지 (접속 중 캐시, 메인 스레드). */
+    /** Whether shop-banned (online cache, main thread). */
     boolean locked(UUID player);
 }

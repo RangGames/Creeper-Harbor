@@ -7,8 +7,10 @@ import wiki.creeper.harbor.common.donor.DonorTier;
 import wiki.creeper.harbor.common.model.Keyed;
 
 /**
- * 후원 구독 상태 계산 (docs 20 12.4 '후원 등급', 서버 없이 테스트한다). 혜택은 period_end + 유예(3일) 전까지 유지된다. 해지
- * 요청(CANCEL_PENDING)도 기간 끝까지 유지하고, 그 뒤 유예가 지나면 ENDED로 바꾼다. 갱신 결제가 늦어도 유예 동안은 혜택이 남는다.
+ * Donor subscription state calculation (docs 20 12.4 'donor tiers', tested without a server). Perks
+ * last until period_end + grace (3 days). A cancel request (CANCEL_PENDING) also lasts until the
+ * period ends, then becomes ENDED once grace passes. Perks remain during grace even if the renewal
+ * payment is late.
  */
 public final class DonorGrace {
 
@@ -37,7 +39,7 @@ public final class DonorGrace {
 
     private DonorGrace() {}
 
-    /** 지금 적용할 등급. */
+    /** Tier to apply now. */
     public static DonorTier effective(
             State state, DonorTier tier, @Nullable Instant periodEnd, Instant now, Duration grace) {
         if (state == State.ENDED || tier == DonorTier.NONE || periodEnd == null) {
@@ -46,7 +48,7 @@ public final class DonorGrace {
         return now.isBefore(periodEnd.plus(grace)) ? tier : DonorTier.NONE;
     }
 
-    /** 정리 작업이 ENDED로 바꿔야 하는지 (유예까지 지남). */
+    /** Whether the cleanup task should mark it ENDED (past grace). */
     public static boolean shouldEnd(
             State state, @Nullable Instant periodEnd, Instant now, Duration grace) {
         if (state == State.ENDED) {
@@ -55,7 +57,10 @@ public final class DonorGrace {
         return periodEnd == null || !now.isBefore(periodEnd.plus(grace));
     }
 
-    /** 갱신 결제 뒤 새 기간 끝. 남은 기간이 있으면 그 뒤에 이어 붙인다 (일찍 갱신해도 손해 없음). */
+    /**
+     * New period end after a renewal payment. Remaining time is appended after it (no loss for
+     * renewing early).
+     */
     public static Instant renewedEnd(@Nullable Instant periodEnd, Instant now, Duration period) {
         Instant base = periodEnd != null && periodEnd.isAfter(now) ? periodEnd : now;
         return base.plus(period);

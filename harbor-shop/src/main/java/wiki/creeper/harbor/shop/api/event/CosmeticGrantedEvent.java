@@ -5,7 +5,9 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.id.HarborId;
 
-/** 코스메틱을 새로 얻은 뒤 (커밋 후, 메인 스레드). source = cosmetics_owned.source. */
+/**
+ * After a cosmetic is newly obtained (after commit, main thread). source = cosmetics_owned.source.
+ */
 public final class CosmeticGrantedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

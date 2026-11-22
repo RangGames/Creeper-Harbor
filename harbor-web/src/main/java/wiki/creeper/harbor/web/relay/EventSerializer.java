@@ -30,15 +30,18 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.model.Keyed;
 
 /**
- * 게임 이벤트 → 외부 이벤트 data. 이벤트 클래스(와 Event 아래 부모)의 공개 getter를 읽어 snake_case 이름으로 담는다. 값은 JSON에 맞게 바꾼다:
- * 플레이어·UUID → UUID 글, Harbor ID(와 FishId 같은 감싼 레코드) → ID 글 + 이름을 찾으면 {@code <필드>_name}, 레코드 → 지도,
- * enum → 키, 위치 → {world,x,y,z}, 아이템 → {material, amount}, 문구 → 평문.
+ * Game event → external event data. Reads the public getters of the event class (and its parents
+ * below Event) under snake_case names. Values are converted for JSON: player/UUID → UUID string,
+ * Harbor ID (and wrapper records like FishId) → ID string plus {@code <field>_name} if a name is
+ * found, record → map, enum → key, location → {world,x,y,z}, item → {material, amount}, component →
+ * plain text.
  *
- * <p>처음 나온 플레이어(Player 또는 이름이 player·uuid인 UUID)를 이벤트의 player로 쓴다. 어느 스레드에서 불러도 된다 (콘텐츠 스냅샷만 읽는다).
+ * <p>The first player found (a Player, or a UUID named player/uuid) becomes the event's player.
+ * Safe to call from any thread (reads only content snapshots).
  */
 public final class EventSerializer {
 
-    /** 읽지 않는 메서드 (Bukkit Event 기본, 상태). */
+    /** Methods not read (Bukkit Event defaults, state). */
     private static final Set<String> SKIP =
             Set.of(
                     "getHandlers",
@@ -52,7 +55,7 @@ public final class EventSerializer {
 
     private static final int MAX_DEPTH = 5;
 
-    /** 직렬화 결과. */
+    /** Serialization result. */
     public record Result(
             @Nullable UUID player, @Nullable String playerName, Map<String, Object> data) {}
 
@@ -62,7 +65,7 @@ public final class EventSerializer {
     private final Function<HarborId, Optional<String>> names;
 
     /**
-     * @param names Harbor ID → 콘텐츠 이름 (없으면 빈 값)
+     * @param names Harbor ID → content name (empty if none)
      */
     public EventSerializer(Function<HarborId, Optional<String>> names) {
         this.names = names;
@@ -178,7 +181,7 @@ public final class EventSerializer {
                         put(out, snake(rc.getName()), x, depth + 1);
                     }
                 } catch (ReflectiveOperationException | RuntimeException e) {
-                    // 읽지 못한 칸은 뺀다
+                    // skip fields that could not be read
                 }
             }
             return out;
@@ -197,7 +200,7 @@ public final class EventSerializer {
         return out;
     }
 
-    /** 콘텐츠 정의(…Def 레코드)는 통째로 내보내지 않고 id·no·name·grade만. */
+    /** Content definitions (…Def records) are not exported whole, only id·no·name·grade. */
     private static Map<String, Object> definition(Record r) {
         Map<String, Object> out = new LinkedHashMap<>();
         for (RecordComponent rc : r.getClass().getRecordComponents()) {
@@ -222,13 +225,13 @@ public final class EventSerializer {
                     out.put(n, value);
                 }
             } catch (ReflectiveOperationException | RuntimeException e) {
-                // 읽지 못한 칸은 뺀다
+                // skip fields that could not be read
             }
         }
         return out;
     }
 
-    /** HarborId 또는 HarborId 하나만 든 레코드 (FishId · QuestId · NpcId …). */
+    /** A HarborId, or a record holding a single HarborId (FishId · QuestId · NpcId …). */
     static @Nullable HarborId idOf(@Nullable Object v) {
         if (v instanceof HarborId id) {
             return id;
@@ -266,7 +269,7 @@ public final class EventSerializer {
         return out;
     }
 
-    // ------------------------------------------------------------------ getter 찾기
+    // ------------------------------------------------------------------ getter lookup
 
     private static List<Getter> scan(Class<?> type) {
         Map<String, Getter> found = new LinkedHashMap<>();

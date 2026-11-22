@@ -10,12 +10,13 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * 항구 축제 후원 (shop/festivals.yml, 추가 제안, docs 20 12.4 '항구 축제', '6. BM 기획' 3.5). 서버 전체 게이지가 목표에 닿으면 모든
- * 유저에게 같은 축제 코스메틱을 준다. 성능 버프는 넣지 않는다.
+ * Harbor festival sponsorship (shop/festivals.yml, proposed, docs 20 12.4 'Harbor festival', '6. BM
+ * plan' 3.5). When the server-wide gauge reaches the goal, every player gets the same festival
+ * cosmetic. No performance buffs.
  *
- * @param goalKrw 목표 금액 (원)
- * @param rewards 달성 때 모든 유저에게 주는 코스메틱
- * @param contributorTitle 후원자 기여 칭호 (Season titles.yml)
+ * @param goalKrw goal amount (KRW)
+ * @param rewards cosmetics given to every player on completion
+ * @param contributorTitle contributor title for sponsors (Season titles.yml)
  */
 public record FestivalDef(
         HarborId id,

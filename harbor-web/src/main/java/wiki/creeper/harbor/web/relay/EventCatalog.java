@@ -4,17 +4,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 외부로 옮기는 게임 이벤트 목록 (모듈 api 이벤트 클래스 → 외부 type). 클래스는 이름으로만 적어서, 그 모듈이 켜져 있을 때만 불러온다. 이벤트 data는
- * {@link EventSerializer}가 getter로 만든다 (필드 이름 = getter 이름의 snake_case).
+ * Game events relayed externally (module api event class → external type). Classes are listed by
+ * name only, so they load only when their module is enabled. Event data is built from getters by
+ * {@link EventSerializer} (field name = snake_case of the getter name).
  *
- * <p>type은 바꾸지 않는다 (받는 쪽 규칙이 기대한다). 자주 나는 이벤트(입질·이동·목표 진행 등)는 넣지 않았다.
+ * <p>Types never change (receivers' rules depend on them). Frequent events (bites, movement,
+ * objective progress, etc.) are left out.
  */
 public final class EventCatalog {
 
     /**
-     * @param plugin 이벤트를 가진 플러그인 이름 (Harbor-Core면 늘 켜져 있다)
-     * @param className 이벤트 클래스 전체 이름
-     * @param type 외부 type
+     * @param plugin name of the plugin owning the event (always enabled for Harbor-Core)
+     * @param className fully qualified event class name
+     * @param type external type
      */
     public record Entry(String plugin, String className, String type) {}
 
@@ -124,7 +126,7 @@ public final class EventCatalog {
         out.add(new Entry(plugin, H + pkg + ".api.event." + simple, type));
     }
 
-    /** Harbor-Web이 Bukkit 이벤트로 직접 내는 것 (접속·퇴장·서버 시작/종료). */
+    /** Events Harbor-Web emits directly from Bukkit events (join, quit, server start/stop). */
     public static final List<String> SERVER_TYPES =
             List.of(
                     "server.started",

@@ -7,7 +7,10 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.shop.content.CosmeticDef;
 
-/** 장착 칸이 바뀐 뒤 (메인 스레드). 펫·선박 외형 재생성, 다른 모듈의 표시(칭호 테두리·어항 테마) 갱신용. current가 null이면 해제. */
+/**
+ * After an equip slot changes (main thread). For rebuilding pet and boat appearance and refreshing
+ * other modules' displays (title frame, aquarium theme). current null means unequipped.
+ */
 public final class CosmeticEquipEvent extends PlayerEvent {
 
     private static final HandlerList HANDLERS = new HandlerList();

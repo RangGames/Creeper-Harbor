@@ -5,7 +5,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.donor.DonorTier;
 
-/** 접속 중인 플레이어의 후원 등급이 바뀐 뒤 (메인 스레드). 이름 색·채팅 아이콘·어항 테마 칸 갱신용. */
+/**
+ * After an online player's donor tier changes (main thread). For refreshing name color, chat icon
+ * and aquarium theme slots.
+ */
 public final class DonorTierChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

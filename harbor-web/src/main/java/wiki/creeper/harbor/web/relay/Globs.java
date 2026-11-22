@@ -3,7 +3,9 @@ package wiki.creeper.harbor.web.relay;
 import java.util.Collection;
 import java.util.regex.Pattern;
 
-/** type 고르기용 glob ({@code *}는 아무 글자, 나머지는 그대로). 서버 API 없음. */
+/**
+ * Glob for type matching ({@code *} matches anything, everything else is literal). No server API.
+ */
 public final class Globs {
 
     private Globs() {}

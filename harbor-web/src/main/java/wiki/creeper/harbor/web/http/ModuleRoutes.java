@@ -16,8 +16,9 @@ import wiki.creeper.harbor.season.api.League;
 import wiki.creeper.harbor.season.api.RankingService;
 
 /**
- * 모듈 서비스를 쓰는 경로 (시세·경매·기록·랭킹). 이 클래스는 그 모듈이 켜져 있을 때만 각 register를 부른다 (클래스를 불러도 모듈 api가 없으면 메서드 본문의
- * 참조에서만 실패하므로, 부르기 전에 {@link CoreRoutes#enabled}로 확인한다).
+ * Routes that use module services (market, auctions, records, rankings). Each register is called
+ * only when its module is enabled (loading the class without the module api only fails at the
+ * references in method bodies, so check {@link CoreRoutes#enabled} before calling).
  */
 public final class ModuleRoutes {
 
@@ -141,7 +142,7 @@ public final class ModuleRoutes {
         return calls.main(() -> rankings.board(board, chosen));
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ helpers
 
     private static <T> T service(Calls calls, Class<T> type) throws Router.ApiException {
         return calls.api()
