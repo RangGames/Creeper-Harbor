@@ -90,6 +90,7 @@ public final class HousingManager implements HousingService, Listener {
 
     public void start() {
         var _ = kit.tasks().timer(20 * 60, 20 * 60, store::unloadIdle);
+        store.subscribe();
         for (Player p : Bukkit.getOnlinePlayers()) {
             var _ = loadOwner(p.getUniqueId());
         }

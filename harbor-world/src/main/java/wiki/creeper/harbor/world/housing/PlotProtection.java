@@ -29,10 +29,14 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityPlaceEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.vehicle.VehicleDamageEvent;
+import org.bukkit.event.vehicle.VehicleDestroyEvent;
 import org.bukkit.util.BoundingBox;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.world.WorldKit;
@@ -232,6 +236,40 @@ public final class PlotProtection implements Listener {
         if (!allowedAt(event.getPlayer(), at)) {
             event.setCancelled(true);
         }
+    }
+
+    // 아래 두 이벤트는 PlayerInteractEntityEvent를 상속하지만 HandlerList가 따로라 위 처리기로 오지 않는다
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEntityInteractAt(PlayerInteractAtEntityEvent event) {
+        onEntityInteract(event);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onArmorStand(PlayerArmorStandManipulateEvent event) {
+        onEntityInteract(event);
+    }
+
+    /** 배·광산 수레는 EntityDamageByEntityEvent가 아니라 탈것 이벤트로 온다. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onVehicleDamage(VehicleDamageEvent event) {
+        if (deniedVehicle(event.getVehicle(), event.getAttacker())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onVehicleDestroy(VehicleDestroyEvent event) {
+        if (deniedVehicle(event.getVehicle(), event.getAttacker())) {
+            event.setCancelled(true);
+        }
+    }
+
+    private boolean deniedVehicle(Entity vehicle, @Nullable Entity attacker) {
+        Location at = WorldKit.loc(vehicle);
+        if (!housing(at.getWorld())) {
+            return false;
+        }
+        return !(attacker instanceof Player player) || !allowedAt(player, at);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

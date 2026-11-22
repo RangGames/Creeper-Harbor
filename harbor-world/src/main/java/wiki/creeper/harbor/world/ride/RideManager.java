@@ -102,6 +102,9 @@ public final class RideManager implements Listener {
     private final List<Flight> flights = new ArrayList<>();
     private final Map<UUID, Rental> rentals = new HashMap<>();
 
+    /** 퇴장 중이라 비행 중에도 내리게 둘 플레이어 (onQuit 동안만). */
+    private final Set<UUID> leaving = new java.util.HashSet<>();
+
     public RideManager(WorldKit kit, RegionManager regions) {
         this.kit = kit;
         this.regions = regions;
@@ -415,6 +418,9 @@ public final class RideManager implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onDismount(EntityDismountEvent event) {
+        if (leaving.contains(event.getEntity().getUniqueId())) {
+            return;
+        }
         for (Flight f : flights) {
             if (f.ghast.equals(event.getDismounted()) && f.segment < f.path.size() - 1) {
                 event.setCancelled(true);
@@ -497,7 +503,13 @@ public final class RideManager implements Listener {
         }
         for (Flight f : List.copyOf(flights)) {
             if (f.ghast.getPassengers().contains(event.getPlayer())) {
-                f.ghast.removePassenger(event.getPlayer());
+                // 내리기 막기(onDismount)에 걸리면 저장하지 않는 가스트에 탄 채로 나가 버린다
+                leaving.add(uuid);
+                try {
+                    f.ghast.removePassenger(event.getPlayer());
+                } finally {
+                    leaving.remove(uuid);
+                }
                 var _ = event.getPlayer().teleport(f.arrival);
             }
         }

@@ -29,6 +29,9 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockFromToEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
@@ -490,13 +493,42 @@ public final class DecorManager implements Listener {
         return raw == null ? Optional.empty() : HarborId.tryParse(raw).flatMap(this::def);
     }
 
+    private boolean tagged(Block block) {
+        return block.getChunk().getPersistentDataContainer().has(blockKey(block));
+    }
+
+    /** 그 자리 블록이 아직 그 장식인지 (피스톤·액체 등으로 바뀌었으면 태그만 남은 것). */
+    private boolean matches(Block block, DecorDef d) {
+        HarborId custom = d.block();
+        if (custom != null) {
+            return kit.api().furniture().blockAt(block).map(custom::equals).orElse(false);
+        }
+        String raw = d.material();
+        Material m = raw == null ? null : Material.matchMaterial(raw);
+        // 벽 횃불처럼 놓으면 종류가 바뀌는 블록은 설치 아이템으로 비교한다
+        return m != null
+                && (block.getType() == m || block.getBlockData().getPlacementMaterial() == m);
+    }
+
+    /** 장식이 아닌 것이 놓인 자리의 남은 태그를 지운다 (수조면 어항 자리도). */
+    private void clearStale(Block block) {
+        Optional<DecorDef> d = placedAt(block);
+        block.getChunk().getPersistentDataContainer().remove(blockKey(block));
+        if (d.isPresent() && d.get().kind() == DecorDef.Kind.TANK) {
+            housing.stateAt(block.getLocation()).ifPresent(p -> removeAnchorAt(p, block));
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
         Optional<DecorDef> d = def(event.getItemInHand());
+        Block block = event.getBlockPlaced();
         if (d.isEmpty()) {
+            if (tagged(block)) {
+                clearStale(block);
+            }
             return;
         }
-        Block block = event.getBlockPlaced();
         Optional<HousingManager.PlotState> plot = housing.stateAt(block.getLocation());
         if (plot.isEmpty()
                 || (d.get().kind() == DecorDef.Kind.FURNITURE && d.get().furniture() == null)) {
@@ -560,36 +592,82 @@ public final class DecorManager implements Listener {
         if (d.isEmpty()) {
             return;
         }
+        if (!matches(block, d.get())) {
+            clearStale(block); // 장식은 이미 옮겨졌다: 회수하지 않고 평범하게 부순다
+            return;
+        }
         block.getChunk().getPersistentDataContainer().remove(blockKey(block));
         event.setDropItems(false);
         Optional<HousingManager.PlotState> plot = housing.stateAt(block.getLocation());
         UUID owner = plot.map(p -> p.info.owner()).orElse(event.getPlayer().getUniqueId());
         creditAfterWorldSave(block.getWorld(), owner, d.get().id(), 1);
         if (d.get().kind() == DecorDef.Kind.TANK && plot.isPresent()) {
-            plot.get().anchors.stream()
-                    .filter(
-                            a ->
-                                    a.x() == block.getX()
-                                            && a.y() == block.getY()
-                                            && a.z() == block.getZ())
-                    .findFirst()
-                    .ifPresent(
-                            a -> {
-                                housing.removeAnchor(plot.get(), a.slot());
-                                long id = a.plotId();
-                                int slot = a.slot();
-                                var _ =
-                                        kit.api()
-                                                .database()
-                                                .asyncVoid(
-                                                        c ->
-                                                                HousingRepository.removeAnchor(
-                                                                        c, id, slot));
-                                Bukkit.getPluginManager()
-                                        .callEvent(
-                                                new DisplayAnchorChangedEvent(
-                                                        plot.get().info, a, false));
-                            });
+            removeAnchorAt(plot.get(), block);
+        }
+    }
+
+    private void removeAnchorAt(HousingManager.PlotState plot, Block block) {
+        plot.anchors.stream()
+                .filter(
+                        a ->
+                                a.x() == block.getX()
+                                        && a.y() == block.getY()
+                                        && a.z() == block.getZ())
+                .findFirst()
+                .ifPresent(
+                        a -> {
+                            housing.removeAnchor(plot, a.slot());
+                            long id = a.plotId();
+                            int slot = a.slot();
+                            var _ =
+                                    kit.api()
+                                            .database()
+                                            .asyncVoid(
+                                                    c ->
+                                                            HousingRepository.removeAnchor(
+                                                                    c, id, slot));
+                            Bukkit.getPluginManager()
+                                    .callEvent(new DisplayAnchorChangedEvent(plot.info, a, false));
+                        });
+    }
+
+    // 장식 태그는 위치에 붙어 있어 블록이 옮겨지면 태그만 남는다: 장식 블록을 밀거나 당기거나 액체로 쓸어 가지 못하게 한다
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPiston(BlockPistonExtendEvent event) {
+        if (!housing.isHousingWorld(event.getBlock().getWorld())) {
+            return;
+        }
+        BlockFace dir = event.getDirection();
+        if (tagged(event.getBlock().getRelative(dir))) {
+            event.setCancelled(true); // 머리 자리의 부서지는 장식 (횃불 등)
+            return;
+        }
+        for (Block b : event.getBlocks()) {
+            if (tagged(b) || tagged(b.getRelative(dir))) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPiston(BlockPistonRetractEvent event) {
+        if (!housing.isHousingWorld(event.getBlock().getWorld())) {
+            return;
+        }
+        for (Block b : event.getBlocks()) {
+            if (tagged(b)) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onFlow(BlockFromToEvent event) {
+        Block to = event.getToBlock();
+        if (housing.isHousingWorld(to.getWorld()) && tagged(to)) {
+            event.setCancelled(true);
         }
     }
 
