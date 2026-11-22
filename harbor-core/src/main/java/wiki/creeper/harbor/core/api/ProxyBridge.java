@@ -6,30 +6,37 @@ import java.util.concurrent.CompletableFuture;
 import wiki.creeper.harbor.common.proxy.ProxyMessages.MoveResult;
 
 /**
- * 프록시에 서버 이동을 요청한다 (docs 20 1.2). 이동은 반드시 프록시의 MoveCoordinator를 거친다 (저장 없이 옮기는 길을 막기 위해).
- * Boss·World는 이것만 쓴다. 결과 future는 메인 스레드에서 완료된다.
+ * Asks the proxy to transfer a player (docs 20 1.2). Transfers always go through the proxy's
+ * MoveCoordinator (to block any path that moves without saving). Boss and World use only this.
+ * Result futures complete on the main thread.
  */
 public interface ProxyBridge {
 
     /**
-     * @param reason 기록용 사유 (lobby, instance, return …)
+     * @param reason reason for logging (lobby, instance, return …)
      */
     CompletableFuture<MoveResult> requestMove(UUID player, String destination, String reason);
 
-    /** 로비로 보낸다 (harbor-infra.yml lobby_server, 추가 제안). 도착해도 자동 출항하지 않고, 본 서버에서 나갔으면 자리 유예를 받는다. */
+    /**
+     * Sends to the lobby (harbor-infra.yml lobby_server, proposed). No automatic departure on
+     * arrival; if the player left the main server, they get a seat grace period.
+     */
     CompletableFuture<MoveResult> requestLobby(UUID player, String reason);
 
     /**
-     * 로비에 있는 플레이어를 본 서버 대기열에 넣는다 (/출항과 같음, NPC·GUI·Skript용, 추가 제안). 결과는 프록시가 플레이어에게 알린다. 로비에 있지 않으면
-     * 무시된다.
+     * Puts a player in the lobby into the main server queue (same as /출항; for NPC, GUI, Skript;
+     * proposed). The proxy notifies the player of the result. Ignored if the player is not in the
+     * lobby.
      */
     void requestDepart(UUID player);
 
     /**
-     * 파티를 인스턴스 서버로 보낸다 ('17-4' 10.4 3단계). 서버 배정은 Boss가 harbor:instance로 먼저 끝내고, 여기에는 배정된 서버 ID를
-     * 넘긴다. 부분 실패면 ok=false, reason = {@code partial:<성공>/<전체>:<uuid>=<사유>;…}.
+     * Sends a party to an instance server ('17-4' 10.4 step 3). Boss assigns the server via
+     * harbor:instance beforehand and passes the assigned server ID here. On partial failure
+     * ok=false, reason = {@code partial:<succeeded>/<total>:<uuid>=<reason>;…}.
      *
-     * @param requestId 배정 ID와 같게 주면 기록을 맞추기 쉽다. 비우면 새로 만든다
+     * @param requestId matching the assignment ID makes logs easier to correlate. If empty, a new
+     *     one is generated
      */
     CompletableFuture<MoveResult> requestInstance(
             List<UUID> party, String assignedServer, String requestId);

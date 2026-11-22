@@ -14,7 +14,8 @@ import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 틱 단위로 이어지는 연출·스크립트 (컷씬, 포획 연출, 미니게임 단계, 보스 패턴 예고). Kotlin 코루틴 대신 쓴다.
+ * Tick-based chained effects and scripts (cutscenes, catch effects, minigame stages, boss pattern
+ * telegraphs). Used instead of Kotlin coroutines.
  *
  * <pre>{@code
  * Sequence.of(plugin, player)
@@ -26,7 +27,8 @@ import org.jspecify.annotations.Nullable;
  *     .start();
  * }</pre>
  *
- * 플레이어가 나가거나 서버를 이동하면 자동으로 취소하고 onCancel을 실행한다. 메인 스레드에서만 쓴다.
+ * Automatically cancelled, running onCancel, when the player leaves or moves servers. Main thread
+ * only.
  */
 public final class Sequence {
 
@@ -68,7 +70,7 @@ public final class Sequence {
         return this;
     }
 
-    /** action을 times번, intervalTicks 간격으로 실행한다. */
+    /** Runs action times times, intervalTicks apart. */
     public Sequence repeat(int times, int intervalTicks, Consumer<Player> action) {
         if (times < 1 || intervalTicks < 1) {
             throw new IllegalArgumentException("반복 횟수와 간격은 1 이상이어야 합니다");
@@ -77,7 +79,7 @@ public final class Sequence {
         return this;
     }
 
-    /** 중간에 취소되었을 때 원상복구. */
+    /** Rollback when cancelled midway. */
     public Sequence onCancel(Consumer<Player> action) {
         this.onCancel = action;
         return this;
@@ -96,7 +98,7 @@ public final class Sequence {
         return runner;
     }
 
-    /** 플레이어의 시퀀스를 모두 취소한다 (Core가 퇴장·서버 이동 때 부른다). */
+    /** Cancels all of a player's sequences (called by Core on quit and server transfer). */
     public static void cancelAll(UUID player) {
         Set<Runner> runners = ACTIVE.remove(player);
         if (runners != null) {
@@ -104,7 +106,7 @@ public final class Sequence {
         }
     }
 
-    /** 실행 중인 시퀀스. */
+    /** A running sequence. */
     public interface Handle {
         void cancel();
 
@@ -155,7 +157,7 @@ public final class Sequence {
             }
         }
 
-        /** 한 단계를 진행한다. 이번 틱에 더 진행할 수 있으면 true. */
+        /** Advances one step. True if more progress can be made this tick. */
         private boolean advance(Step step) {
             return switch (step) {
                 case Run(Consumer<Player> action) -> {
@@ -182,7 +184,7 @@ public final class Sequence {
             };
         }
 
-        /** 대기 단계: 처음 만나면 시작하고, 끝나면 다음 단계로. */
+        /** Wait step: starts when first reached and moves to the next step when done. */
         private boolean countDown(int ticks) {
             if (remaining < 0) {
                 remaining = ticks;

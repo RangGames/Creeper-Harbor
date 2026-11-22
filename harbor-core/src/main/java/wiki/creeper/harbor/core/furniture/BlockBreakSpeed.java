@@ -26,21 +26,27 @@ import wiki.creeper.harbor.common.content.type.CustomBlockDef.Breaking;
 import wiki.creeper.harbor.common.content.type.CustomBlockDef.Tool;
 
 /**
- * 커스텀 블록 캐는 속도 (추가 제안). 클라이언트는 노트블록(단단함 0.8, 도끼)으로 알고 캐는 시간을 예측하므로, 캐기 시작할 때 플레이어의
- * block_break_speed 속성에 배율을 걸어 정한 단단함·도구대로 금이 가게 한다. 속성은 클라이언트와 서버가 같이 쓰므로 애니메이션과 실제 부서지는 시점이 맞는다.
- * 그만두거나 부수거나 들고 있는 칸을 바꾸면 배율을 뗀다 (나갈 때·들어올 때도 지운다).
+ * Custom block mining speed (proposed). The client treats the block as a note block (hardness 0.8,
+ * axe) and predicts mining time, so when mining starts a multiplier is applied to the player's
+ * block_break_speed attribute so cracks follow the configured hardness and tool. The attribute is
+ * shared by client and server, so the animation and the actual break time match. The multiplier is
+ * removed when the player stops, breaks the block, or switches the held slot (also cleared on quit
+ * and join).
  *
- * <p>배율 = (정한 도구 속도 / 노트블록 기준 도구 속도) × (0.8 / 단단함) × (30 / (캐지면 30, 아니면 100)). 도구 속도는 같은 도구를 쓰는 바닐라
- * 블록(곡괭이 = 돌·등급별 광석, 도끼 = 판자, 삽 = 흙, 괭이 = 건초, 검 = 거미줄)으로 잰다. 성급함·물속 등 다른 배율은 양쪽에 똑같이 곱해지므로 그대로 둔다.
+ * <p>Multiplier = (configured tool speed / tool speed against a note block) × (0.8 / hardness) ×
+ * (30 / (30 if harvestable, else 100)). Tool speed is measured against vanilla blocks that use the
+ * same tool (pickaxe = stone and ores by tier, axe = planks, shovel = dirt, hoe = hay, sword =
+ * cobweb). Other multipliers such as Haste or underwater apply equally to both sides, so they are
+ * left alone.
  */
 public final class BlockBreakSpeed implements Listener {
 
-    @SuppressWarnings("deprecation") // 플러그인 인스턴스 없이 고정 네임스페이스를 쓴다
+    @SuppressWarnings("deprecation") // Uses a fixed namespace without a plugin instance
     private static final NamespacedKey MODIFIER = new NamespacedKey("harbor", "custom_block_break");
 
     private static final double NOTE_BLOCK_HARDNESS = 0.8;
 
-    /** block_break_speed 상한 (바닐라 속성 범위). */
+    /** Upper bound of block_break_speed (vanilla attribute range). */
     private static final double MAX_FACTOR = 1024;
 
     private final CustomBlockManager blocks;
@@ -100,7 +106,7 @@ public final class BlockBreakSpeed implements Listener {
         clear(event.getPlayer());
     }
 
-    /** 꺼질 때 접속자 배율을 뗀다. */
+    /** Removes the multiplier from online players on disable. */
     public void shutdown() {
         Bukkit.getOnlinePlayers().forEach(BlockBreakSpeed::clear);
     }
@@ -112,7 +118,7 @@ public final class BlockBreakSpeed implements Listener {
         }
     }
 
-    /** 노트블록 기준 대비 캐는 속도 배율 (0 = 부술 수 없음). */
+    /** Mining speed multiplier relative to a note block (0 = unbreakable). */
     static double factor(Breaking breaking, ItemStack tool) {
         if (breaking.unbreakable()) {
             return 0;
@@ -130,7 +136,10 @@ public final class BlockBreakSpeed implements Listener {
         return Math.clamp(factor, 0, MAX_FACTOR);
     }
 
-    /** 맞는 도구인지 (requires_tool이 아니면 언제나 true). 곡괭이는 등급까지 본다. */
+    /**
+     * Whether the tool is correct (always true unless requires_tool). Pickaxes are checked by tier
+     * too.
+     */
     static boolean canHarvest(Breaking breaking, ItemStack tool) {
         if (!breaking.requiresTool() || breaking.tool() == Tool.NONE) {
             return true;
@@ -142,7 +151,9 @@ public final class BlockBreakSpeed implements Listener {
         return breaking.tool() != Tool.PICKAXE || reference.isPreferredTool(tool);
     }
 
-    /** 그 도구로 잘 캐지는 바닐라 블록 (곡괭이는 등급 조건이 같은 광석). */
+    /**
+     * A vanilla block that tool mines well (for pickaxes, an ore with the same tier requirement).
+     */
     private static BlockData reference(Breaking breaking) {
         Material material =
                 switch (breaking.tool()) {

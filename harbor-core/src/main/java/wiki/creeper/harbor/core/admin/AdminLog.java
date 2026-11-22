@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.db.Database;
 
-/** 관리자 작업 기록 (admin_log). 모든 /harbor 관리 명령은 여기에 남긴다. */
+/** Admin action log (admin_log). Every /harbor admin command is recorded here. */
 public final class AdminLog {
 
     private final Database db;

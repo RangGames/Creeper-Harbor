@@ -6,42 +6,53 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.bukkit.entity.Player;
 
-/** 접속 중인 플레이어 데이터. */
+/** Data of online players. */
 public interface PlayerService {
 
     Optional<HarborPlayer> get(UUID player);
 
     /**
-     * 이름으로 플레이어를 찾는다 (대소문자 무시, 추가 제안). 이 서버 접속자를 먼저 보고, 없으면 players 테이블(다른 서버 접속자·오프라인, 마지막 접속이 가장
-     * 최근인 계정)에서 찾는다. 메인 스레드에서 완료된다.
+     * Finds a player by name (case-insensitive, proposed). Checks players on this server first,
+     * then the players table (players on other servers and offline; the account with the most
+     * recent login). Completes on the main thread.
      */
     CompletableFuture<Optional<wiki.creeper.harbor.common.model.PlayerRef>> find(String name);
 
-    /** 접속 중인 플레이어의 데이터. 접속 전에 로드를 마치므로 접속 중이면 항상 있다. */
+    /**
+     * Data of an online player. Loading finishes before login, so it is always present while
+     * online.
+     */
     HarborPlayer get(Player player);
 
     Collection<? extends HarborPlayer> online();
 
-    /** 모듈 데이터 등록. 모듈 onEnable에서 부른다 (첫 접속 전에). */
+    /** Registers module data. Called from the module's onEnable (before the first login). */
     void register(PlayerComponent<?> component);
 
     /**
-     * 이 플레이어의 바뀐 데이터(기본 정보 + 모듈 데이터)를 지금 DB에 쓴다. 경매 등록·보스 보상처럼 바로 저장해야 하는 곳에서 쓴다 (지연 쓰기 큐에서 이 플레이어
-     * 것만 비운다). 메인 스레드에서 부르고, future는 커밋 후 완료된다. 접속 중이 아니면 바로 완료.
+     * Writes this player's changed data (base info + module data) to the DB now. For places that
+     * must save immediately, like auction listings or boss rewards (flushes only this player's
+     * entries from the write-behind queue). Call on the main thread; the future completes after
+     * commit. Completes immediately if the player is not online.
      */
     CompletableFuture<Void> saveNow(UUID player);
 
     /**
-     * 짧은 지연(balance.yml {@code inventory.commit_save_delay_ticks}) 뒤 {@link #saveNow}한다. 아무 스레드에서
-     * 불러도 되고, 지연 안에 여러 번 부르면 한 번만 저장한다. 재화·경매·우편처럼 즉시 커밋되는 거래가 끝난 뒤 부른다: 인벤토리는 지연 쓰기라, 서버가 그 사이에
-     * 죽으면 아이템은 되돌아오고 거래 결과는 남아 복제가 된다. 지연은 거래 마무리(메인 스레드의 아이템 지급·회수)가 끝날 시간을 준다. 이 서버에 접속 중이 아니거나
-     * 서버 이동 중이면 아무 일도 하지 않는다 (추가 제안).
+     * Calls {@link #saveNow} after a short delay (balance.yml {@code
+     * inventory.commit_save_delay_ticks}). Callable from any thread; multiple calls within the
+     * delay save only once. Call after an immediately committed transaction such as currency,
+     * auction or mail: the inventory is write-behind, so if the server crashes in between, the
+     * items revert while the transaction result remains, causing duplication. The delay gives time
+     * for the transaction wrap-up (item grant/removal on the main thread) to finish. Does nothing
+     * if the player is not on this server or is transferring between servers (proposed).
      */
     void saveSoon(UUID player);
 
     /**
-     * 서버 이동용 저장본을 이미 떴는지 (메인 스레드). 참이면 이 서버에서 플레이어 상태를 바꿔도 저장되지 않는다: 퇴장 처리에서 아이템을 인벤토리로 돌려주거나 DB
-     * 쪽으로 옮기지 말고 그대로 두거나 우편으로 보낸다. 이 동안 플레이어 행동은 Core가 막는다.
+     * Whether the server-transfer snapshot has already been taken (main thread). If true, changes
+     * to the player's state on this server won't be saved: when handling the quit, don't return
+     * items to the inventory or move them to the DB; leave them as they are or send them by mail.
+     * Core blocks the player's actions during this time.
      */
     boolean frozen(UUID player);
 }

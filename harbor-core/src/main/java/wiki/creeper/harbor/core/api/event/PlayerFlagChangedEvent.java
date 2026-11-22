@@ -5,7 +5,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jspecify.annotations.Nullable;
 
-/** 플레이어 플래그가 DB에 반영된 뒤 메인 스레드에서 발생한다. value가 null이면 꺼진 것. */
+/**
+ * Fired on the main thread after a player flag is written to the DB. A null value means the flag
+ * was turned off.
+ */
 public final class PlayerFlagChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

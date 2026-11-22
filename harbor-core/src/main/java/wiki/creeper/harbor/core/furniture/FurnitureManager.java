@@ -52,21 +52,26 @@ import wiki.creeper.harbor.core.api.event.FurnitureRemoveEvent;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 가구 ({@link FurnitureDef}, 추가 제안). 한 가구 = ItemDisplay(모델) + Interaction(클릭 판정) + 선택: 방벽
- * 블록(solid)·빛 블록(light).
+ * Furniture ({@link FurnitureDef}, proposed). One piece of furniture = ItemDisplay (model) +
+ * Interaction (click hitbox) + optional barrier blocks (solid) and light blocks (light).
  *
  * <ul>
- *   <li>설치: 가구 아이템을 들고 블록을 우클릭. 보호 구역은 그 칸에 대한 BlockPlaceEvent로 확인한다 (하우징·WorldGuard 등이 그대로 막는다)
- *   <li>앉기: seat가 있는 가구를 우클릭. 보이지 않는 좌석 엔티티(저장하지 않음)에 태우고, 내리면 지운다
- *   <li>회수: 웅크리고 우클릭. 그 칸에 대한 BlockBreakEvent로 보호 구역을 확인하고, 설치한 사람·{@value #MANAGE} 권한자만 회수한다 (하우징은
- *       플롯 건축 권한, {@link FurnitureRemoveEvent#setAllowed}). 설치에 쓴 아이템을 돌려준다
+ *   <li>Place: right-click a block holding a furniture item. Protection is checked with a
+ *       BlockPlaceEvent for that block (housing, WorldGuard, etc. block it as usual)
+ *   <li>Sit: right-click furniture that has a seat. The player rides an invisible seat entity (not
+ *       saved), which is removed on dismount
+ *   <li>Pick up: sneak + right-click. Protection is checked with a BlockBreakEvent for that block,
+ *       and only the placer or holders of {@value #MANAGE} can pick it up (for housing, plot build
+ *       permission, {@link FurnitureRemoveEvent#setAllowed}). The item used for placement is
+ *       returned
  * </ul>
  *
- * Interaction에 가구 ID, 모델 엔티티 UUID, 설치 아이템(직렬화)을 PDC로 남겨서 서버가 다시 켜져도 그대로 회수할 수 있다.
+ * The furniture ID, model entity UUID and placement item (serialized) are stored in the
+ * Interaction's PDC so it can still be picked up after a server restart.
  */
 public final class FurnitureManager implements Listener {
 
-    @SuppressWarnings("deprecation") // 플러그인 인스턴스 없이 고정 네임스페이스를 쓴다
+    @SuppressWarnings("deprecation") // Uses a fixed namespace without a plugin instance
     static final NamespacedKey ID = new NamespacedKey("harbor", "furniture");
 
     @SuppressWarnings("deprecation")
@@ -81,10 +86,10 @@ public final class FurnitureManager implements Listener {
     @SuppressWarnings("deprecation")
     private static final NamespacedKey OWNER = new NamespacedKey("harbor", "furniture_owner");
 
-    /** 남이 놓은 가구도 회수할 수 있는 권한. */
+    /** Permission to pick up furniture placed by others. */
     static final String MANAGE = "harbor.furniture.manage";
 
-    /** 같은 칸에 다른 가구가 있는지 볼 반경. */
+    /** Radius checked for other furniture in the same block. */
     private static final double OCCUPIED_RADIUS = 0.45;
 
     private final Supplier<ContentSnapshot> content;
@@ -92,7 +97,7 @@ public final class FurnitureManager implements Listener {
     private final Ui ui;
     private final Tasks tasks;
 
-    /** 가구(Interaction) UUID → 좌석 엔티티 UUID. */
+    /** Furniture (Interaction) UUID → seat entity UUID. */
     private final Map<UUID, UUID> seats = new HashMap<>();
 
     public FurnitureManager(
@@ -135,7 +140,7 @@ public final class FurnitureManager implements Listener {
         return stack;
     }
 
-    /** 모델만 입힌 아이템 (ItemDisplay 표시용). */
+    /** Item with only the model applied (for the ItemDisplay). */
     private ItemStack look(FurnitureDef def) {
         Material base = Material.matchMaterial(def.baseItem());
         ItemStack stack = ItemStack.of(base != null && base.isItem() ? base : Material.PAPER);
@@ -151,7 +156,7 @@ public final class FurnitureManager implements Listener {
         return raw == null ? Optional.empty() : HarborId.tryParse(raw);
     }
 
-    // ------------------------------------------------------------------ 설치
+    // ------------------------------------------------------------------ Placement
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onUse(PlayerInteractEvent event) {
@@ -270,14 +275,14 @@ public final class FurnitureManager implements Listener {
         world.playSound(base, Sound.BLOCK_WOOD_PLACE, 1f, 1f);
     }
 
-    /** 플레이어 방향을 회전 단계에 맞춘다 (rotation 4 = 90도). */
+    /** Snaps the player's facing to the rotation step (rotation 4 = 90 degrees). */
     static float snap(float yaw, int steps) {
         float step = 360f / steps;
         float snapped = Math.round(yaw / step) * step;
         return ((snapped % 360f) + 360f) % 360f;
     }
 
-    // ------------------------------------------------------------------ 앉기 · 회수
+    // ------------------------------------------------------------------ Sitting and pickup
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onClick(PlayerInteractEntityEvent event) {
@@ -328,7 +333,10 @@ public final class FurnitureManager implements Listener {
         seat.addPassenger(player);
     }
 
-    /** 좌석에서 내리면 좌석을 지우고 가구 위로 올린다 (방벽 안에 끼지 않게). */
+    /**
+     * On dismount, removes the seat and lifts the player above the furniture (so they don't get
+     * stuck in barriers).
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDismount(EntityDismountEvent event) {
         Entity seat = event.getDismounted();
@@ -351,7 +359,7 @@ public final class FurnitureManager implements Listener {
                 });
     }
 
-    /** 일어설 높이: solid 가구면 방벽 위, 아니면 그 자리. */
+    /** Stand-up height: above the barrier for solid furniture, otherwise the same spot. */
     private double standHeight(String boxId) {
         try {
             Entity box = Bukkit.getEntity(UUID.fromString(boxId));
@@ -359,7 +367,7 @@ public final class FurnitureManager implements Listener {
                 return furnitureOf(i).flatMap(this::def).map(FurnitureDef::solidCells).orElse(0);
             }
         } catch (IllegalArgumentException e) {
-            // 잘못된 UUID
+            // Invalid UUID
         }
         return 0;
     }
@@ -431,7 +439,7 @@ public final class FurnitureManager implements Listener {
                 Placeholder.unparsed("name", def.map(FurnitureDef::name).orElse(id.toString())));
     }
 
-    /** 꺼질 때 좌석을 치운다 (좌석은 저장하지 않지만 앉은 사람을 내려 둔다). */
+    /** Clears seats on disable (seats are not saved, but seated players are dismounted). */
     public void shutdown() {
         for (UUID seatId : List.copyOf(seats.values())) {
             Entity seat = Bukkit.getEntity(seatId);
@@ -443,7 +451,7 @@ public final class FurnitureManager implements Listener {
         seats.clear();
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ Helpers
 
     private static boolean isFurniture(Entity e) {
         return e.getPersistentDataContainer().has(ID, PersistentDataType.STRING);

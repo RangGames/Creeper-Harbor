@@ -13,19 +13,21 @@ import java.util.HexFormat;
 import java.util.List;
 
 /**
- * 동기화하는 플레이어 상태 한 벌 (서버 API 없음, 추가 제안). 아이템·PDC는 Paper가 직렬화한 바이트를 그대로 담는다. 변경 불가 (배열은 꺼낼 때 복사).
+ * One set of synced player state (no server API, proposed). Items and PDC hold the bytes serialized
+ * by Paper as is. Immutable (arrays are copied on access).
  *
- * <p>바이너리 형식 {@value #FORMAT}: format(int) · 인벤토리 · 엔더 상자 · PDC (각 길이+바이트) · 레벨 · 경험치 진행 · 총 경험치 ·
- * 체력 · 배고픔 · 포화 · 피로 · 선택 칸 · 효과 수와 효과들.
+ * <p>Binary format {@value #FORMAT}: format(int), inventory, ender chest, PDC (each length +
+ * bytes), level, exp progress, total exp, health, food level, saturation, exhaustion, selected
+ * slot, effect count and effects.
  */
 public final class InventoryData {
 
     public static final int FORMAT = 1;
 
     /**
-     * 포션 효과 하나.
+     * One potion effect.
      *
-     * @param type 효과 키 (minecraft:speed)
+     * @param type effect key (minecraft:speed)
      */
     public record Effect(
             String type,
@@ -154,7 +156,7 @@ public final class InventoryData {
     }
 
     /**
-     * @throws IOException 형식이 틀리거나 모르는 format 번호
+     * @throws IOException if the format is invalid or the format number is unknown
      */
     public static InventoryData decode(byte[] data) throws IOException {
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(data))) {
@@ -204,7 +206,7 @@ public final class InventoryData {
         }
     }
 
-    /** 내용 해시 (기록 중복 판단). */
+    /** Content hash (for detecting duplicate records). */
     public static String hash(byte[] encoded) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(encoded));

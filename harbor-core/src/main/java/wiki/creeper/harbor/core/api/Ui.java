@@ -6,16 +6,17 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.entity.Player;
 
-/** 액션바·보스바·타이틀 출력 도우미와 커스텀 폰트 글리프 등록표. */
+/** Helpers for action bar, boss bar and title output, plus the custom font glyph registry. */
 public interface Ui {
 
     void actionBar(Player player, Component message);
 
     /**
-     * 늘 떠 있는 안내(퀘스트 방향 등)용 액션바 (추가 제안). 다른 액션바가 {@code quiet} 안에 나갔으면 보내지 않아서 그 문구를 덮지 않는다. 이 호출은
-     * 다른 액션바의 시각으로 치지 않는다.
+     * Action bar for persistent guidance (quest direction, etc.) (proposed). Not sent if another
+     * action bar went out within {@code quiet}, so that text isn't overwritten. This call doesn't
+     * count as another action bar's timestamp.
      *
-     * @return 보냈으면 true
+     * @return true if sent
      */
     boolean ambientActionBar(Player player, Component message, Duration quiet);
 
@@ -27,14 +28,14 @@ public interface Ui {
             Duration stay,
             Duration fadeOut);
 
-    /** 보스바를 만들어 보여준다. 숨길 때는 {@link #hideBossBar}. */
+    /** Creates and shows a boss bar. Hide it with {@link #hideBossBar}. */
     BossBar showBossBar(Player player, Component name, float progress, BossBar.Color color);
 
     void hideBossBar(Player player, BossBar bar);
 
-    /** 글리프(게이지·아이콘 문자) 등록. 같은 이름이면 덮어쓴다. */
+    /** Registers a glyph (gauge or icon character). Overwrites one with the same name. */
     void registerGlyph(String name, String glyph);
 
-    /** MiniMessage에서 {@code <glyph:이름>}으로 쓰는 태그. */
+    /** Tag used in MiniMessage as {@code <glyph:name>}. */
     TagResolver glyphs();
 }

@@ -28,13 +28,14 @@ import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
 
 /**
- * /harbor rig 관리 명령 (권한 harbor.admin.rig). 리그 정의·압축 결과 확인과 현장 시험용.
+ * /harbor rig admin command (permission harbor.admin.rig). For checking rig definitions and
+ * compression results and testing in place.
  *
  * <pre>
  * /harbor rig list
- * /harbor rig spawn &lt;리그&gt; [동작]   시선 앞 3블록에 모두에게 보이는 리그 (판정 상자가 있으면 클릭 시 부위 이름 표시)
- * /harbor rig play &lt;동작&gt; [once]    16블록 안 가장 가까운 리그
- * /harbor rig clear [반경]
+ * /harbor rig spawn &lt;rig&gt; [animation]   rig visible to everyone 3 blocks ahead (with hitboxes, clicking shows the part name)
+ * /harbor rig play &lt;animation&gt; [once]    nearest rig within 16 blocks
+ * /harbor rig clear [radius]
  * /harbor rig stats
  * </pre>
  */
@@ -261,12 +262,12 @@ public final class RigCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    /** 플레이어 위치 (Entity 쪽 getLocation은 널이 아니다). */
+    /** Player location (Entity's getLocation is non-null). */
     private static Location feet(Entity entity) {
         return entity.getLocation();
     }
 
-    /** 키 인자는 네임스페이스를 생략하면 minecraft로 읽히므로 harbor로 바꾼다. */
+    /** A key argument without a namespace is read as minecraft, so switch it to harbor. */
     private static HarborId harborId(Key key) {
         String namespace =
                 key.namespace().equals(Key.MINECRAFT_NAMESPACE)

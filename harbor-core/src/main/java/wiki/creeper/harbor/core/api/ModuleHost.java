@@ -2,14 +2,14 @@ package wiki.creeper.harbor.core.api;
 
 import org.jspecify.annotations.Nullable;
 
-/** Core 내부용: 모듈 연결을 처리하는 쪽. 모듈은 직접 쓰지 않는다. */
+/** Core internal: the side that handles module wiring. Modules don't use it directly. */
 public interface ModuleHost {
 
-    /** 모듈 하나의 연결 상태. */
+    /** Wiring state of one module. */
     interface Handle {
         ModuleContext context();
 
-        /** enable()이 끝난 뒤: 추가된 콘텐츠 형식이 있으면 다시 읽는다. */
+        /** After enable() finishes: reloads content if any content types were added. */
         void finishEnable();
 
         void failEnable(RuntimeException cause);

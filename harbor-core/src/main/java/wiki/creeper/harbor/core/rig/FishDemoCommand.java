@@ -6,10 +6,8 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.mojang.brigadier.suggestion.SuggestionProvider;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import io.papermc.paper.command.brigadier.MessageComponentSerializer;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import java.time.Instant;
@@ -17,10 +15,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -46,7 +42,6 @@ import wiki.creeper.harbor.common.rig.FishRigs;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.core.admin.AdminLog;
 import wiki.creeper.harbor.core.api.ContentService;
-import wiki.creeper.harbor.core.api.FishArgs;
 import wiki.creeper.harbor.core.api.ItemService;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.PlayerService;
@@ -54,26 +49,22 @@ import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
 
 /**
- * /harbor fish: 어종 시연·확인 도구 (권한 harbor.admin.fish, 추가 제안). 리소스팩 저장소의 시연
- * 데이터팩(give·showcase·play·demo)을 옮긴 것으로, 실서버에서 어종 모델·애니메이션을 한눈에 확인할 때 쓴다.
+ * /harbor fish: fish species demo and inspection tool (permission harbor.admin.fish, proposed). A
+ * port of the resource pack repository's demo datapack (give, showcase, play, demo), used to check
+ * fish models and animations at a glance on a live server.
  *
  * <pre>
- * /harbor fish list [지역]                   번호·이름·등급·동작 (줄을 누르면 소환)
- * /harbor fish give &lt;대상&gt; [지역]            전 어종(또는 지역 어종) 아이템 (넘치면 발밑에 떨어뜨림)
- * /harbor fish spawn &lt;어종&gt; [동작]           시선 앞 3블록에 어종 리그 하나 (어종 = 번호 또는 이름)
- * /harbor fish showcase [지역]               발밑부터 지역별 줄로 진열 (이름표 포함)
- * /harbor fish play &lt;동작|special&gt; [반경]   진열한 리그 재생. special = 어종마다의 고유 동작
- * /harbor fish clear                         진열 지우기
+ * /harbor fish list [region]                 number, name, grade, animations (click a line to spawn)
+ * /harbor fish give &lt;target&gt; [region]       items for every fish (or the region's fish) (overflow drops at the feet)
+ * /harbor fish spawn &lt;fish&gt; [animation]     one fish rig 3 blocks ahead (fish = number or name)
+ * /harbor fish showcase [region]             display in rows per region from the feet (with name labels)
+ * /harbor fish play &lt;animation|special&gt; [radius]   play the displayed rigs. special = each fish's own animation
+ * /harbor fish clear                         remove the display
  * </pre>
  */
 public final class FishDemoCommand {
 
-    /** 고유 동작을 고를 때 건너뛰는 공통 동작. */
-    private static final Set<String> COMMON_ANIMATIONS = Set.of("swim", "idle", "flop");
-
-    private static final String SPECIAL = "special";
-
-    // 진열 배치 (시연 데이터팩과 같은 간격, 블록)
+    // Showcase layout (same spacing as the demo datapack, blocks)
     private static final int PER_ROW = 15;
     private static final double COLUMN_GAP = 3.2;
     private static final double ROW_GAP = 4.0;
@@ -87,8 +78,9 @@ public final class FishDemoCommand {
     private final PlayerService players;
     private final MessageService messages;
     private final AdminLog adminLog;
+    private final FishDemoArgs args;
 
-    /** 진열한 리그와 이름표. 메인 스레드 전용. */
+    /** Displayed rigs and name labels. Main thread only. */
     private final List<RigInstance> shown = new ArrayList<>();
 
     private final List<UUID> labels = new ArrayList<>();
@@ -106,6 +98,7 @@ public final class FishDemoCommand {
         this.players = players;
         this.messages = messages;
         this.adminLog = adminLog;
+        this.args = new FishDemoArgs(rigs, content);
     }
 
     public LiteralArgumentBuilder<CommandSourceStack> build() {
@@ -114,7 +107,7 @@ public final class FishDemoCommand {
                         Commands.literal("list")
                                 .executes(ctx -> list(ctx, null))
                                 .then(
-                                        regionArg()
+                                        args.regionArg()
                                                 .executes(
                                                         ctx ->
                                                                 list(
@@ -129,7 +122,7 @@ public final class FishDemoCommand {
                                         Commands.argument("target", ArgumentTypes.player())
                                                 .executes(ctx -> give(ctx, null))
                                                 .then(
-                                                        regionArg()
+                                                        args.regionArg()
                                                                 .executes(
                                                                         ctx ->
                                                                                 give(
@@ -142,13 +135,14 @@ public final class FishDemoCommand {
                         Commands.literal("spawn")
                                 .then(
                                         Commands.argument("fish", StringArgumentType.word())
-                                                .suggests(fishSuggestions())
+                                                .suggests(args.fishSuggestions())
                                                 .executes(ctx -> spawn(ctx, null))
                                                 .then(
                                                         Commands.argument(
                                                                         "animation",
                                                                         StringArgumentType.word())
-                                                                .suggests(animationSuggestions())
+                                                                .suggests(
+                                                                        args.animationSuggestions())
                                                                 .executes(
                                                                         ctx ->
                                                                                 spawn(
@@ -161,7 +155,7 @@ public final class FishDemoCommand {
                         Commands.literal("showcase")
                                 .executes(ctx -> showcase(ctx, null))
                                 .then(
-                                        regionArg()
+                                        args.regionArg()
                                                 .executes(
                                                         ctx ->
                                                                 showcase(
@@ -178,8 +172,10 @@ public final class FishDemoCommand {
                                                         (ctx, builder) -> {
                                                             for (String a :
                                                                     List.of(
-                                                                            "swim", "idle", "flop",
-                                                                            SPECIAL)) {
+                                                                            "swim",
+                                                                            "idle",
+                                                                            "flop",
+                                                                            FishDemoArgs.SPECIAL)) {
                                                                 builder.suggest(a);
                                                             }
                                                             return builder.buildFuture();
@@ -201,7 +197,7 @@ public final class FishDemoCommand {
                 .then(Commands.literal("clear").executes(this::clear));
     }
 
-    // ------------------------------------------------------------------ 하위 명령
+    // ------------------------------------------------------------------ Subcommands
 
     private int list(CommandContext<CommandSourceStack> ctx, @Nullable String region) {
         CommandSender sender = ctx.getSource().getSender();
@@ -224,12 +220,14 @@ public final class FishDemoCommand {
                         Placeholder.unparsed("region", regionName(snap, def)));
             }
             String animations =
-                    rigDef(def).map(r -> String.join(" ", r.animations().keySet())).orElse("-");
+                    args.rigDef(def)
+                            .map(r -> String.join(" ", r.animations().keySet()))
+                            .orElse("-");
             String command = "/harbor fish spawn " + def.id().id().name();
             Component line =
                     messages.get(
                                     "fish_demo.list.line",
-                                    Placeholder.unparsed("no", no(def)),
+                                    Placeholder.unparsed("no", FishDemoArgs.no(def)),
                                     Placeholder.component("name", fishName(def)),
                                     Placeholder.unparsed("grade", def.grade().key()),
                                     Placeholder.unparsed("animations", animations))
@@ -292,13 +290,13 @@ public final class FishDemoCommand {
         }
         ContentSnapshot snap = content.snapshot();
         String raw = StringArgumentType.getString(ctx, "fish");
-        Optional<FishDef> fish = findFish(snap, raw);
+        Optional<FishDef> fish = FishDemoArgs.findFish(snap, raw);
         if (fish.isEmpty()) {
             messages.send(sender, "fish_demo.unknown_fish", Placeholder.unparsed("fish", raw));
             return 0;
         }
         FishDef def = fish.get();
-        Optional<RigDef> rig = rigDef(def);
+        Optional<RigDef> rig = args.rigDef(def);
         if (rig.isEmpty()) {
             messages.send(
                     sender,
@@ -307,7 +305,8 @@ public final class FishDemoCommand {
                     Placeholder.unparsed("rig", FishRigs.rigOf(def).toString()));
             return 0;
         }
-        String play = animation == null ? null : resolveAnimation(rig.get(), animation);
+        String play =
+                animation == null ? null : FishDemoArgs.resolveAnimation(rig.get(), animation);
         if (animation != null && play == null) {
             messages.send(
                     sender,
@@ -327,7 +326,7 @@ public final class FishDemoCommand {
         messages.send(
                 sender,
                 "fish_demo.spawned",
-                Placeholder.unparsed("no", no(def)),
+                Placeholder.unparsed("no", FishDemoArgs.no(def)),
                 Placeholder.component("name", fishName(def)),
                 Placeholder.unparsed(
                         "animations", String.join(" ", rig.get().animations().keySet())));
@@ -371,7 +370,7 @@ public final class FishDemoCommand {
                 int column = i % PER_ROW;
                 int row = i / PER_ROW;
                 Location at = origin.clone().add(column * COLUMN_GAP, 0, z + row * ROW_GAP);
-                Optional<RigDef> rig = rigDef(def);
+                Optional<RigDef> rig = args.rigDef(def);
                 if (rig.isEmpty()) {
                     missing++;
                     continue;
@@ -381,7 +380,7 @@ public final class FishDemoCommand {
                         at.clone().add(0, LABEL_HEIGHT, 0),
                         messages.get(
                                 "fish_demo.showcase.label",
-                                Placeholder.unparsed("no", no(def)),
+                                Placeholder.unparsed("no", FishDemoArgs.no(def)),
                                 Placeholder.component("name", fishName(def))),
                         LABEL_SCALE);
                 spawned++;
@@ -411,7 +410,7 @@ public final class FishDemoCommand {
                 continue;
             }
             Optional<RigDef> def = rigs.definition(rig.rig());
-            String name = def.map(d -> resolveAnimation(d, animation)).orElse(null);
+            String name = def.map(d -> FishDemoArgs.resolveAnimation(d, animation)).orElse(null);
             if (name != null && rig.play(name)) {
                 played++;
             } else {
@@ -442,7 +441,7 @@ public final class FishDemoCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    // ------------------------------------------------------------------ 도우미
+    // ------------------------------------------------------------------ Helpers
 
     private int clearShown() {
         int count = 0;
@@ -485,7 +484,10 @@ public final class FishDemoCommand {
         labels.add(display.getUniqueId());
     }
 
-    /** 지역 인자로 어종 목록을 고른다 (번호순). 없는 지역이면 안내하고 빈 값. */
+    /**
+     * Picks the fish list for a region argument (by number). For an unknown region, tells the
+     * sender and returns empty.
+     */
     private Optional<List<FishDef>> fishOf(
             CommandSender sender, ContentSnapshot snap, @Nullable String region) {
         List<FishDef> all =
@@ -506,80 +508,6 @@ public final class FishDemoCommand {
         return Optional.of(picked);
     }
 
-    /** 번호(1, 001) · 한국어 이름 · 어종 ID · 모델 이름으로 어종을 찾는다 (Core {@link FishArgs}). */
-    static Optional<FishDef> findFish(ContentSnapshot snap, String raw) {
-        return FishArgs.resolve(snap, raw);
-    }
-
-    private Optional<RigDef> rigDef(FishDef def) {
-        Optional<RigDef> own = rigs.definition(FishRigs.rigOf(def));
-        return own.isPresent() ? own : rigs.definition(FishRigs.byId(def));
-    }
-
-    /** special이면 어종마다의 고유 동작(공통 동작이 아닌 첫 동작), 아니면 그 이름. 리그에 없으면 null. */
-    static @Nullable String resolveAnimation(RigDef rig, String animation) {
-        if (animation.equals(SPECIAL)) {
-            return rig.animations().keySet().stream()
-                    .filter(a -> !COMMON_ANIMATIONS.contains(a))
-                    .findFirst()
-                    .orElse(null);
-        }
-        return rig.animations().containsKey(animation) ? animation : null;
-    }
-
-    private SuggestionProvider<CommandSourceStack> fishSuggestions() {
-        return (ctx, builder) -> {
-            String typed = builder.getRemaining().toLowerCase(Locale.ROOT);
-            content.snapshot().all(FishDef.TYPE).values().stream()
-                    .sorted(Comparator.comparingInt(FishDef::no))
-                    .forEach(
-                            def -> {
-                                String name = def.id().id().name();
-                                String no = no(def);
-                                if (name.startsWith(typed)
-                                        || no.startsWith(typed)
-                                        || def.name().contains(typed)) {
-                                    builder.suggest(
-                                            name,
-                                            MessageComponentSerializer.message()
-                                                    .serialize(
-                                                            Component.text(
-                                                                    "No."
-                                                                            + no
-                                                                            + " "
-                                                                            + def.name())));
-                                }
-                            });
-            return builder.buildFuture();
-        };
-    }
-
-    private SuggestionProvider<CommandSourceStack> animationSuggestions() {
-        return (ctx, builder) -> {
-            ContentSnapshot snap = content.snapshot();
-            findFish(snap, StringArgumentType.getString(ctx, "fish"))
-                    .flatMap(this::rigDef)
-                    .ifPresent(r -> r.animations().keySet().forEach(builder::suggest));
-            builder.suggest(SPECIAL);
-            return builder.buildFuture();
-        };
-    }
-
-    private com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String>
-            regionArg() {
-        return Commands.argument("region", StringArgumentType.word())
-                .suggests(
-                        (ctx, builder) -> {
-                            for (RegionDef r : content.snapshot().all(RegionDef.TYPE).values()) {
-                                builder.suggest(
-                                        r.id().id().path().substring("region/".length()),
-                                        MessageComponentSerializer.message()
-                                                .serialize(Component.text(r.name())));
-                            }
-                            return builder.buildFuture();
-                        });
-    }
-
     private String regionName(ContentSnapshot snap, FishDef def) {
         return snap.get(RegionDef.TYPE, def.region().id())
                 .map(RegionDef::name)
@@ -591,11 +519,7 @@ public final class FishDemoCommand {
         return messages.get(key, Placeholder.unparsed("name", def.name()));
     }
 
-    private static String no(FishDef def) {
-        return String.format(Locale.ROOT, "%03d", def.no());
-    }
-
-    /** 플레이어 위치 (Entity 쪽 getLocation은 널이 아니다). */
+    /** Player location (Entity's getLocation is non-null). */
     private static Location feet(Entity entity) {
         return entity.getLocation();
     }

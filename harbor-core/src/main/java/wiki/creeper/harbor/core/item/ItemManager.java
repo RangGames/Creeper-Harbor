@@ -42,12 +42,15 @@ import wiki.creeper.harbor.core.api.ItemService;
 import wiki.creeper.harbor.core.api.MessageService;
 
 /**
- * 아이템 정의(YAML) → ItemStack. Paper Data Component API로 item_model·item_name·lore·tooltip_style을 붙이고,
- * Harbor 데이터는 custom_data(PersistentDataContainer)에 넣는다.
+ * Item definition (YAML) → ItemStack. Attaches item_model, item_name, lore and tooltip_style via
+ * the Paper Data Component API, and stores Harbor data in custom_data (PersistentDataContainer).
  */
 public final class ItemManager implements ItemService {
 
-    /** custom_data 형식 버전. 형식을 바꾸면 올리고 {@link #upgrade}에 변환을 추가한다. */
+    /**
+     * custom_data format version. Bump it when the format changes and add a conversion to {@link
+     * #upgrade}.
+     */
     public static final int CURRENT_VERSION = 1;
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd");
@@ -206,17 +209,20 @@ public final class ItemManager implements ItemService {
         if (item.isEmpty() || item.get().version() >= CURRENT_VERSION) {
             return false;
         }
-        // v0 → v1: 버전 키만 추가 (형식 변경 없음). 이후 버전은 여기에 단계별 변환을 추가한다.
+        // v0 → v1: only adds the version key (no format change). Add step-by-step conversions for
+        // later versions here.
         stack.editPersistentDataContainer(
                 pdc -> pdc.set(ItemKeys.VERSION, PersistentDataType.INTEGER, CURRENT_VERSION));
         return true;
     }
 
     /**
-     * 인벤토리의 Harbor 아이템 모델을 지금 설정({@link ItemModels})에 맞춘다 (접속할 때). 붙어 있는 harbor: 모델을 지금 쓸 수 없으면
-     * (꺼졌거나 리소스팩에 없음) 떼고, 모델이 없는 아이템에 쓸 수 있는 정의 모델이 있으면 붙인다. 쓸 수 있는 모델(스킨 등)은 그대로 둔다.
+     * Aligns Harbor item models in an inventory with the current settings ({@link ItemModels}) (on
+     * login). Removes an attached harbor: model that cannot be used now (disabled or missing from
+     * the resource pack), and attaches the definition's model to items without one if it is usable.
+     * Usable models (skins etc.) are left as is.
      *
-     * @return 고친 칸 수
+     * @return number of slots changed
      */
     public int syncModels(Inventory inventory) {
         ContentSnapshot snapshot = content.get();
@@ -261,7 +267,7 @@ public final class ItemManager implements ItemService {
         };
     }
 
-    // ------------------------------------------------------------------ 내부
+    // ------------------------------------------------------------------ Internal
 
     private void decorate(
             ItemStack stack, String name, Grade grade, String model, List<Component> lore) {
@@ -277,7 +283,7 @@ public final class ItemManager implements ItemService {
                         style -> stack.setData(DataComponentTypes.TOOLTIP_STYLE, Key.key(style)));
     }
 
-    /** 설명 문구 (디자이너가 MiniMessage 서식을 쓸 수 있다). 기울임 기본값을 끈다. */
+    /** Lore text (designers may use MiniMessage formatting). Turns off the default italics. */
     private static List<Component> lore(List<String> lines) {
         List<Component> result = new ArrayList<>();
         for (String raw : lines) {
@@ -297,7 +303,7 @@ public final class ItemManager implements ItemService {
     private static Material material(String key) {
         Material material = Material.matchMaterial(key);
         if (material == null) {
-            // 콘텐츠 로더가 미리 검사하므로 여기 오면 코드 오류
+            // The content loader validates this beforehand, so reaching here is a code bug
             throw new IllegalStateException("바닐라 아이템이 아닙니다: " + key);
         }
         return material;

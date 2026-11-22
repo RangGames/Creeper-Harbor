@@ -8,22 +8,26 @@ import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.model.PlayerRef;
 import wiki.creeper.harbor.common.model.Quality;
 
-/** 아이템 생성·읽기. 메인 스레드에서 쓴다. */
+/** Item creation and reading. Used on the main thread. */
 public interface ItemService {
 
     ItemStack create(ItemDef def, int amount);
 
     /**
-     * 어종 아이템을 만든다. ★5·전설·신화는 고유 ID를 발급하고 fish_ledger에 기록한다 (비동기).
+     * Creates a fish item. ★5, legendary and mythic fish get a unique ID recorded in fish_ledger
+     * (asynchronously).
      *
-     * @param sizeCm 크기 (소수 첫째 자리까지 저장)
+     * @param sizeCm size (stored to one decimal place)
      */
     ItemStack createFish(
             FishDef def, double sizeCm, Quality quality, PlayerRef catcher, Instant caughtAt);
 
-    /** Harbor 아이템이 아니면 빈 Optional. 옛 형식 버전은 새 형식으로 읽는다. */
+    /** Empty Optional if not a Harbor item. Old format versions are read as the new format. */
     Optional<HarborItem> read(ItemStack stack);
 
-    /** 옛 형식 버전이면 custom_data를 새 형식으로 고친다. 고쳤으면 true. */
+    /**
+     * If the item uses an old format version, rewrites custom_data to the new format. True if
+     * rewritten.
+     */
     boolean upgrade(ItemStack stack);
 }

@@ -11,7 +11,10 @@ import wiki.creeper.harbor.common.ledger.BalanceStore;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/** 골드·물비늘 잔액 = player_season (이번 시즌 행). 물비늘 잔액은 mulbineul_earned - mulbineul_spent로 계산한다. */
+/**
+ * Gold and mulbineul balances = player_season (current season row). The mulbineul balance is
+ * computed as mulbineul_earned - mulbineul_spent.
+ */
 public final class SeasonBalanceStore implements BalanceStore {
 
     private final SeasonId season;

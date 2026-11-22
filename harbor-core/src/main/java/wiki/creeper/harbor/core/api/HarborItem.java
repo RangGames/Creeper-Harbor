@@ -9,19 +9,19 @@ import wiki.creeper.harbor.common.model.PlayerRef;
 import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/** ItemStack의 custom_data에서 읽은 Harbor 아이템 정보. */
+/** Harbor item info read from an ItemStack's custom_data. */
 public sealed interface HarborItem permits HarborItem.Plain, HarborItem.Fish {
 
-    /** custom_data 형식 버전. 옛 버전은 읽을 때 새 형식으로 바꾼다. */
+    /** custom_data format version. Older versions are converted to the new format when read. */
     int version();
 
-    /** 일반 아이템 (낚싯대, 미끼 …). */
+    /** Generic item (fishing rod, bait …). */
     record Plain(ItemId id, int version) implements HarborItem {}
 
     /**
-     * 어종 아이템.
+     * Fish item.
      *
-     * @param uid ★5·전설·신화만 있는 고유 ID (fish_ledger에 기록)
+     * @param uid unique ID only for ★5, legendary and mythic (recorded in fish_ledger)
      */
     record Fish(
             FishId species,

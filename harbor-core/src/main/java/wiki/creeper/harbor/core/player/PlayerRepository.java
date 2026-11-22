@@ -13,10 +13,10 @@ import wiki.creeper.harbor.common.model.JobTier;
 import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.model.SeasonId;
 
-/** players · player_season 읽기·쓰기. */
+/** Reads and writes players and player_season. */
 final class PlayerRepository {
 
-    /** 접속 때 읽는 기본 데이터. */
+    /** Base data read on login. */
     record Row(
             UUID uuid,
             String name,
@@ -33,7 +33,10 @@ final class PlayerRepository {
 
     private PlayerRepository() {}
 
-    /** 계정 행을 만들거나 이름·마지막 접속을 갱신하고, 이번 시즌 행이 없으면 만든 뒤 읽는다. */
+    /**
+     * Creates the account row or updates name and last join, creates this season's row if missing,
+     * then reads.
+     */
     static Row loadOrCreate(Connection c, UUID uuid, String name, SeasonId season)
             throws SQLException {
         try (PreparedStatement ps =

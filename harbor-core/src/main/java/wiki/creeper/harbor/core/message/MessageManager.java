@@ -11,7 +11,7 @@ import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.type.Messages;
 import wiki.creeper.harbor.core.api.MessageService;
 
-/** messages_ko.yml + MiniMessage. 스냅샷을 읽기만 하므로 스레드 안전하다. */
+/** messages_ko.yml + MiniMessage. Thread-safe since it only reads the snapshot. */
 public final class MessageManager implements MessageService {
 
     private final Supplier<Messages> messages;
@@ -20,7 +20,7 @@ public final class MessageManager implements MessageService {
     private final Set<String> warnedMissing = ConcurrentHashMap.newKeySet();
 
     /**
-     * @param globalTags 모든 문구에 쓸 수 있는 태그 (글리프 등)
+     * @param globalTags tags usable in every message (glyphs etc.)
      */
     public MessageManager(
             Supplier<Messages> messages, Supplier<TagResolver> globalTags, Logger log) {
@@ -60,7 +60,7 @@ public final class MessageManager implements MessageService {
         return messages.get().get(key).isPresent();
     }
 
-    /** 리로드되면 다시 경고할 수 있게 한다. */
+    /** Allows warning again after a reload. */
     public void clearWarnings() {
         warnedMissing.clear();
     }

@@ -2,14 +2,17 @@ package wiki.creeper.harbor.core.api;
 
 import org.jspecify.annotations.Nullable;
 
-/** Core API 진입점. {@code Harbor.api()} 하나로 모든 서비스에 접근한다. */
+/** Core API entry point. {@code Harbor.api()} gives access to every service. */
 public final class Harbor {
 
     private static volatile @Nullable HarborApi instance;
 
     private Harbor() {}
 
-    /** Core가 켜진 뒤에만 쓸 수 있다. 다른 모듈은 paper-plugin.yml에서 Harbor-Core에 의존하므로 항상 켜져 있다. */
+    /**
+     * Usable only after Core is enabled. Other modules depend on Harbor-Core in paper-plugin.yml,
+     * so it is always enabled for them.
+     */
     public static HarborApi api() {
         HarborApi api = instance;
         if (api == null) {
@@ -18,7 +21,7 @@ public final class Harbor {
         return api;
     }
 
-    /** Core 내부용. */
+    /** Core internal. */
     public static void install(@Nullable HarborApi api) {
         instance = api;
     }

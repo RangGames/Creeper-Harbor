@@ -35,14 +35,22 @@ import wiki.creeper.harbor.core.api.event.CurrencyChangedEvent;
 import wiki.creeper.harbor.core.player.PlayerManager;
 import wiki.creeper.harbor.core.task.Tasks;
 
-/** CurrencyService 구현. 원장 쓰기는 가상 스레드, 캐시·이벤트는 커밋 뒤 메인 스레드. */
+/**
+ * CurrencyService implementation. Ledger writes run on virtual threads; cache updates and events
+ * run on the main thread after commit.
+ */
 public final class CurrencyManager implements CurrencyService {
 
-    /** 다른 서버가 바꾼 잔액을 이 서버 캐시에 반영하는 알림 (추가 제안). */
+    /**
+     * Notice that applies a balance changed by another server to this server's cache (proposed).
+     */
     static final Channel<BalanceNotice> BALANCE =
             new Channel<>("harbor:balance", BalanceNotice.class);
 
-    /** 원장 커밋 뒤 잔액 (서버 이동 중이거나 다른 서버에 접속한 플레이어의 캐시용). */
+    /**
+     * Balance after the ledger commit (for the cache of players mid-transfer or connected to
+     * another server).
+     */
     record BalanceNotice(String player, String currency, long balance) {}
 
     private static final Duration TOP_TTL = Duration.ofSeconds(30);
@@ -70,7 +78,10 @@ public final class CurrencyManager implements CurrencyService {
         this.season = season;
     }
 
-    /** 다른 서버의 잔액 알림을 받는다. 이 서버에 접속 중인 플레이어면 캐시만 바꾼다 (이벤트는 커밋한 서버에서 이미 발생). */
+    /**
+     * Receives balance notices from other servers. For players online on this server, only the
+     * cache is updated (the event already fired on the committing server).
+     */
     public void listen(MessageBus messageBus, String serverId) {
         this.bus = messageBus;
         messageBus.subscribe(
@@ -89,7 +100,7 @@ public final class CurrencyManager implements CurrencyService {
                                                     Currency.valueOf(n.currency()),
                                                     n.balance());
                                         } catch (IllegalArgumentException e) {
-                                            // 형식이 틀린 알림은 버린다
+                                            // Malformed notices are dropped
                                         }
                                     });
                 });
@@ -330,7 +341,7 @@ public final class CurrencyManager implements CurrencyService {
         return List.copyOf(rows);
     }
 
-    /** player_season 잔액 식 (물비늘 = 획득 − 사용). */
+    /** player_season balance expression (mulbineul = earned − spent). */
     private static String column(Currency currency) {
         return currency == Currency.GOLD ? "gold" : "mulbineul_earned - mulbineul_spent";
     }
@@ -348,12 +359,12 @@ public final class CurrencyManager implements CurrencyService {
                         tasks.main());
     }
 
-    /** 메인 스레드: 커밋된 변경을 캐시에 반영하고 이벤트를 발생시킨다. */
+    /** Main thread: applies the committed change to the cache and fires the event. */
     private void committed(LedgerEntry entry, long balance) {
         players.updateCachedBalance(entry.player(), entry.currency(), balance);
         MessageBus b = bus;
         if (b != null && players.get(entry.player()).isEmpty()) {
-            // 다른 서버에 접속 중일 수 있다: 그 서버 캐시도 맞춘다
+            // The player may be on another server: sync that server's cache too
             b.publish(
                     BALANCE,
                     new BalanceNotice(entry.player().toString(), entry.currency().name(), balance));

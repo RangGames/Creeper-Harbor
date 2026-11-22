@@ -28,14 +28,19 @@ import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 리소스팩 적용 ('16. 플러그인 설계' 5.11). 로비 서버에서만 동작한다: 접속하면 기본 팩 + 시즌 팩을 필수 팩으로 보내고, 결과를 프록시에 PackStatus로
- * 알린다 (LOADED만 대기열에 들어간다). 거절·실패면 로비에 머물고 Dialog로 설치 방법을 안내한다. 팩이 바뀌면 SHA-1이 바뀌므로 다음 접속 때 다시 받는다.
+ * Resource pack delivery ('16. Plugin design' 5.11). Runs on the lobby server only: on join it
+ * sends the base pack + season pack as required packs and reports the result to the proxy as
+ * PackStatus (only LOADED enters the queue). On decline or failure the player stays in the lobby
+ * and a Dialog explains how to install. A changed pack has a new SHA-1, so it is downloaded again
+ * on the next join.
  *
- * <p>같은 접속 안에서 본 서버에서 로비로 돌아오면(/로비·잠수·NPC) 클라이언트에 팩이 그대로 있으므로 다시 보내지 않는다: 적용을 마친 팩 묶음의 서명을 Redis
- * {@code harbor:pack_applied:<uuid>}에 남기고, 들어올 때 같으면 바로 LOADED로 알린다. 프록시가 접속을 끊을 때 지운다 (추가 제안).
+ * <p>When returning from a main server to the lobby within the same connection (/lobby, AFK, NPC),
+ * the client still has the packs, so they are not resent: the signature of the applied pack set is
+ * stored in Redis {@code harbor:pack_applied:<uuid>}, and if it matches on join, LOADED is reported
+ * immediately. The proxy deletes it on disconnect (proposed).
  *
- * <p>보내는 팩 = harbor-infra.yml resource_packs + 자동 빌드 팩({@link PackManager}, 있으면). 자동 빌드 팩이 바뀌면 로비에
- * 있는 사람에게도 바로 다시 보낸다.
+ * <p>Packs sent = harbor-infra.yml resource_packs + the auto-built pack ({@link PackManager}, if
+ * any). When the auto-built pack changes, it is resent immediately to players in the lobby.
  */
 public final class ResourcePacks implements Listener {
 
@@ -77,7 +82,7 @@ public final class ResourcePacks implements Listener {
         packManager.onChange(pack -> Bukkit.getOnlinePlayers().forEach(this::send));
     }
 
-    /** 지금 보낼 팩 목록. */
+    /** Packs to send now. */
     private List<ResourcePackInfo> packs() {
         List<ResourcePackInfo> all = new ArrayList<>(configured);
         packManager
@@ -121,7 +126,7 @@ public final class ResourcePacks implements Listener {
                                 tasks.main());
     }
 
-    /** 팩 묶음 서명 (ID·SHA-1, 정렬). */
+    /** Pack set signature (ID and SHA-1, sorted). */
     private static String signature(List<ResourcePackInfo> packs) {
         List<String> parts = new ArrayList<>();
         for (ResourcePackInfo p : packs) {
@@ -182,7 +187,7 @@ public final class ResourcePacks implements Listener {
             case FAILED_DOWNLOAD, INVALID_URL, FAILED_RELOAD, DISCARDED ->
                     fail(player, PackStatus.Status.FAILED);
             default -> {
-                // ACCEPTED, DOWNLOADED: 진행 중
+                // ACCEPTED, DOWNLOADED: in progress
             }
         }
     }

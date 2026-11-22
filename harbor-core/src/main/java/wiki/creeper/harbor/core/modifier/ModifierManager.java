@@ -17,7 +17,10 @@ import wiki.creeper.harbor.core.api.ModifierService;
 import wiki.creeper.harbor.core.api.StatKey;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 
-/** ModifierService 구현. 플레이어별·스탯별로 결과를 캐시하고, 보정자가 바뀌거나 가장 이른 만료 시각이 지나면 다시 계산한다. 메인 스레드 전용. */
+/**
+ * ModifierService implementation. Caches results per player and stat, recomputing when modifiers
+ * change or the earliest expiry passes. Main thread only.
+ */
 public final class ModifierManager implements ModifierService, Listener {
 
     private record Cached(
@@ -110,7 +113,7 @@ public final class ModifierManager implements ModifierService, Listener {
         return breakdown;
     }
 
-    /** 상한·하한이 balance.yml에 있으므로 리로드되면 캐시를 비운다. */
+    /** Upper/lower bounds live in balance.yml, so the cache is cleared on reload. */
     @EventHandler
     public void onReload(ContentReloadedEvent event) {
         players.values().forEach(m -> m.cache.clear());

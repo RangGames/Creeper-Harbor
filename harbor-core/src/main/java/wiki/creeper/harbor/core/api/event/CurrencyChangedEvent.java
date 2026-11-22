@@ -6,7 +6,7 @@ import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.model.Currency;
 
-/** 재화 변경이 커밋된 뒤 메인 스레드에서 발생한다. 플레이어가 오프라인일 수도 있다. */
+/** Fired on the main thread after a currency change commits. The player may be offline. */
 public final class CurrencyChangedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();

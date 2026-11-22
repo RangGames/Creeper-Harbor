@@ -18,10 +18,16 @@ import wiki.creeper.harbor.common.model.SeasonId;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 
-/** HarborPlayer 구현. 메인 스레드에서만 고친다. 저장할 때는 {@link #snapshotBase()}로 복사본을 만들어 넘긴다. */
+/**
+ * HarborPlayer implementation. Modified on the main thread only. Saves hand over a copy made by
+ * {@link #snapshotBase()}.
+ */
 final class PlayerState implements HarborPlayer {
 
-    /** 저장용 기본 필드 복사본. 잔액은 원장이 관리하므로 저장하지 않는다. */
+    /**
+     * Copy of the base fields for saving. Balances are managed by the ledger, so they are not
+     * saved.
+     */
     record BaseSnapshot(
             UUID uuid,
             String name,
@@ -75,8 +81,9 @@ final class PlayerState implements HarborPlayer {
     }
 
     /**
-     * 서버 이동 요청을 받았으면 그 요청 ID. 요청만 받은 단계(이동 전 훅 지연 대기)에서는 아직 저장하지 않았고, {@link #handoffSaved()}부터 저장을
-     * 마친(또는 큐에 넣은) 단계다.
+     * The request ID if a server move was requested. While only requested (waiting on a handoff
+     * blocker delay) nothing is saved yet; from {@link #handoffSaved()} on, the save is done (or
+     * enqueued).
      */
     @Nullable String handoffRequest() {
         return handoffRequest;
@@ -86,7 +93,10 @@ final class PlayerState implements HarborPlayer {
         return handoffRequest != null;
     }
 
-    /** 요청을 지우면 저장 단계 표시도 같이 지운다 (취소·실패 뒤 계속 플레이). */
+    /**
+     * Clearing the request also clears the save-stage marks (keep playing after a cancel or
+     * failure).
+     */
     void setHandoffRequest(@Nullable String requestId) {
         handoffRequest = requestId;
         if (requestId == null) {
@@ -96,7 +106,10 @@ final class PlayerState implements HarborPlayer {
         }
     }
 
-    /** 잠금을 handoff로 넘겼다 (beginHandoff 성공). 이 전에 온 취소는 {@link #requestAbort}로 미룬다. */
+    /**
+     * The lock was handed off (beginHandoff succeeded). An abort arriving before this is deferred
+     * via {@link #requestAbort}.
+     */
     boolean handoffLocked() {
         return handoffLocked;
     }
@@ -114,8 +127,9 @@ final class PlayerState implements HarborPlayer {
     }
 
     /**
-     * 이동용 저장 데이터를 떴다. 이 뒤로는 저장하지 않고 플레이어 행동을 막는다 (HuskSync의 locked 상태와 같음: 뜬 뒤에 바뀐 것은 어디에도 남지 않으므로
-     * 아이템을 버리면 복제된다).
+     * The move snapshot was taken. From here on nothing is saved and player actions are blocked
+     * (like HuskSync's locked state: changes after the snapshot are kept nowhere, so dropping items
+     * duplicates them).
      */
     boolean handoffSaved() {
         return handoffSaved;
@@ -125,7 +139,7 @@ final class PlayerState implements HarborPlayer {
         handoffSaved = true;
     }
 
-    /** 이 서버에서 퇴장했다 (비동기 handoff 처리가 늦게 끝났을 때 잠금 정리용). */
+    /** Quit this server (for lock cleanup when async handoff handling finishes late). */
     boolean left() {
         return left;
     }
@@ -246,7 +260,7 @@ final class PlayerState implements HarborPlayer {
                 reputation);
     }
 
-    /** 플레이 시간 때문에 기본 필드는 항상 저장할 거리가 있다. */
+    /** Because of play time, the base fields always have something to save. */
     boolean baseDirty() {
         return baseDirty;
     }
@@ -255,7 +269,7 @@ final class PlayerState implements HarborPlayer {
         baseDirty = false;
     }
 
-    /** 바뀐 컴포넌트 ID를 꺼내고 표시를 지운다. all이면 전부. */
+    /** Takes the changed component IDs and clears the marks. All of them if all is set. */
     Set<String> drainDirtyComponents(boolean all) {
         Set<String> result =
                 all ? new HashSet<>(components.keySet()) : new HashSet<>(dirtyComponents);

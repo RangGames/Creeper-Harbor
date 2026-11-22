@@ -5,7 +5,10 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 
-/** 새 콘텐츠 스냅샷이 적용된 뒤 메인 스레드에서 발생한다. 캐시를 쓰는 모듈은 여기서 다시 만든다. */
+/**
+ * Fired on the main thread after a new content snapshot is applied. Modules with caches rebuild
+ * them here.
+ */
 public final class ContentReloadedEvent extends Event {
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -22,7 +25,7 @@ public final class ContentReloadedEvent extends Event {
         return snapshot;
     }
 
-    /** 이번에 다시 읽은 형식 이름들. */
+    /** Names of the content types reloaded this time. */
     public Set<String> reloadedTypes() {
         return reloadedTypes;
     }

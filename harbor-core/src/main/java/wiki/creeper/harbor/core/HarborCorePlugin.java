@@ -72,17 +72,20 @@ import wiki.creeper.harbor.core.rig.RigManager;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * Harbor-Core 시작 순서 ('16. 플러그인 설계' 5.1).
+ * Harbor-Core startup order ('16. Plugin design' 5.1).
  *
  * <ol>
- *   <li>PluginLoader: 외부 라이브러리 적재 ({@link HarborCoreLoader})
- *   <li>Bootstrap: 데이터팩 레지스트리 항목 등록 ({@link HarborCoreBootstrap})
- *   <li>onEnable: 인프라 설정 → DB 연결·마이그레이션 → Redis 연결 → 콘텐츠 로드(실패하면 서버 시작 중단) → 서비스 등록 → 명령어 등록
- *   <li>모듈 연결: 다른 모듈이 HarborModule로 자기 것을 등록
- *   <li>onDisable: 새 접속 차단 → 접속자 데이터 저장 → 지연 쓰기 큐 비우기 → 연결 종료
+ *   <li>PluginLoader: load external libraries ({@link HarborCoreLoader})
+ *   <li>Bootstrap: register datapack registry entries ({@link HarborCoreBootstrap})
+ *   <li>onEnable: infra config → DB connection and migrations → Redis connection → content load
+ *       (abort server startup on failure) → service registration → command registration
+ *   <li>Module wiring: other modules register their parts through HarborModule
+ *   <li>onDisable: block new logins → save online players' data → drain the write-behind queue →
+ *       close connections
  * </ol>
  *
- * 공유 폴더는 plugins/Harbor/ (harbor-infra.yml, content/). 둘 다 없으면 jar에 든 기본값으로 만든다.
+ * The shared folder is plugins/Harbor/ (harbor-infra.yml, content/). Missing ones are created from
+ * the defaults in the jar.
  */
 public final class HarborCorePlugin extends JavaPlugin implements Listener {
 
@@ -124,7 +127,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
             }
             log.warn("기본 설정을 만들었습니다: {} (서버 ID·DB·Redis를 확인하세요)", infraFile);
         } else {
-            // 새 버전에서 생긴 설정 항목을 채운다 (서버 값·주석은 그대로)
+            // Fill in settings added in newer versions (server values and comments are kept)
             try (InputStream in = getResource("harbor-infra.yml")) {
                 YamlDefaults.Result filled = YamlDefaults.fillFile(infraFile, in);
                 if (filled.changed()) {
@@ -135,7 +138,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
             }
         }
 
-        // 1. 인프라 설정
+        // 1. Infra config
         Result<InfraConfig, ValidationErrors> loaded = InfraConfig.load(infraFile);
         if (!(loaded instanceof Result.Ok<InfraConfig, ValidationErrors>(InfraConfig infra))) {
             log.error(
@@ -147,7 +150,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         boolean dev = infra.dev() || Boolean.getBoolean("harbor.dev");
         log.info("서버 {} ({}) 시즌 {}", infra.serverId(), infra.role().key(), infra.season());
 
-        // 2. DB 연결·마이그레이션 (의존 순서: common → core → 각 모듈)
+        // 2. DB connection and migrations (dependency order: common → core → each module)
         Database database = Database.connect(infra.database(), Bukkit::isPrimaryThread, dev);
         db = database;
         Migrations.migrate(database.dataSource(), "common", getClassLoader());
@@ -159,13 +162,14 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         MessageBus messageBus = new MessageBus(r, infra.serverId());
         bus = messageBus;
 
-        // 4. 콘텐츠 로드 (실패하면 시작 중단)
+        // 4. Content load (abort startup on failure)
         Tasks tasks = new Tasks(this);
         Path configuredContent = infra.contentDir();
         Path contentRoot =
                 configuredContent != null ? configuredContent : harborDir.resolve("content");
         if (configuredContent == null) {
-            // 기본 폴더면 jar의 기본 콘텐츠에 맞춘다: 없는 파일 생성, 고치지 않은 파일 갱신, 고친 파일은 유지 (따로 지정한 폴더는 건드리지 않는다)
+            // For the default folder, sync with the jar's default content: create missing files,
+            // update unmodified ones, keep modified ones (a custom folder is left untouched)
             DefaultContent.SyncResult synced = DefaultContent.sync(this::getResource, contentRoot);
             if (synced.created() + synced.updated() + synced.removed() > 0) {
                 log.info(
@@ -202,7 +206,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
             return;
         }
 
-        // 5. 서비스
+        // 5. Services
         HarborTime time = infra.time();
         UiManager ui = new UiManager();
         MessageManager msg =
@@ -359,7 +363,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
             afk.start();
         }
 
-        // 6. 명령어 (모든 모듈이 켜진 뒤 발생하므로 모듈 하위 명령도 들어간다)
+        // 6. Commands (fired after all modules are enabled, so module subcommands are included)
         getLifecycleManager()
                 .registerEventHandler(
                         LifecycleEvents.COMMANDS,
@@ -390,7 +394,8 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         Logger log = getSLF4JLogger();
-        // 리그 엔티티 정리 → 새 접속 차단 → 접속자 저장 → 큐 비우기 → 연결 종료
+        // Clean up rig entities → block new logins → save online players → drain the queue → close
+        // connections
         if (rigs != null) {
             try {
                 rigs.shutdown();

@@ -2,7 +2,10 @@ package wiki.creeper.harbor.core.api;
 
 import java.util.regex.Pattern;
 
-/** 보정자가 바꾸는 수치의 이름. 예: rare_weight, bite_wait, sell_price, reel_speed, line_strength, exp_gain. */
+/**
+ * Name of a value changed by modifiers. E.g. rare_weight, bite_wait, sell_price, reel_speed,
+ * line_strength, exp_gain.
+ */
 public record StatKey(String key) {
 
     private static final Pattern KEY = Pattern.compile("[a-z0-9_]+");

@@ -23,11 +23,13 @@ import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 
 /**
- * 서버 이동용 데이터를 뜬 뒤 접속이 넘어갈 때까지 플레이어 행동을 막는다 (HuskSync {@code BukkitLockedEventListener}와 같은 목록에
- * 드래그·섭취·손 바꾸기를 더함). 뜬 뒤에 바뀐 것은 저장되지 않으므로, 이 사이에 아이템을 버리거나 죽어서 떨어뜨리면 바닥과 저장본 양쪽에 남는다 (프록시가 이 순간 죽으면
- * 그대로 복제). 명령어는 HuskSync 기본값({@code blacklisted_commands_while_locked: ['*']})처럼 전부 막는다.
+ * Blocks player actions from taking the move snapshot until the connection moves (the same list as
+ * HuskSync's {@code BukkitLockedEventListener}, plus drag, consume and hand swap). Changes after
+ * the snapshot are not saved, so items dropped or lost on death in between remain both on the
+ * ground and in the snapshot (if the proxy dies at that moment they stay duplicated). All commands
+ * are blocked, like HuskSync's default ({@code blacklisted_commands_while_locked: ['*']}).
  *
- * <p>모듈 리스너가 부작용을 내기 전에 취소되도록 LOWEST에서 취소한다.
+ * <p>Cancels at LOWEST so events are cancelled before module listeners cause side effects.
  */
 final class HandoffFreeze implements Listener {
 

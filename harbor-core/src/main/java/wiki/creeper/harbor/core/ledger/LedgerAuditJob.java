@@ -18,8 +18,9 @@ import wiki.creeper.harbor.core.currency.SeasonBalanceStore;
 import wiki.creeper.harbor.core.task.Tasks;
 
 /**
- * 원장 합계와 잔액 대조 ('16. 플러그인 설계' 4.3). 매일 새벽(04:00, 제안값) 한 서버만 실행하고 (분산 잠금), 틀리면 오류 로그를 남기고 접속 중인
- * 관리자(harbor.admin.alerts)에게 알린다.
+ * Reconciles ledger sums against balances ('16. Plugin design' 4.3). Runs daily in the early
+ * morning (04:00, proposed value) on a single server (distributed lock); on mismatch it logs an
+ * error and notifies online admins (harbor.admin.alerts).
  */
 public final class LedgerAuditJob {
 
@@ -63,7 +64,7 @@ public final class LedgerAuditJob {
                         });
     }
 
-    /** 가상 스레드에서 실행한다. 다른 서버가 이미 하고 있으면 건너뛴다. */
+    /** Runs on a virtual thread. Skips if another server is already running it. */
     public void runOnce() {
         Optional<DistributedLock.Handle> lock;
         try {

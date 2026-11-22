@@ -13,12 +13,17 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.Ui;
 
-/** 액션바·보스바·타이틀 도우미, 커스텀 폰트 글리프 등록표 ({@code <glyph:이름>}). */
+/**
+ * Action bar, boss bar and title helpers, plus the custom font glyph registry ({@code
+ * <glyph:name>}).
+ */
 public final class UiManager implements Ui {
 
     private final Map<String, String> glyphs = new ConcurrentHashMap<>();
 
-    /** 마지막 일반 액션바 시각 (나간 Player 객체는 GC로 빠진다). */
+    /**
+     * Time of the last regular action bar (Player objects of players who left are dropped by GC).
+     */
     private final Map<Player, Long> lastActionBar =
             Collections.synchronizedMap(new WeakHashMap<>());
 

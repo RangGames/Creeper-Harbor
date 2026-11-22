@@ -18,11 +18,14 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * PlaceholderAPI 연동 (선택, 추가 제안). PlaceholderAPI가 켜져 있으면 문구 안의 {@code %플레이스홀더%}를 그 플레이어 값으로 바꾼다. 컴파일
- * 의존 없이 PlaceholderAPI.setPlaceholders를 찾아 부른다 (없으면 그대로 둔다).
+ * PlaceholderAPI integration (optional, proposed). When PlaceholderAPI is enabled, {@code
+ * %placeholder%} tokens in text are replaced with that player's values. It looks up and calls
+ * PlaceholderAPI.setPlaceholders without a compile dependency (text is left as is if absent).
  *
- * <p>값은 문구에 글자로 끼우지 않고 컴포넌트로 넣는다: PlaceholderAPI가 돌려주는 &amp;·§ 색 코드를 색으로 바꾸고, 값에 든 MiniMessage 태그는
- * 태그로 해석되지 않는다 (플레이어 이름 등으로 서식을 끼워 넣지 못하게). 메인 스레드에서 부른다 (확장 대부분이 스레드 안전하지 않다).
+ * <p>Values are inserted as components rather than spliced into the text: &amp;/§ color codes
+ * returned by PlaceholderAPI become colors, and MiniMessage tags in values are not parsed as tags
+ * (so formatting cannot be injected via player names etc.). Call on the main thread (most
+ * expansions are not thread-safe).
  */
 public final class PlaceholderApiHook {
 
@@ -43,7 +46,7 @@ public final class PlaceholderApiHook {
         this.log = log;
     }
 
-    /** 처음 쓸 때 찾는다 (PlaceholderAPI가 Core보다 늦게 켜져도 된다). 메인 스레드. */
+    /** Looked up on first use (PlaceholderAPI may be enabled after Core). Main thread. */
     private @Nullable MethodHandle handle() {
         if (!checked) {
             Plugin papi = Bukkit.getPluginManager().getPlugin("PlaceholderAPI");
@@ -82,8 +85,9 @@ public final class PlaceholderApiHook {
     }
 
     /**
-     * 문구의 %플레이스홀더%를 {@code <papi_0>} 같은 자리 태그로 바꾸고, 그 값을 컴포넌트로 담은 해석기를 함께 돌려준다. PlaceholderAPI가 없으면
-     * 문구를 그대로 둔다.
+     * Replaces %placeholders% in the text with slot tags like {@code <papi_0>} and returns them
+     * together with a resolver holding the values as components. Without PlaceholderAPI the text is
+     * left unchanged.
      */
     public Applied apply(OfflinePlayer player, String template) {
         if (template.indexOf('%') < 0) {
@@ -115,8 +119,8 @@ public final class PlaceholderApiHook {
     }
 
     /**
-     * @param template 자리 태그로 바꾼 문구
-     * @param resolver 자리 태그 값
+     * @param template the text with slot tags substituted
+     * @param resolver the slot tag values
      */
     public record Applied(String template, TagResolver resolver) {}
 }

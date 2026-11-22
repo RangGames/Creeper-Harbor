@@ -25,46 +25,55 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.yaml.YamlDefaults;
 
 /**
- * jar에 들어 있는 기본 콘텐츠(저장소의 content/)를 콘텐츠 폴더에 맞춘다.
+ * Syncs the content folder with the default content bundled in the jar (the repository's content/).
  *
- * <p>빌드 때 content/가 {@code harbor-content/} 리소스로 들어가고, 파일 목록은 {@value #INDEX}에 적힌다. 서버가 쓴 기본 파일의
- * 해시를 {@value #MANIFEST}에 기록해 두고, 시작할 때마다 (추가 제안):
+ * <p>At build time content/ goes in as the {@code harbor-content/} resource and the file list is
+ * written to {@value #INDEX}. The hashes of the default files the server wrote are recorded in
+ * {@value #MANIFEST}, and on every start (proposed):
  *
  * <ul>
- *   <li>없는 파일은 만든다.
- *   <li>운영자가 고치지 않은 파일(해시가 기록과 같음)은 새 기본값으로 바꾼다. 기본값에서 빠진 파일이면 지운다.
- *   <li>운영자가 고친 파일은 그대로 두고 목록으로 알려 준다. 단 맵 형식 YAML(messages_ko.yml · balance.yml 등)이면 새 기본값에 새로 생긴
- *       키만 그 파일에 끼워 넣는다 ({@link YamlDefaults}). 지난 기본값의 키 목록을 {@value #KEYS}에 남겨서, 운영자가 일부러 지운 키는
- *       되살리지 않는다 (기록이 없으면 빠진 키를 모두 채운다).
- *   <li>기록이 없는 옛 폴더(이 기능 전에 만든 폴더)는 기본값과 다른 파일을 백업 폴더로 옮긴 뒤 새 기본값으로 바꾼다.
+ *   <li>Missing files are created.
+ *   <li>Files the operator has not modified (hash matches the record) are replaced with the new
+ *       default. Files dropped from the defaults are deleted.
+ *   <li>Files the operator has modified are kept and reported in a list. For map-style YAML
+ *       (messages_ko.yml, balance.yml, etc.), however, only keys newly added in the new default are
+ *       inserted into that file ({@link YamlDefaults}). The previous defaults' key list is kept in
+ *       {@value #KEYS} so keys the operator deliberately removed are not restored (without a
+ *       record, all missing keys are filled in).
+ *   <li>For an old folder without a record (created before this feature), files differing from the
+ *       defaults are moved to a backup folder and then replaced with the new defaults.
  * </ul>
  */
 public final class DefaultContent {
 
-    /** 기본 콘텐츠 파일 목록 리소스 (한 줄에 content/ 기준 상대 경로 하나). */
+    /** Default content file list resource (one path relative to content/ per line). */
     public static final String INDEX = "harbor-content.txt";
 
-    /** 기본 콘텐츠 리소스 경로 접두사. */
+    /** Default content resource path prefix. */
     public static final String PREFIX = "harbor-content/";
 
-    /** 서버가 쓴 기본 파일 기록 (콘텐츠 폴더 안, 한 줄에 "sha256 경로"). */
+    /**
+     * Record of default files written by the server (inside the content folder, one "sha256 path"
+     * per line).
+     */
     public static final String MANIFEST = ".harbor-defaults";
 
-    /** 지난 기본값의 키 목록 (한 줄에 "경로\t키"). */
+    /** Key list of the previous defaults (one "path\tkey" per line). */
     public static final String KEYS = ".harbor-default-keys";
 
-    /** 리소스 열기 (플러그인에서는 {@code JavaPlugin::getResource}). */
+    /** Opens a resource ({@code JavaPlugin::getResource} in the plugin). */
     @FunctionalInterface
     public interface Resources {
         @Nullable InputStream open(String path) throws IOException;
     }
 
     /**
-     * 맞춘 결과.
+     * Sync result.
      *
-     * @param keptModified 운영자가 고쳐서 그대로 둔 파일 (새 기본값이 따로 있음)
-     * @param backup 옛 폴더를 바꾸면서 원래 파일을 옮겨 둔 곳 (없으면 null)
-     * @param filled 고친 파일에 새로 채운 키 (파일 → 키 경로)
+     * @param keptModified files kept because the operator modified them (a newer default exists)
+     * @param backup where the original files were moved when converting an old folder (null if
+     *     none)
+     * @param filled keys newly filled into modified files (file → key paths)
      */
     public record SyncResult(
             int created,
@@ -76,7 +85,7 @@ public final class DefaultContent {
 
     private DefaultContent() {}
 
-    /** 콘텐츠 폴더를 jar의 기본 콘텐츠에 맞춘다. */
+    /** Syncs the content folder with the jar's default content. */
     public static SyncResult sync(Resources resources, Path target) throws IOException {
         Path root = target.toAbsolutePath().normalize();
         Files.createDirectories(root);

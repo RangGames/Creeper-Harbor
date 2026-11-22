@@ -27,13 +27,14 @@ import wiki.creeper.harbor.core.admin.AdminLog;
 import wiki.creeper.harbor.core.api.MessageService;
 
 /**
- * 가구·커스텀 블록 관리 명령 (권한 harbor.admin.furniture · harbor.admin.block, 추가 제안).
+ * Furniture and custom block admin commands (permissions harbor.admin.furniture,
+ * harbor.admin.block, proposed).
  *
  * <pre>
  * /harbor furniture list
- * /harbor furniture give &lt;대상&gt; &lt;가구&gt; [개수]
+ * /harbor furniture give &lt;target&gt; &lt;furniture&gt; [amount]
  * /harbor block list
- * /harbor block give &lt;대상&gt; &lt;블록&gt; [개수]
+ * /harbor block give &lt;target&gt; &lt;block&gt; [amount]
  * </pre>
  */
 public final class FurnishingCommand {
@@ -60,7 +61,7 @@ public final class FurnishingCommand {
         this.adminLog = adminLog;
     }
 
-    // 하나의 정의 목록에 대한 list · give
+    // list and give for one definition list
     private record Kind<T>(
             String literal,
             Function<HarborId, Optional<T>> find,
