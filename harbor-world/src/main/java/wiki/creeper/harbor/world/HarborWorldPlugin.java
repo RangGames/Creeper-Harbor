@@ -61,6 +61,7 @@ import wiki.creeper.harbor.world.treasure.TreasureManager;
  */
 public final class HarborWorldPlugin extends HarborModule {
 
+    private @Nullable DecorManager decorManager;
     private @Nullable ShipManager ships;
     private @Nullable RideManager rides;
     private @Nullable SeaEventManager events;
@@ -101,6 +102,7 @@ public final class HarborWorldPlugin extends HarborModule {
         SeaEventScheduler scheduler = new SeaEventScheduler(kit, sea, tournament);
         HousingManager housing = new HousingManager(kit, router, bestTier);
         DecorManager decor = new DecorManager(kit, housing, payments, bestTier);
+        this.decorManager = decor;
         RideManager ride = new RideManager(kit, regions);
         this.ships = ship;
         this.rides = ride;
@@ -147,6 +149,8 @@ public final class HarborWorldPlugin extends HarborModule {
         ctx.listen(new ReloadListener(kit, regions, charts, spots));
         ctx.handoffBlocker(ship.handoffBlocker());
         ctx.handoffBlocker(ride.handoffBlocker());
+        // 장식 정리는 저장 직전에 (부작용이 있으므로 거부 판단 뒤 마지막)
+        ctx.handoffBlocker(decor.handoffBlocker());
 
         fishing.registerRegionResolver(regions);
         fishing.registerTreasureHook(treasure);
@@ -295,6 +299,10 @@ public final class HarborWorldPlugin extends HarborModule {
         SeaEventManager e = events;
         if (e != null) {
             e.shutdown();
+        }
+        DecorManager d = decorManager;
+        if (d != null) {
+            d.flushCredits(true);
         }
         getServer().getServicesManager().unregisterAll(this);
     }

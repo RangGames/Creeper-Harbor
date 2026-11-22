@@ -35,7 +35,8 @@ public final class ItemReturns {
             if (item.isEmpty()) {
                 continue;
             }
-            if (player != null && player.isOnline()) {
+            // 서버 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 우편으로
+            if (player != null && player.isOnline() && !api.players().frozen(uuid)) {
                 left.addAll(player.getInventory().addItem(item.clone()).values());
             } else {
                 left.add(item.clone());

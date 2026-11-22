@@ -5,13 +5,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 
 /**
  * 처리 중 거래 표시 (docs 20 7.3 EconomyState '처리 중 거래 표시', 7.4 경계 상황). 플레이어마다 한 번에 하나의 거래(판매·구매·경매
- * 등록·낙찰·제작·우편 수령)만 허용하고, 진행 중이면 서버 이동을 그 거래가 끝날 때까지 미룬다 (Core HandoffBlocker Delay). 지급은 우편함을 거치므로
- * 미룬 시간이 넘어 이동해도 도착 서버에서 받는다.
+ * 등록·낙찰·제작·우편 수령)만 허용하고, 진행 중이면 서버 이동을 그 거래가 끝날 때까지 미룬다 (Core HandoffBlocker Delay). 제한 시간 안에 끝나지
+ * 않으면 Core가 이동을 취소한다. 거래가 끝나면 인벤토리를 곧 저장한다 (PlayerService.saveSoon).
  */
 public final class TradeGuard implements HandoffBlocker {
 
@@ -28,7 +29,10 @@ public final class TradeGuard implements HandoffBlocker {
         }
 
         public void done() {
-            guard.inFlight.remove(player, this);
+            if (guard.inFlight.remove(player, this)) {
+                // 거래 결과(재화·경매·우편 행)는 이미 커밋됐다: 인벤토리도 곧 저장해 서버가 죽어도 어긋나지 않게 한다
+                guard.afterTrade.accept(player);
+            }
             future.complete(null);
         }
 
@@ -40,6 +44,14 @@ public final class TradeGuard implements HandoffBlocker {
     }
 
     private final Map<UUID, Ticket> inFlight = new ConcurrentHashMap<>();
+    private final Consumer<UUID> afterTrade;
+
+    /**
+     * @param afterTrade 거래가 끝날 때 (성공·실패 모두, 아무 스레드). 보통 {@code PlayerService::saveSoon}
+     */
+    public TradeGuard(Consumer<UUID> afterTrade) {
+        this.afterTrade = afterTrade;
+    }
 
     /** 거래를 시작한다. 이미 진행 중인 거래가 있으면 빈 값. */
     public Optional<Ticket> begin(UUID player) {

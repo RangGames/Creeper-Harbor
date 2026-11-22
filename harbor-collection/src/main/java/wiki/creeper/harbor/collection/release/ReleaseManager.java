@@ -178,6 +178,9 @@ public final class ReleaseManager implements ReleaseService, Listener {
                         })
                 .handleAsync(
                         (v, error) -> {
+                            // 방류 기록은 즉시 커밋, 인벤토리는 지연 쓰기다: 곧 저장한다. 서버가 죽으면 물고기가 돌아오고 방류 평판을
+                            // 다시 받을 수 있다
+                            api.players().saveSoon(uuid);
                             if (error != null) {
                                 log.warn(
                                         "방류 실패, 아이템을 돌려줍니다: {} {}",

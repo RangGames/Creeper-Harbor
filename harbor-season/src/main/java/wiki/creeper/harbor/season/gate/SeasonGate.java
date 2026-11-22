@@ -115,7 +115,20 @@ public final class SeasonGate implements Listener {
 
         SeasonProfile updated = profile.withLastSeason(current).markStored();
         hp.set(component, updated);
-        save(player, updated);
+        // 정리한 인벤토리를 먼저 저장한 뒤 "이번 시즌 정리함"을 쓴다. 반대 순서면 그 사이 서버가 죽었을 때 지난 시즌 아이템·경험치가 돌아오고
+        // 정리는 다시 돌지 않는다. 인벤토리 저장이 실패하면 기록을 쓰지 않아 다음 접속 때 다시 정리한다
+        var _ =
+                api.players()
+                        .saveNow(player.getUniqueId())
+                        .thenRun(() -> save(player, updated))
+                        .exceptionally(
+                                e -> {
+                                    log.error(
+                                            "시즌 정리 후 저장 실패, 다음 접속 때 다시 정리합니다: {}",
+                                            player.getName(),
+                                            e);
+                                    return null;
+                                });
         int stacks = removed.values().stream().mapToInt(Integer::intValue).sum();
         log.info(
                 "시즌 정리 {} ({}): 시즌 {} → {}, 지운 아이템 {}",

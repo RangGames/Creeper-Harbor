@@ -226,6 +226,7 @@ jobs:
 inventory:
   sync: true            # false면 서버마다 따로 (예전 방식). 모든 서버가 같은 값이어야 한다
   history_keep: 20      # 플레이어마다 남길 기록 수 (퇴장·이동·사망·복구, /harbor inventory history)
+  commit_save_delay_ticks: 10   # 재화·경매·우편 거래가 커밋된 뒤 이만큼 뒤 인벤토리를 바로 저장 (제안값. 거래 직후 서버가 죽을 때 복제 방지, 짧을수록 창이 좁고 저장이 잦다)
 
 # 잠수 시 로비로 (본 서버만, 추가 제안). 움직임·시점·키 입력·채팅·명령·클릭이 없으면 로비로 보낸다 (자리 유예, harbor.afk.exempt 제외)
 afk:

@@ -11,6 +11,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.type.ItemDef;
+import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.MailService;
 import wiki.creeper.harbor.core.task.Tasks;
@@ -121,27 +122,46 @@ final class TrapRetrieval {
                 .get(ItemDef.TYPE, row.item().id())
                 .ifPresent(def -> extras.add(api.items().create(def, 1)));
         extras.addAll(harvest.refundBaitItems(row.bait()));
+        // 통발 아이템·미끼 환불 우편과 행 삭제를 한 트랜잭션으로 (중간에 서버가 죽어도 사라지거나 두 번 가지 않는다). 우편 참조 ID는 항목마다
+        // 달라야 한다 (같으면 우편함 유니크 키 때문에 두 번째부터 버려진다). 그 사이 주인이 미끼를 넣거나 통발을 치웠으면 이번에는 건너뛴다
+        List<SqlConsumer> extraMails = new ArrayList<>();
+        for (int i = 0; i < extras.size(); i++) {
+            extraMails.add(
+                    mail.sendItemInTx(
+                            row.owner(),
+                            extras.get(i),
+                            "trap_retrieve",
+                            "trapbox:" + row.id() + ":" + i));
+        }
         CompletableFuture<Void> done =
                 chain.thenCompose(
-                                v -> api.database().async(c -> TrapRepository.delete(c, row.id())))
-                        .thenCompose(
+                                v ->
+                                        api.database()
+                                                .async(
+                                                        c -> {
+                                                            Optional<TrapRow> now =
+                                                                    TrapRepository.byId(
+                                                                            c, row.id(), true);
+                                                            // 그사이 새 수확물이 생겼으면 다음 회수 때 함께 보낸다
+                                                            if (now.isEmpty()
+                                                                    || now.get().bait()
+                                                                            != row.bait()
+                                                                    || !now.get()
+                                                                            .contents()
+                                                                            .isEmpty()) {
+                                                                return false;
+                                                            }
+                                                            for (SqlConsumer m : extraMails) {
+                                                                m.accept(c);
+                                                            }
+                                                            return TrapRepository.delete(
+                                                                    c, row.id());
+                                                        }))
+                        .thenAccept(
                                 deleted -> {
-                                    if (!Boolean.TRUE.equals(deleted)) {
-                                        return CompletableFuture.completedFuture(null);
+                                    if (Boolean.TRUE.equals(deleted) && !extraMails.isEmpty()) {
+                                        mail.notifyArrived(row.owner());
                                     }
-                                    CompletableFuture<Void> rest =
-                                            CompletableFuture.completedFuture(null);
-                                    for (ItemStack extra : extras) {
-                                        rest =
-                                                rest.thenCompose(
-                                                        v ->
-                                                                mail.sendItem(
-                                                                        row.owner(),
-                                                                        extra,
-                                                                        "trap_retrieve",
-                                                                        "trapbox:" + row.id()));
-                                    }
-                                    return rest;
                                 });
         var _ =
                 done.whenCompleteAsync(

@@ -58,6 +58,7 @@ public final class HarborCollectionPlugin extends HarborModule {
         ctx.listen(codex);
         ctx.listen(aquarium);
         ctx.handoffBlocker(aquarium.handoffBlocker());
+        ctx.itemCustody(aquarium::held);
         codex.start();
         aquarium.start();
         var _ = ctx.tasks().timer(20L * 300, 20L * 300, season::retryAll);

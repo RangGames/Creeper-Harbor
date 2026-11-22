@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -20,6 +21,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.LongSupplier;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -28,6 +30,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
 import org.slf4j.Logger;
 import wiki.creeper.harbor.common.config.InfraConfig;
 import wiki.creeper.harbor.common.db.Database;
@@ -46,6 +49,7 @@ import wiki.creeper.harbor.common.session.SessionAudit;
 import wiki.creeper.harbor.common.session.SessionLocks;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.api.ItemCustody;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.PlayerService;
@@ -92,6 +96,8 @@ public final class PlayerManager implements PlayerService, Listener {
     private final Tasks tasks;
     private final Logger log;
     private volatile boolean acceptingLogins = true;
+    private final Set<UUID> saveSoonPending = ConcurrentHashMap.newKeySet();
+    private volatile LongSupplier saveSoonDelay = () -> 10;
 
     /** 저장 이유 (SaveHook·기록용). */
     public enum SaveReason {
@@ -287,17 +293,24 @@ public final class PlayerManager implements PlayerService, Listener {
         if (state == null) {
             return;
         }
+        state.markLeft();
         String handoff = state.handoffRequest();
-        if (handoff == null) {
-            // 저장 훅이 Bukkit 상태를 뜰 수 있게 목록에서 빼기 전에 큐에 넣는다
-            enqueueSave(state, false, SaveReason.QUIT);
-        }
-        online.remove(uuid);
-        if (handoff != null) {
-            // 이동 중: 이미 저장했다. 도착 서버가 아직 가져가지 않았으면 (이동 중 접속 끊김) 그 요청의 잠금만 지운다
+        // HuskSync handlePlayerQuit과 같은 원칙: 이동용 데이터를 이미 떴으면(locked) 다시 저장하지 않고, 아니면 지금 저장한다.
+        // 이동 요청만 받고 이동 전 훅 지연을 기다리던 중이면 아직 저장 전이므로 일반 퇴장으로 처리한다 (지연 뒤 이어하기는
+        // online 확인에서 멈춘다)
+        if (handoff != null && state.handoffSaved()) {
+            online.remove(uuid);
+            // 도착 서버가 아직 가져가지 않았으면 (이동 중 접속 끊김·프록시 종료) 그 요청의 잠금만 지운다. beginHandoff가
+            // 이보다 늦게 끝나면 beginTransfer 쪽에서 left()를 보고 한 번 더 지운다
             var _ = tasks.async(() -> locks.releaseHandoff(uuid, handoff));
             return;
         }
+        if (handoff != null) {
+            state.setHandoffRequest(null);
+        }
+        // 저장 훅이 Bukkit 상태를 뜰 수 있게 목록에서 빼기 전에 큐에 넣는다
+        enqueueSave(state, false, SaveReason.QUIT);
+        online.remove(uuid);
         var _ =
                 tasks.async(
                         () -> {
@@ -312,6 +325,31 @@ public final class PlayerManager implements PlayerService, Listener {
     }
 
     // ------------------------------------------------------------------ 서버 이동 (출발 서버)
+
+    private final List<ItemCustody> custodies = new CopyOnWriteArrayList<>();
+
+    /** 맡은 아이템 제공자 등록 ({@link ItemCustody}). 돌려준 Runnable을 부르면 해제한다. */
+    public Runnable addItemCustody(ItemCustody custody) {
+        custodies.add(custody);
+        return () -> custodies.remove(custody);
+    }
+
+    /** 메인 스레드: 모듈들이 이 플레이어 것으로 맡고 있는 아이템. 제공자 오류는 기록하고 건너뛴다. */
+    public List<ItemStack> custody(Player player) {
+        List<ItemStack> out = new ArrayList<>();
+        for (ItemCustody custody : custodies) {
+            try {
+                for (ItemStack item : custody.held(player)) {
+                    if (item != null && !item.isEmpty()) {
+                        out.add(item.clone());
+                    }
+                }
+            } catch (RuntimeException e) {
+                log.error("맡은 아이템 조회 오류 (무시): {}", player.getName(), e);
+            }
+        }
+        return out;
+    }
 
     /** 이동 전 훅 등록 (docs 20 0.2 HandoffBlocker). 돌려준 Runnable을 부르면 해제한다. */
     public Runnable addHandoffBlocker(HandoffBlocker blocker) {
@@ -363,13 +401,37 @@ public final class PlayerManager implements PlayerService, Listener {
         var _ =
                 CompletableFuture.allOf(delays.toArray(CompletableFuture[]::new))
                         .orTimeout(HandoffBlocker.MAX_DELAY_MILLIS, TimeUnit.MILLISECONDS)
-                        .handle((ok, error) -> null)
-                        .thenRunAsync(
-                                () -> {
-                                    if (request.requestId().equals(state.handoffRequest())
-                                            && online.get(uuid) == state) {
-                                        beginTransfer(request, state);
+                        // 작업 자체의 실패는 끝난 것으로 보고, 제한 시간 초과만 따로 본다
+                        .handle(
+                                (ok, error) ->
+                                        error != null
+                                                && (error instanceof TimeoutException
+                                                        || error.getCause()
+                                                                instanceof TimeoutException))
+                        .thenAcceptAsync(
+                                timedOut -> {
+                                    if (!request.requestId().equals(state.handoffRequest())
+                                            || online.get(uuid) != state) {
+                                        return;
                                     }
+                                    if (timedOut) {
+                                        // 거래가 아직 진행 중인데 저장하면, 저장본을 뜬 뒤 그 거래가 아이템을 지급하거나 회수해 어디에도
+                                        // 남지 않거나 복제된다. 이동을 취소하고 거래를 마저 끝내게 한다
+                                        state.setHandoffRequest(null);
+                                        Player p = Bukkit.getPlayer(uuid);
+                                        if (p != null) {
+                                            messages.send(p, "core.handoff.blocked.busy");
+                                        }
+                                        bus.publish(
+                                                ProxyMessages.toProxy(TransferReady.class),
+                                                new TransferReady(
+                                                        request.requestId(),
+                                                        uuid,
+                                                        false,
+                                                        "blocked:busy"));
+                                        return;
+                                    }
+                                    beginTransfer(request, state);
                                 },
                                 tasks.main());
     }
@@ -378,6 +440,8 @@ public final class PlayerManager implements PlayerService, Listener {
         UUID uuid = request.player();
         Sequence.cancelAll(uuid);
         enqueueSave(state, false, SaveReason.HANDOFF);
+        // 뜬 뒤부터 행동을 막는다 (HandoffFreeze). 취소·실패면 clearHandoff가 풀어 준다
+        state.markHandoffSaved();
         var _ =
                 tasks.async(
                         () -> {
@@ -392,6 +456,11 @@ public final class PlayerManager implements PlayerService, Listener {
                                                 request.destination(),
                                                 request.requestId());
                                 reason = ok ? "ok" : "lock_lost";
+                                if (ok && state.left()) {
+                                    // 저장하는 사이에 접속이 끊겼다 (프록시 종료 등): 퇴장 쪽 해제가 먼저 돌았을 수 있으므로
+                                    // 남은 handoff 잠금을 지운다. 데이터는 방금 썼다
+                                    locks.releaseHandoff(uuid, request.requestId());
+                                }
                             } catch (SQLException e) {
                                 log.error("서버 이동 저장 실패: {}", uuid, e);
                                 reason = "save_failed";
@@ -455,9 +524,24 @@ public final class PlayerManager implements PlayerService, Listener {
 
     // ------------------------------------------------------------------ 저장
 
+    /**
+     * 서버 이동용 데이터를 떠서 행동을 막아야 하는지 (메인 스레드). HuskSync의 {@code isLocked}에 해당한다. 접속 때는 데이터를 접속 전에 로드하고
+     * 접속 이벤트에서 바로 적용하므로 따로 막는 구간이 없다.
+     */
+    @Override
+    public boolean frozen(UUID player) {
+        PlayerState state = online.get(player);
+        return state != null && state.handoffSaved();
+    }
+
+    /** {@link #frozen} 동안 행동을 막는 리스너 (Core가 등록한다). */
+    public Listener freezeListener() {
+        return new HandoffFreeze(this);
+    }
+
     private void autosave() {
         for (PlayerState state : online.values()) {
-            if (!state.handingOff()) {
+            if (!state.handoffSaved()) {
                 enqueueSave(state, false, SaveReason.AUTOSAVE);
             }
         }
@@ -480,6 +564,46 @@ public final class PlayerManager implements PlayerService, Listener {
                     }
                     return null;
                 });
+    }
+
+    @Override
+    public void saveSoon(UUID uuid) {
+        if (!saveSoonPending.add(uuid)) {
+            return;
+        }
+        long delay = Math.max(1, saveSoonDelay.getAsLong());
+        if (!acceptingLogins) {
+            // 종료 중: shutdown()이 전원을 저장한다 (꺼진 플러그인은 예약할 수 없다)
+            saveSoonPending.remove(uuid);
+            return;
+        }
+        var _ =
+                tasks.later(
+                        delay,
+                        () -> {
+                            saveSoonPending.remove(uuid);
+                            PlayerState state = online.get(uuid);
+                            if (state == null || state.handoffSaved()) {
+                                // 퇴장·이동 저장이 이미 그 시점 상태를 쓴다
+                                return;
+                            }
+                            var _ =
+                                    saveNow(uuid)
+                                            .exceptionally(
+                                                    e -> {
+                                                        // 큐에 남아 다음 비우기 때 다시 쓴다
+                                                        log.warn(
+                                                                "거래 뒤 저장 실패: {} ({})",
+                                                                uuid,
+                                                                String.valueOf(e.getMessage()));
+                                                        return null;
+                                                    });
+                        });
+    }
+
+    /** {@link #saveSoon} 지연 (틱). InventorySync가 balance.yml 값으로 바꾼다. */
+    public void setSaveSoonDelay(LongSupplier ticks) {
+        this.saveSoonDelay = ticks;
     }
 
     private void saveAllNow() {
@@ -526,7 +650,7 @@ public final class PlayerManager implements PlayerService, Listener {
         acceptingLogins = false;
         List<UUID> players = new ArrayList<>(online.keySet());
         for (PlayerState state : online.values()) {
-            if (!state.handingOff()) {
+            if (!state.handoffSaved()) {
                 enqueueSave(state, false, SaveReason.SHUTDOWN);
             }
         }
@@ -547,7 +671,8 @@ public final class PlayerManager implements PlayerService, Listener {
         }
         List<UUID> owned = new ArrayList<>();
         for (PlayerState state : online.values()) {
-            if (!state.handingOff()) {
+            // 이동 전 훅 지연을 기다리는 동안에도 잠금은 아직 이 서버 것(owned)이라 연장한다
+            if (!state.handoffSaved()) {
                 owned.add(state.uuid());
             }
         }

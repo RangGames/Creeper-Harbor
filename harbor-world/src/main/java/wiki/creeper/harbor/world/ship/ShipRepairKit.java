@@ -88,6 +88,8 @@ final class ShipRepairKit {
                                         return;
                                     }
                                     hand.setAmount(hand.getAmount() - 1);
+                                    // 수리 결과는 바로 DB에 쓰므로 키트를 쓴 인벤토리도 곧 저장한다 (서버가 죽으면 키트 복제)
+                                    kit.api().players().saveSoon(uuid);
                                     int max = fleet.info(a.row).maxDurability();
                                     int value =
                                             Math.min(

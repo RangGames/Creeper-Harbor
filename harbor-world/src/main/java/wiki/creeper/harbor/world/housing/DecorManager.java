@@ -3,9 +3,11 @@ package wiki.creeper.harbor.world.housing;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -40,8 +42,10 @@ import org.bukkit.persistence.PersistentDataType;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.CustomBlockDef;
 import wiki.creeper.harbor.common.content.type.FurnitureDef;
+import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
+import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.event.FurnitureRemoveEvent;
@@ -122,6 +126,66 @@ public final class DecorManager implements Listener {
                 kit.api()
                         .database()
                         .asyncVoid(c -> HousingRepository.addDecor(c, uuid, decor, amount));
+    }
+
+    /** 월드 저장을 기다리는 회수분 (주인 → 장식 → 개수). 메인 스레드 전용. */
+    private final Map<UUID, Map<HarborId, Integer>> unsavedCredits = new HashMap<>();
+
+    private final Set<UUID> worldSavePending = new HashSet<>();
+
+    /**
+     * 월드에서 치운 장식(블록·가구 엔티티)을 보관함으로 돌린다. 치운 것은 청크와 함께 저장되므로, 개수를 바로 DB에 쓰면 청크가 저장되기 전 서버가 죽었을 때 장식이
+     * 월드에도 되살아나고 보관함에도 남는다. 메모리 개수는 바로 늘리고, 다음 틱에 그 월드를 저장한 뒤 DB에 쓴다 (여러 번 치워도 저장은 틱마다 한 번, 추가 제안).
+     * 하우징 월드는 플롯 근처 청크만 로드돼 있어 저장 비용이 작다.
+     */
+    private void creditAfterWorldSave(World world, UUID owner, HarborId decor, int amount) {
+        owned.computeIfAbsent(owner, u -> new HashMap<>()).merge(decor, amount, Integer::sum);
+        unsavedCredits
+                .computeIfAbsent(owner, u -> new HashMap<>())
+                .merge(decor, amount, Integer::sum);
+        UUID worldId = world.getUID();
+        if (!worldSavePending.add(worldId)) {
+            return;
+        }
+        var _ =
+                kit.tasks()
+                        .later(
+                                1,
+                                () -> {
+                                    worldSavePending.remove(worldId);
+                                    World w = Bukkit.getWorld(worldId);
+                                    if (w != null) {
+                                        w.save();
+                                    }
+                                    flushCredits(false);
+                                });
+    }
+
+    /** 월드 저장 뒤 (또는 종료 때: 월드는 플러그인이 꺼진 뒤 저장된다) 기다리던 회수분을 DB에 쓴다. */
+    public void flushCredits(boolean blocking) {
+        if (unsavedCredits.isEmpty()) {
+            return;
+        }
+        Map<UUID, Map<HarborId, Integer>> batch = new HashMap<>(unsavedCredits);
+        unsavedCredits.clear();
+        SqlConsumer write =
+                c -> {
+                    for (var owner : batch.entrySet()) {
+                        for (var e : owner.getValue().entrySet()) {
+                            HousingRepository.addDecor(c, owner.getKey(), e.getKey(), e.getValue());
+                        }
+                    }
+                };
+        if (!blocking) {
+            var _ = kit.api().database().asyncVoid(write);
+            return;
+        }
+        // 종료 중: DB 연결이 곧 닫히므로 기다려서 쓴다
+        try {
+            kit.api().database().txVoid(write);
+        } catch (java.sql.SQLException e) {
+            kit.log().error("장식 회수분 저장 실패 (종료 중): {}", batch, e);
+        }
     }
 
     // ------------------------------------------------------------------ 상점
@@ -340,7 +404,8 @@ public final class DecorManager implements Listener {
                                         kit.send(player, "world.decor.take_failed");
                                         return;
                                     }
-                                    if (!player.isOnline()) {
+                                    // 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 보관함으로 되돌린다
+                                    if (!player.isOnline() || kit.api().players().frozen(uuid)) {
                                         addCount(uuid, id, n);
                                         return;
                                     }
@@ -348,6 +413,8 @@ public final class DecorManager implements Listener {
                                     var left = player.getInventory().addItem(item);
                                     left.values()
                                             .forEach(rest -> addCount(uuid, id, rest.getAmount()));
+                                    // 보관함 차감은 이미 커밋됐다: 인벤토리도 곧 저장한다 (서버가 죽으면 아이템 유실)
+                                    kit.api().players().saveSoon(uuid);
                                 },
                                 kit.tasks().main());
     }
@@ -401,7 +468,12 @@ public final class DecorManager implements Listener {
             return;
         }
         event.setReturnItem(false);
-        addCount(plot.get().info.owner(), d.get().id(), 1);
+        World world = event.location().getWorld();
+        if (world != null) {
+            creditAfterWorldSave(world, plot.get().info.owner(), d.get().id(), 1);
+        } else {
+            addCount(plot.get().info.owner(), d.get().id(), 1);
+        }
     }
 
     // ------------------------------------------------------------------ 설치·회수
@@ -492,7 +564,7 @@ public final class DecorManager implements Listener {
         event.setDropItems(false);
         Optional<HousingManager.PlotState> plot = housing.stateAt(block.getLocation());
         UUID owner = plot.map(p -> p.info.owner()).orElse(event.getPlayer().getUniqueId());
-        addCount(owner, d.get().id(), 1);
+        creditAfterWorldSave(block.getWorld(), owner, d.get().id(), 1);
         if (d.get().kind() == DecorDef.Kind.TANK && plot.isPresent()) {
             plot.get().anchors.stream()
                     .filter(
@@ -612,8 +684,10 @@ public final class DecorManager implements Listener {
                 // 잘못된 UUID는 무시
             }
         }
+        World world = box.getWorld();
         box.remove();
-        HarborId.tryParse(decorId).ifPresent(id -> addCount(plot.get().info.owner(), id, 1));
+        HarborId.tryParse(decorId)
+                .ifPresent(id -> creditAfterWorldSave(world, plot.get().info.owner(), id, 1));
         kit.actionBar(player, "world.decor.furniture_removed");
     }
 
@@ -631,25 +705,49 @@ public final class DecorManager implements Listener {
         }
     }
 
+    /**
+     * 퇴장 저장(MONITOR)보다 먼저 보관함으로 돌린다. 서버 이동이면 저장본을 이미 떴으므로 (퇴장 때 다시 저장하지 않음) 여기서 옮기면 저장본과 보관함 양쪽에
+     * 남는다: 이동은 {@link #handoffBlocker()}가 저장 전에 처리하고, 여기서는 건너뛴다.
+     */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        if (housing.isHousingWorld(player.getWorld())) {
+        if (housing.isHousingWorld(player.getWorld())
+                && !kit.api().players().frozen(player.getUniqueId())) {
             stash(player);
         }
         owned.remove(player.getUniqueId());
     }
 
+    /**
+     * 서버 이동 전 (저장본을 뜨기 전, 메인 스레드): 하우징 월드에서 떠나면 장식 아이템을 보관함으로 돌린다. 이동하지 않는 훅이라 항상 허용한다. 다른 훅이 이동을
+     * 거부해도 장식은 보관함에 들어가 있을 뿐이다 (다시 꺼내면 된다). World 훅 중 마지막에 등록한다.
+     */
+    public HandoffBlocker handoffBlocker() {
+        return (player, destination) -> {
+            if (housing.isHousingWorld(player.getWorld())) {
+                stash(player);
+            }
+            return HandoffBlocker.ALLOW;
+        };
+    }
+
     /** 가방의 장식 아이템을 보관함 개수로 돌려놓는다. */
     private void stash(Player player) {
         ItemStack[] contents = player.getInventory().getContents();
+        boolean moved = false;
         for (int i = 0; i < contents.length; i++) {
             ItemStack stack = contents[i];
             Optional<DecorDef> d = def(stack);
             if (d.isPresent() && stack != null) {
                 addCount(player.getUniqueId(), d.get().id(), stack.getAmount());
                 player.getInventory().setItem(i, null);
+                moved = true;
             }
+        }
+        if (moved) {
+            // 보관함 개수는 즉시 쓰고 인벤토리는 지연 쓰기라, 서버가 죽으면 양쪽에 남는다 (퇴장 때는 곧이어 퇴장 저장이 돈다)
+            kit.api().players().saveSoon(player.getUniqueId());
         }
     }
 }

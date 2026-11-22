@@ -702,13 +702,34 @@ public final class RewardService {
         }
         if (!marked.isEmpty()) {
             BossItems.markDelivered(player, marked);
-            player.saveData();
         }
         if (full) {
             api.messages().send(player, "boss.reward.inventory_full");
         }
         if (!close.isEmpty()) {
-            var _ = api.database().asyncVoid(c -> BossRepository.markDelivered(c, close));
+            // 지급한 아이템과 PDC 표시를 먼저 저장한 뒤 DB 보상 행을 닫는다. 반대 순서면 닫은 뒤 서버가 죽었을 때 인벤토리가 지급 전으로
+            // 돌아가 보상이 사라진다. 저장이 실패하면 행을 열어 두고, 다음 지급 때 PDC 표시(메모리에 있으면)나 재지급으로 처리된다.
+            // 바닐라 saveData()는 Harbor 저장본이 원본이라 소용없다
+            UUID uuid = player.getUniqueId();
+            var _ =
+                    api.players()
+                            .saveNow(uuid)
+                            .thenCompose(
+                                    v ->
+                                            api.database()
+                                                    .asyncVoid(
+                                                            c ->
+                                                                    BossRepository.markDelivered(
+                                                                            c, close)))
+                            .exceptionally(
+                                    e -> {
+                                        mgr.log()
+                                                .warn(
+                                                        "보스 보상 지급 기록 실패 {}: {}",
+                                                        uuid,
+                                                        String.valueOf(e.getMessage()));
+                                        return null;
+                                    });
         }
     }
 

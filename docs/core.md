@@ -96,6 +96,10 @@
 - **플레이어 데이터:** 접속 전에 모든 컴포넌트를 병렬로 불러온다. 하나라도 실패하면 접속을 거부한다. 퇴장·서버 이동 때는 그 플레이어 것만 즉시 쓴다.
 - **인벤토리 동기화:** 인벤토리·엔더 상자·PDC·경험치·체력·배고픔·효과를 `player_inventory`에 저장한다. 접속 전 로드 → 접속 직후 적용. DB 행이 없는 플레이어는 본 서버(main)의 플레이어 파일이 원본이다.
 - **기록:** 퇴장·이동·사망·복구 때 기록을 남기고, 플레이어마다 `inventory.history_keep`개를 보관한다. `/harbor inventory`로 보고 되돌린다.
+- **거래 뒤 저장:** 재화가 커밋되거나 경제 거래(판매·구매·경매·우편·제작)가 끝나면 `PlayerService.saveSoon`으로 인벤토리를 바로 저장한다. 서버가 거래 직후 죽어도 재화와 아이템이 어긋나지 않게 한다.
+- **맡긴 아이템:** 자동 저장·거래 뒤 저장은 창을 닫지 않으므로 커서·제작 칸 아이템과 모듈이 `ModuleContext.itemCustody`로 알려 준 아이템(판매 상자, 수족관 기부함)을 저장본 인벤토리(넘치면 엔더 상자)에 넣어 둔다. 서버가 죽어도 인벤토리로 돌아온다.
+- **트랜잭션 우편:** `MailService.sendItemInTx`는 호출한 쪽 트랜잭션 안에서 우편을 넣는다 (통발 자동 회수가 행 삭제와 함께 쓴다). 커밋 뒤 `notifyArrived`를 부른다.
+- **이동 중 잠금:** 서버 이동용 데이터를 뜬 뒤 접속이 넘어갈 때까지 드롭·줍기·상호작용·인벤토리·피해·명령어를 막는다 (HuskSync의 locked와 같음). 이동 전 훅을 기다리던 중에 접속이 끊기면 일반 퇴장처럼 저장하고, 훅이 4초 안에 끝나지 않으면 이동을 취소한다. 모듈은 `PlayerService.frozen`이 참이면 아이템을 인벤토리 대신 우편으로 보낸다.
 
 ## 콘텐츠 시스템
 
@@ -134,7 +138,7 @@
 | `stats` | 보정자 스탯 기본값·하한·상한 (`/harbor stat`) |
 | `items` | `custom_models`, `fish_base_item` |
 | `world_alias` | 개발 서버의 월드 이름을 지역 월드에 대응 (운영 서버는 비움) |
-| `inventory` | `sync`(모든 서버가 같은 값이어야 함), `history_keep` |
+| `inventory` | `sync`(모든 서버가 같은 값이어야 함), `history_keep`, `commit_save_delay_ticks`(거래 커밋 뒤 인벤토리 즉시 저장까지 지연) |
 | `afk` | `lobby_minutes`(0이면 끔), `warn_seconds` |
 | `furniture` | `fix_glitched_noteblocks`: 번호 배정 전부터 있던 노트블록이 커스텀 모양으로 보이면 바닐라로 되돌림 |
 | `rig` | `fps`(20의 약수여야 함), `max_parts`, `lod_distance`, `tick_budget_ms`, `part_budget` 등 |

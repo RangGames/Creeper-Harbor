@@ -365,6 +365,10 @@ public final class RewardPayer {
                                                 completed,
                                                 effects.summary(def, finished.snap(), List.of()));
                                     }
+                                    // 완료 행·장부는 커밋됐다: 납품으로 빠진 아이템과 보상을 받은 인벤토리도 곧 저장한다. 서버가 죽으면
+                                    // 납품 아이템이 돌아오고 완료는 남아 복제된다 (재화 보상만 있으면 이미 저장되지만 아이템·경험치 보상은
+                                    // 아니다)
+                                    engine.api.players().saveSoon(uuid);
                                     done.complete(true);
                                 });
         return done;

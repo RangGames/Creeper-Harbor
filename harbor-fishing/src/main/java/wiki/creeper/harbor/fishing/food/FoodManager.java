@@ -120,6 +120,8 @@ public final class FoodManager implements Listener {
         }
         register(uuid, buff, r.next());
         hp.set(component, data.withFood(r.next()));
+        // 버프는 바로 DB에 쓰므로 먹은 음식이 빠진 인벤토리도 곧 저장한다 (서버가 죽으면 음식이 돌아오고 버프는 남는다)
+        api.players().saveSoon(uuid);
         var _ =
                 api.database()
                         .asyncVoid(c -> FishingRepository.saveFood(c, uuid, r.next()))

@@ -30,4 +30,18 @@ public interface PlayerService {
      * 것만 비운다). 메인 스레드에서 부르고, future는 커밋 후 완료된다. 접속 중이 아니면 바로 완료.
      */
     CompletableFuture<Void> saveNow(UUID player);
+
+    /**
+     * 짧은 지연(balance.yml {@code inventory.commit_save_delay_ticks}) 뒤 {@link #saveNow}한다. 아무 스레드에서
+     * 불러도 되고, 지연 안에 여러 번 부르면 한 번만 저장한다. 재화·경매·우편처럼 즉시 커밋되는 거래가 끝난 뒤 부른다: 인벤토리는 지연 쓰기라, 서버가 그 사이에
+     * 죽으면 아이템은 되돌아오고 거래 결과는 남아 복제가 된다. 지연은 거래 마무리(메인 스레드의 아이템 지급·회수)가 끝날 시간을 준다. 이 서버에 접속 중이 아니거나
+     * 서버 이동 중이면 아무 일도 하지 않는다 (추가 제안).
+     */
+    void saveSoon(UUID player);
+
+    /**
+     * 서버 이동용 저장본을 이미 떴는지 (메인 스레드). 참이면 이 서버에서 플레이어 상태를 바꿔도 저장되지 않는다: 퇴장 처리에서 아이템을 인벤토리로 돌려주거나 DB
+     * 쪽으로 옮기지 말고 그대로 두거나 우편으로 보낸다. 이 동안 플레이어 행동은 Core가 막는다.
+     */
+    boolean frozen(UUID player);
 }

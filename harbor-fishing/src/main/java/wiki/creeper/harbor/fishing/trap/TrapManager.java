@@ -130,6 +130,9 @@ public final class TrapManager implements TrapService, Listener {
                 future.whenComplete(
                         (v, e) -> {
                             var _ = tasks.sync(() -> inFlight.remove(player, future));
+                            // 통발 설치·미끼·수확·회수는 DB가 즉시 커밋되고 아이템은 지연 쓰기라, 인벤토리도 곧 저장한다 (지연 동안
+                            // 메인 스레드 콜백이 아이템을 주고받는다). 서버가 그 사이 죽으면 복제·유실된다
+                            api.players().saveSoon(player);
                         });
         return future;
     }

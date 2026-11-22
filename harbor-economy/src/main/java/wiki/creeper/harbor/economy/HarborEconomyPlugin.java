@@ -57,7 +57,7 @@ public final class HarborEconomyPlugin extends HarborModule {
         ctx.contentCheck(ShopDef.TYPE, ServerChecks.SHOP_VANILLA);
         ctx.contentCheck(Balance.TYPE, ServerChecks.BALANCE);
 
-        TradeGuard guard = new TradeGuard();
+        TradeGuard guard = new TradeGuard(api.players()::saveSoon);
         AdminAlerts alerts = new AdminAlerts(api, ctx.tasks());
         MarketEngine market = new MarketEngine(api, ctx.tasks(), getSLF4JLogger(), alerts);
         MailManager mail = new MailManager(api, ctx.tasks(), getSLF4JLogger(), guard);
@@ -96,6 +96,7 @@ public final class HarborEconomyPlugin extends HarborModule {
                                 DialogActions.register(this, dialogs, shops, craft, auction, mail));
 
         SellMenu sellMenu = new SellMenu(api, ctx.tasks(), sell, mail);
+        ctx.itemCustody(sellMenu::held);
         ctx.listen(sellMenu);
         EconomyCommands commands =
                 new EconomyCommands(

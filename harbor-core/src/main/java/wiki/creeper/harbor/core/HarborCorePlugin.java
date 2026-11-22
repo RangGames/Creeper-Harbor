@@ -290,6 +290,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
 
         var pm = Bukkit.getPluginManager();
         pm.registerEvents(playerManager, this);
+        pm.registerEvents(playerManager.freezeListener(), this);
         InventorySync inventorySync =
                 new InventorySync(
                         playerManager,

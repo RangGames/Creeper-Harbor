@@ -88,6 +88,22 @@ public final class SellMenu implements Listener {
         this.mail = mail;
     }
 
+    /** 자동 저장용 (Core ItemCustody): 열린 판매 상자에 넣어 둔 아이템. 판매 처리 중인 것은 이미 상자에서 빠져 있다. */
+    public List<ItemStack> held(Player player) {
+        Box box = open.get(player.getUniqueId());
+        if (box == null || box.done) {
+            return List.of();
+        }
+        List<ItemStack> out = new ArrayList<>();
+        for (int slot = 0; slot < DEPOSIT; slot++) {
+            ItemStack stack = box.inventory.getItem(slot);
+            if (stack != null && !stack.isEmpty()) {
+                out.add(stack.clone());
+            }
+        }
+        return out;
+    }
+
     public void open(Player player) {
         Box previous = open.remove(player.getUniqueId());
         if (previous != null) {

@@ -222,6 +222,13 @@ public final class AquariumManager implements AquariumService, Listener {
     /** 서버 이동 지연 (Core HandoffBlocker): 기부 트랜잭션이 끝날 때까지. */
     public HandoffBlocker handoffBlocker() {
         return (player, destination) -> {
+            // 기부함이 열려 있거나 확인을 기다리는 동안은 아이템이 인벤토리 밖(기부함·대기 목록)에 있다. 저장본을 뜨면 빠지고, 뜬 뒤 돌려주는
+            // 아이템은 저장되지 않으므로 이동을 막는다
+            if (pendingBox.containsKey(player.getUniqueId())
+                    || player.getOpenInventory().getTopInventory().getHolder(false)
+                            instanceof DonationBox) {
+                return new HandoffBlocker.Deny("busy");
+            }
             CompletableFuture<?> f = busy.get(player.getUniqueId());
             return f == null || f.isDone() ? HandoffBlocker.ALLOW : new HandoffBlocker.Delay(f);
         };
@@ -309,6 +316,24 @@ public final class AquariumManager implements AquariumService, Listener {
     }
 
     // ------------------------------------------------------------------ 기부함
+
+    /** 자동 저장용 (Core ItemCustody): 열린 기부함에 넣은 아이템과 기부 확인을 기다리는 아이템. */
+    public List<ItemStack> held(Player player) {
+        List<ItemStack> out = new ArrayList<>();
+        if (player.getOpenInventory().getTopInventory().getHolder(false)
+                instanceof DonationBox box) {
+            for (ItemStack stack : box.getInventory().getContents()) {
+                if (stack != null && !stack.isEmpty()) {
+                    out.add(stack.clone());
+                }
+            }
+        }
+        List<ItemStack> pending = pendingBox.get(player.getUniqueId());
+        if (pending != null) {
+            pending.forEach(stack -> out.add(stack.clone()));
+        }
+        return out;
+    }
 
     @Override
     public void openDonationBox(Player player) {
@@ -507,6 +532,9 @@ public final class AquariumManager implements AquariumService, Listener {
         return work.handleAsync(
                 (points, error) -> {
                     busy.remove(uuid, work);
+                    // 기부 기록은 즉시 커밋, 인벤토리는 지연 쓰기다: 곧 저장해서 서버가 죽어도 기부한 물고기가 돌아오지 않게 한다
+                    // (실패해서 돌려준 경우도 인벤토리가 바뀌었다)
+                    api.players().saveSoon(uuid);
                     if (error != null || points == null) {
                         log.warn(
                                 "수족관 기부 실패, 아이템을 돌려줍니다: {} {} {}",

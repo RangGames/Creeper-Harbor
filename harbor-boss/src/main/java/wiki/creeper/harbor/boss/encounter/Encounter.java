@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.SplittableRandom;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.sound.Sound;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -249,12 +250,28 @@ public final class Encounter {
                 mgr.finishEarly(this, "boss.start.no_bait");
                 return;
             }
-            summoner.saveData();
         }
         startedAt = Instant.now();
+        // 미끼를 뺀 인벤토리를 먼저 저장한 뒤 RUNNING을 기록한다. 반대 순서면 기록 뒤 서버가 죽었을 때 인벤토리는 미끼가 있던 저장본으로
+        // 돌아가고 복구 처리(refundBait)가 한 번 더 돌려줘 미끼가 복제된다. 바닐라 saveData()는 Harbor 저장본이 원본이라 소용없다
+        CompletableFuture<Void> saved =
+                summonItem == null
+                        ? CompletableFuture.completedFuture(null)
+                        : mgr.api()
+                                .players()
+                                .saveNow(leader)
+                                .exceptionally(
+                                        e -> {
+                                            mgr.log()
+                                                    .warn(
+                                                            "소환 미끼 저장 실패 {}: {}",
+                                                            id,
+                                                            String.valueOf(e.getMessage()));
+                                            return null;
+                                        });
         var _ =
-                mgr.recordStart(this)
-                        .whenComplete(
+                saved.thenComposeAsync(v -> mgr.recordStart(this), mgr.tasks().main())
+                        .whenCompleteAsync(
                                 (ok, err) -> {
                                     if (finished) {
                                         return;
@@ -268,7 +285,8 @@ public final class Encounter {
                                     }
                                     launched = true;
                                     handle(fight.allReady());
-                                });
+                                },
+                                mgr.tasks().main());
     }
 
     // ------------------------------------------------------------------ 틱

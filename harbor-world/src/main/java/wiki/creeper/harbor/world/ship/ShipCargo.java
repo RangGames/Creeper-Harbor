@@ -142,5 +142,12 @@ final class ShipCargo {
                 .enqueue(
                         "player:" + cargo.owner + ":world:cargo:" + id,
                         c -> ShipRepository.updateCargo(c, id, bytes));
+        // 화물과 인벤토리를 함께 쓴다 (같은 player: 키라 주인이면 flushNow에 화물도 실린다). 한쪽만 쓰인 채 서버가 죽으면
+        // 옮긴 아이템이 복제되거나 사라진다
+        UUID closer = event.getPlayer().getUniqueId();
+        kit.api().players().saveSoon(closer);
+        if (!closer.equals(cargo.owner)) {
+            kit.api().players().saveSoon(cargo.owner);
+        }
     }
 }

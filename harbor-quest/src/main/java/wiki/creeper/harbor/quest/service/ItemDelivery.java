@@ -21,6 +21,11 @@ final class ItemDelivery {
 
     /** 인벤토리가 차면 우편함 (Core api MailService, 구현 Economy). 우편함이 없으면 발밑에 떨어뜨린다. */
     void deliverItem(Player player, ItemStack stack, String ref) {
+        if (engine.api.players().frozen(player.getUniqueId())) {
+            // 서버 이동 저장본을 뜬 뒤라 인벤토리에 넣어도 저장되지 않는다
+            sendMail(player.getUniqueId(), stack, ref, null);
+            return;
+        }
         Map<Integer, ItemStack> left = player.getInventory().addItem(stack);
         if (left.isEmpty()) {
             return;
@@ -47,8 +52,10 @@ final class ItemDelivery {
     /** 실패한 보고에서 뺀 아이템 반환 (오프라인이면 우편함). */
     void giveBack(UUID uuid, List<ItemStack> removed) {
         Player player = Bukkit.getPlayer(uuid);
+        // 서버 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 우편으로
+        boolean frozen = player != null && engine.api.players().frozen(uuid);
         for (ItemStack stack : removed) {
-            if (player != null) {
+            if (player != null && !frozen) {
                 player.getInventory()
                         .addItem(stack)
                         .values()

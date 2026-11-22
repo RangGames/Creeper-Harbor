@@ -25,6 +25,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
+import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.common.ledger.LedgerEntry;
 import wiki.creeper.harbor.common.ledger.LedgerError;
 import wiki.creeper.harbor.common.ledger.LedgerException;
@@ -169,7 +170,15 @@ public final class MailManager implements MailService {
         }
     }
 
+    @Override
+    public SqlConsumer sendItemInTx(UUID player, ItemStack item, String source, String refId) {
+        byte[] data = item.serializeAsBytes();
+        int season = api.infra().season().value();
+        return c -> insert(c, player, season, "item", data, 0, source, refId, false, null);
+    }
+
     /** 커밋 뒤 수신자에게 알린다 (다른 서버 포함). */
+    @Override
     public void notifyArrived(UUID player) {
         api.bus().publish(CHANNEL, new MailNotice(player));
     }
@@ -220,7 +229,8 @@ public final class MailManager implements MailService {
         int index = 0;
         for (ItemStack item : items) {
             String ref = refId + ":" + index++;
-            if (online != null && online.isOnline()) {
+            // 서버 이동 저장본을 뜬 뒤면 인벤토리에 넣어도 저장되지 않으므로 우편으로
+            if (online != null && online.isOnline() && !api.players().frozen(player)) {
                 for (ItemStack left : online.getInventory().addItem(item.clone()).values()) {
                     var _ = sendItem(player, left, source, ref);
                     api.messages().send(online, "economy.shop.to_mail");

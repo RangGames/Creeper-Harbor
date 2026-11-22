@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -34,6 +35,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.ItemDef;
+import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RegionId;
@@ -42,6 +44,7 @@ import wiki.creeper.harbor.common.ledger.LedgerError;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.util.Result;
+import wiki.creeper.harbor.core.api.MailService;
 import wiki.creeper.harbor.fishing.api.TreasureDropHook;
 import wiki.creeper.harbor.world.WorldKit;
 import wiki.creeper.harbor.world.api.TreasureService;
@@ -323,37 +326,61 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
                 table.roll(tier.get(), data.region(), ThreadLocalRandom.current());
         int season = kit.season();
         String ref = data.uid().toString();
-        var _ =
-                kit.api()
-                        .currency()
-                        .atomic(
-                                roll.gold() > 0
-                                        ? List.of(
+        SqlConsumer insert =
+                c -> {
+                    try (PreparedStatement ps =
+                            c.prepareStatement(
+                                    "INSERT INTO treasure_claim (map_uid, uuid, season, region_id, site_id, tier, gold) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                        ps.setObject(1, data.uid());
+                        ps.setObject(2, uuid);
+                        ps.setInt(3, season);
+                        ps.setString(4, data.region().toString());
+                        ps.setString(5, data.site());
+                        ps.setString(6, data.tier());
+                        ps.setLong(7, roll.gold());
+                        ps.executeUpdate();
+                    } catch (SQLIntegrityConstraintViolationException e) {
+                        throw new wiki.creeper.harbor.common.ledger.LedgerException(
+                                LedgerError.DUPLICATE, "이미 수령한 지도");
+                    }
+                };
+        // 골드가 0이면 원장 기록이 없어 atomic()을 쓸 수 없다 (빈 목록은 예외). 수령 기록만 쓴다
+        CompletableFuture<Result<List<Long>, LedgerError>> work =
+                roll.gold() > 0
+                        ? kit.api()
+                                .currency()
+                                .atomic(
+                                        List.of(
                                                 new LedgerEntry(
                                                         uuid,
                                                         Currency.GOLD,
                                                         roll.gold(),
                                                         LedgerReason.TREASURE,
-                                                        ref))
-                                        : List.of(),
-                                c -> {
-                                    try (PreparedStatement ps =
-                                            c.prepareStatement(
-                                                    "INSERT INTO treasure_claim (map_uid, uuid, season, region_id, site_id, tier, gold) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
-                                        ps.setObject(1, data.uid());
-                                        ps.setObject(2, uuid);
-                                        ps.setInt(3, season);
-                                        ps.setString(4, data.region().toString());
-                                        ps.setString(5, data.site());
-                                        ps.setString(6, data.tier());
-                                        ps.setLong(7, roll.gold());
-                                        ps.executeUpdate();
-                                    } catch (SQLIntegrityConstraintViolationException e) {
-                                        throw new wiki.creeper.harbor.common.ledger.LedgerException(
-                                                LedgerError.DUPLICATE, "이미 수령한 지도");
-                                    }
-                                })
-                        .thenAccept(result -> finish(player, data, site, roll, result));
+                                                        ref)),
+                                        insert)
+                        : kit.api()
+                                .database()
+                                .asyncVoid(insert)
+                                .handleAsync(
+                                        (v, e) -> {
+                                            if (e == null) {
+                                                return Result.<List<Long>, LedgerError>ok(
+                                                        List.of());
+                                            }
+                                            Throwable cause =
+                                                    e.getCause() == null ? e : e.getCause();
+                                            return Result.<List<Long>, LedgerError>err(
+                                                    cause
+                                                                    instanceof
+                                                                    wiki.creeper.harbor.common
+                                                                                    .ledger
+                                                                                    .LedgerException
+                                                                            le
+                                                            ? le.error()
+                                                            : LedgerError.DATABASE);
+                                        },
+                                        kit.tasks().main());
+        var _ = work.thenAccept(result -> finish(player, data, site, roll, result));
     }
 
     private void finish(
@@ -363,7 +390,12 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
             TreasureTable.Roll roll,
             Result<List<Long>, LedgerError> result) {
         digging.remove(player.getUniqueId());
-        if (!player.isOnline()) {
+        if (!player.isOnline() || kit.api().players().frozen(player.getUniqueId())) {
+            // 수령 기록은 커밋됐는데 그사이 나갔거나 서버를 옮기는 중이다: 아이템 보상은 우편으로 보낸다 (골드는 이미 지급됐다).
+            // 지도는 인벤토리에 남지만 다시 쓰면 이미 수령한 지도로 처리된다
+            if (result.isOk()) {
+                mailRewards(player.getUniqueId(), data, roll);
+            }
             return;
         }
         boolean duplicate =
@@ -382,6 +414,8 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
             kit.createItem(e.getKey().id(), e.getValue())
                     .ifPresent(stack -> kit.give(player, stack));
         }
+        // 수령 기록은 커밋됐다: 지도가 빠지고 보상을 받은 인벤토리도 곧 저장한다 (골드가 있으면 재화 이벤트로도 저장된다)
+        kit.api().players().saveSoon(player.getUniqueId());
         showChest(player, site);
         kit.send(
                 player,
@@ -396,6 +430,36 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
                                 data.tier(),
                                 roll.gold(),
                                 roll.hint()));
+    }
+
+    /** 접속해 있지 않은 사람의 보물 아이템 보상을 우편으로 (참조 ID가 지도마다 같아서 다시 불러도 한 번만 간다). */
+    private void mailRewards(UUID uuid, MapData data, TreasureTable.Roll roll) {
+        Optional<MailService> mail = kit.api().mail();
+        int i = 0;
+        for (Map.Entry<ItemId, Integer> e : roll.items().entrySet()) {
+            Optional<ItemStack> stack = kit.createItem(e.getKey().id(), e.getValue());
+            if (stack.isEmpty()) {
+                continue;
+            }
+            String ref = "treasure:" + data.uid() + ":" + i++;
+            if (mail.isEmpty()) {
+                kit.log().error("우편함이 없어 보물 보상을 줄 수 없습니다 (관리자 복구 필요): {} {}", uuid, stack.get());
+                continue;
+            }
+            var _ =
+                    mail.get()
+                            .sendItem(uuid, stack.get(), "treasure", ref)
+                            .exceptionally(
+                                    ex -> {
+                                        kit.log()
+                                                .error(
+                                                        "보물 보상 우편 실패 (관리자 복구 필요): {} {}",
+                                                        uuid,
+                                                        ref,
+                                                        ex);
+                                        return null;
+                                    });
+        }
     }
 
     private void removeMap(Player player, UUID uid) {

@@ -41,6 +41,7 @@ import wiki.creeper.harbor.common.db.WriteBehindQueue;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.api.PlayerComponent;
+import wiki.creeper.harbor.core.api.event.CurrencyChangedEvent;
 import wiki.creeper.harbor.core.player.PlayerManager;
 import wiki.creeper.harbor.core.task.Tasks;
 
@@ -125,6 +126,19 @@ public final class InventorySync implements Listener {
     public void register() {
         players.register(component);
         players.addSaveHook(this::beforeSave);
+        players.setSaveSoonDelay(
+                () -> Math.max(1, balance().integer("inventory.commit_save_delay_ticks", 10)));
+    }
+
+    /**
+     * 재화가 커밋되면 인벤토리도 곧 저장한다. 재화는 즉시 트랜잭션이고 인벤토리는 지연 쓰기라, 판매 직후 서버가 죽으면 골드는 남고 판 아이템은 마지막 저장 상태로
+     * 돌아온다 (HuskSync도 같은 구조라 막지 못하는 부분, 추가 제안). 지급·차감 모두 해당한다.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onCurrency(CurrencyChangedEvent event) {
+        if (enabled() && synced.contains(event.player())) {
+            players.saveSoon(event.player());
+        }
     }
 
     private boolean enabled() {
@@ -269,7 +283,10 @@ public final class InventorySync implements Listener {
             // 커서·제작 칸·열린 창의 아이템을 인벤토리로 돌린 뒤 뜬다
             player.closeInventory();
         }
-        InventoryData data = capture(player);
+        // 자동 저장·거래 뒤 저장은 창을 닫지 않으므로, 인벤토리 밖에 있는 아이템(커서·제작 칸·모듈이 맡은 것)을 저장본에 넣어 둔다.
+        // 그대로 두면 그 사이 서버가 죽었을 때 사라진다. 떠날 때는 위에서 창을 닫아 이미 인벤토리로 돌아왔다
+        List<ItemStack> outside = leaving ? List.of() : outside(player);
+        InventoryData data = capture(player, outside);
         hp.set(component, new Synced(data));
         if (leaving) {
             byte[] encoded = data.encode();
@@ -282,7 +299,57 @@ public final class InventorySync implements Listener {
         }
     }
 
+    /** 메인 스레드: 인벤토리 칸 밖에 있는 이 플레이어 아이템 (커서, 2x2 제작 칸, 모듈이 맡은 것). */
+    private List<ItemStack> outside(Player player) {
+        List<ItemStack> out = new ArrayList<>();
+        ItemStack cursor = player.getItemOnCursor();
+        if (!cursor.isEmpty()) {
+            out.add(cursor.clone());
+        }
+        Inventory top = player.getOpenInventory().getTopInventory();
+        if (top.getType() == InventoryType.CRAFTING) {
+            // 결과 칸(0)은 재료에서 만들어진 미리보기라 넣지 않는다
+            for (int i = 1; i < Math.min(CRAFTING_SLOTS, top.getSize()); i++) {
+                ItemStack item = top.getItem(i);
+                if (item != null && !item.isEmpty()) {
+                    out.add(item.clone());
+                }
+            }
+        }
+        out.addAll(players.custody(player));
+        return out;
+    }
+
     static InventoryData capture(Player player) {
+        return capture(player, List.of());
+    }
+
+    /**
+     * 지금 상태를 뜬다. {@code outside}는 저장본에서만 인벤토리 빈 칸(넘치면 엔더 상자)에 넣는다 (실제 인벤토리는 바꾸지 않는다). 둘 다 차면 그만큼은
+     * 저장본에 없다 (기록만 남긴다).
+     */
+    static InventoryData capture(Player player, List<ItemStack> outside) {
+        ItemStack[] contents = nonNull(player.getInventory().getContents());
+        ItemStack[] ender = nonNull(player.getEnderChest().getContents());
+        if (!outside.isEmpty()) {
+            contents = copy(contents);
+            ender = copy(ender);
+            for (ItemStack item : outside) {
+                ItemStack rest = place(contents, STORAGE_SLOTS, item.clone());
+                if (!rest.isEmpty()) {
+                    rest = place(ender, ender.length, rest);
+                }
+                if (!rest.isEmpty()) {
+                    System.getLogger("Harbor/InventorySync")
+                            .log(
+                                    System.Logger.Level.WARNING,
+                                    "저장본에 넣을 자리가 없어 맡은 아이템을 빼고 저장합니다: "
+                                            + player.getName()
+                                            + " "
+                                            + rest);
+                }
+            }
+        }
         List<InventoryData.Effect> effects = new ArrayList<>();
         for (PotionEffect e : player.getActivePotionEffects()) {
             if (e.isAmbient()) {
@@ -298,8 +365,8 @@ public final class InventorySync implements Listener {
                             e.hasIcon()));
         }
         return new InventoryData(
-                ItemStack.serializeItemsAsBytes(nonNull(player.getInventory().getContents())),
-                ItemStack.serializeItemsAsBytes(nonNull(player.getEnderChest().getContents())),
+                ItemStack.serializeItemsAsBytes(contents),
+                ItemStack.serializeItemsAsBytes(ender),
                 serializePdc(player),
                 player.getLevel(),
                 player.getExp(),
@@ -318,6 +385,47 @@ public final class InventorySync implements Listener {
         } catch (IOException e) {
             throw new IllegalStateException("PDC를 저장하지 못했습니다", e);
         }
+    }
+
+    /** 플레이어 인벤토리의 보관 칸 수 (핫바 포함, 갑옷·보조손 제외). */
+    private static final int STORAGE_SLOTS = 36;
+
+    private static ItemStack[] copy(ItemStack[] items) {
+        ItemStack[] out = new ItemStack[items.length];
+        for (int i = 0; i < items.length; i++) {
+            out[i] = items[i].clone();
+        }
+        return out;
+    }
+
+    /** 같은 아이템 묶음을 먼저 채우고 빈 칸에 넣는다 (addItem과 같은 규칙). 남은 것을 돌려준다 (다 넣었으면 빈 아이템). */
+    private static ItemStack place(ItemStack[] slots, int limit, ItemStack item) {
+        int left = item.getAmount();
+        int max = item.getMaxStackSize();
+        int end = Math.min(limit, slots.length);
+        for (int i = 0; i < end && left > 0; i++) {
+            ItemStack slot = slots[i];
+            if (!slot.isEmpty() && slot.isSimilar(item) && slot.getAmount() < max) {
+                int n = Math.min(left, max - slot.getAmount());
+                slot.setAmount(slot.getAmount() + n);
+                left -= n;
+            }
+        }
+        for (int i = 0; i < end && left > 0; i++) {
+            if (slots[i].isEmpty()) {
+                int n = Math.min(left, max);
+                ItemStack put = item.clone();
+                put.setAmount(n);
+                slots[i] = put;
+                left -= n;
+            }
+        }
+        if (left <= 0) {
+            return ItemStack.empty();
+        }
+        ItemStack rest = item.clone();
+        rest.setAmount(left);
+        return rest;
     }
 
     private static ItemStack[] nonNull(@Nullable ItemStack[] items) {

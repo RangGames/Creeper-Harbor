@@ -291,6 +291,9 @@ public final class AffinityManager implements AffinityService {
         held.setAmount(held.getAmount() - 1);
         player.getInventory().setItem(EquipmentSlot.HAND, held.getAmount() <= 0 ? null : held);
         if (uid != null) {
+            // 장부는 바로 GIFTED가 되므로 선물한 아이템이 빠진 인벤토리도 곧 저장한다. 서버가 죽으면 GIFTED 상태의 아이템이 돌아와
+            // 복사본으로 판정된다 (판매·경매 불가)
+            api.players().saveSoon(player.getUniqueId());
             // 장부 상태 기록
             var _ =
                     api.database()

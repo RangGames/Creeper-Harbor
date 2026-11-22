@@ -49,6 +49,8 @@ final class PlayerState implements HarborPlayer {
     private int reputation;
     private boolean baseDirty;
     private volatile @Nullable String handoffRequest;
+    private volatile boolean handoffSaved;
+    private volatile boolean left;
 
     PlayerState(PlayerRepository.Row row, Map<String, Object> loadedComponents) {
         this.uuid = row.uuid();
@@ -70,7 +72,10 @@ final class PlayerState implements HarborPlayer {
         sessionStart = Instant.now();
     }
 
-    /** 서버 이동 중이면 그 요청 ID. 이동 중에는 저장하지 않는다 (이미 저장하고 잠금을 넘겼다). */
+    /**
+     * 서버 이동 요청을 받았으면 그 요청 ID. 요청만 받은 단계(이동 전 훅 지연 대기)에서는 아직 저장하지 않았고, {@link #handoffSaved()}부터 저장을
+     * 마친(또는 큐에 넣은) 단계다.
+     */
     @Nullable String handoffRequest() {
         return handoffRequest;
     }
@@ -79,8 +84,33 @@ final class PlayerState implements HarborPlayer {
         return handoffRequest != null;
     }
 
+    /** 요청을 지우면 저장 단계 표시도 같이 지운다 (취소·실패 뒤 계속 플레이). */
     void setHandoffRequest(@Nullable String requestId) {
         handoffRequest = requestId;
+        if (requestId == null) {
+            handoffSaved = false;
+        }
+    }
+
+    /**
+     * 이동용 저장 데이터를 떴다. 이 뒤로는 저장하지 않고 플레이어 행동을 막는다 (HuskSync의 locked 상태와 같음: 뜬 뒤에 바뀐 것은 어디에도 남지 않으므로
+     * 아이템을 버리면 복제된다).
+     */
+    boolean handoffSaved() {
+        return handoffSaved;
+    }
+
+    void markHandoffSaved() {
+        handoffSaved = true;
+    }
+
+    /** 이 서버에서 퇴장했다 (비동기 handoff 처리가 늦게 끝났을 때 잠금 정리용). */
+    boolean left() {
+        return left;
+    }
+
+    void markLeft() {
+        left = true;
     }
 
     void setCachedBalance(Currency currency, long balance) {

@@ -231,6 +231,10 @@ final class CatchRewards {
                                     now);
             caught = readFish(stack, fish, qualityEvent, hp, now);
             gear.give(player, stack);
+            if (fish.grade().compareTo(Grade.LEGENDARY) >= 0) {
+                // 전설 천장 초기화·신화 서버 마릿수는 즉시 쓰이므로 잡은 물고기도 곧 저장한다 (서버가 죽으면 물고기만 사라진다)
+                api.players().saveSoon(uuid);
+            }
         }
         if (fish.grade() == Grade.LEGENDARY) {
             // 전설 포획: 그 어종의 천장 카운터를 즉시 0으로

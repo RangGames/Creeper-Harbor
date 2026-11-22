@@ -267,11 +267,11 @@ public final class CollectionManager
         hp.set(COMPONENT, data.withCatch(fish.id(), newTotal, newSeason));
         api.writeBehind()
                 .enqueue(
-                        "codex:" + uuid + ":t:" + fish.id(),
+                        "player:" + uuid + ":collection:t:" + fish.id(),
                         c -> CollectionRepository.upsertCodex(c, uuid, null, fish.id(), newTotal));
         api.writeBehind()
                 .enqueue(
-                        "codex:" + uuid + ":s:" + fish.id(),
+                        "player:" + uuid + ":collection:s:" + fish.id(),
                         c ->
                                 CollectionRepository.upsertCodex(
                                         c, uuid, season, fish.id(), newSeason));
@@ -641,7 +641,7 @@ public final class CollectionManager
         hp.get().set(COMPONENT, hp.get().get(COMPONENT).withHint(fish, target));
         api.writeBehind()
                 .enqueue(
-                        "codex:" + player + ":h:" + fish,
+                        "player:" + player + ":collection:h:" + fish,
                         c -> CollectionRepository.upsertHint(c, player, fish, target, source));
         return true;
     }

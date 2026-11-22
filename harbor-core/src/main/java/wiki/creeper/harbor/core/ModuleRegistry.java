@@ -16,6 +16,7 @@ import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborModule;
+import wiki.creeper.harbor.core.api.ItemCustody;
 import wiki.creeper.harbor.core.api.ModuleContext;
 import wiki.creeper.harbor.core.api.ModuleHost;
 import wiki.creeper.harbor.core.api.PlayerComponent;
@@ -158,6 +159,11 @@ final class ModuleRegistry implements ModuleHost {
         @Override
         public void handoffBlocker(HandoffBlocker blocker) {
             cleanups.add(players.addHandoffBlocker(blocker));
+        }
+
+        @Override
+        public void itemCustody(ItemCustody custody) {
+            cleanups.add(players.addItemCustody(custody));
         }
     }
 }
