@@ -129,7 +129,9 @@ final class SkriptSyntax {
                         .supplier(ExprServer::new)
                         .build());
         count++;
-        EventValueRegistry values = skript.registry(EventValueRegistry.class);
+        // The addon's registry is the modifiable one; Skript.instance().registry(...) is a
+        // read-only view and throws on register (Skript 2.17).
+        EventValueRegistry values = addon.registry(EventValueRegistry.class);
         values.register(
                 EventValue.simple(
                         CurrencyChangedEvent.class,
