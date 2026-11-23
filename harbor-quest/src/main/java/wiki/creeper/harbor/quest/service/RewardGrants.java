@@ -46,7 +46,7 @@ final class RewardGrants {
      * @param fresh just completed (gives the grant bundle). On recovery it is given only if grant
      *     has not been recorded
      */
-    void pay(UUID uuid, QuestDef def, QuestEntry entry, boolean fresh) {
+    CompletableFuture<?> pay(UUID uuid, QuestDef def, QuestEntry entry, boolean fresh) {
         Progress progress = entry.progress();
         Progress.Snapshot snap = progress.snap();
         Rewards rewards = def.rewards();
@@ -224,6 +224,9 @@ final class RewardGrants {
                             entry,
                             engine.payer().effects().summary(def, snap, itemNames));
         }
+        // session-critical write (the grant undo when the player already left); callers hold the
+        // session until it finishes
+        return grantDone;
     }
 
     private static boolean isDuplicate(Result<Long, LedgerError> r) {

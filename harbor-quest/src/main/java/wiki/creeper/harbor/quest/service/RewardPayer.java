@@ -307,6 +307,11 @@ public final class RewardPayer {
         }
         CompletableFuture<Boolean> done = new CompletableFuture<>();
         completing.put(key(uuid, quest), done);
+        // Hold the session (quit save / server move) until the completion and any grant undo are
+        // committed. Otherwise a player who quits mid-completion can load on another server before
+        // the undo lands, the new server sees the grant as paid, and the grant bundle is lost.
+        CompletableFuture<Void> sessionWrites = new CompletableFuture<>();
+        engine.api.players().holdSession(uuid, sessionWrites);
         engine.invalidate(uuid);
         engine.cancelPending(uuid, quest);
         Progress finished =
@@ -353,6 +358,7 @@ public final class RewardPayer {
                                                     .messages()
                                                     .send(player, "quest.error.complete_failed");
                                         }
+                                        sessionWrites.complete(null);
                                         done.complete(false);
                                         return;
                                     }
@@ -378,8 +384,14 @@ public final class RewardPayer {
                                                             entry.state(),
                                                             QuestState.COMPLETED));
                                     if (reward) {
-                                        grants.pay(uuid, def, completed, true);
+                                        var _ =
+                                                grants.pay(uuid, def, completed, true)
+                                                        .whenComplete(
+                                                                (v, e) ->
+                                                                        sessionWrites.complete(
+                                                                                null));
                                     } else {
+                                        sessionWrites.complete(null);
                                         effects.afterComplete(
                                                 uuid,
                                                 def,
@@ -408,7 +420,7 @@ public final class RewardPayer {
                         .ifPresent(
                                 d -> {
                                     engine.log.info("미지급 보상 복구: {} {}", player.getName(), d.id());
-                                    grants.pay(hp.uuid(), d, e, false);
+                                    var _ = grants.pay(hp.uuid(), d, e, false);
                                 });
             }
         }
