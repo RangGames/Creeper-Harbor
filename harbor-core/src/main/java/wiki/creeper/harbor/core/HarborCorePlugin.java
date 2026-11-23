@@ -227,9 +227,20 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         tasks,
                         log);
         players = playerManager;
+        playerManager.setHoldTimeout(
+                () ->
+                        content.snapshot()
+                                .single(Balance.TYPE)
+                                .integer("session.hold_timeout_ms", 3000));
         dialogs.setFrozen(playerManager::frozen);
         FlagManager flags =
-                new FlagManager(database, messageBus, playerManager, tasks, infra.season());
+                new FlagManager(
+                        database,
+                        messageBus,
+                        playerManager,
+                        tasks,
+                        infra.season(),
+                        infra.serverId());
         flags.start();
         ModifierManager modifiers =
                 new ModifierManager(() -> content.snapshot().single(Balance.TYPE));
@@ -276,6 +287,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         borders,
                         rigManager,
                         new FurnishingService(furnitureManager, customBlocks),
+                        adminLog,
                         infra,
                         time,
                         database,
@@ -310,7 +322,14 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         inventorySync.register();
         pm.registerEvents(inventorySync, this);
         command.addModuleCommand(
-                new InventoryCommand(inventorySync, playerManager, r, msg, tasks, adminLog)
+                new InventoryCommand(
+                                inventorySync,
+                                playerManager,
+                                r,
+                                infra.serverId(),
+                                msg,
+                                tasks,
+                                adminLog)
                         .build());
         pm.registerEvents(modifiers, this);
         pm.registerEvents(borders, this);

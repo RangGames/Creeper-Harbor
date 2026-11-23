@@ -47,6 +47,10 @@ final class HandoffHandler {
     private final Logger log;
     private final Map<UUID, PlayerState> online;
     private final Consumer<PlayerState> saveForHandoff;
+
+    /** Blocking wait for the player's session holds (async task only). */
+    private final Consumer<UUID> awaitHolds;
+
     private final List<HandoffBlocker> handoffBlockers = new CopyOnWriteArrayList<>();
 
     HandoffHandler(
@@ -58,7 +62,8 @@ final class HandoffHandler {
             Tasks tasks,
             Logger log,
             Map<UUID, PlayerState> online,
-            Consumer<PlayerState> saveForHandoff) {
+            Consumer<PlayerState> saveForHandoff,
+            Consumer<UUID> awaitHolds) {
         this.infra = infra;
         this.queue = queue;
         this.locks = locks;
@@ -68,6 +73,7 @@ final class HandoffHandler {
         this.log = log;
         this.online = online;
         this.saveForHandoff = saveForHandoff;
+        this.awaitHolds = awaitHolds;
     }
 
     Runnable addHandoffBlocker(HandoffBlocker blocker) {
@@ -171,6 +177,9 @@ final class HandoffHandler {
                             boolean ok = false;
                             String reason;
                             try {
+                                // Direct DB writes still in flight (flags, quest completion) must
+                                // land before the destination loads
+                                awaitHolds.accept(uuid);
                                 queue.flushNow(PlayerManager.prefix(uuid));
                                 ok =
                                         locks.beginHandoff(

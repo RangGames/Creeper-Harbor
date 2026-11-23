@@ -455,6 +455,27 @@ LIMIT 100;
 
 `ref_id`는 `skript:<무작위 UUID>`입니다.
 
+## 운영: 스크립트가 한 관리 조작 확인
+
+`harbor admin ...`으로 시작하는 효과는 실행될 때마다 `admin_log`에 남습니다 (Core `AdminLogService`). 새로 추가한 관리 효과도 패턴이 `harbor admin`으로 시작하면 자동으로 기록됩니다.
+
+- `admin`: `skript`
+- `action`: `skript.` + 등록 이름에서 `harbor`·`admin`을 뺀 단어를 `_`로 이은 것. 예: `harbor admin complete quest` → `skript.complete_quest`, `harbor admin set job level` → `skript.set_job_level`
+- `target`: 플레이어 인자 값이 정확히 한 명일 때 그 UUID (여러 명이면 비움)
+- `detail`: `<스크립트>:<트리거 시작 줄> (<트리거 이름>)` 뒤에 인자 값 (`[번호]=값`, 결과를 담는 변수는 빼고, 1000자까지). 효과 명령(`!`)으로 실행하면 `effect-command`
+
+인자가 틀려 아무것도 하지 않은 실행도 기록됩니다 (시도 기록).
+
+```sql
+SELECT admin, action, target, detail, created_at
+FROM admin_log
+WHERE admin = 'skript'
+ORDER BY id DESC
+LIMIT 100;
+```
+
+모듈 API의 관리 메서드(퀘스트 `adminComplete` 등, 직업 `adminSetLevel` 등)는 스스로 기록하지 않습니다. 명령과 이 애드온이 대신 남기고, 다른 플러그인에서 부를 때는 `Harbor.api().adminLog().record(...)`로 남겨야 합니다.
+
 ## 문법 추가
 
 새 문법은 두 가지 방법으로 추가합니다.

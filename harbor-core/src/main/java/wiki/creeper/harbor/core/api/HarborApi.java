@@ -42,6 +42,9 @@ public interface HarborApi {
     /** Furniture and custom blocks (proposed). */
     FurnitureService furniture();
 
+    /** Admin action audit log for actions without a command sender (Skript, integrations). */
+    AdminLogService adminLog();
+
     InfraConfig infra();
 
     HarborTime time();

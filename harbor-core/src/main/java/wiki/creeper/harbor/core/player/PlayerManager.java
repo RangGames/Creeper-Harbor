@@ -2,6 +2,7 @@ package wiki.creeper.harbor.core.player;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -100,6 +101,8 @@ public final class PlayerManager implements PlayerService, Listener {
     private final PlayerLoader loader;
     private final Set<UUID> saveSoonPending = ConcurrentHashMap.newKeySet();
     private volatile LongSupplier saveSoonDelay = () -> 10;
+    private final SessionHolds holds = new SessionHolds();
+    private volatile LongSupplier holdTimeoutMillis = () -> 3000;
 
     /** Save reason (for SaveHook and logging). */
     public enum SaveReason {
@@ -153,7 +156,8 @@ public final class PlayerManager implements PlayerService, Listener {
                         tasks,
                         log,
                         online,
-                        state -> enqueueSave(state, false, SaveReason.HANDOFF));
+                        state -> enqueueSave(state, false, SaveReason.HANDOFF),
+                        this::awaitHolds);
         this.loader = new PlayerLoader(infra, db, components);
     }
 
@@ -346,6 +350,7 @@ public final class PlayerManager implements PlayerService, Listener {
                 tasks.async(
                         () -> {
                             try {
+                                awaitHolds(uuid);
                                 queue.flushNow(prefix(uuid));
                                 locks.release(uuid, infra.serverId());
                             } catch (SQLException e) {
@@ -486,6 +491,31 @@ public final class PlayerManager implements PlayerService, Listener {
                                                         return null;
                                                     });
                         });
+    }
+
+    @Override
+    public void holdSession(UUID player, CompletableFuture<?> work) {
+        holds.hold(player, work);
+    }
+
+    /**
+     * Async quit/handoff task (never the main thread): waits for the player's session holds before
+     * the save and lock hand-over. On timeout logs and continues.
+     */
+    void awaitHolds(UUID uuid) {
+        long millis = Math.max(0, holdTimeoutMillis.getAsLong());
+        if (!holds.await(uuid, Duration.ofMillis(millis))) {
+            log.warn(
+                    "세션 보류 작업이 {}ms 안에 끝나지 않아 그대로 저장합니다: {} ({}건)",
+                    millis,
+                    uuid,
+                    holds.pending(uuid));
+        }
+    }
+
+    /** {@link #holdSession} wait limit (ms). Core sets it from balance.yml. */
+    public void setHoldTimeout(LongSupplier millis) {
+        this.holdTimeoutMillis = millis;
     }
 
     /** {@link #saveSoon} delay (ticks). InventorySync sets it from balance.yml. */

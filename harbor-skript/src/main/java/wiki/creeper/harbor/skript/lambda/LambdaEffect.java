@@ -16,11 +16,20 @@ public final class LambdaEffect extends Effect {
 
     private final Spec spec;
     private final Spec.Action action;
+    private final boolean audited;
     private Expression<?>[] exprs = new Expression<?>[0];
 
     public LambdaEffect(Spec spec, Spec.Action action) {
+        this(spec, action, false);
+    }
+
+    /**
+     * @param audited record each run in admin_log ({@link AdminAudit})
+     */
+    public LambdaEffect(Spec spec, Spec.Action action, boolean audited) {
         this.spec = spec;
         this.action = action;
+        this.audited = audited;
     }
 
     @Override
@@ -36,6 +45,9 @@ public final class LambdaEffect extends Effect {
             action.run(event, exprs);
         } catch (RuntimeException e) {
             Skript.warning(spec.label + " 실행 오류: " + String.valueOf(e.getMessage()));
+        }
+        if (audited) {
+            AdminAudit.record(this, event, spec.label, exprs);
         }
     }
 

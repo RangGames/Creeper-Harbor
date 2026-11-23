@@ -39,6 +39,15 @@ public final class FlagManager implements FlagService {
             new Channel<>("harbor:flags", ServerFlagMessage.class);
 
     /**
+     * Player flag change committed on another server (proposed). A null value means cleared. Other
+     * servers that hold the player online (lobby/main handoff timing) update their cache.
+     */
+    public record PlayerFlagNotice(String player, String flag, @Nullable String value) {}
+
+    static final Channel<PlayerFlagNotice> PLAYER_CHANNEL =
+            new Channel<>("harbor:player_flags", PlayerFlagNotice.class);
+
+    /**
      * Player flag cache (immutable map). Writes are immediate, so the component's save function
      * does nothing.
      */
@@ -49,15 +58,22 @@ public final class FlagManager implements FlagService {
     private final PlayerManager players;
     private final Tasks tasks;
     private final SeasonId season;
+    private final String serverId;
     private final Map<String, String> serverFlags = new ConcurrentHashMap<>();
 
     public FlagManager(
-            Database db, MessageBus bus, PlayerManager players, Tasks tasks, SeasonId season) {
+            Database db,
+            MessageBus bus,
+            PlayerManager players,
+            Tasks tasks,
+            SeasonId season,
+            String serverId) {
         this.db = db;
         this.bus = bus;
         this.players = players;
         this.tasks = tasks;
         this.season = season;
+        this.serverId = serverId;
         this.component =
                 new PlayerComponent<>("flags", this::loadPlayer, (c, uuid, s, value) -> {});
     }
@@ -85,6 +101,15 @@ public final class FlagManager implements FlagService {
                                                 applyServer(
                                                         envelope.payload().flag(),
                                                         envelope.payload().value())));
+        bus.subscribe(
+                PLAYER_CHANNEL,
+                envelope -> {
+                    if (serverId.equals(envelope.server())) {
+                        return;
+                    }
+                    PlayerFlagNotice n = envelope.payload();
+                    tasks.main().execute(() -> applyRemote(n));
+                });
     }
 
     // ------------------------------------------------------------------ Player
@@ -111,7 +136,8 @@ public final class FlagManager implements FlagService {
         if (optimistic) {
             updatePlayer(player, flag, value);
         }
-        return db.asyncVoid(
+        CompletableFuture<Void> write =
+                db.asyncVoid(
                         c -> {
                             try (PreparedStatement ps =
                                     c.prepareStatement(
@@ -123,29 +149,33 @@ public final class FlagManager implements FlagService {
                                 ps.setString(4, value);
                                 ps.executeUpdate();
                             }
-                        })
-                .handleAsync(
-                        (v, error) -> {
-                            if (error != null) {
-                                if (optimistic) {
-                                    updatePlayer(player, flag, before.orElse(null));
-                                }
-                                throw error instanceof CompletionException ce
-                                        ? ce
-                                        : new CompletionException(error);
-                            }
-                            if (!optimistic) {
-                                updatePlayer(player, flag, value);
-                            }
-                            return (Void) null;
-                        },
-                        tasks.main());
+                        });
+        // A quit or server move right after this must not pass the session on before the row lands
+        players.holdSession(player, write);
+        return write.handleAsync(
+                (v, error) -> {
+                    if (error != null) {
+                        if (optimistic) {
+                            updatePlayer(player, flag, before.orElse(null));
+                        }
+                        throw error instanceof CompletionException ce
+                                ? ce
+                                : new CompletionException(error);
+                    }
+                    if (!optimistic) {
+                        updatePlayer(player, flag, value);
+                    }
+                    publishPlayer(player, flag, value);
+                    return (Void) null;
+                },
+                tasks.main());
     }
 
     @Override
     public CompletableFuture<Void> unsetPlayer(UUID player, String flag) {
         FlagService.requireName(flag);
-        return db.asyncVoid(
+        CompletableFuture<Void> write =
+                db.asyncVoid(
                         c -> {
                             try (PreparedStatement ps =
                                     c.prepareStatement(
@@ -155,8 +185,39 @@ public final class FlagManager implements FlagService {
                                 ps.setInt(3, season.value());
                                 ps.executeUpdate();
                             }
-                        })
-                .thenRunAsync(() -> updatePlayer(player, flag, null), tasks.main());
+                        });
+        players.holdSession(player, write);
+        return write.thenRunAsync(
+                () -> {
+                    updatePlayer(player, flag, null);
+                    publishPlayer(player, flag, null);
+                },
+                tasks.main());
+    }
+
+    /** Main thread, after commit: let other servers holding the player refresh their cache. */
+    private void publishPlayer(UUID player, String flag, @Nullable String value) {
+        bus.publish(PLAYER_CHANNEL, new PlayerFlagNotice(player.toString(), flag, value));
+    }
+
+    /**
+     * Main thread: a change committed on another server. Only touches players online here, and
+     * fires the change event only if the cached value actually differs (listeners refresh views).
+     */
+    private void applyRemote(PlayerFlagNotice notice) {
+        UUID player;
+        try {
+            player = UUID.fromString(notice.player());
+            FlagService.requireName(notice.flag());
+        } catch (IllegalArgumentException e) {
+            return; // Malformed notices are dropped
+        }
+        if (players.get(player).isEmpty()) {
+            return;
+        }
+        if (!Objects.equals(playerValue(player, notice.flag()).orElse(null), notice.value())) {
+            updatePlayer(player, notice.flag(), notice.value());
+        }
     }
 
     private void updatePlayer(UUID player, String flag, @Nullable String value) {

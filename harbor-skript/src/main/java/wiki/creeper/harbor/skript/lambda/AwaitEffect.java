@@ -43,11 +43,13 @@ public final class AwaitEffect extends Effect {
     private int pattern;
     private int mark;
     private boolean waits;
+    private final boolean audited;
 
-    AwaitEffect(String label, int[] targets, Start start) {
+    AwaitEffect(String label, int[] targets, Start start, boolean audited) {
         this.label = label;
         this.targets = targets.clone();
         this.start = start;
+        this.audited = audited;
     }
 
     @Override
@@ -82,6 +84,9 @@ public final class AwaitEffect extends Effect {
         } catch (RuntimeException e) {
             Skript.warning(label + " 실행 오류: " + String.valueOf(e.getMessage()));
             future = null;
+        }
+        if (audited) {
+            AdminAudit.record(this, event, label, exprs, targets);
         }
         if (!waits) {
             return getNext();

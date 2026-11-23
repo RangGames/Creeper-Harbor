@@ -140,6 +140,50 @@ class LedgerWriterIT {
     }
 
     @Test
+    void setPostsDiffAgainstLockedBalance() {
+        UUID player = UUID.randomUUID();
+        writer.post(db, new LedgerEntry(player, Currency.GOLD, 70, LedgerReason.FISH_SELL, null))
+                .orThrow();
+        LedgerWriter.SetOutcome up =
+                writer.postSet(
+                                db,
+                                player,
+                                Currency.GOLD,
+                                100,
+                                LedgerReason.ADMIN_GRANT,
+                                LedgerReason.ADMIN_TAKE,
+                                null)
+                        .orThrow();
+        assertEquals(100L, up.balance());
+        LedgerEntry upEntry = up.entry();
+        assertTrue(upEntry != null && upEntry.delta() == 30);
+        LedgerWriter.SetOutcome same =
+                writer.postSet(
+                                db,
+                                player,
+                                Currency.GOLD,
+                                100,
+                                LedgerReason.ADMIN_GRANT,
+                                LedgerReason.ADMIN_TAKE,
+                                null)
+                        .orThrow();
+        assertEquals(new LedgerWriter.SetOutcome(null, 100L), same);
+        LedgerWriter.SetOutcome down =
+                writer.postSet(
+                                db,
+                                player,
+                                Currency.GOLD,
+                                0,
+                                LedgerReason.ADMIN_GRANT,
+                                LedgerReason.ADMIN_TAKE,
+                                null)
+                        .orThrow();
+        assertEquals(0L, down.balance());
+        LedgerEntry downEntry = down.entry();
+        assertTrue(downEntry != null && downEntry.reason() == LedgerReason.ADMIN_TAKE);
+    }
+
+    @Test
     void sameReferenceIsPaidOnce() {
         UUID player = UUID.randomUUID();
         LedgerEntry reward =

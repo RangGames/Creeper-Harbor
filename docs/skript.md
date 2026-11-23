@@ -27,6 +27,7 @@
 - **Harbor 아이템:** 바닐라 `give`로 흉내 내지 않고 `harbor item`을 쓴다.
 - **채팅 형식:** `on chat`으로 가공하지 않는다. Harbor가 프록시로 보내므로 `messages_ko.yml chat.format`에서 바꾼다.
 - **원장 감사:** 스크립트가 준 재화는 원장 사유 `SCRIPT_GRANT` · `SCRIPT_TAKE`로 따로 볼 수 있다 (README의 감사 쿼리).
+- **관리 조작 기록:** `harbor admin ...` 효과는 실행될 때마다 `admin_log`에 `admin = skript`, `action = skript.<조작>`으로 남는다 (README "운영: 스크립트가 한 관리 조작 확인").
 
 ## 설정
 

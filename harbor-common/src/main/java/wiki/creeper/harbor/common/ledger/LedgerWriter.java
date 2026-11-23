@@ -11,6 +11,7 @@ import java.util.EnumMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.db.SqlConsumer;
@@ -82,6 +83,75 @@ public final class LedgerWriter {
                     .log(System.Logger.Level.ERROR, "원장 쓰기 실패: " + entry, e);
             return Result.err(LedgerError.DATABASE);
         }
+    }
+
+    /**
+     * Result of {@link #postSet}: the entry actually posted ({@code null} when the balance already
+     * matched) and the balance after.
+     */
+    public record SetOutcome(@Nullable LedgerEntry entry, long balance) {}
+
+    /**
+     * Sets a balance to {@code target} (admin set). In one transaction: locks the balance row,
+     * computes the difference against the locked value, and posts it as a {@code up} (positive) or
+     * {@code down} (negative) entry. No entry when the difference is 0. Blocking, so do not call on
+     * the main thread.
+     */
+    public Result<SetOutcome, LedgerError> postSet(
+            Database database,
+            UUID player,
+            Currency currency,
+            long target,
+            LedgerReason up,
+            LedgerReason down,
+            @Nullable String refId) {
+        if (target < 0) {
+            throw new IllegalArgumentException("잔액은 0 이상이어야 합니다: " + target);
+        }
+        try {
+            return Result.ok(
+                    database.tx(
+                            connection -> {
+                                BalanceStore store = stores.get(currency);
+                                if (store == null) {
+                                    throw new LedgerException(
+                                            LedgerError.UNSUPPORTED_CURRENCY,
+                                            "잔액 저장소 없음: " + currency);
+                                }
+                                long now = store.lockBalance(connection, player, currency);
+                                LedgerEntry entry =
+                                        setEntry(player, currency, now, target, up, down, refId);
+                                if (entry == null) {
+                                    return new SetOutcome(null, now);
+                                }
+                                // apply locks the same row again (already held by this tx)
+                                return new SetOutcome(entry, apply(connection, entry));
+                            }));
+        } catch (LedgerException e) {
+            return Result.err(e.error());
+        } catch (SQLException e) {
+            System.getLogger("Harbor/Ledger")
+                    .log(System.Logger.Level.ERROR, "원장 잔액 설정 실패: " + player + " " + currency, e);
+            return Result.err(LedgerError.DATABASE);
+        }
+    }
+
+    /**
+     * The entry that moves {@code current} to {@code target}, or {@code null} if they are equal.
+     */
+    static @Nullable LedgerEntry setEntry(
+            UUID player,
+            Currency currency,
+            long current,
+            long target,
+            LedgerReason up,
+            LedgerReason down,
+            @Nullable String refId) {
+        long diff = Math.subtractExact(target, current);
+        if (diff == 0) {
+            return null;
+        }
+        return new LedgerEntry(player, currency, diff, diff > 0 ? up : down, refId);
     }
 
     /**

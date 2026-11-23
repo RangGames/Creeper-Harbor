@@ -83,6 +83,8 @@ public interface JobsService {
     CompletableFuture<Boolean> changeLine(UUID player, JobLine line);
 
     // ------------------------------------------------------------------ Admin
+    // These methods do not write admin_log (commands and Harbor-Skript record their own entries).
+    // Other callers must record the action via Harbor.api().adminLog().
 
     /**
      * Admin skill reset (/harbor jobs reset): scope common · line · all, no cost, optional 100%
