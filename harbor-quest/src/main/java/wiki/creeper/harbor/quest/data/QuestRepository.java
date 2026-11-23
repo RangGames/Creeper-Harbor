@@ -8,18 +8,22 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.model.SeasonId;
+import wiki.creeper.harbor.quest.api.QuestRecord;
 import wiki.creeper.harbor.quest.api.QuestState;
+import wiki.creeper.harbor.quest.content.QuestDef;
 import wiki.creeper.harbor.quest.content.QuestType;
 import wiki.creeper.harbor.quest.logic.Progress;
 
@@ -309,6 +313,45 @@ public final class QuestRepository {
         }
     }
 
+    /**
+     * Stored rows for external readers (any player, online or not): this season's rows plus main
+     * quests from earlier seasons, one per quest (a main quest with rows in several seasons keeps
+     * the latest season's row, as in {@link #load}), sorted by quest ID.
+     */
+    public static List<QuestRecord> records(Connection c, UUID uuid, SeasonId season)
+            throws SQLException {
+        Map<QuestId, QuestRecord> byQuest = new TreeMap<>(Comparator.comparing(QuestId::toString));
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "SELECT quest_id, season, state, updated_at FROM quest_progress"
+                                + " WHERE uuid = ? AND (season = ? OR quest_id LIKE ?)"
+                                + " ORDER BY season")) {
+            ps.setString(1, uuid.toString());
+            ps.setInt(2, season.value());
+            ps.setString(3, MAIN_LIKE);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Optional<QuestId> quest = quest(rs.getString(1));
+                    Optional<QuestState> state = anyState(rs.getString(3));
+                    if (quest.isEmpty() || state.isEmpty()) {
+                        continue;
+                    }
+                    QuestId id = quest.get();
+                    // later season replaces earlier (ORDER BY season)
+                    byQuest.put(
+                            id,
+                            new QuestRecord(
+                                    id,
+                                    rs.getInt(2),
+                                    QuestDef.isMainId(id.id()),
+                                    state.get(),
+                                    rs.getTimestamp(4).toInstant()));
+                }
+            }
+        }
+        return List.copyOf(byQuest.values());
+    }
+
     /** Admin command: all rows of this player. */
     public static List<Row> rows(Connection c, UUID uuid) throws SQLException {
         List<Row> rows = new ArrayList<>();
@@ -346,6 +389,14 @@ public final class QuestRepository {
 
     static Optional<QuestId> quest(String raw) {
         return HarborId.tryParse(raw).filter(id -> id.hasPrefix(QuestId.PREFIX)).map(QuestId::new);
+    }
+
+    private static Optional<QuestState> anyState(String raw) {
+        try {
+            return Optional.of(QuestState.valueOf(raw.toUpperCase(Locale.ROOT)));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     static Optional<QuestState> state(String raw) {

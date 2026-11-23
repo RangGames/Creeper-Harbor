@@ -239,7 +239,8 @@ paths:
       operationId: getPlayerCollection
       summary: 플레이어 도감 (Harbor-Collection 필요)
       description: |
-        codex_total(누적) 또는 codex_season(이번 시즌) 테이블을 읽는다 (테이블 이름은 예전 이름 그대로). 항목 순서는 정하지 않는다.
+        Collection api(`CollectionService.storedEntries`)로 누적(total) 또는 이번 시즌(season) 도감 칸을 읽는다.
+        `entries`는 어종 ID 오름차순이다.
         players 행이 없는 플레이어는 UUID로 불러도 404 player_not_found.
       parameters:
         - $ref: "#/components/parameters/PlayerId"
@@ -294,7 +295,7 @@ paths:
       operationId: getPlayerQuests
       summary: 플레이어 퀘스트 (Harbor-Quest 필요)
       description: |
-        quest_progress에서 이번 시즌 행과, 이전 시즌에서 이월된 메인 퀘스트(`harbor:quest/main/…`) 행을 읽는다.
+        Quest api(`QuestService.storedQuests`)로 이번 시즌 행과, 이전 시즌에서 이월된 메인 퀘스트(`harbor:quest/main/…`) 행을 읽는다.
         **퀘스트마다 한 줄**이다: 같은 메인 퀘스트가 여러 시즌에 행이 있으면 게임과 같이 가장 최근 시즌의 행만 준다
         (`season`이 그 행의 시즌). quest ID 오름차순. 포기한 퀘스트는 행이 지워지므로 나오지 않는다.
         players 행이 없는 플레이어는 UUID로 불러도 404 player_not_found.
@@ -486,7 +487,7 @@ paths:
       operationId: listAuctions
       summary: 진행 중인 경매 (Harbor-Economy 필요)
       description: |
-        Economy의 auction_listing 테이블을 직접 읽는다 (읽기 전용, 캐시 없음). 만료되지 않은 진행 중 목록을 최신순
+        Economy api(`AuctionService.activePage`)로 읽는다 (모듈이 DB에서 읽기 전용으로, 캐시 없음). 만료되지 않은 진행 중 목록을 최신순
         (listing id 내림차순)으로 준다.
 
         - 페이지: 응답에 `next`가 있으면 그 값을 다음 요청의 `cursor`로 넣는다. `next`가 없으면 마지막 페이지다.
@@ -1045,7 +1046,7 @@ components:
     ExternalEvent:
       type: object
       description: |
-        외부 이벤트 (snake_case). 자세한 내용과 type별 data는 events.md. Redis 원본 메시지의 payload(camelCase)와 필드 이름이 다르다.
+        외부 이벤트 (snake_case). 자세한 내용과 type별 data는 events.md. Redis `harbor:events` 원본 메시지의 payload와 같은 객체다.
       required: [id, type, version, server, occurred_at, data]
       properties:
         id:

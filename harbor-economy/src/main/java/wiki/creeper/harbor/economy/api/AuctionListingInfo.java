@@ -9,6 +9,7 @@ import java.util.UUID;
  * @param itemId fish species ID or item ID ({@code harbor:fish/…}, {@code harbor:item/…})
  * @param category fish · gear · bait · material · food · other
  * @param price price for the whole stack
+ * @param createdAt when it was listed
  */
 public record AuctionListingInfo(
         long id,
@@ -19,4 +20,5 @@ public record AuctionListingInfo(
         String category,
         int amount,
         long price,
-        Instant expiresAt) {}
+        Instant expiresAt,
+        Instant createdAt) {}

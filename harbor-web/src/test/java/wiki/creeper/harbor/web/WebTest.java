@@ -26,7 +26,6 @@ import wiki.creeper.harbor.web.http.RecentEvents;
 import wiki.creeper.harbor.web.http.Router;
 import wiki.creeper.harbor.web.relay.EventCatalog;
 import wiki.creeper.harbor.web.relay.EventSerializer;
-import wiki.creeper.harbor.web.relay.EventWire;
 import wiki.creeper.harbor.web.relay.Globs;
 import wiki.creeper.harbor.web.webhook.WebhookRules;
 import wiki.creeper.harbor.web.webhook.WebhookTarget;
@@ -122,50 +121,34 @@ class WebTest {
         assertEquals(List.of("a", "b", "c"), d.get("tags"));
     }
 
-    /** Integers survive the Redis round trip (no 13.0), and output keys are snake_case. */
+    /**
+     * The Common ExternalEvent bus payload is used as-is: integers survive the Redis round trip (no
+     * 13.0), and REST items and webhook json bodies are snake_case.
+     */
     @Test
     void wireKeepsIntegersAndSnakeCase() {
         String payload =
                 "{\"id\":\"e1\",\"type\":\"server.player_join\",\"version\":1,\"server\":\"main-1\","
-                        + "\"occurredAt\":\"2026-11-20T12:00:00Z\",\"player\":\"u1\",\"playerName\":\"Steve\","
+                        + "\"occurred_at\":\"2026-11-20T12:00:00Z\",\"player\":\"u1\",\"player_name\":\"Steve\","
                         + "\"data\":{\"online\":13,\"size\":41.2,\"whole\":33.0,\"big\":9007199254740993,"
                         + "\"nested\":{\"gold\":100},\"list\":[1,2.5],\"none\":null}}";
-        ExternalEvent e = EventWire.decode(payload);
+        ExternalEvent e = Json.GSON.fromJson(payload, ExternalEvent.class);
         assertEquals(13L, e.data().get("online"));
-        assertEquals(41.2, e.data().get("size"));
-        assertEquals(33.0, e.data().get("whole"));
-        assertEquals(9007199254740993L, e.data().get("big"));
-        assertEquals(Map.of("gold", 100L), e.data().get("nested"));
-        assertEquals(List.of(1L, 2.5), e.data().get("list"));
         assertFalse(e.data().containsKey("none"));
 
-        Map<String, Object> out = EventWire.toJson(e);
-        assertEquals(
-                List.of(
-                        "id",
-                        "type",
-                        "version",
-                        "server",
-                        "occurred_at",
-                        "player",
-                        "player_name",
-                        "data"),
-                List.copyOf(out.keySet()));
-        String json = Json.GSON.toJson(out);
+        // REST /v1/events item
+        String json = Json.GSON.toJson(Map.of("seq", 1L, "event", e));
         assertTrue(json.contains("\"online\":13,") || json.contains("\"online\":13}"), json);
         assertTrue(json.contains("\"big\":9007199254740993"), json);
         assertTrue(json.contains("\"whole\":33.0"), json);
         assertFalse(json.contains("13.0"), json);
-        String webhook = EventWire.GSON.toJson(out);
-        assertTrue(webhook.contains("\"occurred_at\":\"2026-11-20T12:00:00Z\""), webhook);
+        assertTrue(json.contains("\"occurred_at\":\"2026-11-20T12:00:00Z\""), json);
+        assertTrue(json.contains("\"player_name\":\"Steve\""), json);
+        // webhook json body
+        String webhook = Json.GSON.toJson(e);
+        assertTrue(webhook.startsWith("{\"id\":\"e1\",\"type\":\"server.player_join\""), webhook);
         assertTrue(webhook.contains("\"gold\":100"), webhook);
         assertEquals("13", WebhookRules.flatten(e.data()).get("online"));
-
-        // absent player fields are left out
-        ExternalEvent bare =
-                new ExternalEvent("e2", "server.started", 1, "s", "t", null, null, Map.of());
-        assertFalse(EventWire.toJson(bare).containsKey("player"));
-        assertFalse(EventWire.toJson(bare).containsKey("player_name"));
     }
 
     @Test

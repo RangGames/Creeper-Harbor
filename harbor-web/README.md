@@ -25,19 +25,19 @@
 
 ## 이벤트 형식
 
-Redis 메시지는 Harbor 공통 봉투이고 `payload`가 이벤트다. Redis 원본은 Common 레코드 그대로 camelCase이고, REST `/v1/events`와 웹훅 `json`은 같은 이벤트를 snake_case(`occurred_at`, `player_name`)로 보낸다.
+Redis 메시지는 Harbor 공통 봉투이고 `payload`가 이벤트다. Redis 원본·REST `/v1/events`·웹훅 `json` 모두 같은 snake_case 형식(`sent_at`, `occurred_at`, `player_name`)이다.
 
 ```json
-{"type":"ExternalEvent","server":"main-1","sentAt":"2026-11-20T12:00:00Z",
+{"type":"ExternalEvent","server":"main-1","sent_at":"2026-11-20T12:00:00Z",
  "payload":{"id":"3f0c…","type":"collection.record_broken","version":1,"server":"main-1",
-            "occurredAt":"2026-11-20T12:00:00Z","player":"<uuid>","playerName":"Steve",
+            "occurred_at":"2026-11-20T12:00:00Z","player":"<uuid>","player_name":"Steve",
             "data":{"fish":"harbor:fish/harbor_mackerel","fish_name":"고등어","league":"all",
                     "scope":"server","size":41.2,"previous":39.8,"player":"<uuid>"}}}
 ```
 
 - **id:** 이벤트 고유 ID다. 받는 쪽에서 중복을 거를 때 쓴다.
-- **playerName:** 원본 이벤트가 UUID만 줘도 발행 서버가 이름을 찾아 넣는다 (접속 중 → 최근 이름 → players 테이블).
-- **숫자:** 정수는 REST·웹훅에서도 정수로 나간다 (`13`, `13.0` 아님).
+- **player_name:** 원본 이벤트가 UUID만 줘도 발행 서버가 이름을 찾아 넣는다 (접속 중 → 최근 이름 → players 테이블).
+- **숫자:** 정수는 Redis·REST·웹훅 어디서나 정수다 (`13`, `13.0` 아님).
 - **version:** data 형식 버전이다. 필드를 빼거나 뜻을 바꿀 때만 올리고, 필드 추가는 그대로 1이다.
 - **data 필드 이름:** 이벤트 getter 이름을 snake_case로 바꾼 것이다 (`getSizeCm` → `size_cm`).
 - **값 변환:**
@@ -117,7 +117,7 @@ webhooks:
 | `GET /v1/rankings` · `GET /v1/rankings/{board}?league=all` | 랭킹 보드와 순위표 (10분 주기 집계 캐시) — Season |
 
 - **자료 출처:** 플레이어 자료는 DB에서 읽기만 한다. 접속 중인 플레이어는 지연 쓰기 때문에 몇 분 늦을 수 있다.
-- **모듈 자료:** 시세·기록·랭킹은 그 모듈의 캐시를 메인 스레드에서 읽는다. 경매 목록은 DB를 직접 읽는다.
+- **모듈 자료:** 모두 그 모듈의 `api` 서비스로 읽는다 (다른 모듈 테이블을 직접 읽지 않는다). 시세·기록·랭킹은 모듈 캐시, 경매 목록·플레이어 도감·퀘스트는 모듈이 자기 테이블을 읽어 준다 (캐시 없음).
 - **응답 시간:** 5초 안에 답하지 못하면 503이다.
 
 ```bash

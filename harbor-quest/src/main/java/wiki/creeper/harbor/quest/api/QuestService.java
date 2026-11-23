@@ -27,6 +27,15 @@ public interface QuestService {
     /** Whether it was completed in this cycle (main quests regardless of season). */
     boolean isCompleted(UUID player, QuestId quest);
 
+    /**
+     * Stored quest rows of any player, online or not, read from the DB (read-only, for external
+     * readers such as the Harbor-Web REST API): this season's rows plus main quests carried over
+     * from earlier seasons, one per quest (latest season's row), sorted by quest ID. For an online
+     * player, progress not yet written by the write-behind queue may lag. Safe to call from any
+     * thread; completes on the main thread.
+     */
+    CompletableFuture<List<QuestRecord>> storedQuests(UUID player);
+
     /** Checks the requirements again and accepts. Failure reasons are sent in chat. */
     CompletableFuture<Boolean> accept(Player player, QuestId quest);
 

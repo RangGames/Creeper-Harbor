@@ -80,7 +80,7 @@ public final class MessageBus implements AutoCloseable {
         JsonObject envelope = new JsonObject();
         envelope.addProperty("type", channel.type().getSimpleName());
         envelope.addProperty("server", serverId);
-        envelope.addProperty("sentAt", Instant.now().toString());
+        envelope.addProperty("sent_at", Instant.now().toString());
         envelope.add("payload", Json.GSON.toJsonTree(payload));
         try {
             var _ =
@@ -163,7 +163,10 @@ public final class MessageBus implements AutoCloseable {
                     new Envelope<>(
                             json.get("type").getAsString(),
                             json.get("server").getAsString(),
-                            Instant.parse(json.get("sentAt").getAsString()),
+                            // sentAt: envelopes from servers on the previous version
+                            Instant.parse(
+                                    json.get(json.has("sent_at") ? "sent_at" : "sentAt")
+                                            .getAsString()),
                             json.get("payload"));
         } catch (RuntimeException e) {
             LOG.log(Level.WARNING, "잘못된 메시지 (" + channel + "): " + message);

@@ -54,7 +54,7 @@ final class AuctionListings {
     static final int PAGE = 45;
     static final String COLUMNS =
             "id, seller, seller_name, item_uuid, item_id, item_name, category, grade, trap_src, item_data,"
-                    + " amount, price, ref_price, sale_fee_rate, expires_at";
+                    + " amount, price, ref_price, sale_fee_rate, expires_at, created_at";
 
     private final HarborApi api;
     private final Tasks tasks;
@@ -88,7 +88,8 @@ final class AuctionListings {
                 rs.getLong(12),
                 rs.getLong(13),
                 rs.getDouble(14),
-                rs.getTimestamp(15).toInstant());
+                rs.getTimestamp(15).toInstant(),
+                rs.getTimestamp(16).toInstant());
     }
 
     /**
@@ -179,6 +180,52 @@ final class AuctionListings {
                             return rows;
                         },
                         tasks.main());
+    }
+
+    /**
+     * Keyset page of active, unexpired listings, newest first (id descending), not cached (read on
+     * a virtual thread, completed on the main thread).
+     *
+     * @param cursor only listings with a smaller id (0 = from the newest)
+     * @param limit rows to read
+     */
+    CompletableFuture<List<Row>> after(String category, long cursor, int limit) {
+        StringBuilder sql =
+                new StringBuilder(
+                        "SELECT "
+                                + COLUMNS
+                                + " FROM auction_listing WHERE state = 'ACTIVE'"
+                                + " AND expires_at > CURRENT_TIMESTAMP(3)");
+        boolean byCategory = !category.equals("all");
+        if (byCategory) {
+            sql.append(" AND category = ?");
+        }
+        if (cursor > 0) {
+            sql.append(" AND id < ?");
+        }
+        sql.append(" ORDER BY id DESC LIMIT ?");
+        return api.database()
+                .async(
+                        c -> {
+                            List<Row> rows = new ArrayList<>();
+                            try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+                                int i = 1;
+                                if (byCategory) {
+                                    ps.setString(i++, category);
+                                }
+                                if (cursor > 0) {
+                                    ps.setLong(i++, cursor);
+                                }
+                                ps.setInt(i, Math.max(1, limit));
+                                try (ResultSet rs = ps.executeQuery()) {
+                                    while (rs.next()) {
+                                        rows.add(row(rs));
+                                    }
+                                }
+                            }
+                            return List.copyOf(rows);
+                        })
+                .thenApplyAsync(v -> v, tasks.main());
     }
 
     /** One active, unexpired listing by ID (read on a virtual thread, completed on main). */

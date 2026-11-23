@@ -34,21 +34,21 @@
 
 채널은 `harbor:events` 하나다. 메시지는 Harbor 공통 봉투(Common `redis/Envelope`) JSON 글이다.
 
-> **필드 이름 주의:** Redis 원본 메시지는 Common `ExternalEvent` 레코드를 그대로 쓰므로 **camelCase**(`occurredAt`, `playerName`, 봉투의 `sentAt`)다. REST `/v1/events`와 웹훅 `json` 본문은 같은 이벤트를 **snake_case**(`occurred_at`, `player_name`)로 옮겨 보낸다 ([REST·웹훅 형식](#rest웹훅-형식-snake_case)). data 안의 키는 어디서나 같다 (원래 snake_case).
+> **필드 이름:** Redis 원본 메시지도 **snake_case**다 (봉투의 `sent_at`, payload의 `occurred_at`·`player_name`). payload는 REST `/v1/events`의 `items[].event`, 웹훅 `json` 본문과 같은 객체다 ([REST·웹훅 형식](#rest웹훅-형식-snake_case)). data 안의 키도 snake_case다. 이전 버전 서버가 보낸 camelCase(`sentAt`, `occurredAt`, `playerName`)도 Harbor 서버끼리는 읽지만, 외부 구독자는 snake_case만 가정한다.
 
 ```json
 {
   "type": "ExternalEvent",
   "server": "main-1",
-  "sentAt": "2026-11-20T12:00:05.912Z",
+  "sent_at": "2026-11-20T12:00:05.912Z",
   "payload": {
     "id": "a8d2b7c4-0f7e-4b39-8a51-1b6f2d3e4c55",
     "type": "collection.record_broken",
     "version": 1,
     "server": "main-1",
-    "occurredAt": "2026-11-20T12:00:05.901Z",
+    "occurred_at": "2026-11-20T12:00:05.901Z",
     "player": "069a79f4-44e9-4726-a5be-fca90e38aaf5",
-    "playerName": "Steve",
+    "player_name": "Steve",
     "data": {
       "fish": "harbor:fish/harbor_mackerel",
       "fish_name": "항구 고등어",
@@ -68,7 +68,7 @@
 |---|---|---|
 | `type` | string | 항상 `"ExternalEvent"`. 다른 값이면 무시한다 (채널에 다른 레코드가 실릴 여지를 둔 설계) |
 | `server` | string | 발행한 서버 ID (`harbor-infra.yml`) |
-| `sentAt` | string | 발행 시각, ISO-8601 UTC |
+| `sent_at` | string | 발행 시각, ISO-8601 UTC |
 | `payload` | object | 아래 ExternalEvent |
 
 ### ExternalEvent (payload)
@@ -79,15 +79,15 @@
 | `type` | string | 예 | 아래 카탈로그의 type |
 | `version` | integer | 예 | data 형식 버전. 지금은 모두 `1`. 필드를 빼거나 뜻을 바꿀 때만 올리고, 필드 추가는 그대로 둔다 |
 | `server` | string | 예 | 이벤트가 난 서버 ID |
-| `occurredAt` | string | 예 | 이벤트를 만든 시각 (그 서버 시계), ISO-8601 UTC. 소수 초 자릿수는 일정하지 않다 |
+| `occurred_at` | string | 예 | 이벤트를 만든 시각 (그 서버 시계), ISO-8601 UTC. 소수 초 자릿수는 일정하지 않다 |
 | `player` | string (UUID) | 아니오 | 관련 플레이어. 없으면 **키가 없다** (null을 쓰지 않음) |
-| `playerName` | string | 아니오 | 플레이어 이름. `player`가 있으면 대부분 있다 (아래 규칙) |
+| `player_name` | string | 아니오 | 플레이어 이름. `player`가 있으면 대부분 있다 (아래 규칙) |
 | `data` | object | 예 | type별 내용. 값은 문자열·숫자·불리언·배열·객체만. null 값은 빠진다 |
 
-**player / playerName이 정해지는 규칙** (`EventSerializer`, `EventRelay`):
+**player / player_name이 정해지는 규칙** (`EventSerializer`, `EventRelay`):
 
 - 원본 이벤트의 getter를 이름순으로 훑으며, 처음 만나는 `Player` 객체 또는 이름이 `player`/`uuid`인 UUID 값이 `player`가 된다.
-- `playerName`: 그 값이 `Player` 객체면 그 이름. UUID만 있으면 발행 서버가 찾는다: 그 서버에 접속 중인 플레이어 → 최근에 본 이름(접속·조회 때 기억) → players 테이블(가상 스레드에서 조회한 뒤 발행). players 행도 없으면 `playerName` 없이 나간다.
+- `player_name`: 그 값이 `Player` 객체면 그 이름. UUID만 있으면 발행 서버가 찾는다: 그 서버에 접속 중인 플레이어 → 최근에 본 이름(접속·조회 때 기억) → players 테이블(가상 스레드에서 조회한 뒤 발행). players 행도 없으면 `player_name` 없이 나간다.
 - 구매자/판매자처럼 `player`라는 getter가 없는 이벤트는 `player`도 없다 (data 안의 `buyer`·`seller`를 본다. 이 UUID들의 이름은 채우지 않는다).
 
 ### data 변환 규칙
@@ -127,29 +127,29 @@
 | REST `GET /v1/events` | `13` | `41.2` |
 | 웹훅 `json` 본문 | `13` | `41.2` |
 
-REST 서버와 웹훅 서버는 Redis 메시지의 `data`를 원본 JSON으로 받은 뒤 정수는 정수(long), 소수점이나 지수가 있는 값은 실수(double)로 읽는다 (Gson `ToNumberPolicy.LONG_OR_DOUBLE`, `EventWire`). 그래서 정수는 어디서나 정수로 나오고, 원본이 `33.0`처럼 실수로 쓴 값은 실수로 남는다. long 범위의 정수도 정밀도를 잃지 않는다 (받는 쪽 JSON 파서가 2^53을 넘는 수를 다루는지는 따로 확인한다).
+Common `ExternalEvent`의 Gson 어댑터(`ExternalEvent.WireAdapter`)가 쓰고 읽는다. 읽을 때 `data`의 정수는 정수(long), 소수점이나 지수가 있는 값은 실수(double)가 된다 (REST 서버와 웹훅 서버도 같은 어댑터로 받는다). 그래서 정수는 어디서나 정수로 나오고, 원본이 `33.0`처럼 실수로 쓴 값은 실수로 남는다. long 범위의 정수도 정밀도를 잃지 않는다 (받는 쪽 JSON 파서가 2^53을 넘는 수를 다루는지는 따로 확인한다).
 
 ### REST·웹훅 형식 (snake_case)
 
-REST `/v1/events`의 `items[].event`와 웹훅 `json` 본문은 같은 객체다. 필드 순서는 아래 표 순서다 (data 안의 키 순서는 정해져 있지 않다).
+Redis 원본 payload, REST `/v1/events`의 `items[].event`, 웹훅 `json` 본문은 모두 같은 객체다. 필드 순서는 아래 표 순서다 (data 안의 키 순서는 정해져 있지 않다).
 
-| 필드 | Redis 원본 필드 | 항상 있음 |
-|---|---|---|
-| `id` | `id` | 예 |
-| `type` | `type` | 예 |
-| `version` | `version` | 예 |
-| `server` | `server` | 예 |
-| `occurred_at` | `occurredAt` | 예 |
-| `player` | `player` | 아니오 |
-| `player_name` | `playerName` | 아니오 |
-| `data` | `data` | 예 |
+| 필드 | 항상 있음 |
+|---|---|
+| `id` | 예 |
+| `type` | 예 |
+| `version` | 예 |
+| `server` | 예 |
+| `occurred_at` | 예 |
+| `player` | 아니오 |
+| `player_name` | 아니오 |
+| `data` | 예 |
 
 ## 3. 이벤트 카탈로그
 
 출처: `relay/EventCatalog.ENTRIES`(모듈 이벤트 50종) + `EventCatalog.SERVER_TYPES`·`HarborWebPlugin`(서버 이벤트 5종) = **55종**. 이 밖의 type은 다른 플러그인이 `emit`으로 더한 것이다 (예 `skript.*`).
 
 - 모듈 이벤트는 **그 모듈 플러그인이 켜진 서버에서만** 구독된다. 이벤트는 그 사건이 처리된 서버에서 한 번 난다. 단, 표에서 "서버마다"라고 쓴 이벤트는 같은 사건이 **서버 수만큼 따로** 발행된다 (id가 서로 다르다).
-- "player" 열: ✔ = `player` 있음 (`playerName`은 발행 서버가 찾아 넣으므로 players 행이 있으면 있다), ✔이름 = 원본 이벤트가 `Player`를 줘서 `playerName`이 항상 있음, – = 없음.
+- "player" 열: ✔ = `player` 있음 (`player_name`은 발행 서버가 찾아 넣으므로 players 행이 있으면 있다), ✔이름 = 원본 이벤트가 `Player`를 줘서 `player_name`이 항상 있음, – = 없음.
 - data 필드의 `?`는 값이 없으면 키가 없다는 뜻이다. `X_name?`은 앞 절의 `_name` 규칙.
 - 공통 객체 형식은 카탈로그 뒤의 [공통 객체](#공통-객체)에 있다.
 
@@ -330,7 +330,7 @@ REST `/v1/events`의 `items[].event`와 웹훅 `json` 본문은 같은 객체다
 Harbor.api().events().emit("skript.lottery_won", player.getUniqueId(), player.getName(), Map.of("prize", 1000));
 ```
 
-data 값은 문자열·숫자·불리언·UUID·리스트·Map만 그대로 들어가고, enum은 소문자 이름, 그 밖은 `toString()`이 된다 (Core `CoreExternalEvents.normalize`). 이 경우 `player`·`playerName`은 넘긴 값 그대로다.
+data 값은 문자열·숫자·불리언·UUID·리스트·Map만 그대로 들어가고, enum은 소문자 이름, 그 밖은 `toString()`이 된다 (Core `CoreExternalEvents.normalize`). 이 경우 `player`·`player_name`은 넘긴 값 그대로다.
 
 ## 4. Redis 직접 구독
 
@@ -347,7 +347,7 @@ await sub.subscribe("harbor:events");
 sub.on("message", (_channel, raw) => {
   const env = JSON.parse(raw);
   if (env.type !== "ExternalEvent") return;
-  const ev = env.payload; // { id, type, version, server, occurredAt, player?, playerName?, data }
+  const ev = env.payload; // { id, type, version, server, occurred_at, player?, player_name?, data }
   if (ev.version !== 1) return; // 모르는 버전은 건너뛰거나 따로 처리
   handle(ev);
 });
@@ -443,7 +443,7 @@ X-Harbor-Signature: sha256=5d1f0c…(64자 hex)
 - MiniMessage로 렌더한 뒤 평문으로 바꾸므로 색 태그는 사라진다. 2000자를 넘으면 1997자 + `...`로 자른다.
 - `allowed_mentions.parse = []`로 모든 멘션을 막는다.
 - 자리표시자:
-  - `<player>`: `playerName`, 없으면 `player` UUID, 둘 다 없으면 `-`. 모듈 이벤트도 발행 서버가 이름을 찾아 넣으므로 보통 이름이 찍힌다 (players 행이 없을 때만 UUID).
+  - `<player>`: `player_name`, 없으면 `player` UUID, 둘 다 없으면 `-`. 모듈 이벤트도 발행 서버가 이름을 찾아 넣으므로 보통 이름이 찍힌다 (players 행이 없을 때만 UUID).
   - `<server>`, `<type>`
   - data의 평탄화된 모든 칸: 점은 밑줄로, `[a-z0-9_-]` 밖의 글자도 밑줄로 바꾼다 (`fish.name` → `<fish_name>`). data에 `player`·`server`·`type` 칸이 있어도 위 세 값이 우선한다. 값은 글 그대로 넣는다 (태그 해석 안 함). 정수는 소수점 없이 들어간다 (`jobs.advanced`의 `<tier>` → `2`, 문구 "2차 전직").
 - X-Harbor-* 헤더와 서명은 붙지 않는다.

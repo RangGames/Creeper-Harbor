@@ -19,6 +19,7 @@ import wiki.creeper.harbor.common.redis.Channel;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.economy.api.AuctionListingInfo;
+import wiki.creeper.harbor.economy.api.AuctionPage;
 import wiki.creeper.harbor.economy.api.AuctionService;
 import wiki.creeper.harbor.economy.api.TradeResult;
 import wiki.creeper.harbor.economy.content.EconomyBalance;
@@ -70,7 +71,8 @@ public final class AuctionHouse implements AuctionService {
             long price,
             long refPrice,
             double saleFeeRate,
-            Instant expiresAt) {
+            Instant expiresAt,
+            Instant createdAt) {
 
         ItemStack item() {
             return ItemStack.deserializeBytes(Base64.getDecoder().decode(itemData));
@@ -78,7 +80,16 @@ public final class AuctionHouse implements AuctionService {
 
         AuctionListingInfo info() {
             return new AuctionListingInfo(
-                    id, seller, sellerName, itemId, itemName, category, amount, price, expiresAt);
+                    id,
+                    seller,
+                    sellerName,
+                    itemId,
+                    itemName,
+                    category,
+                    amount,
+                    price,
+                    expiresAt,
+                    createdAt);
         }
     }
 
@@ -212,6 +223,24 @@ public final class AuctionHouse implements AuctionService {
             @Nullable String category, int limit) {
         return page(category == null ? "all" : category, null, null, 0)
                 .thenApply(rows -> rows.stream().limit(limit).map(Row::info).toList());
+    }
+
+    @Override
+    public CompletableFuture<AuctionPage> activePage(
+            @Nullable String category, long cursor, int limit) {
+        int size = Math.clamp(limit, 1, AuctionPage.MAX_LIMIT);
+        return listings.after(category == null ? "all" : category, cursor, size + 1)
+                .thenApply(
+                        rows -> {
+                            // one extra row tells whether more follow
+                            List<AuctionListingInfo> items =
+                                    rows.stream().limit(size).map(Row::info).toList();
+                            return new AuctionPage(
+                                    items,
+                                    rows.size() > size
+                                            ? OptionalLong.of(items.getLast().id())
+                                            : OptionalLong.empty());
+                        });
     }
 
     @Override

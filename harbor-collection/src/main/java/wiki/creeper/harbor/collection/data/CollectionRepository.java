@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.collection.api.CollectionEntry;
+import wiki.creeper.harbor.collection.api.CollectionScope;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.model.SeasonId;
 
@@ -83,6 +84,27 @@ public final class CollectionRepository {
             }
         }
         return new CollectionData(total, seasonal, hints, donations);
+    }
+
+    /**
+     * Stored collection cells of one scope for any player, online or not (read-only, for external
+     * readers). season is used for the SEASON scope.
+     */
+    public static Map<FishId, CollectionEntry> stored(
+            Connection c, UUID uuid, CollectionScope scope, SeasonId season) throws SQLException {
+        return scope == CollectionScope.TOTAL
+                ? entries(
+                        c,
+                        "SELECT fish_id, first_caught, max_size, best_quality, catch_count"
+                                + " FROM codex_total WHERE uuid = ?",
+                        uuid,
+                        null)
+                : entries(
+                        c,
+                        "SELECT fish_id, first_caught, max_size, best_quality, catch_count"
+                                + " FROM codex_season WHERE uuid = ? AND season = ?",
+                        uuid,
+                        season);
     }
 
     private static Map<FishId, CollectionEntry> entries(

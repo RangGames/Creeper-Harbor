@@ -10,7 +10,7 @@
 - **구현:** JDK 내장 `HttpServer` + 요청마다 가상 스레드. DB와 모듈 캐시를 읽는 동안 게임 메인 스레드를 막지 않는다. 메인 스레드에서만 읽을 수 있는 값은 메인 스레드에 맡기고 **최대 5초** 기다린다 (넘으면 503).
 - **데이터 신선도:**
   - 플레이어 자료(요약·도감·퀘스트·원장)는 DB에서 읽는다. 도감·퀘스트 진행, 레벨·경험치·플레이 시간은 게임 서버가 지연 쓰기(write-behind, 키별 마지막 값을 주기적으로 씀)하므로 **접속 중인 플레이어는 몇 분 늦을 수 있다.** 재화(골드·물비늘 잔액과 원장)는 즉시 트랜잭션이라 늦지 않다.
-  - 시세·기록·랭킹은 그 모듈의 메모리 캐시를 읽는다 (랭킹은 기본 10분 주기 집계). 경매 목록은 DB를 직접 읽는다 (캐시 없음).
+  - 시세·기록·랭킹은 그 모듈의 메모리 캐시를 읽는다 (랭킹은 기본 10분 주기 집계). 경매 목록은 Economy `AuctionService.activePage`가 DB에서 읽는다 (캐시 없음). 플레이어 도감·퀘스트도 각 모듈 api(`CollectionService.storedEntries`, `QuestService.storedQuests`)로 읽는다. Harbor-Web은 다른 모듈의 테이블을 직접 읽지 않는다.
 
 ### 경로 묶음과 필요한 모듈
 
@@ -143,7 +143,7 @@ Access-Control-Allow-Methods: GET, OPTIONS
 | 품질 | 별 개수 1~5 정수 |
 | 등급 (`grade`) | `common`·`uncommon`·`rare`·`epic`·`legendary`·`mythic` |
 | 리그 | 쿼리와 응답 모두 소문자 `tier1`·`tier2`·`all` |
-| 필드 이름 | **모든 REST 응답과 웹훅 `json` 본문은 snake_case**다 (모듈 레코드도 명시적으로 옮겨 쓴다). Redis를 직접 구독할 때의 원본 메시지만 Common 레코드 그대로 camelCase다 ([events.md](events.md#2-redis-메시지-형식)) |
+| 필드 이름 | **모든 REST 응답과 웹훅 `json` 본문은 snake_case**다 (모듈 레코드도 명시적으로 옮겨 쓴다). Redis를 직접 구독할 때의 원본 메시지도 같은 snake_case다 ([events.md](events.md#2-redis-메시지-형식)) |
 | enum 성격의 값 | 소문자 키 (`currency: "gold"`, `league: "all"`, `reason: "fish_sell"`, `state: "completed"`). 쿼리 파라미터가 받는 값과 같다 |
 | 목록 | 페이지가 있는 목록(`/v1/events`, `/v1/auctions`)은 `{items, next, …}` 객체, 페이지가 없는 목록은 배열 |
 | 시즌 | 정수 시즌 번호. "이번 시즌"은 REST 서버의 `harbor-infra.yml` 시즌 값 |
@@ -352,7 +352,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/auctions?category=fish&lim
 
 - 만료되지 않은 진행 중 목록, 최신순(listing id 내림차순). `price`는 묶음 전체 골드.
 - **페이지:** `next`가 있으면 그 값을 다음 요청의 `cursor`로 넣는다. `next`가 없으면 마지막 페이지다. 키셋 방식이라 페이지 사이에 새 등록이 생겨도 겹치거나 빠지지 않는다 (그 사이 팔리거나 만료된 경매는 빠진다). `cursor`는 불투명한 문자열로 다룬다.
-- Economy의 `auction_listing` 테이블을 직접 읽는다 (읽기 전용, 캐시 없음). 게임 경매 화면의 45개 페이지와 무관하다.
+- Economy api `AuctionService.activePage`로 읽는다 (모듈이 DB에서 읽기 전용으로, 캐시 없음). 게임 경매 화면의 45개 페이지와 무관하다.
 
 ### GET /v1/records
 
@@ -405,9 +405,8 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/rankings/level?league=tier
 
 1. **이름으로 찾을 때의 대소문자 구분**은 DB 콜레이션에 달려 있다 (코드는 `name = ?` 비교만 한다).
 2. **도감 테이블 이름이 아직 `codex_total`/`codex_season`이다** (모듈 이름은 collection으로 바뀜). API 응답에는 영향이 없다. 랭킹 보드 ID에도 `codex`가 남아 있다 (`content/season/rankings.yml`). 보드 ID는 콘텐츠 값이라 바뀌면 `/v1/rankings/{board}` 경로가 바뀐다.
-3. **Redis 원본 메시지는 camelCase다.** `harbor:events`를 직접 구독하면 Common `ExternalEvent` 레코드 그대로(`occurredAt`, `playerName`)다. REST와 웹훅만 snake_case로 옮긴다. 원본을 바꾸려면 Common·Core 변경이 필요하다 ([events.md](events.md#2-redis-메시지-형식)).
-4. **Redis pub/sub 특성:** 구독하지 않던 동안의 이벤트, 리더 교체 중 웹훅, 버퍼에서 밀려난 `/v1/events` 이벤트는 잃는다 ([events.md](events.md)).
-5. **버전 정책:** 경로 접두사 `/v1` 말고 응답 형식 버전 표시는 없다. 1.0 전에는 아래 Changelog처럼 형식이 바뀔 수 있다. 응답 필드 추가는 예고 없이 될 수 있다고 가정하고, 모르는 필드는 무시하게 만든다.
+3. **Redis pub/sub 특성:** 구독하지 않던 동안의 이벤트, 리더 교체 중 웹훅, 버퍼에서 밀려난 `/v1/events` 이벤트는 잃는다 ([events.md](events.md)).
+4. **버전 정책:** 경로 접두사 `/v1` 말고 응답 형식 버전 표시는 없다. 1.0 전에는 아래 Changelog처럼 형식이 바뀔 수 있다. 응답 필드 추가는 예고 없이 될 수 있다고 가정하고, 모르는 필드는 무시하게 만든다.
 
 ## Changelog (pre-1.0)
 
@@ -425,6 +424,8 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/rankings/level?league=tier
 - **`server.content_reloaded`:** 의미 없던 `snapshot`을 빼고 `entry_counts`(다시 읽은 형식별 항목 수)를 넣었다.
 - **quests 중복 제거:** 퀘스트마다 한 줄(메인은 가장 최근 시즌 행), `main` 필드와 위쪽 `season` 추가.
 - **`/v1/events` 커서:** 응답에 `server`(seq를 붙인 서버)와 `next`가 생겼다. `after`는 int64.
+- **Redis 원본 snake_case:** `harbor:events` 메시지도 snake_case다. 봉투 `sentAt` → `sent_at`, payload `occurredAt` → `occurred_at`, `playerName` → `player_name`. payload는 REST `items[].event`·웹훅 `json`과 같은 객체이고, `data`의 정수는 Redis에서도 정수다 (Common `ExternalEvent.WireAdapter`). Harbor 서버끼리는 이전 camelCase도 읽는다 (순차 재시작용). 다른 Redis 채널의 봉투도 `sent_at`을 쓴다.
+- **모듈 테이블 직접 읽기 제거:** `/v1/auctions`·`/v1/players/{id}/collection`·`/v1/players/{id}/quests`가 Economy·Collection·Quest 테이블 대신 각 모듈 api(`AuctionService.activePage`, `CollectionService.storedEntries`, `QuestService.storedQuests`)를 쓴다. 응답 형식·커서·중복 제거 규칙은 그대로다. collection `entries`는 이제 어종 ID 순으로 정렬된다.
 
 ## Source map
 
@@ -439,9 +440,9 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/rankings/level?league=tier
 | 속도 제한 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/RateLimiter.java` |
 | `/v1/events` 버퍼·커서 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/RecentEvents.java` |
 | 네트워크 접속 인원 (하트비트) | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/NetworkOnline.java` |
-| Redis 이벤트 읽기(정수 보존), snake_case 이벤트 | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/EventWire.java` |
+| 이벤트 JSON 형식(snake_case, 정수 보존) | `harbor-common/src/main/java/wiki/creeper/harbor/common/event/ExternalEvent.java` (`WireAdapter`) |
 | server, players/*, events, content/fish 경로 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/CoreRoutes.java` |
-| market, auctions, records, rankings 경로 | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/ModuleRoutes.java` |
+| market, auctions, records, rankings, players/{id}/collection·quests 경로 (모듈 api 브리지) | `harbor-web/src/main/java/wiki/creeper/harbor/web/http/ModuleRoutes.java` |
 | 이벤트 카탈로그 (type ↔ 클래스) | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/EventCatalog.java` |
 | 이벤트 구독·발행, 접속/퇴장, `_name` 찾기, `player_name` 찾기 | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/EventRelay.java` |
 | 이벤트 data 변환 | `harbor-web/src/main/java/wiki/creeper/harbor/web/relay/EventSerializer.java` |
@@ -455,12 +456,14 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/rankings/level?league=tier
 | JSON 설정 (Gson, null 생략) | `harbor-common/src/main/java/wiki/creeper/harbor/common/util/Json.java` |
 | 외부 이벤트 API·구현 | `harbor-core/src/main/java/wiki/creeper/harbor/core/api/ExternalEvents.java`, `harbor-core/src/main/java/wiki/creeper/harbor/core/event/CoreExternalEvents.java` |
 | 원장 조회 | `harbor-core/src/main/java/wiki/creeper/harbor/core/api/{CurrencyService,LedgerRecord}.java`, `harbor-core/src/main/java/wiki/creeper/harbor/core/currency/CurrencyManager.java` |
-| 경매 테이블 | `harbor-economy/src/main/resources/db/migration/economy/V1__economy.sql` (`auction_listing`) |
+| 경매 목록 | `harbor-economy/src/main/java/wiki/creeper/harbor/economy/api/{AuctionService,AuctionPage,AuctionListingInfo}.java`, `harbor-economy/src/main/java/wiki/creeper/harbor/economy/service/AuctionListings.java` |
+| 플레이어 도감 | `harbor-collection/src/main/java/wiki/creeper/harbor/collection/api/{CollectionService,CollectionCell,CollectionEntry}.java`, `harbor-collection/src/main/java/wiki/creeper/harbor/collection/data/CollectionRepository.java` |
+| 플레이어 퀘스트 | `harbor-quest/src/main/java/wiki/creeper/harbor/quest/api/{QuestService,QuestRecord}.java`, `harbor-quest/src/main/java/wiki/creeper/harbor/quest/data/QuestRepository.java` |
 | 시세 | `harbor-economy/src/main/java/wiki/creeper/harbor/economy/api/PriceService.java`, `harbor-economy/src/main/java/wiki/creeper/harbor/economy/service/MarketEngine.java` |
 | 최대어 기록 | `harbor-collection/src/main/java/wiki/creeper/harbor/collection/api/{RecordService,RecordEntry}.java`, `harbor-collection/src/main/java/wiki/creeper/harbor/collection/service/RecordBoard.java` |
 | 랭킹 | `harbor-season/src/main/java/wiki/creeper/harbor/season/api/{RankingService,RankingBoard,RankEntry,League}.java`, `harbor-season/src/main/java/wiki/creeper/harbor/season/content/RankingBoardDef.java` |
 | 하트비트 | `harbor-common/src/main/java/wiki/creeper/harbor/common/proxy/ProxyMessages.java` (`HEARTBEATS`) |
-| 테이블 | `harbor-common/.../db/migration/common/V1__common_tables.sql`(players, ledger), `harbor-core/.../db/migration/core/V1__core_tables.sql`(player_season), `harbor-collection/.../db/migration/collection/V1__collection.sql`(codex_*), `harbor-quest/.../db/migration/quest/V1__quest.sql`(quest_progress) |
+| Harbor-Web이 직접 읽는 테이블 (Common·Core 소유만) | `harbor-common/.../db/migration/common/V1__common_tables.sql`(players), `harbor-core/.../db/migration/core/V1__core_tables.sql`(player_season) |
 | 모듈 이벤트 클래스 | `harbor-<모듈>/src/main/java/wiki/creeper/harbor/<모듈>/api/event/*.java` |
 | 디스코드 문구 | `content/messages_ko.yml` (`web.discord.*`) |
 

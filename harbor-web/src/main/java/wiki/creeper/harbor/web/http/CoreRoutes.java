@@ -12,16 +12,15 @@ import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import wiki.creeper.harbor.common.content.type.FishDef;
-import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.core.api.LedgerRecord;
-import wiki.creeper.harbor.web.relay.EventRelay;
-import wiki.creeper.harbor.web.relay.EventWire;
 
 /**
- * Core routes: server, player summary, player collection and quests (when those modules are
- * enabled), recent events, fish list. Player data is read from the DB (read-only), so for online
- * players progress not yet written may lag a few minutes (write-behind queue).
+ * Core routes: server, player summary, recent events, fish list, plus the player collection and
+ * quests paths when those modules are enabled (their handlers are module bridges in {@link
+ * ModuleRoutes}). Player data is read from the DB (read-only; Common players and Core
+ * player_season), so for online players progress not yet written may lag a few minutes
+ * (write-behind queue).
  *
  * <p>Every response field is snake_case and enum-like values are lowercase keys (the same values
  * the query parameters take).
@@ -67,13 +66,15 @@ public final class CoreRoutes {
             router.get(
                     "players/{id}/collection",
                     "플레이어 도감 (?scope=total|season)",
-                    r -> collection(calls, r.param("id"), r.queryChoice("scope", "total", SCOPES)));
+                    r ->
+                            ModuleRoutes.playerCollection(
+                                    calls, r.param("id"), r.queryChoice("scope", "total", SCOPES)));
         }
         if (enabled("Harbor-Quest")) {
             router.get(
                     "players/{id}/quests",
                     "플레이어 퀘스트 (이번 시즌 + 이월된 메인, 퀘스트마다 한 줄)",
-                    r -> quests(calls, r.param("id")));
+                    r -> ModuleRoutes.playerQuests(calls, r.param("id")));
         }
     }
 
@@ -100,7 +101,7 @@ public final class CoreRoutes {
         for (RecentEvents.Item i : page.items()) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("seq", i.seq());
-            m.put("event", EventWire.toJson(i.event()));
+            m.put("event", i.event()); // Common wire form (snake_case)
             items.add(m);
         }
         Map<String, Object> out = new LinkedHashMap<>();
@@ -198,107 +199,6 @@ public final class CoreRoutes {
             throw new Router.ApiException(404, "player_not_found", "플레이어를 찾지 못했습니다: " + id);
         }
         return result;
-    }
-
-    private static Object collection(Calls calls, String id, String scope)
-            throws Router.ApiException {
-        UUID uuid = resolve(calls, id);
-        boolean season = scope.equals("season");
-        int seasonNo = calls.api().infra().season().value();
-        int total = calls.api().content().snapshot().all(FishDef.TYPE).size();
-        List<Map<String, Object>> entries =
-                calls.db(
-                        c -> {
-                            // legacy table names (codex_*) kept: the module was renamed later
-                            String sql =
-                                    season
-                                            ? "SELECT fish_id, first_caught, max_size, best_quality, catch_count FROM codex_season WHERE uuid = ? AND season = ?"
-                                            : "SELECT fish_id, first_caught, max_size, best_quality, catch_count FROM codex_total WHERE uuid = ?";
-                            List<Map<String, Object>> list = new ArrayList<>();
-                            try (PreparedStatement ps = c.prepareStatement(sql)) {
-                                ps.setString(1, uuid.toString());
-                                if (season) {
-                                    ps.setInt(2, seasonNo);
-                                }
-                                try (ResultSet rs = ps.executeQuery()) {
-                                    while (rs.next()) {
-                                        Map<String, Object> e = new LinkedHashMap<>();
-                                        e.put("fish", rs.getString(1));
-                                        e.put(
-                                                "first_caught",
-                                                rs.getTimestamp(2).toInstant().toString());
-                                        e.put("max_size", rs.getDouble(3));
-                                        e.put("best_quality", rs.getInt(4));
-                                        e.put("catch_count", rs.getInt(5));
-                                        list.add(e);
-                                    }
-                                }
-                            }
-                            return list;
-                        });
-        entries.forEach(
-                e ->
-                        HarborId.tryParse(String.valueOf(e.get("fish")))
-                                .flatMap(fid -> EventRelay.contentName(calls.api(), fid))
-                                .ifPresent(n -> e.put("fish_name", n)));
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("scope", scope);
-        if (season) {
-            out.put("season", seasonNo);
-        }
-        out.put("registered", entries.size());
-        out.put("total", total);
-        out.put("percent", total == 0 ? 0 : Math.round(entries.size() * 1000.0 / total) / 10.0);
-        out.put("entries", entries);
-        return out;
-    }
-
-    /**
-     * Current season rows plus main quests carried over from earlier seasons. A main quest can have
-     * a row in several seasons; like the game (QuestRepository.load), only the latest season's row
-     * is returned, so each quest appears once. Sorted by quest ID.
-     */
-    private static Object quests(Calls calls, String id) throws Router.ApiException {
-        UUID uuid = resolve(calls, id);
-        int season = calls.api().infra().season().value();
-        Map<String, Map<String, Object>> byQuest =
-                calls.db(
-                        c -> {
-                            Map<String, Map<String, Object>> map = new java.util.TreeMap<>();
-                            try (PreparedStatement ps =
-                                    c.prepareStatement(
-                                            "SELECT quest_id, season, state, updated_at FROM quest_progress"
-                                                    + " WHERE uuid = ? AND (season = ? OR quest_id LIKE 'harbor:quest/main/%')"
-                                                    + " ORDER BY season")) {
-                                ps.setString(1, uuid.toString());
-                                ps.setInt(2, season);
-                                try (ResultSet rs = ps.executeQuery()) {
-                                    while (rs.next()) {
-                                        String quest = rs.getString(1);
-                                        Map<String, Object> q = new LinkedHashMap<>();
-                                        q.put("quest", quest);
-                                        q.put("main", quest.startsWith("harbor:quest/main/"));
-                                        q.put("season", rs.getInt(2));
-                                        q.put("state", rs.getString(3).toLowerCase(Locale.ROOT));
-                                        q.put(
-                                                "updated_at",
-                                                rs.getTimestamp(4).toInstant().toString());
-                                        map.put(quest, q); // later season replaces earlier
-                                    }
-                                }
-                            }
-                            return map;
-                        });
-        List<Map<String, Object>> rows = new ArrayList<>(byQuest.values());
-        rows.forEach(
-                q ->
-                        HarborId.tryParse(String.valueOf(q.get("quest")))
-                                .flatMap(qid -> EventRelay.contentName(calls.api(), qid))
-                                .ifPresent(n -> q.put("quest_name", n)));
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("season", season);
-        out.put("quests", rows);
-        return out;
     }
 
     private static Object ledger(Calls calls, String id, String currencyKey, int limit)

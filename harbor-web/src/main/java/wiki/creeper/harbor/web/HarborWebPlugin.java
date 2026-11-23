@@ -17,6 +17,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.event.ExternalEvent;
 import wiki.creeper.harbor.common.proxy.ProxyMessages;
+import wiki.creeper.harbor.common.redis.Channels;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborModule;
 import wiki.creeper.harbor.core.api.ModuleContext;
@@ -29,7 +30,6 @@ import wiki.creeper.harbor.web.http.RecentEvents;
 import wiki.creeper.harbor.web.http.Router;
 import wiki.creeper.harbor.web.relay.EventRelay;
 import wiki.creeper.harbor.web.relay.EventSerializer;
-import wiki.creeper.harbor.web.relay.EventWire;
 import wiki.creeper.harbor.web.webhook.WebhookDispatcher;
 import wiki.creeper.harbor.web.webhook.WebhookTarget;
 
@@ -98,10 +98,7 @@ public final class HarborWebPlugin extends HarborModule {
 
         if (config.getBoolean("http.enabled", false)) {
             RecentEvents events = new RecentEvents(config.getInt("http.recent_events", 500));
-            api.bus()
-                    .subscribe(
-                            EventWire.CHANNEL,
-                            envelope -> events.add(EventWire.decode(envelope.payload())));
+            api.bus().subscribe(Channels.EVENTS, envelope -> events.add(envelope.payload()));
             recent = events;
             NetworkOnline network = new NetworkOnline();
             api.bus()

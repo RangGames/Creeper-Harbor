@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -21,6 +22,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
+import wiki.creeper.harbor.collection.api.CollectionCell;
 import wiki.creeper.harbor.collection.api.CollectionEntry;
 import wiki.creeper.harbor.collection.api.CollectionScope;
 import wiki.creeper.harbor.collection.api.CollectionService;
@@ -154,6 +156,24 @@ public final class CollectionManager
         CollectionData data = data(player);
         return Optional.ofNullable(
                 (scope == CollectionScope.TOTAL ? data.total() : data.season()).get(fish));
+    }
+
+    @Override
+    public CompletableFuture<List<CollectionCell>> storedEntries(
+            UUID player, CollectionScope scope) {
+        SeasonId season = api.infra().season();
+        return api.database()
+                .async(c -> CollectionRepository.stored(c, player, scope, season))
+                .thenApplyAsync(
+                        map ->
+                                map.entrySet().stream()
+                                        .map(e -> new CollectionCell(e.getKey(), e.getValue()))
+                                        .sorted(
+                                                Comparator.comparing(
+                                                        (CollectionCell cell) ->
+                                                                cell.fish().toString()))
+                                        .toList(),
+                        tasks.main());
     }
 
     @Override

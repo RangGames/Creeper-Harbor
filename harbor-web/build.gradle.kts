@@ -9,6 +9,7 @@ dependencies {
     compileOnly(project(":harbor-economy"))
     compileOnly(project(":harbor-collection"))
     compileOnly(project(":harbor-season"))
+    compileOnly(project(":harbor-quest"))
     // Tests: verify that the classes in the event list actually exist
     listOf(
         "jobs", "fishing", "collection", "npc", "quest", "economy",

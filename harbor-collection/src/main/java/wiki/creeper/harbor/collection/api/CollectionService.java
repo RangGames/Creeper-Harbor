@@ -1,7 +1,9 @@
 package wiki.creeper.harbor.collection.api;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.FishId;
@@ -16,6 +18,14 @@ public interface CollectionService {
     Optional<CollectionEntry> entry(UUID player, FishId fish, CollectionScope scope);
 
     boolean isRegistered(UUID player, FishId fish, CollectionScope scope);
+
+    /**
+     * Stored collection cells of any player, online or not, read from the DB (read-only, for
+     * external readers such as the Harbor-Web REST API). SEASON is the current season. For an
+     * online player, catches not yet written by the write-behind queue may be missing. Sorted by
+     * fish ID; completes on the main thread.
+     */
+    CompletableFuture<List<CollectionCell>> storedEntries(UUID player, CollectionScope scope);
 
     /** Completion 0~100. If region is given, that region only (excluding mythic). */
     double percent(UUID player, CollectionScope scope, @Nullable RegionId region);

@@ -17,6 +17,19 @@ public interface AuctionService {
     CompletableFuture<List<AuctionListingInfo>> active(
             @org.jspecify.annotations.Nullable String category, int limit);
 
+    /**
+     * Read-only keyset page of active, unexpired listings, newest first (id descending), read from
+     * the DB without the screen cache (for external readers such as the Harbor-Web REST API).
+     *
+     * @param category fish · gear · bait · material · food · other, or null/"all" for every
+     *     category
+     * @param cursor the previous page's {@link AuctionPage#next()} (only listings with a smaller id
+     *     follow); 0 for the first page
+     * @param limit page size, clamped to 1 ~ {@link AuctionPage#MAX_LIMIT}
+     */
+    CompletableFuture<AuctionPage> activePage(
+            @org.jspecify.annotations.Nullable String category, long cursor, int limit);
+
     /** Lowest active price for this item (species) ID. */
     CompletableFuture<OptionalLong> lowestPrice(String itemId);
 

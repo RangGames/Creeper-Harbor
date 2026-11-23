@@ -35,6 +35,7 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.quest.api.BoardView;
 import wiki.creeper.harbor.quest.api.ObjectiveSignal;
 import wiki.creeper.harbor.quest.api.ObjectiveTypeRegistry;
+import wiki.creeper.harbor.quest.api.QuestRecord;
 import wiki.creeper.harbor.quest.api.QuestService;
 import wiki.creeper.harbor.quest.api.QuestState;
 import wiki.creeper.harbor.quest.api.QuestView;
@@ -368,6 +369,14 @@ public final class QuestEngine
     @Override
     public boolean isCompleted(UUID player, QuestId quest) {
         return state(player, quest) == QuestState.COMPLETED;
+    }
+
+    @Override
+    public CompletableFuture<List<QuestRecord>> storedQuests(UUID player) {
+        var season = api.infra().season();
+        return api.database()
+                .async(c -> QuestRepository.records(c, player, season))
+                .thenApplyAsync(r -> r, tasks.main());
     }
 
     @Override
