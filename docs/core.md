@@ -22,12 +22,13 @@
 | 서비스 | 하는 일 |
 |---|---|
 | `ContentService` | 콘텐츠 스냅샷 (변경 불가, 아무 스레드에서 읽어도 됨) |
-| `PlayerService` · `HarborPlayer` · `PlayerComponent<T>` | 플레이어 데이터. 모듈은 컴포넌트를 붙이고 값은 변경 불가 객체로 교체한다. 5분 자동 저장, `saveNow` |
+| `PlayerService` · `HarborPlayer` · `PlayerComponent<T>` | 플레이어 데이터. 모듈은 컴포넌트를 붙이고 값은 변경 불가 객체로 교체한다. 5분 자동 저장, `saveNow`, `holdSession`(아래 서버 이동 세션 참고) |
 | `CurrencyService` | 골드·물비늘 증감 (원장 경유) |
 | `ItemService` · `HarborItem` · `ItemModels` | Harbor 아이템 만들기·읽기, 리소스팩에 있는 모델만 쓰기 |
 | `ModifierService` · `Modifier` · `StatKey` | 수치 보정 (ADD 합 → MULTIPLY 곱 → `stats.<키>.min/max` 클램프) |
 | `MessageService` | `messages_ko.yml` 키 + MiniMessage |
-| `FlagService` | 플레이어 플래그(`player_flags`)·서버 플래그(`server_flags`). 바뀌면 모든 서버에 알림 |
+| `FlagService` | 플레이어 플래그(`player_flags`)·서버 플래그(`server_flags`). 바뀌면 모든 서버에 알림 (플레이어 플래그는 `harbor:player_flags`, 그 플레이어가 접속한 서버만 캐시를 고친다) |
+| `AdminLogService` (`adminLog()`) | 명령 없이 일어난 관리 조작을 `admin_log`에 남긴다: `record(actor, action, target, detail)` (아래 관리자 명령 참고) |
 | `Ui` · `Dialogs` | 상자 GUI, Dialog 화면(알림·선택지·입력) |
 | `ProxyBridge` · `HandoffBlocker` | 서버 이동 요청, 이동 막기 |
 | `WorldBorderService` | 화면 가장자리 경고 연출의 우선순위 중재 |
@@ -51,6 +52,8 @@
 ## 관리자 명령
 
 `/harbor`는 `harbor.admin`, 하위 명령은 `harbor.admin.<하위 명령>`이 필요하다. 모든 실행은 `admin_log`에 남는다.
+
+**관리 기록 규칙 (추가 제안):** 명령은 스스로 `admin_log`에 쓴다 (`admin` = 플레이어 UUID 또는 `CONSOLE`). 모듈 API의 관리 메서드(QuestService `adminComplete`·`adminReset`·`adminSetState`·`adminSetProgress`, JobsService `adminSetLevel`·`adminSetTier`·`adminResetSkills` 등)는 기록하지 않는다. 명령이 그 메서드를 부를 때 두 번 남지 않게 하려는 것이다. 명령 밖에서 부르는 쪽이 `Harbor.api().adminLog().record(...)`로 남긴다. Harbor-Skript의 `harbor admin ...` 효과는 모두 actor `skript`로 자동 기록된다 ([skript.md](skript.md)). actor는 36자, action·target은 64자에서 자른다. action은 `<출처>.<조작>` 형태의 고정 키로 쓴다 (예: `skript.complete_quest`).
 
 | 명령 | 권한 | 설명 |
 |---|---|---|
@@ -89,11 +92,14 @@
 - 매일 원장 합계와 잔액을 대조한다 (`LedgerAuditJob`). 맞지 않으면 `harbor.admin.alerts` 보유자에게 알린다. 그래서 잔액 열을 직접 UPDATE하면 안 된다.
 - 시즌 초기화도 `SEASON_RESET` 원장 기록으로 잔액을 0으로 만든다.
 - 재화가 바뀌면 `CurrencyChangedEvent`가 난다.
+- 관리자 잔액 설정(`CurrencyService.set`, `/골드 설정`)은 잔액 행을 잠근 같은 트랜잭션 안에서 차이를 계산해 `ADMIN_GRANT`/`ADMIN_TAKE`로 기록한다 (`LedgerWriter.postSet`). 차이가 0이면 기록하지 않는다.
 
 ## 서버 이동 세션과 인벤토리 동기화
 
 - **세션 잠금:** Redis `harbor:lock:<uuid>`(값 `OWNED|서버` 또는 `HANDOFF|출발|도착`, 30초 TTL). 도착 서버는 접속 전 단계에서 handoff를 확인하기 전까지 플레이어를 불러오지 않는다. Redis 장애 때는 이동을 막는다 (복제 방지 우선).
 - **플레이어 데이터:** 접속 전에 모든 컴포넌트를 병렬로 불러온다. 하나라도 실패하면 접속을 거부한다. 퇴장·서버 이동 때는 그 플레이어 것만 즉시 쓴다.
+- **세션 보류 (`PlayerService.holdSession(uuid, future)`, 추가 제안):** 지연 쓰기 큐를 거치지 않고 DB에 바로 쓰는데 다음 서버가 접속 때 읽는 작업(플레이어 플래그, 퀘스트 완료·되돌리기 체인 등)을 등록한다. 아무 스레드에서 불러도 되고, future가 끝나면(실패 포함) 저절로 빠진다. 퇴장 저장·서버 이동은 비동기 작업 안에서(메인 스레드는 막지 않음) `flushNow`·잠금 해제/`beginHandoff` 전에 그 플레이어의 보류를 모두 기다린다. 한도는 `balance.yml` `session.hold_timeout_ms`(제안값 3000, 프록시 이동 제한 5초보다 짧게)이고, 넘으면 경고만 남기고 진행한다. 트랜잭션을 대신하지 않고 오래된 값을 읽을 틈만 줄인다. 쓰기를 시작하는 곳에서 바로 등록한다 (기다리기 시작한 뒤 등록한 보류는 기다리지 않는다). `FlagManager`가 플래그 쓰기마다 쓴다.
+- **오프라인 인벤토리 복구:** `/harbor inventory restore`가 오프라인 플레이어를 복구할 때는 세션 잠금을 `admin-<서버>` 이름으로 잡고 쓴 뒤 푼다. 그 사이 접속하면 잠금을 기다리므로 옛 행을 읽고 복구를 덮어쓰는 일이 없다. 플레이어가 어딘가 접속 중(BUSY)이면 거부하고, Redis 장애면 복구하지 않는다.
 - **인벤토리 동기화:** 인벤토리·엔더 상자·PDC·경험치·체력·배고픔·효과를 `player_inventory`에 저장한다. 접속 전 로드 → 접속 직후 적용. DB 행이 없는 플레이어는 본 서버(main)의 플레이어 파일이 원본이다.
 - **기록:** 퇴장·이동·사망·복구 때 기록을 남기고, 플레이어마다 `inventory.history_keep`개를 보관한다. `/harbor inventory`로 보고 되돌린다.
 - **거래 뒤 저장:** 재화가 커밋되거나 경제 거래(판매·구매·경매·우편·제작)가 끝나면 `PlayerService.saveSoon`으로 인벤토리를 바로 저장한다. 서버가 거래 직후 죽어도 재화와 아이템이 어긋나지 않게 한다.
@@ -139,6 +145,7 @@
 | `items` | `custom_models`, `fish_base_item` |
 | `world_alias` | 개발 서버의 월드 이름을 지역 월드에 대응 (운영 서버는 비움) |
 | `inventory` | `sync`(모든 서버가 같은 값이어야 함), `history_keep`, `commit_save_delay_ticks`(거래 커밋 뒤 인벤토리 즉시 저장까지 지연) |
+| `session` | `hold_timeout_ms`: 퇴장·이동 저장 전에 세션 보류를 기다리는 한도 |
 | `afk` | `lobby_minutes`(0이면 끔), `warn_seconds` |
 | `furniture` | `fix_glitched_noteblocks`: 번호 배정 전부터 있던 노트블록이 커스텀 모양으로 보이면 바닐라로 되돌림 |
 | `rig` | `fps`(20의 약수여야 함), `max_parts`, `lod_distance`, `tick_budget_ms`, `part_budget` 등 |

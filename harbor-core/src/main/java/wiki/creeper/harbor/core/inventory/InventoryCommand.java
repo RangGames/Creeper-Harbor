@@ -6,7 +6,6 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -15,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.model.PlayerRef;
 import wiki.creeper.harbor.common.redis.Redis;
+import wiki.creeper.harbor.common.session.ClaimResult;
 import wiki.creeper.harbor.common.session.SessionLocks;
 import wiki.creeper.harbor.core.admin.AdminLog;
 import wiki.creeper.harbor.core.api.MessageService;
@@ -36,7 +36,11 @@ public final class InventoryCommand {
 
     private final InventorySync sync;
     private final PlayerService players;
-    private final Redis redis;
+    private final SessionLocks locks;
+
+    /** Session lock owner while restoring an offline player ("admin-" + this server, proposed). */
+    private final String lockOwner;
+
     private final MessageService messages;
     private final Tasks tasks;
     private final AdminLog adminLog;
@@ -45,12 +49,15 @@ public final class InventoryCommand {
             InventorySync sync,
             PlayerService players,
             Redis redis,
+            String serverId,
             MessageService messages,
             Tasks tasks,
             AdminLog adminLog) {
         this.sync = sync;
         this.players = players;
-        this.redis = redis;
+        this.locks = new SessionLocks(redis);
+        this.lockOwner = "admin-" + serverId;
+        SessionLocks.requireServerId(lockOwner);
         this.messages = messages;
         this.tasks = tasks;
         this.adminLog = adminLog;
@@ -206,20 +213,12 @@ public final class InventoryCommand {
         return 1;
     }
 
-    /** The record to restore and the current session lock value ("" if none). */
-    private record Loaded(Optional<InventoryData> data, String lock) {}
-
     private void restore(CommandSender sender, PlayerRef ref, long id) {
         UUID uuid = ref.uuid();
         var _ =
                 sync.load(uuid, id)
-                        .thenCombine(
-                                tasks.supplyAsync(() -> redis.sync().get(SessionLocks.key(uuid))),
-                                (data, lock) -> new Loaded(data, lock == null ? "" : lock))
                         .thenAcceptAsync(
-                                loaded -> {
-                                    Optional<InventoryData> data = loaded.data();
-                                    String lock = loaded.lock();
+                                data -> {
                                     if (data.isEmpty()) {
                                         messages.send(sender, "inventory.not_found");
                                         return;
@@ -230,20 +229,51 @@ public final class InventoryCommand {
                                         done(sender, ref, id);
                                         return;
                                     }
-                                    if (!lock.isEmpty()) {
-                                        messages.send(
-                                                sender,
-                                                "inventory.online_elsewhere",
-                                                Placeholder.unparsed("player", ref.name()));
-                                        return;
-                                    }
+                                    InventoryData record = data.get();
                                     var _ =
-                                            sync.restoreOffline(uuid, data.get())
-                                                    .thenRunAsync(
-                                                            () -> done(sender, ref, id),
+                                            tasks.supplyAsync(() -> restoreLocked(uuid, record))
+                                                    .thenAcceptAsync(
+                                                            claim -> {
+                                                                switch (claim) {
+                                                                    case CLAIMED, HANDOFF_CLAIMED ->
+                                                                            done(sender, ref, id);
+                                                                    case BUSY ->
+                                                                            messages.send(
+                                                                                    sender,
+                                                                                    "inventory.online_elsewhere",
+                                                                                    Placeholder
+                                                                                            .unparsed(
+                                                                                                    "player",
+                                                                                                    ref
+                                                                                                            .name()));
+                                                                    case UNAVAILABLE ->
+                                                                            messages.send(
+                                                                                    sender,
+                                                                                    "inventory.lock_unavailable");
+                                                                }
+                                                            },
                                                             tasks.main());
                                 },
                                 tasks.main());
+    }
+
+    /**
+     * Virtual thread: takes the player's session lock under an admin pseudo-server id, writes the
+     * restore, then releases it. A login in between waits on the lock (awaitClaim) instead of
+     * loading the old row and later overwriting the restore. BUSY = the player is online somewhere
+     * (or mid-move), so nothing is written.
+     */
+    private ClaimResult restoreLocked(UUID uuid, InventoryData record) {
+        ClaimResult claim = locks.claim(uuid, lockOwner);
+        if (!claim.isClaimed()) {
+            return claim;
+        }
+        try {
+            sync.restoreOffline(uuid, record).join();
+        } finally {
+            locks.release(uuid, lockOwner);
+        }
+        return claim;
     }
 
     private void done(CommandSender sender, PlayerRef ref, long id) {

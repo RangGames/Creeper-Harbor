@@ -57,12 +57,14 @@ public final class Ext {
             @Nullable Class<? extends Event> onlyIn,
             ExtStatement.Action action,
             String... patterns) {
+        boolean audited = AdminKeys.isAdmin(patterns);
         r.registry()
                 .register(
                         SyntaxRegistry.EFFECT,
                         SyntaxInfo.builder(ExtStatement.Eff.class)
                                 .addPatterns(patterns)
-                                .supplier(() -> new ExtStatement.Eff(label, onlyIn, action))
+                                .supplier(
+                                        () -> new ExtStatement.Eff(label, onlyIn, action, audited))
                                 .build());
         r.counted();
     }
@@ -98,12 +100,13 @@ public final class Ext {
      */
     public static void await(
             Registrar r, String label, int[] targets, AwaitEffect.Start start, String... patterns) {
+        boolean audited = AdminKeys.isAdmin(patterns);
         r.registry()
                 .register(
                         SyntaxRegistry.EFFECT,
                         SyntaxInfo.builder(AwaitEffect.class)
                                 .addPatterns(patterns)
-                                .supplier(() -> new AwaitEffect(label, targets, start))
+                                .supplier(() -> new AwaitEffect(label, targets, start, audited))
                                 .build());
         r.counted();
     }

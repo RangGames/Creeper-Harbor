@@ -282,18 +282,33 @@ public final class CurrencyManager implements CurrencyService {
         if (amount < 0) {
             throw new IllegalArgumentException("잔액은 0 이상이어야 합니다: " + amount);
         }
-        return db.async(c -> dbBalance(c, player, currency))
-                .thenComposeAsync(
-                        now -> {
-                            long diff = amount - now;
-                            if (diff == 0) {
-                                return CompletableFuture.completedFuture(
-                                        Result.<Long, LedgerError>ok(now));
-                            }
-                            return diff > 0
-                                    ? give(player, currency, diff, LedgerReason.ADMIN_GRANT, refId)
-                                    : take(player, currency, -diff, LedgerReason.ADMIN_TAKE, refId);
-                        },
+        // The difference is computed inside the ledger transaction against the locked balance row,
+        // so a concurrent change between reading and posting can't skew the result
+        return tasks.supplyAsync(
+                        () ->
+                                writer.postSet(
+                                        db,
+                                        player,
+                                        currency,
+                                        amount,
+                                        LedgerReason.ADMIN_GRANT,
+                                        LedgerReason.ADMIN_TAKE,
+                                        refId))
+                .thenApplyAsync(
+                        result ->
+                                switch (result) {
+                                    case Result.Ok<LedgerWriter.SetOutcome, LedgerError>(
+                                                    LedgerWriter.SetOutcome outcome) -> {
+                                        LedgerEntry entry = outcome.entry();
+                                        if (entry != null) {
+                                            committed(entry, outcome.balance());
+                                        }
+                                        yield Result.<Long, LedgerError>ok(outcome.balance());
+                                    }
+                                    case Result.Err<LedgerWriter.SetOutcome, LedgerError>(
+                                                    LedgerError error) ->
+                                            Result.<Long, LedgerError>err(error);
+                                },
                         tasks.main());
     }
 

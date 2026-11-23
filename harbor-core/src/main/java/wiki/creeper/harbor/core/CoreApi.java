@@ -7,6 +7,7 @@ import wiki.creeper.harbor.common.redis.DistributedLock;
 import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.common.redis.Redis;
 import wiki.creeper.harbor.common.time.HarborTime;
+import wiki.creeper.harbor.core.api.AdminLogService;
 import wiki.creeper.harbor.core.api.ContentService;
 import wiki.creeper.harbor.core.api.CurrencyService;
 import wiki.creeper.harbor.core.api.Dialogs;
@@ -37,6 +38,7 @@ record CoreApi(
         WorldBorderService worldBorders,
         RigService rigs,
         FurnitureService furniture,
+        AdminLogService adminLog,
         InfraConfig infra,
         HarborTime time,
         Database database,

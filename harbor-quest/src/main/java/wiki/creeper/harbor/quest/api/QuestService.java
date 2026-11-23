@@ -57,6 +57,9 @@ public interface QuestService {
     /** Stops tracking. False if nothing was tracked. */
     boolean untrack(Player player);
 
+    // The admin* methods do not write admin_log (commands and Harbor-Skript record their own
+    // entries). Other callers must record the action via Harbor.api().adminLog().
+
     /**
      * Admin: completes a quest like {@code /harbor quest complete}. A quest in progress goes
      * through the normal two-phase completion (COMPLETING → rewards → COMPLETED, without rewards if

@@ -32,14 +32,16 @@ public final class ExtStatement {
         private final String label;
         private final @Nullable Class<? extends Event> onlyIn;
         private final Action action;
+        private final boolean audited;
         private Expression<?>[] exprs = new Expression<?>[0];
         private int pattern;
         private int mark;
 
-        Eff(String label, @Nullable Class<? extends Event> onlyIn, Action action) {
+        Eff(String label, @Nullable Class<? extends Event> onlyIn, Action action, boolean audited) {
             this.label = label;
             this.onlyIn = onlyIn;
             this.action = action;
+            this.audited = audited;
         }
 
         @Override
@@ -62,6 +64,9 @@ public final class ExtStatement {
                 action.run(new Ctx(event, exprs, pattern, mark));
             } catch (RuntimeException e) {
                 Skript.warning(label + " 실행 오류: " + String.valueOf(e.getMessage()));
+            }
+            if (audited) {
+                AdminAudit.record(this, event, label, exprs);
             }
         }
 

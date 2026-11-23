@@ -55,4 +55,22 @@ public interface PlayerService {
      * Core blocks the player's actions during this time.
      */
     boolean frozen(UUID player);
+
+    /**
+     * Holds the player's session until {@code work} completes. Callable from any thread; the hold
+     * is removed automatically when the future completes (normally or exceptionally).
+     *
+     * <p>Contract: before this server saves the player for a quit or a server move and passes the
+     * session lock on ({@code flushNow} → lock release / {@code beginHandoff}), Core waits on its
+     * async quit/handoff task (never on the main thread) for every hold registered for that player,
+     * up to balance.yml {@code session.hold_timeout_ms} (proposed value, default 3000). On timeout
+     * it logs a warning and continues, so a hold must never be a substitute for a transaction: it
+     * only narrows the window in which another server could load stale data. Use it for writes that
+     * go straight to the DB (not through the write-behind queue) and that the next server reads on
+     * login, such as player flags or a quest completion and its undo chain. Register the future
+     * before the player could possibly leave (ideally right where the write starts); holds
+     * registered after Core started waiting are not waited on. Holds for players not on this server
+     * are accepted and simply expire with their future.
+     */
+    void holdSession(UUID player, CompletableFuture<?> work);
 }

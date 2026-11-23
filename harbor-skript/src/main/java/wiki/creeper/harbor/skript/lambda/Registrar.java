@@ -81,12 +81,14 @@ public final class Registrar {
         count++;
     }
 
+    /** Effect. {@code harbor admin ...} patterns are recorded in admin_log ({@link AdminAudit}). */
     public void effect(Spec spec, Spec.Action action, String... patterns) {
+        boolean audited = AdminKeys.isAdmin(patterns);
         registry.register(
                 SyntaxRegistry.EFFECT,
                 SyntaxInfo.builder(LambdaEffect.class)
                         .addPatterns(patterns)
-                        .supplier(() -> new LambdaEffect(spec, action))
+                        .supplier(() -> new LambdaEffect(spec, action, audited))
                         .build());
         count++;
     }
