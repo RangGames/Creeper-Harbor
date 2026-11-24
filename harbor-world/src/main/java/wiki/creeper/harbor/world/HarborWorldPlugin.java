@@ -40,6 +40,7 @@ import wiki.creeper.harbor.world.content.DecorDef;
 import wiki.creeper.harbor.world.content.SeaEventDef;
 import wiki.creeper.harbor.world.content.ShipDef;
 import wiki.creeper.harbor.world.content.WorldContent;
+import wiki.creeper.harbor.world.env.AmbienceManager;
 import wiki.creeper.harbor.world.env.EnvironmentManager;
 import wiki.creeper.harbor.world.housing.DecorManager;
 import wiki.creeper.harbor.world.housing.HousingManager;
@@ -53,6 +54,7 @@ import wiki.creeper.harbor.world.sea.SeaEventScheduler;
 import wiki.creeper.harbor.world.sea.TournamentManager;
 import wiki.creeper.harbor.world.ship.ShipManager;
 import wiki.creeper.harbor.world.spot.SpotManager;
+import wiki.creeper.harbor.world.spot.SpotWaypoints;
 import wiki.creeper.harbor.world.treasure.TreasureManager;
 
 /**
@@ -69,6 +71,7 @@ public final class HarborWorldPlugin extends HarborModule {
     private @Nullable DecorManager decorManager;
     private @Nullable ShipManager ships;
     private @Nullable RideManager rides;
+    private @Nullable AmbienceManager ambience;
     private @Nullable SeaEventManager events;
 
     @Override
@@ -100,6 +103,8 @@ public final class HarborWorldPlugin extends HarborModule {
         Payments payments = Payments.create(kit);
         ShipManager ship = new ShipManager(kit, regions, payments);
         EnvironmentManager env = new EnvironmentManager(kit, regions);
+        AmbienceManager amb = new AmbienceManager(kit, regions);
+        this.ambience = amb;
         TreasureManager treasure = new TreasureManager(kit);
         SeaEventManager sea = new SeaEventManager(kit, regions);
         TournamentManager tournament = new TournamentManager(kit);
@@ -141,6 +146,7 @@ public final class HarborWorldPlugin extends HarborModule {
                     charts,
                     ship,
                     env,
+                    amb,
                     treasure,
                     sea,
                     tournament,
@@ -176,8 +182,10 @@ public final class HarborWorldPlugin extends HarborModule {
 
         regions.start();
         spots.start();
+        new SpotWaypoints(kit, regions, spots).start();
         ship.start();
         env.start();
+        amb.start();
         treasure.start();
         sea.start();
         scheduler.start();
@@ -312,6 +320,10 @@ public final class HarborWorldPlugin extends HarborModule {
         SeaEventManager e = events;
         if (e != null) {
             e.shutdown();
+        }
+        AmbienceManager a = ambience;
+        if (a != null) {
+            a.stop();
         }
         DecorManager d = decorManager;
         if (d != null) {

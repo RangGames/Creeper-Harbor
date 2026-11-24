@@ -14,6 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `20-plugin-modules.md`: 모듈별 상세 설계. 0장 "모듈 간 조정 사항"에 소유권, 0.2 Core 추가 API, 0.3 의존 방향, 결정 사항 D1~D14가 있다
 - `14-data-design.md`: ID 규칙, 콘텐츠 YAML 필드, DB 테이블, Redis 채널
 - `10-balance.md`: 수치. 코드에 수치를 박지 않고 `content/balance.yml`로 뺀다
+- 데이터팩은 쓰지 않는다 (플러그인 + 리소스팩만). 기획서의 데이터팩 항목(바이옴 Environment Attributes·Timeline·quick_actions 태그 등)은 플러그인으로 대신한다: Dialog·태그는 Core 부트스트랩 레지스트리, 해역 분위기는 World `world/ambience.yml`(post effect·파티클·소리 루프), 웨이포인트는 Core `WaypointService`
 - 문서에 없는 테이블·필드·수치를 만들면 주석에 "(proposed)" 또는 "proposed value"로 표시한다 (docs 20의 "(추가 제안)"/"제안값" 관례를 영어 주석으로 옮긴 것)
 
 ## 빌드·실행

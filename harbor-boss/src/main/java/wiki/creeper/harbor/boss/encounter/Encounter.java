@@ -485,6 +485,7 @@ public final class Encounter {
             Player p = Bukkit.getPlayer(m.uuid);
             if (p != null) {
                 roster.leaveVisuals(p, m);
+                hud.clearWaypoint(p);
             }
         }
         mgr.chunkHold(this, false);

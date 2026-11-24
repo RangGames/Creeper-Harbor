@@ -41,6 +41,9 @@
   - 엔티티·레드스톤 수에 상한이 있다.
   - **장식 상점:** 골드로 블록·가구·수조를 산다. 산 장식은 인벤토리가 아니라 보관 수량으로 쌓이고, `/부두 장식` 팔레트에서 꺼내 설치한다. 일부는 평판 등급 조건이 있다.
   - **수조:** Collection 개인 어항 전시 자리가 된다.
+- **해역 분위기 (데이터팩 없음):** `world/ambience.yml`대로 그 지역에 있는 플레이어에게만 배경음·환경음 루프, 리소스팩 post effect(화면 색조), 개인 날씨, 주변 파티클을 낸다. 시간대 `phases`(새벽 물안개, 밤 야광 플랑크톤 등)는 오버월드 시간으로 판정하고 앞뒤 `fade` 틱 동안 서서히 바뀐다 (네더·엔드 지역도 오버월드 시간). 배경음을 다시 낼 때 바닐라 배경음은 끊는다. 연출 강도 0(`/낚시 설정`)이면 post effect를 끄고 파티클을 줄인다.
+  - 바이옴 안개 색·거리, 하늘 색, 조명 색은 데이터팩으로만 바뀌므로 post effect 색조로 대신한다.
+- **웨이포인트 (로케이터 바):** 지금 지역의 물고기 떼(숨은 낚시터는 감지 스킬이 있을 때만)를 `waypoint.spot_range` 안에서, 보물 지도를 들고 있으면 지도가 가리키는 지점을 보여 준다 (Core `WaypointService`). 탐험 계열 `waypoint_range` 스탯만큼 거리가 늘어난다.
 
 ## 플레이어 명령
 
@@ -81,6 +84,7 @@
 | `world/ships.yml` | 선박 | `item` `base`(boat·chest_boat) `wood` `price` `speed` `cargo` `durability` `flags`(ice_break·storm·ocean) `requires` `upgrades`(`speed` `cargo` `hull`) `starter` `decor` `decor_donor` `engine_sound` `engine_pitch` |
 | `world/events.yml` | 해상 이벤트 일정 | `type` `regions` `area` `window`(`days` `start` `end`) `chance` `min_gap_h` `duration_min` `warn_min` `requires_flag` `max_per_season` `modifiers` `fish_effects` `sounds` + 형식별 값(`storm` 등) |
 | `world/treasure.yml` | 보물 지도 보상 | `region_mult` `tiers`(`weight` `gold` `items` `picks` `region`) `hint_chance` |
+| `world/ambience.yml` | 해역 분위기 (데이터팩 없이) | `music` `ambient` `post_effect` `weather` `particles`(`type` `count` `radius` `height` `water` `color`) `phases`(`id` `time` `fade` `particles` `post_effect`) |
 | `world/housing_decor.yml` | 장식 상점 | `kind`(block·furniture·tank) `material`·`block`·`furniture`·`model` `amount` `price` `reputation_min` `category` |
 
 지역의 경계·진입 레벨·통발 자리는 Core `regions.yml`에 있다.

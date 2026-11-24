@@ -34,6 +34,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.common.id.HarborId;
@@ -45,6 +46,7 @@ import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.core.api.MailService;
+import wiki.creeper.harbor.core.api.WaypointService;
 import wiki.creeper.harbor.fishing.api.TreasureDropHook;
 import wiki.creeper.harbor.world.WorldKit;
 import wiki.creeper.harbor.world.api.TreasureService;
@@ -58,11 +60,11 @@ import wiki.creeper.harbor.world.region.WorldIndex;
  * Treasure maps (docs 20 8.4 'treasure maps'). When Fishing draws a treasure map as junk, the map
  * is made by the registered {@link TreasureDropHook} (the chance is Fishing's job). The map stores
  * uid, region, location, tier and a point offset by up to 48 blocks in custom_data, and while held
- * it shows direction and distance on the action bar (the locator bar waypoint has no Paper API, so
- * the action bar stands in, Phase 1 verification item). Within 64 blocks it shows the exact
- * position, and using it within 3 blocks opens a personal treasure chest after a 3-second digging
- * animation. The treasure_claim insert (map uid unique) and the gold payment (TREASURE, reference
- * ID = uid) are one transaction, so copied maps give no reward.
+ * it shows direction and distance on the action bar and as a locator bar waypoint (Core
+ * WaypointService, Phase 1 verification item). Within 64 blocks it shows the exact position, and
+ * using it within 3 blocks opens a personal treasure chest after a 3-second digging animation. The
+ * treasure_claim insert (map uid unique) and the gold payment (TREASURE, reference ID = uid) are
+ * one transaction, so copied maps give no reward.
  */
 public final class TreasureManager implements TreasureService, TreasureDropHook, Listener {
 
@@ -70,6 +72,8 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
 
     private record MapData(
             UUID uid, RegionId region, String site, String tier, double fx, double fz) {}
+
+    private static final String WAYPOINT_OWNER = "treasure";
 
     private final WorldKit kit;
     private final Set<UUID> digging = new HashSet<>();
@@ -225,11 +229,13 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
                     read(player.getInventory().getItemInMainHand())
                             .or(() -> read(player.getInventory().getItemInOffHand()));
             if (data.isEmpty() || digging.contains(player.getUniqueId())) {
+                kit.api().waypoints().clear(player, WAYPOINT_OWNER);
                 continue;
             }
             Optional<Location> site = siteLocation(data.get());
             Location at = WorldKit.loc(player);
             if (site.isEmpty() || !java.util.Objects.equals(site.get().getWorld(), at.getWorld())) {
+                kit.api().waypoints().clear(player, WAYPOINT_OWNER);
                 kit.actionBar(player, "world.treasure.other_world");
                 continue;
             }
@@ -240,6 +246,7 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
             double dx = tx - at.getX();
             double dz = tz - at.getZ();
             int distance = (int) Math.round(Math.hypot(dx, dz));
+            waypoint(player, new Location(at.getWorld(), tx, site.get().getY(), tz));
             kit.actionBar(
                     player,
                     precise ? "world.treasure.near" : "world.treasure.far",
@@ -256,6 +263,27 @@ public final class TreasureManager implements TreasureService, TreasureDropHook,
                         0.01);
             }
         }
+    }
+
+    /**
+     * Locator bar waypoint toward the point the map shows (the fuzzed point until close, then the
+     * exact site), next to the action bar arrow.
+     */
+    private void waypoint(Player player, Location target) {
+        Balance balance = kit.api().content().snapshot().single(Balance.TYPE);
+        kit.api()
+                .waypoints()
+                .set(
+                        player,
+                        WAYPOINT_OWNER,
+                        List.of(
+                                new WaypointService.Target(
+                                        "map",
+                                        target,
+                                        balance.string("waypoint.colors.treasure").orElse(null),
+                                        balance.string("waypoint.styles.treasure").orElse(null),
+                                        balance.number("waypoint.treasure_range", 2048)
+                                                * (1 + kit.stat(player, "waypoint_range", 0)))));
     }
 
     /** Arrow relative to the facing direction. */

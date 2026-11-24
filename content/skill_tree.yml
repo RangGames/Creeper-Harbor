@@ -83,6 +83,7 @@
   cost: 12
   effects:
     - {modifier: feature_hidden_spot, value_per_rank: 1}
+    - {modifier: waypoint_range, value_per_rank: 0.5}     # 로케이터 바 물고기 떼·보물 감지 거리 +50% (추가 제안, '4. 낚시 연출' 1.3 탐험 계열)
 
 - id: skill/explore_2/adaptation
   name: 환경 적응

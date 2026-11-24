@@ -80,6 +80,11 @@ public interface HarborApi {
         return service(ExternalEvents.class).orElse(ExternalEvents.NOOP);
     }
 
+    /** Locator bar waypoints (proposed). Always present while Core is enabled. */
+    default WaypointService waypoints() {
+        return service(WaypointService.class).orElse(WaypointService.NOOP);
+    }
+
     /** Mailbox (implemented by Economy). If absent, the caller defers. */
     default Optional<MailService> mail() {
         return service(MailService.class);

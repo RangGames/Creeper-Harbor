@@ -37,6 +37,7 @@
 | `HarborSounds` | `sounds.yml` 표로 소리 재생 (팩이 없으면 바닐라 대체음) |
 | `MailService` · `PartyService` | 인터페이스만 Core에 있고 구현은 Economy(우편함)·Boss(파티). `PartyService`는 조회 외에 `create`·`invite`·`accept`·`leave`·`kick`·`disband`·`promote`·`setRole`(`/파티`와 같은 규칙·알림, 결과는 `Result`)도 있다 |
 | `ExternalEvents` | 외부 연동 이벤트 발행 (아래 참고) |
+| `waypoints()` → `WaypointService` | 로케이터 바 웨이포인트. `set(보는 사람, 주인, 목표 목록)`으로 그 주인의 목표를 통째로 맞춘다. 목표마다 그 사람에게만 보이는 투명 표식 갑옷 거치대(`waypoint_transmit_range`)를 두고 색·모양은 `/waypoint modify`로 정한다 (Paper API 없음). `balance.yml` `waypoint` |
 | `database()` · `writeBehind()` · `bus()` · `locks()` · `redis()` | DB·지연 쓰기 큐·Redis 메시지 버스·분산 잠금 |
 
 게임 모듈 메인 클래스는 `HarborModule`을 상속하고 `enable(ModuleContext)`에서 콘텐츠 형식, 플레이어 컴포넌트, `/harbor` 하위 명령, DB 마이그레이션을 등록한다.
@@ -132,6 +133,7 @@
 | `resource_pack.yml` | 리소스팩에 있는 모델·소리 목록 | 손으로 고치지 않는다 (`packIndex`로 생성) |
 | `sounds.yml` | 소리 이벤트 표 | `source` `volume` `pitch` `loop` `fallback` |
 | `help.yml` | `/도움말` 목록 | `sections[].commands[]`: `command` `text` `run` |
+| `quick_menu.yml` | 빠른 메뉴 (클라이언트 '빠른 작업' 키, 기본 G). 부트스트랩이 Dialog `harbor:quick_menu`로 등록하고 `minecraft:quick_actions` 태그에 넣는다 (데이터팩 없음). 서버를 다시 켜야 반영 | `title` `columns` `buttons[]`: `label` `tooltip` `command` `width` |
 | `furniture/furniture.yml` | 가구 | `model` `base_item` `width` `height` `seat` `solid` `light` `rotation` `scale` `offset_y` |
 | `furniture/blocks.yml` | 커스텀 블록 (노트블록 상태) | `state`(1~399, 바꾸지 않음) `texture`/`top`·`side`/`model`/`textures` `rotation` `hardness` `tool` `tier` `drops` `silk_touch` `exp` |
 

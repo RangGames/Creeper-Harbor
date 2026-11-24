@@ -438,8 +438,8 @@ public final class RegionManager implements Listener, RegionService, RegionKeyRe
                             Duration.ofMillis(300),
                             Duration.ofSeconds(2),
                             Duration.ofMillis(600));
-            // Regional background music and ambience are changed by datapack biomes (Environment
-            // Attributes). music is an extra effect played once on entry
+            // Regional background music and ambience loop in AmbienceManager (world/ambience.yml).
+            // music is an extra cue played once on entry
             HarborSounds.play(
                     player,
                     next.def().music(),

@@ -14,7 +14,8 @@ public final class WorldContent {
                     ShipDef.TYPE,
                     SeaEventDef.TYPE,
                     TreasureTable.TYPE,
-                    DecorDef.TYPE);
+                    DecorDef.TYPE,
+                    AmbienceDef.TYPE);
 
     private WorldContent() {}
 }

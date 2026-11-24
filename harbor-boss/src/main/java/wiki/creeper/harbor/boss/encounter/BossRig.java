@@ -63,6 +63,12 @@ final class BossRig {
         }
     }
 
+    /** Current boss position (rig if spawned, else the arena boss point). */
+    Location location() {
+        RigInstance r = rig;
+        return r != null ? r.location() : e.bossLocation();
+    }
+
     /**
      * Roar ('15. Sound' 4.3): played at the boss position at the sounds.yml volume (3 or more), and
      * sent directly to participants outside hearing range. Skipped if presentation.roar is absent.

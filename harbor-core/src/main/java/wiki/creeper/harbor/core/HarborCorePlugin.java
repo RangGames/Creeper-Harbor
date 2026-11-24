@@ -70,6 +70,7 @@ import wiki.creeper.harbor.core.rig.FishDemoCommand;
 import wiki.creeper.harbor.core.rig.RigCommand;
 import wiki.creeper.harbor.core.rig.RigManager;
 import wiki.creeper.harbor.core.task.Tasks;
+import wiki.creeper.harbor.core.waypoint.WaypointManager;
 
 /**
  * Harbor-Core startup order ('16. Plugin design' 5.1).
@@ -96,6 +97,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
     private @Nullable PlayerManager players;
     private @Nullable MessageManager messages;
     private @Nullable RigManager rigs;
+    private @Nullable WaypointManager waypoints;
     private @Nullable FurnitureManager furniture;
     private @Nullable BlockBreakSpeed breakSpeeds;
 
@@ -303,6 +305,15 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                                 messageBus, infra.serverId(), log),
                         this,
                         org.bukkit.plugin.ServicePriority.Normal);
+        WaypointManager waypointManager = new WaypointManager(this, content::snapshot);
+        waypoints = waypointManager;
+        Bukkit.getServicesManager()
+                .register(
+                        wiki.creeper.harbor.core.api.WaypointService.class,
+                        waypointManager,
+                        this,
+                        org.bukkit.plugin.ServicePriority.Normal);
+        Bukkit.getPluginManager().registerEvents(waypointManager, this);
         ModuleHost.install(new ModuleRegistry(api, content, playerManager, command, log));
 
         var pm = Bukkit.getPluginManager();
@@ -424,6 +435,9 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         }
         if (furniture != null) {
             furniture.shutdown();
+        }
+        if (waypoints != null) {
+            waypoints.shutdown();
         }
         if (breakSpeeds != null) {
             breakSpeeds.shutdown();

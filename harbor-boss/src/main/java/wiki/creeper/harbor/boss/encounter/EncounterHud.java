@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.boss.encounter;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
@@ -11,6 +12,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.boss.api.EncounterState;
 import wiki.creeper.harbor.boss.content.BossDef;
+import wiki.creeper.harbor.common.content.type.Balance;
+import wiki.creeper.harbor.core.api.WaypointService;
 
 /**
  * Encounter display: boss bars, role hint action bar, and message sending (personal, broadcast,
@@ -25,6 +28,36 @@ final class EncounterHud {
     }
 
     // ------------------------------------------------------------------ UI
+
+    private static final String WAYPOINT_OWNER = "boss";
+
+    /**
+     * Boss direction on the locator bar for present members ("4. Fishing presentation" 1.3,
+     * balance.yml waypoint.boss_range, proposed).
+     */
+    private void waypoints() {
+        Balance balance = e.mgr.api().content().snapshot().single(Balance.TYPE);
+        WaypointService.Target target =
+                new WaypointService.Target(
+                        "boss",
+                        e.bossRig.location(),
+                        balance.string("waypoint.colors.boss").orElse(null),
+                        balance.string("waypoint.styles.boss").orElse(null),
+                        balance.number("waypoint.boss_range", 512));
+        for (Member m : e.members.values()) {
+            Player p = Bukkit.getPlayer(m.uuid);
+            if (p == null) {
+                continue;
+            }
+            e.mgr.api()
+                    .waypoints()
+                    .set(p, WAYPOINT_OWNER, m.present() ? List.of(target) : List.of());
+        }
+    }
+
+    void clearWaypoint(Player player) {
+        e.mgr.api().waypoints().clear(player, WAYPOINT_OWNER);
+    }
 
     void update(long now) {
         var fight = e.fight;
@@ -57,6 +90,9 @@ final class EncounterHud {
         }
         if (e.def.isWorld()) {
             e.mgr.worldUi(e, name, progress);
+        }
+        if (now % 20 == 0) {
+            waypoints();
         }
         if (fight.state() == EncounterState.COUNTER && now % 20 == 0) {
             for (Member m : e.members.values()) {
