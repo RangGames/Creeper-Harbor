@@ -3,8 +3,8 @@ package wiki.creeper.harbor.fishing.session;
 import static wiki.creeper.harbor.fishing.session.FishingManager.COMPONENT;
 import static wiki.creeper.harbor.fishing.session.FishingManager.loc;
 
-import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +38,8 @@ import wiki.creeper.harbor.fishing.api.event.FishCaughtEvent;
 import wiki.creeper.harbor.fishing.api.event.QualityRolledEvent;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.content.JunkTable;
+import wiki.creeper.harbor.fishing.data.DailyCatch;
+import wiki.creeper.harbor.fishing.data.FishingData;
 import wiki.creeper.harbor.fishing.data.FishingRepository;
 import wiki.creeper.harbor.fishing.present.CatchPresenter;
 import wiki.creeper.harbor.fishing.roll.JunkRoller;
@@ -250,6 +252,15 @@ final class CatchRewards {
         }
         gear.damageRod(player);
         junk(player, region, hookLoc);
+        // Today's catch summary (/낚시 요약, quick actions menu)
+        FishingData data = hp.get(COMPONENT);
+        DailyCatch daily = data.daily();
+        LocalDate today = b.today();
+        hp.set(
+                COMPONENT,
+                data.withDaily(
+                        (daily == null ? DailyCatch.empty(today) : daily)
+                                .add(today, fish.id(), fish.grade(), qualityEvent.sizeCm())));
 
         Bukkit.getPluginManager()
                 .callEvent(
@@ -272,7 +283,7 @@ final class CatchRewards {
         if (qualityEvent.quality().stars() >= 4) {
             jobs.claimTierFirstQuality(uuid, qualityEvent.quality());
         }
-        celebrate(player, s, fish, caught, firstCatch);
+        celebrate(player, s, fish, caught, firstCatch, rolled.capped());
     }
 
     /**
@@ -319,7 +330,8 @@ final class CatchRewards {
             FishingSession s,
             FishDef fish,
             HarborItem.Fish caught,
-            boolean firstCatch) {
+            boolean firstCatch,
+            boolean capped) {
         String size = String.format(Locale.ROOT, "%.1f", caught.sizeCm());
         Component line =
                 api.messages()
@@ -329,26 +341,14 @@ final class CatchRewards {
                                 Placeholder.unparsed("size", size),
                                 Placeholder.unparsed("quality", caught.quality().display()));
         player.sendMessage(line);
-        if (fish.grade().isAtLeast(Grade.EPIC)) {
-            api.ui()
-                    .title(
-                            player,
-                            api.messages()
-                                    .get(
-                                            "item.name." + fish.grade().key(),
-                                            Placeholder.unparsed("name", fish.name())),
-                            Component.text(size + "cm " + caught.quality().display()),
-                            Duration.ofMillis(300),
-                            Duration.ofSeconds(3),
-                            Duration.ofSeconds(1));
-            // The sound comes from the presets.yml grade catch sound (catch.*)
-        }
+        // Size reveal (action bar / title / measuring animation) follows the grade preset measure
         presenter.caught(
                 player,
                 fish,
                 caught.sizeCm(),
                 caught.quality(),
                 firstCatch,
+                capped,
                 s.settings.intensity(),
                 s.settings.dialog(),
                 presentation);

@@ -118,6 +118,7 @@
   model: harbor:rod/heatproof
   stats:
     line_strength: 2
+    swing_ticks: 9          # 챔질 스윙 길이(틱). 무거운 낚싯대일수록 길게 (제안값, 기본 presets.yml hook_swing.ticks)
   buy_price: 12000         # 제안값 ('13' 2장에 없음)
   tradeable: true
   season_reset: true
@@ -132,6 +133,7 @@
   stats:
     line_strength: 3
     bite_wait: -0.10
+    swing_ticks: 10         # 제안값
   buy_price: 40000         # 제안값 ('13' 2장에 없음)
   tradeable: true
   season_reset: true

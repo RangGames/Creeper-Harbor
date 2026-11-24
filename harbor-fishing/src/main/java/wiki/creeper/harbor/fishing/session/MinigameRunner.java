@@ -138,6 +138,7 @@ final class MinigameRunner {
         if (t.borderWarn) {
             api.worldBorders().clear(player, WorldBorderService.Priority.FISHING_TENSION);
         }
+        t.rod.reset(player);
         display.lockMovement(player, false);
     }
 
@@ -189,6 +190,7 @@ final class MinigameRunner {
             display.phaseSky(player, game.phase(), s.settings.intensity(), fish);
         }
         display.warnBorder(player, game.tension(), s.borderWarn, w -> s.borderWarn = w);
+        s.rod.update(player, game.tension(), presenter.rodBendSteps(s.settings.intensity()));
         s.reel = display.reelSound(player, s.inputSneak, s.reel);
         if (game.ticks() % 2 == 0) {
             api.ui().actionBar(player, MinigameDisplay.gauge(game, input));
@@ -212,16 +214,18 @@ final class MinigameRunner {
             return;
         }
         Minigame game = t.game();
+        FishingSettings settings = FishingSettings.of(api.flags(), player.getUniqueId());
         Minigame.Input input =
                 display.input(
                         player,
                         inputSneak(player),
                         inputLeft(player),
                         inputRight(player),
-                        FishingSettings.of(api.flags(), player.getUniqueId()).lookMode(),
+                        settings.lookMode(),
                         t.baseYaw);
         MinigameResult result = game.tick(input);
         display.warnBorder(player, game.tension(), t.borderWarn, w -> t.borderWarn = w);
+        t.rod.update(player, game.tension(), presenter.rodBendSteps(settings.intensity()));
         t.reel = display.reelSound(player, inputSneak(player), t.reel);
         if (game.ticks() % 2 == 0) {
             api.ui().actionBar(player, MinigameDisplay.gauge(game, input));
@@ -263,6 +267,7 @@ final class MinigameRunner {
         s.bar = null;
         s.reel.stop();
         s.reel = HarborSounds.Loop.NONE;
+        s.rod.reset(player);
         display.lockMovement(player, false);
         if (s.borderWarn) {
             api.worldBorders().clear(player, WorldBorderService.Priority.FISHING_TENSION);

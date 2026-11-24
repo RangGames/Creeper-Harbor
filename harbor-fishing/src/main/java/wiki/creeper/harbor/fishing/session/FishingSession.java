@@ -80,6 +80,9 @@ final class FishingSession {
     /** Reel looping sound (while reeling with Shift, "15. Sound" fishing.reel_loop). */
     HarborSounds.Loop reel = HarborSounds.Loop.NONE;
 
+    /** Rod tension model (custom_model_data), restored when the fight ends. */
+    final RodBend rod = new RodBend();
+
     Minigame.@Nullable Pattern lastActive;
     FishingSettings settings = FishingSettings.DEFAULT;
 

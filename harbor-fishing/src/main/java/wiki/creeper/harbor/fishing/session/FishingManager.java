@@ -137,7 +137,7 @@ public final class FishingManager implements FishingService, Listener {
         this.shadows =
                 new RigShadowPresenter(
                         api.rigs(), new DisplayShadowPresenter(plugin, tasks), tasks);
-        this.presenter = new CatchPresenter(api, tasks);
+        this.presenter = new CatchPresenter(plugin, api, tasks);
         this.traps = new TrapManager(plugin, api, tasks, jobs, this, log);
         this.gear = new FishingGear(plugin, api, tasks, ctx);
         this.mythic = new MythicHolds(api, tasks, log, mythicCounter, ctx, this::engine, random);
@@ -559,11 +559,7 @@ public final class FishingManager implements FishingService, Listener {
                         casts.endEarly(player, s, FishingSessionEndEvent.Reason.INTERRUPTED);
                         continue;
                     }
-                    s.castTicks++;
-                    ShadowControl shadow = s.shadow;
-                    if (shadow != null && s.state == SessionState.WAITING) {
-                        shadow.tickWaiting();
-                    }
+                    casts.tickWaiting(player, s);
                 }
                 case MINIGAME -> minigames.tickMinigame(player, s);
                 default -> {
@@ -656,6 +652,7 @@ public final class FishingManager implements FishingService, Listener {
             }
             mythic.discardPending(s);
         }
+        presenter.forget(player);
         macro.reset(player.getUniqueId());
     }
 
@@ -691,6 +688,7 @@ public final class FishingManager implements FishingService, Listener {
         for (TensionSessionImpl t : List.copyOf(tensions.values())) {
             t.close(MinigameResult.ABORTED);
         }
+        presenter.shutdown();
         traps.shutdown();
     }
 

@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.core.item;
 
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.CustomModelData;
 import io.papermc.paper.datacomponent.item.ItemLore;
 import io.papermc.paper.persistence.PersistentDataContainerView;
 import java.time.Instant;
@@ -113,6 +114,17 @@ public final class ItemManager implements ItemService {
                         "item.fish.date",
                         Placeholder.unparsed("date", DATE.format(caughtAt.atZone(zone)))));
         decorate(stack, def.name(), def.grade(), def.model(), lore);
+        // Item model hook ("4. Fishing presentation" 1.3, proposed): custom_model_data float 0 =
+        // size within the species range (0~1), float 1 = quality stars. The resource pack picks or
+        // scales the model with range_dispatch so bigger fish look bigger
+        double span = def.sizeMax() - def.sizeMin();
+        float ratio = span <= 0 ? 0.5f : (float) Math.clamp((size - def.sizeMin()) / span, 0, 1);
+        stack.setData(
+                DataComponentTypes.CUSTOM_MODEL_DATA,
+                CustomModelData.customModelData()
+                        .addFloat(ratio)
+                        .addFloat(quality.stars())
+                        .build());
         if (def.grade().isAtLeast(Grade.LEGENDARY)) {
             stack.setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
         }

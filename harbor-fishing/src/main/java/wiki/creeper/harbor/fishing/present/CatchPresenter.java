@@ -1,5 +1,6 @@
 package wiki.creeper.harbor.fishing.present;
 
+import io.papermc.paper.datacomponent.item.SwingAnimation;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +14,8 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -53,20 +56,113 @@ public final class CatchPresenter {
 
     private final HarborApi api;
     private final Tasks tasks;
+    private final BobberEffects bobber;
+    private final MeasurePresenter measure;
+    private final CatchCard card;
+    private final ScreenEffects screen;
 
-    public CatchPresenter(HarborApi api, Tasks tasks) {
+    public CatchPresenter(Plugin plugin, HarborApi api, Tasks tasks) {
         this.api = api;
         this.tasks = tasks;
+        this.bobber = new BobberEffects(plugin, tasks);
+        this.measure = new MeasurePresenter(plugin, api, tasks);
+        this.card = new CatchCard(api);
+        this.screen = new ScreenEffects(tasks);
+    }
+
+    // ------------------------------------------------------------------ Cast · wait (1.3)
+
+    /** Bobber in flight: cast line trail (one tick). */
+    public void trail(Location bobber, int intensity) {
+        FishingPresets presets = presets();
+        if (presets.shows(intensity, "trail")) {
+            this.bobber.trail(bobber, presets.castTrail());
+        }
+    }
+
+    /** Bobber landing: landing sound and splash. */
+    public void land(Location at, String step) {
+        step(at, step);
+        bobber.land(at);
+    }
+
+    /**
+     * Waiting ambience of the rolled grade (legendary darkened water and low rumble), every {@link
+     * FishingPresets#WAIT_INTERVAL_TICKS} ticks.
+     */
+    public void waiting(Player player, FishDef fish, Location hook, int ticks, int intensity) {
+        FishingPresets presets = presets();
+        FishingPresets.Stage stage = presets.of(fish.grade()).waiting();
+        if (ticks % FishingPresets.WAIT_INTERVAL_TICKS != 0
+                || stage.equals(FishingPresets.Stage.NONE)
+                || !presets.shows(intensity, "ambience")) {
+            return;
+        }
+        bobber.waiting(player, hook, stage);
+    }
+
+    /** Removes the bite mark (hooked, missed or cancelled). */
+    public void clearMark(Player player) {
+        bobber.clearMark(player);
+    }
+
+    /**
+     * Hooking: forced hand swing ("4. Fishing presentation" 1.3, 26.3 swing animation; heavier
+     * motions are configured in presets.yml hook_swing).
+     */
+    public void swing(Player player, double rodSwingTicks) {
+        FishingPresets.HookSwing swing = presets().hookSwing();
+        if (!swing.enabled()) {
+            return;
+        }
+        // Heavier rods swing longer (rod item stat swing_ticks, proposed)
+        int ticks = rodSwingTicks > 0 ? (int) Math.round(rodSwingTicks) : swing.ticks();
+        player.swingHand(
+                EquipmentSlot.HAND,
+                SwingAnimation.swingAnimation()
+                        .type(
+                                swing.type().equals("stab")
+                                        ? SwingAnimation.Animation.STAB
+                                        : SwingAnimation.Animation.WHACK)
+                        .duration(ticks)
+                        .build());
+    }
+
+    /** Rod bend levels for the tension model (0 = off) at this intensity. */
+    public int rodBendSteps(int intensity) {
+        FishingPresets presets = presets();
+        return presets.shows(intensity, "rod_bend") ? presets.rodBendSteps() : 0;
+    }
+
+    public void forget(Player player) {
+        bobber.clearMark(player);
+        screen.clear(player);
+        card.forget(player.getUniqueId());
+    }
+
+    public void shutdown() {
+        bobber.clearAll();
     }
 
     private FishingPresets presets() {
         return api.content().snapshot().single(FishingPresets.TYPE);
     }
 
-    /** Bite presentation (bobber location). */
-    public void bite(Player player, FishDef fish, Location hook, int intensity) {
+    /**
+     * Bite presentation (bobber location).
+     *
+     * @param windowTicks bite window, how long the "!" mark stays
+     */
+    public void bite(Player player, FishDef fish, Location hook, int intensity, int windowTicks) {
         FishingPresets presets = presets();
-        FishingPresets.Stage stage = presets.of(fish.grade()).bite();
+        FishingPresets.GradePreset preset = presets.of(fish.grade());
+        FishingPresets.Stage stage = preset.bite();
+        if (presets.shows(intensity, "mark")) {
+            bobber.mark(player, hook, preset, windowTicks);
+        }
+        if (presets.shows(intensity, "screen")) {
+            screen.play(player, stage);
+        }
         // The bite plays at the bobber (nearby players hear it too; legendary bites carry far
         // because of their sounds.yml volume)
         HarborSounds.playAt(hook, stage.sound(), options(stage));
@@ -99,6 +195,7 @@ public final class CatchPresenter {
     /**
      * Catch presentation.
      *
+     * @param capped the quality was capped by the job tier ("missed big fish" on the action bar)
      * @param override Shop cosmetic (null if none)
      */
     public void caught(
@@ -107,11 +204,13 @@ public final class CatchPresenter {
             double sizeCm,
             Quality quality,
             boolean firstCatch,
+            boolean capped,
             int intensity,
             boolean dialogEnabled,
             @Nullable CatchPresentationOverride override) {
         FishingPresets presets = presets();
-        FishingPresets.Stage stage = presets.of(fish.grade()).caught();
+        FishingPresets.GradePreset preset = presets.of(fish.grade());
+        FishingPresets.Stage stage = preset.caught();
         Location at = Locs.of(player);
         boolean replaced =
                 override != null
@@ -129,7 +228,7 @@ public final class CatchPresenter {
         if (!replaced) {
             particle(at.clone().add(0, 1, 0), stage.particle(), stage.particleCount());
             if (stage.has("pillar") && presets.shows(intensity, "pillar")) {
-                pillar(at, stage.particle());
+                pillar(at, stage.particle(), preset.markColor());
             }
             if (stage.has("firework") && presets.shows(intensity, "firework")) {
                 particle(at.clone().add(0, 2.5, 0), "firework", 80);
@@ -155,25 +254,22 @@ public final class CatchPresenter {
                 }
             }
         }
-        if (dialogEnabled && stage.has("dialog") && presets.shows(intensity, "dialog")) {
-            api.dialogs()
-                    .notice(
-                            player,
-                            api.messages()
-                                    .get(
-                                            "item.name." + fish.grade().key(),
-                                            Placeholder.unparsed("name", fish.name())),
-                            List.of(
-                                    api.messages()
-                                            .get(
-                                                    "fishing.present.card",
-                                                    Placeholder.unparsed("size", size),
-                                                    Placeholder.unparsed(
-                                                            "quality", quality.display())),
-                                    firstCatch
-                                            ? api.messages().get("fishing.present.first_catch")
-                                            : Component.empty()));
-        }
+        boolean dialog = dialogEnabled && stage.has("dialog") && presets.shows(intensity, "dialog");
+        // Measure step: action bar / title / measuring animation, then the result card so it does
+        // not cover the animation
+        measure.reveal(
+                player,
+                fish,
+                sizeCm,
+                quality,
+                capped,
+                preset.measure(),
+                presets.shows(intensity, "tape"),
+                () -> {
+                    if (dialog && player.isOnline()) {
+                        card.show(player, fish, sizeCm, quality, firstCatch);
+                    }
+                });
     }
 
     /**
@@ -237,9 +333,12 @@ public final class CatchPresenter {
         return presets().shows(intensity, "shadow");
     }
 
-    private void pillar(Location at, @Nullable String particleName) {
+    /** Light pillar in the grade color (mark_color dust) with the preset particle. */
+    private void pillar(Location at, @Nullable String particleName, String color) {
         Particle particle = resolve(particleName == null ? "end_rod" : particleName);
-        if (particle == null) {
+        Particle.DustOptions dust = new Particle.DustOptions(Holograms.color(color), 1.6f);
+        World world = at.getWorld();
+        if (world == null) {
             return;
         }
         var task =
@@ -248,7 +347,12 @@ public final class CatchPresenter {
                         2,
                         () -> {
                             for (double y = 0; y < 6; y += 0.5) {
-                                spawn(at.clone().add(0, y, 0), particle, 1, 0.05);
+                                Location point = at.clone().add(0, y, 0);
+                                world.spawnParticle(
+                                        Particle.DUST, point, 2, 0.12, 0.05, 0.12, 0, dust);
+                                if (particle != null) {
+                                    spawn(point, particle, 1, 0.05);
+                                }
                             }
                         });
         var _ = tasks.later(PILLAR_TICKS, task::cancel);

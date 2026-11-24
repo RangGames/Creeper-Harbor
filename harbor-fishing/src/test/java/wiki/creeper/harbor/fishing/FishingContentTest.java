@@ -16,6 +16,7 @@ import wiki.creeper.harbor.common.content.type.CoreContent;
 import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.id.RegionId;
+import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationError;
 import wiki.creeper.harbor.common.util.ValidationErrors;
@@ -83,6 +84,16 @@ class FishingContentTest {
                 FishingPresets presets = snapshot.single(FishingPresets.TYPE);
                 assertFalse(presets.shows(0, "darkness"));
                 assertTrue(presets.shows(2, "darkness"));
+                // "4. Fishing presentation" 1.3 additions
+                FishingPresets.GradePreset legend = presets.of(Grade.LEGENDARY);
+                assertEquals(FishingPresets.Measure.TAPE, legend.measure());
+                assertEquals("!!!", legend.mark());
+                assertFalse(legend.waiting().equals(FishingPresets.Stage.NONE));
+                assertEquals(FishingPresets.Measure.ACTIONBAR, presets.of(Grade.COMMON).measure());
+                assertEquals(4, presets.rodBendSteps());
+                assertEquals("whack", presets.hookSwing().type());
+                assertFalse(presets.shows(0, "trail"));
+                assertTrue(presets.shows(1, "mark"));
                 ItemDef coral =
                         snapshot.get(ItemDef.TYPE, ItemId.parse("item/trap/coral").id())
                                 .orElseThrow();

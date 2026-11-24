@@ -9,6 +9,7 @@ sections:
   - title: "<aqua>낚시"
     commands:
       - {command: "낚시 설정", text: "미니게임 조작·알림 설정"}
+      - {command: "낚시 요약", text: "오늘 낚은 마릿수·최고 등급·최대어 (G 키 빠른 메뉴에도 있음)"}
       - {command: "통발", text: "내 통발 위치와 수확 상태"}
       - {command: "도감", text: "잡은 물고기 도감과 지역별 수집률"}
       - {command: "기록 <어종>", text: "어종별 최대어 기록"}

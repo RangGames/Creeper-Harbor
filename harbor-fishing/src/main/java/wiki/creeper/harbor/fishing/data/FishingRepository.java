@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.fishing.data;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -11,10 +12,11 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.ItemId;
+import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.model.SeasonId;
 import wiki.creeper.harbor.fishing.food.ActiveFood;
 
-/** pity_counter · fishing_food · fishing_flags SQL. */
+/** pity_counter · fishing_food · fishing_flags · fishing_daily SQL. */
 public final class FishingRepository {
 
     private FishingRepository() {}
@@ -53,7 +55,40 @@ public final class FishingRepository {
                 }
             }
         }
-        return new FishingData(pity, food);
+        return new FishingData(pity, food, loadDaily(c, uuid));
+    }
+
+    /** The most recent day's summary (callers check whether it is today). */
+    private static @Nullable DailyCatch loadDaily(Connection c, UUID uuid) throws SQLException {
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "SELECT day, catches, best_grade, big_fish, big_cm FROM fishing_daily"
+                                + " WHERE uuid = ? ORDER BY day DESC LIMIT 1")) {
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                Grade best = null;
+                String grade = rs.getString(3);
+                for (Grade g : Grade.values()) {
+                    if (g.key().equals(grade)) {
+                        best = g;
+                    }
+                }
+                FishId fish = null;
+                String big = rs.getString(4);
+                if (big != null) {
+                    try {
+                        fish = FishId.parse(big);
+                    } catch (IllegalArgumentException e) {
+                        // Ignore malformed rows
+                    }
+                }
+                return new DailyCatch(
+                        rs.getDate(1).toLocalDate(), rs.getInt(2), best, fish, rs.getDouble(5));
+            }
+        }
     }
 
     /** Saves the food buff (immediately on eating). Deletes it when null. */
@@ -94,6 +129,25 @@ public final class FishingRepository {
                 ps.addBatch();
             }
             ps.executeBatch();
+        }
+        DailyCatch daily = data.daily();
+        if (daily != null && daily.catches() > 0) {
+            Grade best = daily.best();
+            FishId big = daily.bigFish();
+            try (PreparedStatement ps =
+                    c.prepareStatement(
+                            "INSERT INTO fishing_daily (uuid, day, catches, best_grade, big_fish,"
+                                    + " big_cm) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE"
+                                    + " catches = VALUES(catches), best_grade = VALUES(best_grade),"
+                                    + " big_fish = VALUES(big_fish), big_cm = VALUES(big_cm)")) {
+                ps.setString(1, uuid.toString());
+                ps.setDate(2, Date.valueOf(daily.day()));
+                ps.setInt(3, daily.catches());
+                ps.setString(4, best == null ? null : best.key());
+                ps.setString(5, big == null ? null : big.toString());
+                ps.setDouble(6, daily.bigCm());
+                ps.executeUpdate();
+            }
         }
     }
 

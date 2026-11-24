@@ -17,7 +17,15 @@
 - **크기와 품질:** 크기는 어종의 `size_cm` 범위에서 정한다. 품질 ★1~★5는 백분위 경계(★2 40%, ★3 70%, ★4 90%, ★5 98%)로 정하고, 직업 단계 상한을 넘으면 깎인다. 상한 때문에 깎이면 "놓친 대어" 안내가 나온다.
 - **미끼·장비 내구도:** 루어 사용 횟수, 낚싯대 내구도가 있다. 망가지기 직전이면 수리를 안내한다. 미끼를 바꾸면 걸린 물고기가 달아난다.
 - **잡템:** 낚시 중 함께 건지는 아이템 (`fishing/junk.yml`).
-- **포획 연출:** 등급별 프리셋(`fishing/presets.yml`)으로 입질·포획 때 화면 어둡게·타이틀·흔들림·빛기둥·폭죽·결과 Dialog·주변 알림·퍼덕임을 낸다. 대기 중에는 등급에 맞는 물고기 그림자를 던진 사람에게만 보여 준다 (어종 리그가 없으면 그림자 리그).
+- **포획 연출:** 등급별 프리셋(`fishing/presets.yml`)으로 입질·포획 때 화면 어둡게·타이틀·흔들림·빛기둥(등급 색)·폭죽·결과 Dialog·주변 알림·퍼덕임을 낸다. 대기 중에는 등급에 맞는 물고기 그림자를 던진 사람에게만 보여 준다 (어종 리그가 없으면 그림자 리그).
+  - 캐스팅: 날아가는 찌를 따라 낚싯줄 궤적(dust), 착수 물보라. 챔질 순간 손 스윙(26.3 swing 애니메이션, `hook_swing`).
+  - 대기: 전설 이상은 찌 주변이 어두워지고 낮은 진동음이 2초마다 난다 (`wait`, 본인만).
+  - 입질: 찌 위에 등급 색 "!" Text Display가 입질 창 동안 뜬다 (본인만, `mark`·`mark_color`). 전설 이상은 본인 화면에만 리소스팩 post effect(`post_effect`, 26.3 Player#postEffects)와 카메라 오버레이(`camera_overlay`, 실제 투구는 그대로 두고 그 플레이어에게만 머리 아이템을 보냄)가 `effect_ticks` 동안 걸린다.
+  - 챔질 스윙 길이는 낚싯대 아이템 스탯 `swing_ticks`가 있으면 그 값 (무거운 낚싯대일수록 길게).
+  - 파이팅: 텐션을 `rod_bend_steps` 단계로 나눠 손에 든 낚싯대의 custom_model_data float 0(0~1)에 넣는다. 리소스팩 낚싯대 모델이 range_dispatch로 휘는 모델을 고른다. 끝나면 원래 값으로 되돌린다 (Boss 텐션 세션도 같음).
+  - 측정(`measure`): 일반~고급 액션바, 희귀~영웅 타이틀, 전설~신화는 계측 숫자가 공중에 올라가며 세어진 뒤 타이틀 (주변 16블록에도 보임). 결과 Dialog는 측정이 끝난 뒤 뜬다.
+  - 결과 카드: 크기·★·첫 포획, 전설 이상 첫 포획은 어종 설명(`lore`)까지 보여 주고 "도감 보기(/도감) / 자랑하기(이 서버 전체 채팅, 30초 쿨다운) / 닫기" 버튼이 있다.
+  - 어종 아이템에는 custom_model_data float 0 = 어종 크기 범위 안 비율(0~1), float 1 = ★ 수가 들어간다 (Core `createFish`). 큰 개체를 더 크게 그리는 리소스팩 모델용.
 - **전설·신화 전체 공지:** 전설·신화를 낚으면 서버 전체에 알린다.
 - **통발:** 지역의 통발 구역 부표 자리에 설치한다.
   - 미끼를 넣어 두면 8시간 주기로 물고기가 들어온다 (주기 2회까지 쌓임).
@@ -34,6 +42,7 @@
 | 명령 | 권한 | 설명 |
 |---|---|---|
 | `/낚시 설정` | (없음) | 방향 입력(A·D 이동 키 ↔ 시점 회전), 포획 결과 화면 켬/끔(영웅 이상), 연출 강도(최소·보통·최대) |
+| `/낚시 요약` | (없음) | 오늘의 어획: 낚은 마릿수·최고 등급·최대어 (날짜 기준 `fishing.daily_zone`, 서버를 옮겨도 이어짐). G 키 빠른 메뉴에도 있다 |
 | `/통발` | (없음) | 내 통발 목록 (지역·위치·다음 주기·미끼·보관 수·자동 회수까지 남은 시간) |
 
 통발 자체는 설치한 통발을 우클릭해 연다 (미끼 넣기·모두 꺼내기·슬롯 확장·철거).
@@ -60,7 +69,7 @@
 
 | 파일 | 내용 |
 |---|---|
-| `fishing/presets.yml` | 등급별 연출 프리셋. `sounds`(던짐·착수·챔질·감기 반복·텐션 경고·줄 끊김 등 단계 소리), 등급별 `shadow_rig`·`shadow_scale`·`glow`, `bite`·`catch`의 `flags`(darkness title shake pillar firework dialog nearby flop)와 `sound` |
+| `fishing/presets.yml` | 등급별 연출 프리셋. `sounds`(던짐·착수·챔질·감기 반복·텐션 경고·줄 끊김 등 단계 소리), `cast_trail`·`hook_swing`·`rod_bend_steps`, 등급별 `shadow_rig`·`shadow_scale`·`glow`·`mark`·`mark_color`·`measure`·`wait`, `bite`·`catch`의 `flags`(darkness title shake pillar firework dialog nearby flop)와 `sound`. `intensity`로 생략할 수 있는 항목에 trail mark tape ambience rod_bend가 추가됨 |
 | `fishing/sea_events.yml` | 해상 이벤트의 낚시 효과 기준표. `id` `region` `duration_min` `fish_effects`(`type: mythic`의 `fish` `chance` `cap`, `type: species_weight`의 `fish` `mult`) |
 | `fishing/junk.yml` | 잡템 표 |
 | `fishing/food.yml` | 요리 버프 규칙 |

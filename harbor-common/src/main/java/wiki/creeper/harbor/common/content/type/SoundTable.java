@@ -151,7 +151,7 @@ public record SoundTable(Map<String, Event> events, Map<Currency, CurrencyCue> c
         }
         float volume = (float) positive(node, "volume", 1);
         float pitch = (float) pitch(node, "pitch", 1);
-        int loop = node.integer("loop", 0, 0, 20 * 60);
+        int loop = node.integer("loop", 0, 0, 20 * 600); // Up to 10 minutes (background music)
         String fallback = node.optString("fallback").orElse(null);
         if (fallback != null && !KEY.matcher(fallback).matches()) {
             node.get("fallback").orElse(node).error("소리 키 형식이 아닙니다: " + fallback);

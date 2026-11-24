@@ -29,6 +29,8 @@ final class TensionSessionImpl implements TensionSession {
     /** Reel looping sound (while reeling with Shift). */
     HarborSounds.Loop reel = HarborSounds.Loop.NONE;
 
+    final RodBend rod = new RodBend();
+
     private @Nullable MinigameResult finished;
 
     TensionSessionImpl(UUID player, Minigame game, TensionSpec spec, Runnable onClosed) {

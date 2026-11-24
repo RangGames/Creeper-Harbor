@@ -134,6 +134,7 @@ final class CastHandler {
         }
         s.clearCast();
         s.state = SessionState.CAST;
+        s.settings = FishingSettings.of(api.flags(), uuid);
         s.hook = hook;
         s.bait = bait;
         s.waitTicks = waitTicks;
@@ -150,13 +151,32 @@ final class CastHandler {
         }
         if (hook.getState() == FishHook.HookState.BOBBING || hook.isInWater()) {
             land(player, s, hook);
+        } else {
+            presenter.trail(loc(hook), s.settings.intensity());
+        }
+    }
+
+    /** One tick while waiting or in the bite window (shadow, waiting ambience). */
+    void tickWaiting(Player player, FishingSession s) {
+        s.castTicks++;
+        if (s.state != SessionState.WAITING) {
+            return;
+        }
+        ShadowControl shadow = s.shadow;
+        if (shadow != null) {
+            shadow.tickWaiting();
+        }
+        FishDef fish = s.fish;
+        Location hook = s.hookLoc;
+        if (fish != null && hook != null) {
+            presenter.waiting(player, fish, hook, s.castTicks, s.settings.intensity());
         }
     }
 
     /** Bobber landing: spawn roll and waiting presentation (docs 20 3.4 CAST → WAITING). */
     private void land(Player player, FishingSession s, FishHook hook) {
         Location at = loc(hook);
-        presenter.step(at, MinigameDisplay.landStep(at));
+        presenter.land(at, MinigameDisplay.landStep(at));
         Optional<RegionKeyResolver.RegionKey> key = ctx.regionKey(at);
         if (key.isEmpty()) {
             hook.remove();
@@ -272,7 +292,8 @@ final class CastHandler {
         }
         Location hook = s.hookLoc;
         if (hook != null) {
-            presenter.bite(player, fish, hook, s.settings.intensity());
+            presenter.bite(
+                    player, fish, hook, s.settings.intensity(), ctx.balance().biteWindowTicks());
         }
         ShadowControl shadow = s.shadow;
         if (shadow != null) {
@@ -286,6 +307,7 @@ final class CastHandler {
     void hooked(PlayerFishEvent event, Player player, FishingSession s) {
         event.setCancelled(true);
         event.getHook().remove();
+        presenter.clearMark(player);
         FishDef fish = s.fish;
         if (fish == null || (s.state != SessionState.BITE && s.state != SessionState.WAITING)) {
             closeShadow(s, false);
@@ -335,6 +357,7 @@ final class CastHandler {
                         random);
         s.state = SessionState.MINIGAME;
         presenter.step(hookLoc != null ? hookLoc : loc(player), "hook");
+        presenter.swing(player, ctx.gearStats(player).getOrDefault("swing_ticks", 0.0));
         s.inputSneak = false;
         s.baseYaw = loc(player).getYaw();
         s.lastPhase = 1;
@@ -359,6 +382,7 @@ final class CastHandler {
         if (s.state == SessionState.MINIGAME || s.state == SessionState.RESULT) {
             return;
         }
+        presenter.clearMark(player);
         closeShadow(s, false);
         if (fish != null
                 && region != null

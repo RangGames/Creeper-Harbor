@@ -23,6 +23,8 @@ events:
   fishing.miss_big: {source: player, fallback: "minecraft:entity.generic.splash", fallback_pitch: 0.7}
   fishing.lava_cast: {source: player, fallback: "minecraft:block.lava.pop"}
   fishing.ice_hole: {source: player, fallback: "minecraft:block.glass.hit"}
+  fishing.measure_tick: {source: player, volume: 0.4, fallback: "minecraft:block.note_block.hat", fallback_pitch: 1.6}   # 전설 계측 숫자가 올라가는 소리 (추가 제안)
+  fishing.deep_rumble: {source: ambient, volume: 1.5, fallback: "minecraft:ambient.basalt_deltas.mood", fallback_pitch: 0.6}   # 전설 입질 대기 중 낮은 진동음 (추가 제안)
 
   # 4.2 포획 (등급별, 본인에게 2D. 전설 입질만 찌 위치에서 멀리까지)
   catch.common: {source: player, volume: 0.8}                      # 대체 없음: fishing.reel_in 대체음이 이미 남
@@ -62,7 +64,15 @@ events:
   ui.mulbineul: {source: ui, volume: 0.6, fallback: "minecraft:block.amethyst_block.chime"}
   ui.error: {source: ui, volume: 0.5, fallback: "minecraft:entity.villager.no"}
 
-  # 4.6 지역 환경음: 데이터팩 바이옴 Environment Attributes ambient_sounds가 클라이언트에서 재생한다 (플러그인은 내지 않음, 참고용)
+  # 4.6 지역 배경음·환경음: World AmbienceManager가 world/ambience.yml대로 그 지역 플레이어에게 반복해서 낸다 (데이터팩 없음).
+  #     배경음 loop = 곡 길이 (제안값, 곡이 정해지면 맞춘다). 대체 소리가 없으면 팩이 없을 때 조용하다
+  music.harbor: {source: music, loop: 2400}
+  music.swamp: {source: music, loop: 2400}
+  music.coral: {source: music, loop: 2400}
+  music.lava_lake: {source: music, loop: 2400}
+  music.fjord: {source: music, loop: 2400}
+  music.trench: {source: music, loop: 2400}
+  music.void_sea: {source: music, loop: 2400}
   ambient.harbor: {source: ambient, loop: 400}
   ambient.swamp: {source: ambient, loop: 400}
   ambient.coral: {source: ambient, loop: 400}

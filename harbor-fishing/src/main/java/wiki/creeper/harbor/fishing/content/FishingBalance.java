@@ -103,6 +103,16 @@ public record FishingBalance(Balance balance) {
         return balance.number("fishing.ping_comp_s", 0.2);
     }
 
+    /** Today's date for the daily catch summary (fishing.daily_zone, proposed Asia/Seoul). */
+    public java.time.LocalDate today() {
+        String zone = balance.string("fishing.daily_zone").orElse("Asia/Seoul");
+        try {
+            return java.time.LocalDate.now(java.time.ZoneId.of(zone));
+        } catch (java.time.DateTimeException e) {
+            return java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"));
+        }
+    }
+
     /** Bite window (ticks, proposed value 20). Ping compensation adds ping_comp_s. */
     public int biteWindowTicks() {
         return balance.integer("fishing.bite_window_ticks", 20);

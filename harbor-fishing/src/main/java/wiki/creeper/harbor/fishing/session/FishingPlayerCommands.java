@@ -2,12 +2,21 @@ package wiki.creeper.harbor.fishing.session;
 
 import com.mojang.brigadier.Command;
 import io.papermc.paper.command.brigadier.Commands;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.entity.Player;
+import wiki.creeper.harbor.common.content.type.Balance;
+import wiki.creeper.harbor.common.content.type.FishDef;
+import wiki.creeper.harbor.common.id.FishId;
+import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.MessageService;
+import wiki.creeper.harbor.fishing.content.FishingBalance;
+import wiki.creeper.harbor.fishing.data.DailyCatch;
 
 /** Player commands /낚시 설정 and /통발 (docs 20 3.5), split out of {@link FishingCommands}. */
 final class FishingPlayerCommands {
@@ -34,8 +43,18 @@ final class FishingPlayerCommands {
                                                     }
                                                     return Command.SINGLE_SUCCESS;
                                                 }))
+                        .then(
+                                Commands.literal("요약")
+                                        .executes(
+                                                ctx -> {
+                                                    if (ctx.getSource().getExecutor()
+                                                            instanceof Player p) {
+                                                        summary(p);
+                                                    }
+                                                    return Command.SINGLE_SUCCESS;
+                                                }))
                         .build(),
-                "낚시 설정",
+                "낚시 설정 · 오늘의 어획 요약",
                 List.of());
         commands.register(
                 Commands.literal("통발")
@@ -50,6 +69,50 @@ final class FishingPlayerCommands {
                         .build(),
                 "내 통발 목록",
                 List.of());
+    }
+
+    /**
+     * Today's catch summary ("4. Fishing presentation" 1.2 · 1.3 quick action): number of catches,
+     * best grade and biggest fish of the day.
+     */
+    void summary(Player player) {
+        MessageService msg = api.messages();
+        FishingBalance balance = new FishingBalance(api.content().snapshot().single(Balance.TYPE));
+        DailyCatch stored = api.players().get(player).get(FishingManager.COMPONENT).daily();
+        DailyCatch today =
+                stored == null ? DailyCatch.empty(balance.today()) : stored.asOf(balance.today());
+        List<Component> body = new ArrayList<>();
+        body.add(
+                msg.get(
+                        "fishing.summary.count",
+                        Placeholder.unparsed("count", String.valueOf(today.catches()))));
+        Grade best = today.best();
+        if (best != null) {
+            body.add(
+                    msg.get(
+                            "fishing.summary.best",
+                            Placeholder.component(
+                                    "grade", msg.get("collection.grade." + best.key()))));
+        }
+        FishId big = today.bigFish();
+        if (big != null) {
+            String name =
+                    api.content()
+                            .snapshot()
+                            .get(FishDef.TYPE, big.id())
+                            .map(FishDef::name)
+                            .orElse(big.toString());
+            body.add(
+                    msg.get(
+                            "fishing.summary.biggest",
+                            Placeholder.unparsed("name", name),
+                            Placeholder.unparsed(
+                                    "size", String.format(Locale.ROOT, "%.1f", today.bigCm()))));
+        }
+        if (today.catches() == 0) {
+            body.add(msg.get("fishing.summary.none"));
+        }
+        api.dialogs().notice(player, msg.get("fishing.summary.title"), body);
     }
 
     /** Settings screen: toggles the clicked item and reopens it. */

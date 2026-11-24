@@ -8,6 +8,21 @@
 # sounds: 등급과 상관없는 단계 소리 (추가 제안). 비운 단계는 기본값(harbor:fishing.*), 빈 문자열("")이면 소리 없음
 #   cast 던짐 · land 찌 착수 · land_lava 용암 착수 · land_ice 얼음 구멍 착수 · hook 챔질 · reel_loop Shift 감는 동안(반복)
 #   tension_warn 텐션 경고(위험 구간 진입) · line_snap 줄 끊김 · reel_in 낚아 올림 · flop 퍼덕임 · escape 놓침(일반~고급) · escape_big 놓친 대어(희귀 이상)
+# 아래는 '4. 낚시 연출 & 보스전' 1.3 구현 기술의 추가 제안 항목이다.
+# cast_trail: 날아가는 찌의 낚싯줄 궤적 색(dust 파티클, #RRGGBB). 던질 때는 아직 등급을 모르므로 등급과 무관한 색. 빈 문자열이면 끔
+# hook_swing: 챔질 순간 강제 스윙 (26.3 swing 애니메이션). type whack·stab·none, ticks 동작 길이
+# rod_bend_steps: 미니게임 중 텐션을 몇 단계로 나눠 낚싯대 custom_model_data float 0(0~1)으로 보낼지.
+#   리소스팩 낚싯대 모델이 range_dispatch로 휘는 모델을 고른다. 0이면 끔 (손 아이템 재장착 동작이 거슬리면 Phase 1에서 끔)
+# 등급별 mark·mark_color: 입질 때 찌 위에 뜨는 Text Display 글자와 색
+# 등급별 measure: 포획 때 크기 공개 방식. actionbar(액션바) · title(타이틀) · tape(계측 숫자가 올라간 뒤 타이틀)
+# bite·catch의 post_effect·camera_overlay·effect_ticks: 그 플레이어에게만 보이는 화면 효과 (추가 제안, 데이터팩 없이 플러그인만).
+#   post_effect = 리소스팩 post_effect ID (assets/<ns>/post_effect/<이름>.json, 26.3 Player#postEffects),
+#   camera_overlay = 리소스팩 텍스처 ID (호박 쓰기처럼 화면을 덮음. 실제 투구는 건드리지 않고 그 플레이어에게만 보냄), effect_ticks = 유지 시간
+# 등급별 wait: 입질 대기 중 2초마다 찌 주변에서 내는 분위기 (전설 = 어두운 물빛 + 낮은 진동음). 형식은 bite·catch와 같음
+
+cast_trail: "#dfefff"
+hook_swing: {type: whack, ticks: 6}
+rod_bend_steps: 4
 
 sounds:
   cast: "harbor:fishing.cast"
@@ -25,12 +40,18 @@ sounds:
 
 grades:
   common:
+    mark: "!"
+    mark_color: "#ffffff"
+    measure: actionbar
     shadow_rig: rig/fish/shadow_small
     shadow_model: harbor:rig/shadow/small
     shadow_scale: 0.6
     bite: {sound: "harbor:fishing.bite", particle: splash, count: 8}
     catch: {sound: "harbor:catch.common", particle: splash, count: 10, flags: [flop]}
   uncommon:
+    mark: "!"
+    mark_color: "#55ff55"
+    measure: actionbar
     shadow_rig: rig/fish/shadow_small
     shadow_model: harbor:rig/shadow/small
     shadow_scale: 0.8
@@ -38,6 +59,9 @@ grades:
     bite: {sound: "harbor:fishing.bite", particle: splash, count: 12}
     catch: {sound: "harbor:catch.common", particle: splash, count: 14, flags: [flop]}
   rare:
+    mark: "!"
+    mark_color: "#3b82f6"
+    measure: title
     shadow_rig: rig/fish/shadow_small
     shadow_model: harbor:rig/shadow/small
     shadow_scale: 1.0
@@ -45,6 +69,9 @@ grades:
     bite: {sound: "harbor:fishing.bite", particle: bubble_pop, count: 20, flags: [shake]}
     catch: {sound: "harbor:catch.rare", particle: end_rod, count: 20, flags: [pillar, nearby]}
   epic:
+    mark: "!!"
+    mark_color: "#a855f7"
+    measure: title
     shadow_rig: rig/fish/shadow_small
     shadow_model: harbor:rig/shadow/small
     shadow_scale: 1.4
@@ -52,22 +79,44 @@ grades:
     bite: {sound: "harbor:fishing.bite", sound_fallback: "minecraft:block.bell.use", particle: bubble_pop, count: 30, flags: [shake]}
     catch: {sound: "harbor:catch.rare", sound_fallback: "minecraft:ui.toast.challenge_complete", particle: end_rod, count: 30, flags: [pillar, nearby, dialog]}
   legendary:
+    mark: "!!!"
+    mark_color: "#f5c542"
+    measure: tape
     shadow_rig: rig/fish/shadow_small
     shadow_model: harbor:rig/shadow/small
     shadow_scale: 3.0
     glow: "#f5c542"
-    bite: {sound: "harbor:catch.legendary_bite", particle: bubble_column_up, count: 40, flags: [darkness, title, shake]}
+    wait: {sound: "harbor:fishing.deep_rumble", particle: squid_ink, count: 6}
+    bite:
+      sound: "harbor:catch.legendary_bite"
+      particle: bubble_column_up
+      count: 40
+      flags: [darkness, title, shake]
+      post_effect: "harbor:legend_bite"            # 채도 낮춤 + 물결 왜곡 (리소스팩)
+      camera_overlay: "harbor:overlay/legend_bite"  # 화면 가장자리 물결 (리소스팩)
+      effect_ticks: 80
     catch: {sound: "harbor:catch.legendary", particle: totem_of_undying, count: 60, flags: [pillar, firework, nearby, dialog]}
   mythic:
+    mark: "!!!"
+    mark_color: "#ff4fd8"
+    measure: tape
     shadow_rig: rig/fish/shadow_small
     shadow_model: harbor:rig/shadow/small
     shadow_scale: 3.5
     glow: "#ff4fd8"
-    bite: {sound: "harbor:catch.legendary_bite", particle: bubble_column_up, count: 50, flags: [darkness, title, shake]}
+    wait: {sound: "harbor:fishing.deep_rumble", particle: squid_ink, count: 8}
+    bite:
+      sound: "harbor:catch.legendary_bite"
+      particle: bubble_column_up
+      count: 50
+      flags: [darkness, title, shake]
+      post_effect: "harbor:legend_bite"            # 채도 낮춤 + 물결 왜곡 (리소스팩)
+      camera_overlay: "harbor:overlay/legend_bite"  # 화면 가장자리 물결 (리소스팩)
+      effect_ticks: 80
     catch: {sound: "harbor:catch.mythic", particle: totem_of_undying, count: 80, flags: [pillar, firework, nearby, dialog]}
 
 # 연출 강도(/낚시 설정)별로 생략할 항목: 0 최소 · 1 보통 · 2 최대
 intensity:
-  0: [darkness, shake, pillar, firework, dialog, jump_viewers, shadow, flop]
+  0: [darkness, shake, pillar, firework, dialog, jump_viewers, shadow, flop, trail, tape, ambience, rod_bend, screen]
   1: [darkness, firework, jump_viewers]
   2: []
