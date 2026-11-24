@@ -61,6 +61,7 @@ fishing:
     refund_bait_item: harbor:item/bait/earthworm   # 철거·회수 때 남은 미끼를 돌려주는 아이템 (제안값)
   food:
     feast_radius: 16                # 연회 요리 공유 거리 (블록, 제안값)
+    feast_share_bonus: 0.5          # 연회 요리 2랭크: 공유 버프 지속 +50% ('10. 스킬 트리' 생산 3차)
 
 economy:
   market:                # 6.2 시세 계수 M = clamp(1 − 0.35 × (S/S₀ − 1), 0.5, 1.2)
@@ -470,8 +471,10 @@ waypoint:
   spot_range: 96              # 물고기 떼 아이콘이 보이는 거리 (블록)
   treasure_range: 2048        # 보물 지도를 들고 있을 때 (지도가 가리키는 지점)
   boss_range: 512             # 보스전 참가자에게 보스 방향
-  colors: {spot: "#4fc3f7", hidden_spot: "#b388ff", treasure: "#ffca28", boss: "#ef5350"}
-  styles: {spot: "harbor:fish_school", treasure: "harbor:treasure", boss: "harbor:boss"}   # 리소스팩 waypoint_style (없으면 기본 점)
+  hide_players: true          # 다른 플레이어의 바닐라 위치 표시를 끄고 파티원만 보여 줌 (false면 바닐라대로 모두 보이고 파티원 표식이 더해짐)
+  party_range: 1024           # 파티원 위치 ('8. 시스템 상세 기획' 0장 위치 표시 막대: 파티원 위치). 같은 서버·월드의 파티원만
+  colors: {spot: "#4fc3f7", hidden_spot: "#b388ff", treasure: "#ffca28", boss: "#ef5350", party: "#66bb6a"}
+  styles: {spot: "harbor:fish_school", treasure: "harbor:treasure", boss: "harbor:boss", party: "harbor:party"}   # 리소스팩 waypoint_style (없으면 기본 점)
 
 # Harbor-World (docs 20 8.4 · '12. 월드 · 하우징 · 통발'). 문서에 없는 값은 모두 제안값
 world:

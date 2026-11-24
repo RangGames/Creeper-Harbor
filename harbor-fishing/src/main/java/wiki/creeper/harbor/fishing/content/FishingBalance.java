@@ -118,6 +118,11 @@ public record FishingBalance(Balance balance) {
         }
     }
 
+    /** Feast rank 2 shared buff duration bonus ("10. Skill tree" produce 3: +50%). */
+    public double feastShareBonus() {
+        return balance.number("fishing.food.feast_share_bonus", 0.5);
+    }
+
     /** Bite window (ticks, proposed value 20). Ping compensation adds ping_comp_s. */
     public int biteWindowTicks() {
         return balance.integer("fishing.bite_window_ticks", 20);

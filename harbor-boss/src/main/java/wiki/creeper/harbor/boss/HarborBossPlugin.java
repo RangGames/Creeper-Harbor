@@ -17,6 +17,7 @@ import wiki.creeper.harbor.boss.encounter.EncounterManager;
 import wiki.creeper.harbor.boss.instance.InstanceManager;
 import wiki.creeper.harbor.boss.party.PartyActions;
 import wiki.creeper.harbor.boss.party.PartyManager;
+import wiki.creeper.harbor.boss.party.PartyWaypoints;
 import wiki.creeper.harbor.boss.world.WorldBossManager;
 import wiki.creeper.harbor.common.id.BossId;
 import wiki.creeper.harbor.common.id.HarborId;
@@ -88,6 +89,7 @@ public final class HarborBossPlugin extends HarborModule {
         var services = getServer().getServicesManager();
         PartyActions partyActions = new PartyActions(api, parties);
         services.register(PartyService.class, partyActions, this, ServicePriority.Normal);
+        new PartyWaypoints(api, ctx.tasks(), parties).start();
         services.register(BossService.class, mgr, this, ServicePriority.Normal);
         services.register(BossRecordService.class, records, this, ServicePriority.Normal);
         services.register(WorldBossService.class, worldBoss, this, ServicePriority.Normal);

@@ -33,7 +33,7 @@
   - 슬롯 확장은 슬롯당 2,000G × 통발 단계이고, 통발당 3칸까지다.
   - 하루 수익 상한: 수동 낚시 시간당 골드 × 40%(생산 2차 50%, 3차 60%).
   - 7일 동안 손대지 않으면 자동 회수한다. 심해 통발은 생산 캡스톤 "심해 통발"이 있어야 쓴다.
-- **요리 버프:** 요리를 먹으면 일정 시간 효과가 이어진다. 요리 효과는 하나만 유지되고, 새로 먹으면 바뀐다. 연회 요리는 16블록 안 사람들과 함께 받는다.
+- **요리 버프:** 요리를 먹으면 일정 시간 효과가 이어진다. 요리 효과는 하나만 유지되고, 새로 먹으면 바뀐다. 연회 요리(생산 3차 `feast_share`)는 16블록 안 파티원과 함께 받는다. 2랭크면 공유 버프 지속이 `food.feast_share_bonus`(+50%)만큼 늘어난다.
 - **매크로 방지:** 자동 낚시가 의심되면 "물고기를 고르세요" 확인 화면을 띄운다. 통과하지 못하면 5분 동안 낚시를 막는다.
 - **해상 이벤트 효과:** World가 일정을 돌리는 이벤트(유령선·물고기 대이동·첫 물고기의 귀환 등) 동안 신화 어종 출현과 어종 가중치 배율을 적용한다.
 
@@ -92,7 +92,7 @@
 | `quality` | 품질 경계, `tier_cap` |
 | `long_cast.distance` | 원투 기준 거리 |
 | `trap` | `cycle_h` `min_cycle_h` `max_cycles` `bait_capacity` `base_count` `max_count` `revenue_cap` `hourly_gold` `slot_price` `max_extra_slots` `retrieve_days` `buoy_radius` `refund_bait_item` |
-| `food.feast_radius` | 연회 요리 공유 거리 |
+| `food.feast_radius` · `food.feast_share_bonus` | 연회 요리 공유 거리, 2랭크 공유 지속 보너스 |
 
 `stats` 절의 `rare_weight`, `bite_wait`, `reel_speed`, `line_strength`, `tension_safe_zone`, `size_luck`, `bait_save_chance`, `cast_distance`, `legend_chance` 등이 낚시 수치를 보정한다.
 

@@ -46,8 +46,13 @@ import wiki.creeper.harbor.jobs.data.JobsRepository;
  */
 public final class CapstoneService implements Listener {
 
-    /** Area effect. Lasts until its expiry even if the user leaves the server. */
+    /**
+     * Area effect. Lasts until its expiry even if the user leaves the server. Only the user and
+     * their party members inside get it (docs 20 2.8: judged with the Core api PartyService;
+     * without a party only the user).
+     */
     private record Area(
+            UUID owner,
             String source,
             Location center,
             double radius,
@@ -209,6 +214,7 @@ public final class CapstoneService implements Listener {
         if (cap.radius() > 0) {
             areas.add(
                     new Area(
+                            hp.uuid(),
                             source + ":" + UUID.randomUUID(),
                             Objects.requireNonNull(player.getLocation()),
                             cap.radius(),
@@ -285,6 +291,12 @@ public final class CapstoneService implements Listener {
                 .orElse(null);
     }
 
+    /** The user or a member of the user's party (party changes apply on the next second). */
+    private boolean party(UUID owner, UUID player) {
+        return owner.equals(player)
+                || api.parties().map(p -> p.sameParty(owner, player)).orElse(false);
+    }
+
     /**
      * Every second: applies the modifier to players inside the area, and removes it when they leave
      * or it expires.
@@ -295,6 +307,9 @@ public final class CapstoneService implements Listener {
         Map<UUID, Set<String>> nowInside = new HashMap<>();
         for (Area area : areas) {
             for (Player player : area.center().getWorld().getPlayers()) {
+                if (!party(area.owner(), player.getUniqueId())) {
+                    continue;
+                }
                 if (Objects.requireNonNull(player.getLocation()).distanceSquared(area.center())
                         <= area.radius() * area.radius()) {
                     nowInside

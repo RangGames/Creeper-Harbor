@@ -95,6 +95,12 @@ public final class FoodManager implements Listener {
         double radius =
                 new FishingBalance(api.content().snapshot().single(Balance.TYPE)).feastRadius();
         double bonus = stat(eater.getUniqueId(), "food_buff_duration");
+        // Feast rank 2: shared buff duration +50% ("10. Skill tree" produce 3, proposed as an add)
+        if (stat(eater.getUniqueId(), "feast_share") >= 2) {
+            bonus +=
+                    new FishingBalance(api.content().snapshot().single(Balance.TYPE))
+                            .feastShareBonus();
+        }
         Location at = Locs.of(eater);
         List<UUID> members =
                 api.parties().map(p -> p.membersOf(eater.getUniqueId())).orElse(List.of());
