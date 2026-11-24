@@ -220,6 +220,7 @@ fishing:
     count: "<gray>낚은 물고기 <white><count>마리"
     best: "<gray>최고 등급 <grade>"
     biggest: "<gray>오늘의 최대어 <white><name></white> <yellow><size>cm"
+    earnings: "<gray>물고기 판매 수익 <gold><gold>G"
     none: "<gray>오늘은 아직 낚은 물고기가 없습니다."
   food:
     applied: "<green><name></green><gray>의 효과가 <white><minutes>분</white> 동안 이어집니다."

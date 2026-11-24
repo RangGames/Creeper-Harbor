@@ -105,11 +105,16 @@ public record FishingBalance(Balance balance) {
 
     /** Today's date for the daily catch summary (fishing.daily_zone, proposed Asia/Seoul). */
     public java.time.LocalDate today() {
+        return java.time.LocalDate.now(dailyZone());
+    }
+
+    /** Time zone of the daily catch summary day. */
+    public java.time.ZoneId dailyZone() {
         String zone = balance.string("fishing.daily_zone").orElse("Asia/Seoul");
         try {
-            return java.time.LocalDate.now(java.time.ZoneId.of(zone));
+            return java.time.ZoneId.of(zone);
         } catch (java.time.DateTimeException e) {
-            return java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"));
+            return java.time.ZoneId.of("Asia/Seoul");
         }
     }
 

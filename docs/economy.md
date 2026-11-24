@@ -68,7 +68,7 @@
 
 ## 다른 모듈과의 연결
 
-- **내놓는 서비스:** `PriceService`(시세·견적), `MailService`(Core api 구현), `ShopService`, `CraftService`, `AuctionService`, `RepairService`, `SaleService`
+- **내놓는 서비스:** `PriceService`(시세·견적), `MailService`(Core api 구현), `ShopService`, `CraftService`, `AuctionService`, `RepairService`, `SaleService`, Fishing api `FishEarnings`(오늘 물고기 판매 수익 = 원장 FISH_SELL·BIG_DEAL_SELL 합계, `/낚시 요약`에 쓰임)
 - **대신 거래하기:** `SaleService.sellHeld · sellInventory · sellBox`, `ShopService.buy`, `AuctionService.listHeld · buy · listing`, `CraftService.craft`, `RepairService.repairHeld`. 플레이어 화면과 같은 흐름(TradeGuard, 원장 한 트랜잭션, 실패 시 반환)에서 확인 창만 뺀 것이고 `TradeResult`(상태·골드·개수·매물 번호)를 메인 스레드에서 돌려준다. Skript 문법은 harbor-skript 문서의 "대신 거래하기".
 - **이벤트:** `FishSoldEvent`, `AuctionListedEvent`, `AuctionSoldEvent`, `ShopPurchaseEvent`, `ItemCraftedEvent`, `MarketUpdatedEvent`, `TradeFlaggedEvent`. Harbor-Web이 `economy.*` 외부 이벤트로 옮긴다.
 - **Core:** `CurrencyService.history`로 원장을 읽는다 (`/거래내역`, REST `/v1/players/{id}/ledger`).

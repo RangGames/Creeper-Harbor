@@ -28,6 +28,7 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
+import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.api.RegionKeyResolver;
 import wiki.creeper.harbor.fishing.data.FishingData;
 import wiki.creeper.harbor.fishing.food.FoodManager;
@@ -41,11 +42,11 @@ public final class FishingCommands {
     private final FishingAdminSubcommands subcommands;
     private final FishingPlayerCommands playerCommands;
 
-    public FishingCommands(HarborApi api, FishingManager fishing, FoodManager food) {
+    public FishingCommands(HarborApi api, Tasks tasks, FishingManager fishing, FoodManager food) {
         this.api = api;
         this.fishing = fishing;
         this.subcommands = new FishingAdminSubcommands(api, fishing, food);
-        this.playerCommands = new FishingPlayerCommands(api, subcommands);
+        this.playerCommands = new FishingPlayerCommands(api, tasks, subcommands);
     }
 
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {

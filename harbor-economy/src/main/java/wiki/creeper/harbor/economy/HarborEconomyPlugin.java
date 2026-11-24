@@ -23,6 +23,7 @@ import wiki.creeper.harbor.economy.service.AuctionHouse;
 import wiki.creeper.harbor.economy.service.CraftManager;
 import wiki.creeper.harbor.economy.service.DialogActions;
 import wiki.creeper.harbor.economy.service.EconomyCommands;
+import wiki.creeper.harbor.economy.service.FishEarningsLedger;
 import wiki.creeper.harbor.economy.service.FraudMonitor;
 import wiki.creeper.harbor.economy.service.MailManager;
 import wiki.creeper.harbor.economy.service.MarketEngine;
@@ -33,6 +34,7 @@ import wiki.creeper.harbor.economy.service.SellService;
 import wiki.creeper.harbor.economy.service.ShopManager;
 import wiki.creeper.harbor.economy.service.StationManager;
 import wiki.creeper.harbor.economy.service.TradeGuard;
+import wiki.creeper.harbor.fishing.api.FishEarnings;
 import wiki.creeper.harbor.npc.api.DialogService;
 
 /**
@@ -121,6 +123,11 @@ public final class HarborEconomyPlugin extends HarborModule {
         services.register(RepairService.class, repair, this, ServicePriority.Normal);
         services.register(
                 SaleService.class, new SaleApi(sell, sellMenu), this, ServicePriority.Normal);
+        services.register(
+                FishEarnings.class,
+                new FishEarningsLedger(api.database()),
+                this,
+                ServicePriority.Normal);
     }
 
     @Override

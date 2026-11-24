@@ -2,9 +2,11 @@ package wiki.creeper.harbor.fishing.session;
 
 import com.mojang.brigadier.Command;
 import io.papermc.paper.command.brigadier.Commands;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.entity.Player;
@@ -15,6 +17,8 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.core.api.Dialogs;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.MessageService;
+import wiki.creeper.harbor.core.task.Tasks;
+import wiki.creeper.harbor.fishing.api.FishEarnings;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.data.DailyCatch;
 
@@ -22,10 +26,12 @@ import wiki.creeper.harbor.fishing.data.DailyCatch;
 final class FishingPlayerCommands {
 
     private final HarborApi api;
+    private final Tasks tasks;
     private final FishingAdminSubcommands subcommands;
 
-    FishingPlayerCommands(HarborApi api, FishingAdminSubcommands subcommands) {
+    FishingPlayerCommands(HarborApi api, Tasks tasks, FishingAdminSubcommands subcommands) {
         this.api = api;
+        this.tasks = tasks;
         this.subcommands = subcommands;
     }
 
@@ -112,7 +118,37 @@ final class FishingPlayerCommands {
         if (today.catches() == 0) {
             body.add(msg.get("fishing.summary.none"));
         }
-        api.dialogs().notice(player, msg.get("fishing.summary.title"), body);
+        // Fish sale earnings from Economy (ledger, async); left out without Economy or on error
+        Optional<FishEarnings> earnings = api.service(FishEarnings.class);
+        if (earnings.isEmpty()) {
+            api.dialogs().notice(player, msg.get("fishing.summary.title"), body);
+            return;
+        }
+        Instant since = today.day().atStartOfDay(balance.dailyZone()).toInstant();
+        var _ =
+                earnings.get()
+                        .fishSales(player.getUniqueId(), since)
+                        .handleAsync(
+                                (gold, error) -> {
+                                    if (!player.isOnline()) {
+                                        return null;
+                                    }
+                                    if (error == null && gold != null) {
+                                        body.add(
+                                                msg.get(
+                                                        "fishing.summary.earnings",
+                                                        Placeholder.unparsed(
+                                                                "gold",
+                                                                String.format(
+                                                                        Locale.ROOT,
+                                                                        "%,d",
+                                                                        gold))));
+                                    }
+                                    api.dialogs()
+                                            .notice(player, msg.get("fishing.summary.title"), body);
+                                    return null;
+                                },
+                                tasks.main());
     }
 
     /** Settings screen: toggles the clicked item and reopens it. */

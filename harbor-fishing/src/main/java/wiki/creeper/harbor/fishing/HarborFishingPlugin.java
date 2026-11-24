@@ -75,7 +75,7 @@ public final class HarborFishingPlugin extends HarborModule {
         ctx.handoffBlocker(fishing.handoffBlocker());
         fishing.start();
         fishing.trapManager().registerSeasonHook(this);
-        FishingCommands commands = new FishingCommands(api, fishing, food);
+        FishingCommands commands = new FishingCommands(api, ctx.tasks(), fishing, food);
         ctx.adminCommand(commands.adminCommand());
         getLifecycleManager()
                 .registerEventHandler(
