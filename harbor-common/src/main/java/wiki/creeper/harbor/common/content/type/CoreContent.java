@@ -25,7 +25,8 @@ public final class CoreContent {
                     SoundTable.TYPE,
                     HelpBook.TYPE,
                     FurnitureDef.TYPE,
-                    CustomBlockDef.TYPE);
+                    CustomBlockDef.TYPE,
+                    QuickMenu.TYPE);
 
     private CoreContent() {}
 

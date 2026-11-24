@@ -1,0 +1,18 @@
+# 빠른 메뉴 (클라이언트 '빠른 작업' 키, 기본 G) ('4. 낚시 연출 & 보스전' 1.3, 추가 제안).
+# 데이터팩 없이 Core 부트스트랩이 이 파일로 Dialog harbor:quick_menu를 등록하고 minecraft:quick_actions 태그에 넣는다.
+# 레지스트리는 서버 시작 때 고정되므로 고친 내용은 서버를 다시 켜야 반영된다 (/harbor reload는 형식 검사만).
+#
+#   title    메뉴 제목 (MiniMessage)
+#   columns  한 줄의 버튼 수
+#   buttons  [{label, tooltip, command, width}] — command는 앞의 / 없이, 누른 플레이어가 실행한다.
+#            그 서버에 없는 명령(꺼진 모듈)이면 실행 때 알 수 없는 명령으로 안내된다
+
+title: "<aqua>크리퍼 항구"
+columns: 2
+buttons:
+  - {label: "도감", tooltip: "<gray>잡은 물고기 도감과 지역별 수집률", command: "도감"}
+  - {label: "오늘의 어획", tooltip: "<gray>오늘 낚은 마릿수·최고 등급·최대어", command: "낚시 요약"}
+  - {label: "의뢰", tooltip: "<gray>어부 길드 게시판 의뢰", command: "의뢰"}
+  - {label: "퀘스트", tooltip: "<gray>진행 중인 퀘스트", command: "퀘스트"}
+  - {label: "해도", tooltip: "<gray>지역 해도와 이동", command: "해도"}
+  - {label: "낚시 설정", tooltip: "<gray>조작·연출 강도 설정", command: "낚시 설정"}
