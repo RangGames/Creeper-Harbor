@@ -48,6 +48,7 @@ public final class DecorManager implements Listener {
     private final Map<UUID, Map<HarborId, Integer>> owned = new HashMap<>();
     private final DecorShop shop;
     private final DecorPlacement placement;
+    private final DecorCrafting crafting;
 
     public DecorManager(
             WorldKit kit,
@@ -58,6 +59,7 @@ public final class DecorManager implements Listener {
         this.housing = housing;
         this.shop = new DecorShop(kit, housing, payments, bestTier, this);
         this.placement = new DecorPlacement(kit, housing, this);
+        this.crafting = new DecorCrafting(kit, housing, this, placement);
     }
 
     public void start() {
@@ -125,6 +127,23 @@ public final class DecorManager implements Listener {
         unsavedCredits
                 .computeIfAbsent(owner, u -> new HashMap<>())
                 .merge(decor, amount, Integer::sum);
+        scheduleWorldSave(world);
+    }
+
+    /**
+     * Puts recovered decor straight into the player's inventory (the rest drops at their feet). The
+     * world is saved on the next tick, before the inventory's write-behind save, so a crash in
+     * between can lose the item but never leave it both in the world and the inventory.
+     */
+    void give(Player player, ItemStack item, World world) {
+        player.getInventory()
+                .addItem(item)
+                .values()
+                .forEach(rest -> player.getWorld().dropItemNaturally(WorldKit.loc(player), rest));
+        scheduleWorldSave(world);
+    }
+
+    private void scheduleWorldSave(World world) {
         UUID worldId = world.getUID();
         if (!worldSavePending.add(worldId)) {
             return;
@@ -186,6 +205,11 @@ public final class DecorManager implements Listener {
     /** Placement/removal listener; register it alongside this manager. */
     public DecorPlacement placement() {
         return placement;
+    }
+
+    /** Crafting with decor (crafted decor items and blocks); register it alongside. */
+    public Listener crafting() {
+        return crafting;
     }
 
     // ------------------------------------------------------------------ shop
@@ -250,19 +274,41 @@ public final class DecorManager implements Listener {
         };
     }
 
-    /** Returns decor items in the inventory to the storage count. */
+    /**
+     * Returns decor items in the inventory to the storage count; crafted decor goes back as its
+     * share of decor (whole items).
+     */
     private void stash(Player player) {
         ItemStack[] contents = player.getInventory().getContents();
         boolean moved = false;
+        Map<HarborId, Double> crafted = new HashMap<>();
         for (int i = 0; i < contents.length; i++) {
             ItemStack stack = contents[i];
+            if (stack == null) {
+                continue;
+            }
             Optional<DecorDef> d = def(stack);
-            if (d.isPresent() && stack != null) {
+            if (d.isPresent()) {
                 addCount(player.getUniqueId(), d.get().id(), stack.getAmount());
+                player.getInventory().setItem(i, null);
+                moved = true;
+                continue;
+            }
+            Map<HarborId, Double> share = crafting.share(stack);
+            if (!share.isEmpty()) {
+                int amount = stack.getAmount();
+                share.forEach((id, v) -> crafted.merge(id, v * amount, Double::sum));
                 player.getInventory().setItem(i, null);
                 moved = true;
             }
         }
+        crafted.forEach(
+                (id, v) -> {
+                    int n = DecorCrafting.whole(v);
+                    if (n > 0) {
+                        addCount(player.getUniqueId(), id, n);
+                    }
+                });
         if (moved) {
             // The storage count is written immediately but the inventory is write-behind, so a
             // crash would

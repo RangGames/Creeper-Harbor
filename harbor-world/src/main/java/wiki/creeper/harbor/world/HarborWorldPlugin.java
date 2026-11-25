@@ -155,6 +155,7 @@ public final class HarborWorldPlugin extends HarborModule {
                     housing.protection(),
                     decor,
                     decor.placement(),
+                    decor.crafting(),
                     ride
                 }) {
             ctx.listen(l);

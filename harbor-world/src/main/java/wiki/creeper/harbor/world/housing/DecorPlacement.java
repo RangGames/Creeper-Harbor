@@ -76,7 +76,8 @@ public final class DecorPlacement implements Listener {
 
     /**
      * Core furniture inside a plot: allows removal if the player has build permission on the plot.
-     * Furniture bought as decor goes back to the plot owner's storage count, not the remover's.
+     * Furniture bought as decor goes into the owner's inventory when the owner removes it,
+     * otherwise back to the owner's storage count (never the remover's).
      */
     @EventHandler(ignoreCancelled = true)
     public void onFurnitureRemove(FurnitureRemoveEvent event) {
@@ -93,14 +94,17 @@ public final class DecorPlacement implements Listener {
         }
         event.setReturnItem(false);
         World world = event.location().getWorld();
-        if (world != null) {
+        Player remover = event.player();
+        if (world != null && remover.getUniqueId().equals(plot.get().info.owner())) {
+            decor.give(remover, event.item().clone(), world);
+        } else if (world != null) {
             creditAfterWorldSave(world, plot.get().info.owner(), d.get().id(), 1);
         } else {
             addCount(plot.get().info.owner(), d.get().id(), 1);
         }
     }
 
-    private NamespacedKey blockKey(Block block) {
+    NamespacedKey blockKey(Block block) {
         return kit.key("d_" + (block.getX() & 15) + "_" + block.getY() + "_" + (block.getZ() & 15));
     }
 
@@ -229,12 +233,10 @@ public final class DecorPlacement implements Listener {
         Player breaker = event.getPlayer();
         UUID owner = plot.map(p -> p.info.owner()).orElse(breaker.getUniqueId());
         if (owner.equals(breaker.getUniqueId())) {
-            // The owner gets the decor item back as a drop, in creative too (proposed). It is saved
-            // with the chunk like the removal, and goes back to storage when leaving the housing
-            // world. Anyone else breaking it returns it to the owner's storage
-            block.getWorld()
-                    .dropItemNaturally(
-                            block.getLocation().add(0.5, 0.5, 0.5), decor.item(d.get(), 1));
+            // The owner gets the decor item straight into their inventory, in any game mode
+            // (proposed); it goes back to storage when leaving the housing world. Anyone else
+            // breaking it returns it to the owner's storage
+            decor.give(breaker, decor.item(d.get(), 1), block.getWorld());
         } else {
             creditAfterWorldSave(block.getWorld(), owner, d.get().id(), 1);
         }

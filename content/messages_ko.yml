@@ -2365,6 +2365,7 @@ world:
       owned: "<gray>보유 <white><count>"
       take: "<yellow>클릭 1개 · 쉬프트 클릭 16개"
       item: "<gray>부두 장식 (하우징 월드를 나가면 보관함으로)"
+      crafted: "<gray>부두 장식 · 조합 (하우징 월드를 나가면 재료로 보관함에)"
   pay:
     no_gold: "<red>골드가 모자랍니다."
     rejected: "<red>처리할 수 없습니다 (이미 처리됐거나 조건이 바뀜)."
