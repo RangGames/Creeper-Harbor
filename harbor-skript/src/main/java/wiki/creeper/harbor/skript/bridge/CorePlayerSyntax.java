@@ -12,6 +12,8 @@ import org.bukkit.entity.Player;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.Modifier;
 import wiki.creeper.harbor.core.api.StatKey;
+import wiki.creeper.harbor.core.api.event.NetworkJoinEvent;
+import wiki.creeper.harbor.core.api.event.NetworkQuitEvent;
 import wiki.creeper.harbor.core.api.event.PlayerFlagChangedEvent;
 import wiki.creeper.harbor.core.api.event.ServerFlagChangedEvent;
 import wiki.creeper.harbor.skript.Ids;
@@ -307,6 +309,32 @@ public final class CorePlayerSyntax {
                 "harbor [player] flag change");
         Ext.playerValues(r, PlayerFlagChangedEvent.class, PlayerFlagChangedEvent::player);
         r.value(PlayerFlagChangedEvent.class, String.class, PlayerFlagChangedEvent::flag);
+
+        r.event(
+                "Harbor Network Join",
+                NetworkJoinEvent.class,
+                "플레이어가 네트워크(프록시)에 접속했을 때. 서버 이동 때는 불리지 않고, 모든 서버에서 한 번씩 불린다"
+                        + " (event-offlineplayer, event-string = 이름. event-player는 이 서버에 있을 때만)",
+                "[harbor] network join");
+        Ext.playerValues(r, NetworkJoinEvent.class, NetworkJoinEvent::player);
+        r.value(NetworkJoinEvent.class, String.class, NetworkJoinEvent::name);
+
+        r.event(
+                "Harbor Network Quit",
+                NetworkQuitEvent.class,
+                "플레이어가 네트워크(프록시)에서 나갔을 때. 서버 이동 때는 불리지 않고, 모든 서버에서 한 번씩 불린다"
+                        + " (event-offlineplayer, event-string = 이름, harbor network quit server = 마지막 서버)",
+                "[harbor] network quit");
+        Ext.playerValues(r, NetworkQuitEvent.class, NetworkQuitEvent::player);
+        r.value(NetworkQuitEvent.class, String.class, NetworkQuitEvent::name);
+        Ext.expr(r, String.class, "harbor network quit server")
+                .in(NetworkQuitEvent.class)
+                .register(
+                        c ->
+                                c.event() instanceof NetworkQuitEvent e
+                                        ? Args.one(e.lastServer().isEmpty() ? null : e.lastServer())
+                                        : List.of(),
+                        "[the] harbor network quit server");
 
         r.event(
                 "Harbor Server Flag Change",

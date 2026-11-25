@@ -67,6 +67,7 @@ import wiki.creeper.harbor.core.pack.ResourcePacks;
 import wiki.creeper.harbor.core.pack.SoundCues;
 import wiki.creeper.harbor.core.player.PlayerManager;
 import wiki.creeper.harbor.core.proxy.AfkWatcher;
+import wiki.creeper.harbor.core.proxy.NetworkEvents;
 import wiki.creeper.harbor.core.proxy.ProxyLink;
 import wiki.creeper.harbor.core.rig.FishDemoCommand;
 import wiki.creeper.harbor.core.rig.RigCommand;
@@ -370,6 +371,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         SoundCues soundCues = new SoundCues(api.content());
         pm.registerEvents(soundCues, this);
         soundCues.subscribe(messageBus, tasks);
+        NetworkEvents.subscribe(messageBus, tasks);
         pm.registerEvents(
                 new ChatBridge(
                         infra,

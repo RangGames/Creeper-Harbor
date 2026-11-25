@@ -15,12 +15,14 @@ import wiki.creeper.harbor.common.redis.Channel;
  *   <li>{@code harbor:proxy:<server ID>}: proxy → a specific backend (TransferPrepare,
  *       TransferAbort, MoveResult, SaveAll)
  *   <li>{@code harbor:server}: backend → proxy, every 5 seconds (ServerHeartbeat)
+ *   <li>{@code harbor:network}: proxy → every backend (NetworkJoin, NetworkQuit)
  * </ul>
  */
 public final class ProxyMessages {
 
     public static final String TO_PROXY = "harbor:proxy";
     public static final String HEARTBEAT = "harbor:server";
+    public static final String NETWORK = "harbor:network";
 
     private ProxyMessages() {}
 
@@ -134,4 +136,24 @@ public final class ProxyMessages {
 
     public static final Channel<ServerHeartbeat> HEARTBEATS =
             new Channel<>(HEARTBEAT, ServerHeartbeat.class);
+
+    // ------------------------------------------------------------------ Network presence
+
+    /**
+     * Proxy → every backend: the player connected to the network (proxy login done, before the
+     * first backend). Not sent for server moves inside the network (proposed).
+     */
+    public record NetworkJoin(UUID player, String name) {}
+
+    /**
+     * Proxy → every backend: the player left the network. Sent only for players whose NetworkJoin
+     * was sent. lastServer is the backend they were on ("" if they never reached one).
+     */
+    public record NetworkQuit(UUID player, String name, String lastServer) {}
+
+    public static final Channel<NetworkJoin> NETWORK_JOINS =
+            new Channel<>(NETWORK, NetworkJoin.class);
+
+    public static final Channel<NetworkQuit> NETWORK_QUITS =
+            new Channel<>(NETWORK, NetworkQuit.class);
 }

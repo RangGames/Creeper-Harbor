@@ -211,7 +211,7 @@
 
 ## 다른 모듈과의 연결
 
-- **이벤트 (`core.api.event`):** `ContentReloadedEvent`, `CurrencyChangedEvent`, `PlayerFlagChangedEvent`, `ServerFlagChangedEvent`, 가구 `FurniturePlaceEvent`(취소 가능)·`FurnitureInteractEvent`(취소 가능)·`FurnitureSitEvent`(취소 가능)·`FurnitureStandEvent`·`FurnitureRemoveEvent`, 커스텀 블록 `CustomBlockPlaceEvent`·`CustomBlockBreakEvent`(취소 가능), 리그 `RigAnimationEvent`·`RigHitboxClickEvent`(요청한 리그만)
+- **이벤트 (`core.api.event`):** `NetworkJoinEvent`·`NetworkQuitEvent`(네트워크 전체 접속·퇴장, 서버 이동 때는 안 불림, 모든 서버에서 한 번씩, Harbor-Proxy가 Redis `harbor:network`로 알림), `ContentReloadedEvent`, `CurrencyChangedEvent`, `PlayerFlagChangedEvent`, `ServerFlagChangedEvent`, 가구 `FurniturePlaceEvent`(취소 가능)·`FurnitureInteractEvent`(취소 가능)·`FurnitureSitEvent`(취소 가능)·`FurnitureStandEvent`·`FurnitureRemoveEvent`, 커스텀 블록 `CustomBlockPlaceEvent`·`CustomBlockBreakEvent`(취소 가능), 리그 `RigAnimationEvent`·`RigHitboxClickEvent`(요청한 리그만)
 
 - **ExternalEvents (추가 제안):** 외부 연동 이벤트를 Redis `harbor:events`로 발행한다. 게임 모듈 이벤트는 Harbor-Web이 자동으로 옮기므로, 직접 부르는 것은 주로 다른 플러그인(Skript 등)이다.
 

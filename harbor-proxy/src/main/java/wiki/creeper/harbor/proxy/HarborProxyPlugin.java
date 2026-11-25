@@ -166,6 +166,7 @@ public final class HarborProxyPlugin {
                                 log));
         proxy.getEventManager()
                 .register(this, new ServerListPing(proxy, config, text, maintenance, queue));
+        proxy.getEventManager().register(this, new NetworkPresence(messageBus));
         new ProxyCommands(
                         this,
                         proxy,

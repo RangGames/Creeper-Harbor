@@ -108,6 +108,33 @@ on harbor server flag change:
         broadcast "&b폭풍 주간이 시작됐습니다!"
 ```
 
+## 네트워크 접속·퇴장 (Core)
+
+서버 하나의 접속·퇴장(`on join`·`on quit`)은 서버를 옮길 때마다 불립니다. 아래 이벤트는 **네트워크 전체**에 들어오고 나갈 때만 불립니다 (프록시가 Redis `harbor:network`로 알림, Harbor-Proxy 필요).
+
+```
+on [harbor] network join:                                     # 프록시에 접속했을 때 (서버 이동 때는 안 불림)
+on [harbor] network quit:                                     # 프록시에서 나갔을 때
+[the] harbor network quit server                              # network quit 안에서 마지막으로 있던 서버 ID
+```
+
+| 이벤트 | 값 |
+|---|---|
+| `on network join` | `event-offlineplayer`, `event-player`(이 서버에 있을 때만, 보통 없음), `event-string` = 이름 |
+| `on network quit` | `event-offlineplayer`, `event-string` = 이름 |
+
+- **모든 서버에서 한 번씩 불립니다.** 각 서버가 자기 플레이어에게 `broadcast`하면 네트워크 전체에 한 번 보이는 셈입니다. 보상 지급·DB 기록처럼 한 번만 해야 하는 일은 `harbor server`로 한 서버에서만 하세요.
+- `network join` 때 플레이어는 아직 로비에 들어가기 전이라 보통 어느 서버에도 없습니다. 로비의 `on join`과 어느 쪽이 먼저인지는 정해져 있지 않습니다.
+
+```
+on network join:
+    broadcast "&a%event-string%님이 항구에 왔습니다"
+
+on network quit:
+    harbor server is "lobby"
+    log "%event-string% 퇴장 (마지막 서버: %harbor network quit server%)" to "network.log"
+```
+
 ## 재화 (나머지, Core)
 
 README의 `harbor gold of %players%`는 이 서버에 접속한 플레이어만 다룹니다. 아래 문법은 **오프라인·다른 서버 플레이어**도 됩니다.

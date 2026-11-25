@@ -79,6 +79,7 @@ Common을 품고 있고 (DB 풀 5개, Redis 연결 1개) Paper API는 쓰지 않
 ## 다른 모듈과의 연결
 
 - 백엔드 Core와 Redis로 연결한다. 서버 이동 요청, 세션 잠금(`harbor:lock:<uuid>`), 하트비트, 채팅, 공지가 오간다.
+- 네트워크 접속·퇴장을 모든 백엔드에 알린다 (`harbor:network`의 `NetworkJoin`·`NetworkQuit`). 백엔드 Core가 `NetworkJoinEvent`·`NetworkQuitEvent`로 바꾸고, Skript에서는 `on network join`·`on network quit`이다.
 - 후원 등급은 Shop이 Redis `harbor:donor`에 쓰고 프록시가 읽는다 (Common `DonorTier`).
 - Skript 애드온의 `harbor send player to sea`도 출항 대기열로 보낸다.
 
