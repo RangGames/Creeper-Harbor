@@ -642,3 +642,54 @@
   fish_id: fish/migration_leader
   special: leap
   scale: 1.6
+
+- id: wild/harbor_first_fish
+  fish_id: fish/harbor_first_fish
+  special: leap   # 첫 물고기 · 특별 이벤트 '첫 물고기의 귀환' 연출용
+  scale: 1.4
+
+- id: wild/ghost_captain_goldfish
+  fish_id: fish/ghost_captain_goldfish
+  special: flash   # 유령 선장의 금붕어 · 유령선 연출용
+
+# ---------------------------------------------------------------- 전설 (자연 스폰 없음, 연출 spawnScripted용)
+- id: wild/flame_king_carp
+  fish_id: fish/flame_king_carp
+  medium: lava
+  special: leap
+
+- id: wild/void_nebula_fish
+  fish_id: fish/void_nebula_fish
+  medium: air
+  special: flash
+
+- id: wild/green_thunder_fish
+  fish_id: fish/green_thunder_fish
+  special: flash   # 월드 보스 어종
+
+- id: wild/trench_lord
+  fish_id: fish/trench_lord
+  special: bite    # 레이드·스토리 보스 어종
+  scale: 1.5
+
+# ---------------------------------------------------------------- 보스 어종 (영웅·희귀지만 보스전 전용이라 자연 스폰하지 않음: spawn_weight 0)
+- id: wild/swamp_catfish
+  fish_id: fish/swamp_catfish
+  special: bite
+  spawn_weight: 0
+
+- id: wild/wreck_moray
+  fish_id: fish/wreck_moray
+  special: bite
+  spawn_weight: 0
+
+- id: wild/white_sturgeon
+  fish_id: fish/white_sturgeon
+  special: turn
+  spawn_weight: 0
+
+- id: wild/trench_giant_squid
+  fish_id: fish/trench_giant_squid
+  template: ceph
+  special: spin
+  spawn_weight: 0
