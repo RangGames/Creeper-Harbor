@@ -138,4 +138,16 @@ class BossContentTest {
         assertEquals(30, bb.telegraphTicks(BossType.INTRO));
         assertEquals(2, bb.anchorsMin(BossType.RAID));
     }
+
+    @Test
+    void smallPartiesReelHarder() {
+        BossBalance bb = new BossBalance(Balance.of(Map.of()));
+        assertEquals(2.5, bb.anchorReelPartyMult(1), 1e-9);
+        assertEquals(1.5, bb.anchorReelPartyMult(2), 1e-9);
+        assertEquals(1.0, bb.anchorReelPartyMult(3), 1e-9);
+        assertEquals(1.0, bb.anchorReelPartyMult(0), 1e-9);
+        BossBalance tuned =
+                new BossBalance(Balance.of(Map.of("boss.anchor.reel_party_mult.solo", "4.0")));
+        assertEquals(4.0, tuned.anchorReelPartyMult(1), 1e-9);
+    }
 }

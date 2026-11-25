@@ -73,6 +73,7 @@ public final class EncounterManager implements BossService {
     private final Map<UUID, Encounter> byPlayer = new HashMap<>();
     private final Map<UUID, Click> clicks = new HashMap<>();
     private final HarpoonTracker harpoons = new HarpoonTracker(this);
+    private final TempDecks decks = new TempDecks(this);
     private final ChunkTickets chunkTickets;
     private final EncounterStarter starter;
     private final EncounterRecorder recorder = new EncounterRecorder(this);
@@ -173,6 +174,10 @@ public final class EncounterManager implements BossService {
 
     HarpoonTracker harpoons() {
         return harpoons;
+    }
+
+    TempDecks decks() {
+        return decks;
     }
 
     @Nullable InstanceHooks instanceHooks() {
@@ -497,6 +502,9 @@ public final class EncounterManager implements BossService {
             }
         }
         harpoons.track();
+        if (tick % 20 == 0) {
+            decks.tick(tick);
+        }
         if (tick % 1200 == 0) {
             parties.purgeInvites(System.currentTimeMillis());
             starter.purgeCooldowns(tick);
@@ -523,6 +531,7 @@ public final class EncounterManager implements BossService {
         byId.clear();
         byPlayer.clear();
         harpoons.clear();
+        decks.shutdown();
     }
 
     /** Role selection during preparation (/boss role). False if no encounter is in preparation. */

@@ -1,6 +1,6 @@
 # 보스전 아이템 ('3. 아이템 목록' 2·3·7·9장, docs 20 10장). 가격·수치는 문서에 없으면 제안값.
 # 작살: stats.harpoon_damage = 작살 기본 피해 (Boss 피해 공식의 '아이템 stats'), weak_bonus = 약점 피해 보너스,
-#       recoverable = 1이면 맞힌 뒤 인벤토리로 돌아온다. base_item은 삼지창 (투척).
+#       recoverable = 1이면 맞히거나 빗나가도 인벤토리로 돌아온다 (빗나간 작살은 보통 물에 떨어져 주울 수 없다). base_item은 삼지창 (투척).
 # 선박 수리 키트는 World의 item/boat/repair_kit를 쓴다 (balance.yml boss.items.repair_kit).
 
 # ---- 재료
@@ -24,6 +24,7 @@
   model: harbor:gear/apprentice_harpoon
   stats:
     harpoon_damage: 20       # 제안값 (그놈 2,000 기준 약점 3배 × 약 33회)
+    recoverable: 1           # 회수 가능 (제안: 던질 때마다 사라지면 300G × 수십 회라 입문 보스를 못 잡는다)
   buy_price: 300             # 제안값 (낚시용품점)
   tradeable: true
   season_reset: true

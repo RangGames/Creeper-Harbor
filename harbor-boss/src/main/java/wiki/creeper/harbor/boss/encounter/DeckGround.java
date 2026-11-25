@@ -37,6 +37,8 @@ final class DeckGround {
         Location s = spawn;
         if (s == null) {
             Location point = e.deck(e.def.arena().deck().spawn());
+            // Nothing built there: lay a temporary deck first (balance.yml boss.deck)
+            e.mgr.decks().claim(e, point);
             Location found = standable(point);
             platform = found != null;
             if (found == null) {

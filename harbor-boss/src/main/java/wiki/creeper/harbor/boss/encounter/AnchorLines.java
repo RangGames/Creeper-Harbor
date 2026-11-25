@@ -115,6 +115,18 @@ final class AnchorLines {
         m.reopenAt = -1;
     }
 
+    /**
+     * Boss damage per tick of one anchor holding the safe band. Small parties reel harder since
+     * they have no full harpoon crew (balance.yml boss.anchor.reel_party_mult).
+     */
+    double reelPerTick() {
+        int party = e.def.isWorld() ? 0 : e.members.size();
+        return e.fight.maxHp()
+                * e.bb.anchorReelDamagePerSecond()
+                * e.bb.anchorReelPartyMult(party)
+                / 20.0;
+    }
+
     /** Syncs the anchor boss bar HP with the boss HP (can only decrease). */
     void mirror() {
         double ratio = e.fight.hpRatio();

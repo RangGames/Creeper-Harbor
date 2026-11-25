@@ -188,6 +188,42 @@ public record BossBalance(Balance balance) {
         return balance.number("boss.anchor.reel_damage_per_second", 0.003);
     }
 
+    /**
+     * Reeling damage multiplier by party size, so a small party does not depend on a full harpoon
+     * crew (solo 2.5, duo 1.5, larger parties and world bosses 1.0, proposed values).
+     *
+     * @param partySize party members at the start (0 for world bosses)
+     */
+    public double anchorReelPartyMult(int partySize) {
+        return switch (partySize) {
+            case 1 -> balance.number("boss.anchor.reel_party_mult.solo", 2.5);
+            case 2 -> balance.number("boss.anchor.reel_party_mult.duo", 1.5);
+            default -> 1.0;
+        };
+    }
+
+    // ------------------------------------------------------------------ Temporary deck (proposed)
+
+    /** Build a temporary deck when no platform is found at the deck point. */
+    public boolean deckAuto() {
+        return balance.bool("boss.deck.auto", true);
+    }
+
+    /** Block of the temporary deck (a block id; unknown ids fall back to spruce planks). */
+    public String deckBlock() {
+        return balance.string("boss.deck.block").orElse("minecraft:spruce_planks");
+    }
+
+    /** Blocks added around the deck points (spawn, helm, repair spots) on each side. */
+    public int deckMargin() {
+        return Math.clamp(balance.integer("boss.deck.margin", 3), 0, 16);
+    }
+
+    /** The temporary deck stays this long after the fight ends (ticks), then is removed. */
+    public int deckKeepTicks() {
+        return (int) Math.round(Math.max(0, balance.number("boss.deck.keep_seconds", 20)) * 20);
+    }
+
     /** Anchor tension tier multiplier (tension rise per boss type, proposed value). */
     public double anchorTensionMult(BossType type) {
         return balance.number(T + type.key() + ".tension_mult", 1.0);

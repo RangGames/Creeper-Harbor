@@ -97,11 +97,14 @@ final class HarpoonTracker {
             Harpoon h = entry.getValue();
             Entity entity = Bukkit.getEntity(entry.getKey());
             Player thrower = Bukkit.getPlayer(h.thrower);
-            if (!(entity instanceof Trident trident)
-                    || !trident.isValid()
-                    || thrower == null
-                    || ++h.age > maxAge) {
+            if (!(entity instanceof Trident trident) || !trident.isValid() || thrower == null) {
                 it.remove();
+                continue;
+            }
+            if (++h.age > maxAge) {
+                // Missed and still flying or sinking in the water out of reach
+                it.remove();
+                recoverMiss(h, trident, thrower);
                 continue;
             }
             Location now = BossItems.loc(trident);
@@ -143,17 +146,38 @@ final class HarpoonTracker {
             if (bestBone == null) {
                 if (trident.isInBlock()) {
                     it.remove();
+                    recoverMiss(h, trident, thrower);
                 }
                 continue;
             }
             it.remove();
             trident.remove();
-            if (BossItems.stat(h.def, BossItems.STAT_RECOVER, 0) > 0) {
-                Map<Integer, ItemStack> left = thrower.getInventory().addItem(h.stack);
-                left.values().forEach(s -> thrower.getWorld().dropItem(BossItems.loc(thrower), s));
+            if (recoverable(h)) {
+                giveBack(thrower, h.stack);
             }
             e.harpoonHit(thrower, h.def, bestBone);
         }
+    }
+
+    private static boolean recoverable(Harpoon h) {
+        return BossItems.stat(h.def, BossItems.STAT_RECOVER, 0) > 0;
+    }
+
+    /**
+     * A recoverable harpoon that missed comes back too: it usually lands in the water around the
+     * boss where nobody can pick it up (the arena turns swimming into a fall).
+     */
+    private static void recoverMiss(Harpoon h, Trident trident, Player thrower) {
+        if (!recoverable(h) || !trident.isValid()) {
+            return;
+        }
+        trident.remove();
+        giveBack(thrower, h.stack);
+    }
+
+    private static void giveBack(Player thrower, ItemStack stack) {
+        Map<Integer, ItemStack> left = thrower.getInventory().addItem(stack.clone());
+        left.values().forEach(s -> thrower.getWorld().dropItem(BossItems.loc(thrower), s));
     }
 
     void clear() {

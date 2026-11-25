@@ -43,21 +43,21 @@
       name: "<#8b6b3a>진흙 뿌리기"
       animation: mud_spit
       telegraph: {shape: circle, size: 3.5, at: member}
-      effect: {hull_damage: 6, debuff: blind, debuff_seconds: 3}
+      effect: {hull_damage: 3, debuff: blind, debuff_seconds: 3}   # 배 피해는 입문용으로 낮춘 제안값 (6 → 3)
       cooldown: 6
       weight: 3
     - id: swamp_dive
       name: "<dark_green>늪 바닥 잠수"
       animation: dive
       telegraph: {shape: ring, size: 8, inner: 3, at: deck}
-      effect: {hull_damage: 10, knockback: 0.8, tension: 0.15}
+      effect: {hull_damage: 6, knockback: 0.8, tension: 0.15}   # 10 → 6
       cooldown: 14
       weight: 2
     - id: tail_sweep
       name: "<green>꼬리 휩쓸기"
       animation: tail_sweep
       telegraph: {shape: line, size: 4, length: 16, at: boss}
-      effect: {hull_damage: 15, knockback: 1.0}
+      effect: {hull_damage: 8, knockback: 1.0}   # 15 → 8
       cooldown: 12
       weight: 2
       charge: true              # 선장이 조타륜에서 반대 방향을 입력하면 피한다

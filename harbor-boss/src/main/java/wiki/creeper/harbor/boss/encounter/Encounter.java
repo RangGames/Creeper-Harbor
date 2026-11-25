@@ -341,9 +341,8 @@ public final class Encounter {
                 patterns.update(now);
                 combat.tickWeak(now, safe > 0);
                 if (safe > 0) {
-                    double perTick = fight.maxHp() * bb.anchorReelDamagePerSecond() / 20.0;
                     List<Fight.Transition> out = new ArrayList<>();
-                    fight.damage(perTick * safe, out);
+                    fight.damage(anchors.reelPerTick() * safe, out);
                     anchors.mirror();
                     handle(out);
                 }
@@ -491,6 +490,7 @@ public final class Encounter {
             }
         }
         mgr.chunkHold(this, false);
+        mgr.decks().release(this);
     }
 
     /** Contribution ranking (ContributionCalc). */
