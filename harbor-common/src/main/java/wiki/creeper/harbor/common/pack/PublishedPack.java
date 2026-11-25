@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.common.pack;
 
 import java.util.List;
+import java.util.Map;
 import wiki.creeper.harbor.common.redis.Channel;
 
 /**
@@ -13,6 +14,8 @@ import wiki.creeper.harbor.common.redis.Channel;
  * uses the models/sounds lists to decide whether to use custom models and sounds.
  *
  * @param builtAt build time (epoch ms)
+ * @param soundTicks sound event → length in ticks (Ogg files in the pack; empty in packs published
+ *     before this field existed)
  */
 public record PublishedPack(
         String url,
@@ -20,7 +23,8 @@ public record PublishedPack(
         long sizeBytes,
         List<String> models,
         List<String> sounds,
-        long builtAt) {
+        long builtAt,
+        Map<String, Integer> soundTicks) {
 
     public static final String KEY = "harbor:pack";
 
@@ -35,5 +39,9 @@ public record PublishedPack(
     public PublishedPack {
         models = List.copyOf(models);
         sounds = List.copyOf(sounds);
+        // Gson passes null for packs stored before soundTicks existed
+        @SuppressWarnings("NullAway")
+        Map<String, Integer> ticks = soundTicks;
+        soundTicks = ticks == null ? Map.of() : Map.copyOf(ticks);
     }
 }

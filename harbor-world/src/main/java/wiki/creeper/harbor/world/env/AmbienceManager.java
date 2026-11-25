@@ -28,6 +28,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.SoundTable;
 import wiki.creeper.harbor.common.id.RegionId;
+import wiki.creeper.harbor.core.api.ActivePack;
 import wiki.creeper.harbor.core.api.HarborSounds;
 import wiki.creeper.harbor.world.WorldKit;
 import wiki.creeper.harbor.world.content.AmbienceDef;
@@ -188,8 +189,21 @@ public final class AmbienceManager implements Listener {
         }
     }
 
-    /** sounds.yml loop of the music (5 minutes if absent, proposed). */
+    /**
+     * Restart interval of the music: the track length from the served pack (so a long track is not
+     * cut), or sounds.yml loop if that is longer (an intended pause); sounds.yml loop alone without
+     * a pack length; 5 minutes if neither (proposed).
+     */
     private int loopTicks(String key) {
+        int length = ActivePack.soundTicks(key).orElse(0);
+        int configured = configuredLoop(key);
+        if (length > 0) {
+            return Math.max(length, configured);
+        }
+        return configured > 0 ? configured : 6000;
+    }
+
+    private int configuredLoop(String key) {
         String name = key.startsWith("harbor:") ? key.substring("harbor:".length()) : key;
         int loop =
                 kit.api()
@@ -199,7 +213,7 @@ public final class AmbienceManager implements Listener {
                         .event(name)
                         .map(SoundTable.Event::loopTicks)
                         .orElse(0);
-        return loop > 0 ? loop : 6000;
+        return loop;
     }
 
     private void postEffects(Player player, State state, Set<Key> wanted) {

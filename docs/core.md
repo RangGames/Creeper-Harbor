@@ -175,7 +175,38 @@
 4. 모든 서버가 그 목록으로 쓸 수 있는 모델·소리를 판정한다. lobby는 접속자에게 그 팩을 보낸다.
 5. 팩 정보가 없으면 `content/resource_pack.yml`로 판정한다.
 
-서버 시작 때와 `/harbor pack build` 때 빌드한다. 커스텀 모델·소리는 `ItemModels`·`HarborSounds`를 거쳐서만 쓴다. 팩에 없는 모델은 바닐라 모양으로, 없는 소리는 대체음으로 나간다.
+### 최적화 (PackSquash 방식, 무손실)
+
+빌드 서버가 팩을 압축할 때 [PackSquash](https://github.com/ComunidadAylas/PackSquash)의 무손실 기법을 쓴다 (`pack.optimize`, 기본 켜짐). 픽셀·소리 값은 바뀌지 않는다.
+
+- **파일 고르기:** 마인크래프트가 읽는 형식만 넣는다 (png, json, mcmeta, ogg, 셰이더, 글꼴, `texts/`의 txt, OptiFine properties·jem·jpm). README.md, .bbmodel, .psd 같은 작업 파일은 빼고 로그에 남긴다. 꼭 넣을 확장자는 `pack.keep`에 적는다. mp3·wav 등은 마인크래프트가 재생하지 못하므로 빼고 .ogg로 바꾸라고 알린다.
+- **JSON:** 주석·공백을 지우고, 모델의 Blockbench 전용 키(`credit`, `groups`)를 지운다. 읽지 못하는 JSON은 그대로 둔다.
+- **PNG:** 메타데이터 청크를 지우고, 픽셀을 그대로 담는 가장 작은 색 형식(팔레트 1·2·4·8비트, 회색, RGB, RGBA)과 줄별 필터를 골라 최대로 압축한다. 투명 픽셀의 색도 그대로 둔다. 결과는 `plugins/Harbor/pack-build/cache`에 내용 해시로 저장해 다시 빌드할 때는 바뀐 그림만 처리한다.
+- **zip:** 이미 압축된 파일(png·ogg)은 다시 압축하지 않고 저장한다. 시간·순서를 고정해 같은 내용이면 SHA-1이 같다.
+- **zip 형식 (`pack.zip`):** `pedantic`(기본, 표준 zip) / `balanced`(같은 내용 파일의 데이터를 한 번만 저장) / `disregard`(압축 해제 방지 추가: 로컬 헤더의 파일 이름을 비우고 CRC를 0으로 둔다). 마인크래프트는 세 가지 모두 읽는다 (`java.util.zip.ZipFile`은 중앙 디렉터리만 보고 CRC를 검사하지 않는다). `disregard`는 일반 압축 프로그램이 풀지 못하거나 손상으로 보이게 할 뿐 진짜 보안은 아니고, 호스팅·백신이 의심할 수 있다.
+- 손실 기법(PNG 색 줄이기, 소리 재인코딩)과 셰이더 축약은 넣지 않았다.
+
+### 소리 길이와 배경음
+
+빌드 때 팩의 Ogg Vorbis 길이를 읽어 소리 이벤트별 길이(틱)를 함께 발행한다 (`PublishedPack.soundTicks`, `ActivePack.soundTicks`). World의 지역 배경음은 곡이 끝날 때 다시 낸다 (sounds.yml `loop`가 더 길면 그만큼 쉰다). 팩 정보가 없으면 sounds.yml `loop`대로다. 긴 곡은 sounds.json에서 `"stream": true`로 둔다.
+
+### 다른 플러그인의 리소스팩 (ModelEngine 등)
+
+- **자동으로 찾아 합치기 (`pack.auto_merge`, 기본 켜짐):** 설치된 플러그인이 기본 위치에 만든 팩을 찾아 합친다. 폴더와 zip이 둘 다 있으면 최근에 쓴 쪽을 쓴다. 지워진 플러그인의 남은 폴더는 쓰지 않는다.
+
+  | 플러그인 | 찾는 위치 (plugins/ 기준) |
+  |---|---|
+  | ModelEngine | `ModelEngine/resource pack/`, `ModelEngine/resource pack.zip` |
+  | BetterModel | `BetterModel/build/`, `BetterModel/build.zip` |
+  | ItemsAdder | `ItemsAdder/output/generated.zip` |
+  | Nexo | `Nexo/pack/pack.zip` |
+  | Oraxen | `Oraxen/pack/pack.zip` |
+
+  다른 위치에 팩을 만드는 플러그인은 `pack.merge`에 경로를 적거나 `plugins/Harbor/pack-merge/`에 넣는다. 우선순위는 Harbor 팩 > `pack.merge` > 자동으로 찾은 플러그인 팩 > `pack-merge/` 폴더다.
+- **자동 다시 빌드 (`pack.watch`, 기본 켜짐):** 빌드 서버가 5초마다 에셋 폴더와 합칠 팩의 파일 목록·크기·수정 시각을 확인한다. 바뀐 뒤 한 번 더 같은 상태로 보이면 (쓰는 도중이 아니면) 다시 빌드하고, SHA-1이 바뀌었을 때만 올린다. 그래서 `/meg reload`처럼 팩을 다시 만들면 10초 안팎으로 모든 서버에 새 팩이 알려지고 lobby가 접속자에게 보낸다. 서버 시작 때 첫 빌드도 이 감시를 거쳐서, 시작 직후 팩을 만드는 플러그인의 결과까지 합친 뒤 올린다. 감시 빌드 중 합칠 팩을 읽지 못하면 (쓰는 중) 올리지 않고, 쓰기가 끝나 바뀐 것이 보이면 다시 빌드한다.
+- ItemsAdder·Nexo·Oraxen처럼 자기 팩을 직접 보내는 플러그인은 그 플러그인의 팩 전송(호스팅)을 끈다. 켜 두면 접속자가 팩을 두 번 받는다. ModelEngine·BetterModel은 팩만 만들므로 그대로 둔다.
+
+서버 시작 때와 `/harbor pack build` 때 (`pack.watch`면 재료가 바뀔 때도) 빌드한다. 커스텀 모델·소리는 `ItemModels`·`HarborSounds`를 거쳐서만 쓴다. 팩에 없는 모델은 바닐라 모양으로, 없는 소리는 대체음으로 나간다.
 
 ## 다른 모듈과의 연결
 

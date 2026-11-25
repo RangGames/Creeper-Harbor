@@ -5,7 +5,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -17,13 +19,16 @@ import org.jspecify.annotations.Nullable;
 /**
  * One resource pack (folder or zip). Pack path ({@code assets/…}, {@code pack.mcmeta}) → content.
  * If assets sits in a folder one level in, like a downloaded pack, that folder is treated as the
- * root. Files not included in the client pack ({@link PackBuilder#include}) are dropped up front.
+ * root. Files not included in the client pack ({@link PackBuilder#include}) are dropped up front;
+ * files of a type Minecraft does not read (README.md, .bbmodel, .psd…) are dropped and listed in
+ * {@link #ignored()}.
  */
 final class PackSource implements Closeable {
 
     private final String name;
     private final Map<String, Path> files = new TreeMap<>();
     private final Map<String, ZipEntry> entries = new TreeMap<>();
+    private final List<String> ignored = new ArrayList<>();
     private final @Nullable ZipFile zip;
 
     private PackSource(String name, @Nullable ZipFile zip) {
@@ -33,6 +38,11 @@ final class PackSource implements Closeable {
 
     String name() {
         return name;
+    }
+
+    /** Pack paths left out because Minecraft does not read that file type. */
+    List<String> ignored() {
+        return ignored;
     }
 
     Set<String> paths() {
@@ -67,6 +77,13 @@ final class PackSource implements Closeable {
 
     /** Folder or .zip. IOException if there is no assets. */
     static PackSource open(Path path) throws IOException {
+        return open(path, Set.of());
+    }
+
+    /**
+     * @param keep extra file extensions to include even though Minecraft does not read them
+     */
+    static PackSource open(Path path, Set<String> keep) throws IOException {
         String display = String.valueOf(path.getFileName());
         if (Files.isDirectory(path)) {
             Path root = folderRoot(path);
@@ -74,8 +91,13 @@ final class PackSource implements Closeable {
             try (Stream<Path> walk = Files.walk(root)) {
                 for (Path file : walk.filter(Files::isRegularFile).toList()) {
                     String rel = root.relativize(file).toString().replace('\\', '/');
-                    if (PackBuilder.include(rel)) {
+                    if (!PackBuilder.include(rel)) {
+                        continue;
+                    }
+                    if (PackBuilder.recognized(rel, keep)) {
                         source.files.put(rel, file);
+                    } else {
+                        source.ignored.add(rel);
                     }
                 }
             }
@@ -95,8 +117,13 @@ final class PackSource implements Closeable {
                         continue;
                     }
                     String rel = name.substring(prefix.length());
-                    if (PackBuilder.include(rel)) {
+                    if (!PackBuilder.include(rel)) {
+                        continue;
+                    }
+                    if (PackBuilder.recognized(rel, keep)) {
                         source.entries.put(rel, entry);
+                    } else {
+                        source.ignored.add(rel);
                     }
                 }
                 return source;
@@ -108,7 +135,7 @@ final class PackSource implements Closeable {
         throw new IOException("리소스팩 폴더나 .zip이 아닙니다: " + path);
     }
 
-    private static Path folderRoot(Path dir) throws IOException {
+    static Path folderRoot(Path dir) throws IOException {
         if (Files.isDirectory(dir.resolve("assets"))) {
             return dir;
         }

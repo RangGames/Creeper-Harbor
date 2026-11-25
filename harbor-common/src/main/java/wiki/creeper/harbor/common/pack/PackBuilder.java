@@ -21,6 +21,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Stream;
+import java.util.zip.CRC32;
+import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -41,6 +43,82 @@ public final class PackBuilder {
     private static final Set<String> SKIP_NAMES = Set.of(".DS_Store", "Thumbs.db", "desktop.ini");
 
     /**
+     * File types Minecraft (and OptiFine) read from a resource pack. Anything else (README.md,
+     * .bbmodel, .psd, .txt outside texts/…) is left out of the client pack, as PackSquash does.
+     */
+    private static final Set<String> PACK_EXTENSIONS =
+            Set.of(
+                    "png",
+                    "json",
+                    "mcmeta",
+                    "ogg",
+                    "fsh",
+                    "vsh",
+                    "glsl",
+                    "ttf",
+                    "otf",
+                    "lang",
+                    "properties",
+                    "jem",
+                    "jpm");
+
+    /** Entries stored instead of deflated when deflating does not shrink them (proposed). */
+    private static final Set<String> PRECOMPRESSED = Set.of("png", "ogg", "zip", "ttf", "otf");
+
+    /** Audio formats Minecraft cannot play (convert to Ogg Vorbis). */
+    private static final Set<String> AUDIO = Set.of("mp3", "wav", "flac", "m4a", "aac", "opus");
+
+    /** Number of left-out file names listed in notes (the rest only as a count). */
+    private static final int IGNORED_NOTE_LIMIT = 10;
+
+    /**
+     * Optimization and file selection for {@link #build}.
+     *
+     * @param optimize lossless optimizations ({@link PackOptimizer})
+     * @param keep extra file extensions (without dot) to include although Minecraft does not read
+     *     them
+     * @param zip zip conformance level ({@link ZipConformance}, PackSquash style)
+     */
+    public record Settings(PackOptimizer.Options optimize, Set<String> keep, ZipConformance zip) {
+        public static final Settings PLAIN =
+                new Settings(PackOptimizer.Options.NONE, Set.of(), ZipConformance.PEDANTIC);
+
+        public Settings {
+            keep = Set.copyOf(keep);
+        }
+
+        public Settings(PackOptimizer.Options optimize, Set<String> keep) {
+            this(optimize, keep, ZipConformance.PEDANTIC);
+        }
+    }
+
+    /** Where built entries go: a standard zip stream or {@link PackZipWriter}. */
+    interface EntrySink extends java.io.Closeable {
+        void put(String name, byte[] data, boolean storeIfIncompressible) throws IOException;
+    }
+
+    /** Standard zip ({@link ZipConformance#PEDANTIC}). */
+    private static final class StandardSink implements EntrySink {
+        private final ZipOutputStream zip;
+
+        StandardSink(OutputStream out) {
+            this.zip = new ZipOutputStream(out);
+            zip.setLevel(9);
+        }
+
+        @Override
+        public void put(String name, byte[] data, boolean storeIfIncompressible)
+                throws IOException {
+            PackBuilder.put(zip, name, data, storeIfIncompressible);
+        }
+
+        @Override
+        public void close() throws IOException {
+            zip.close();
+        }
+    }
+
+    /**
      * @param format pack format to use when there is no pack.mcmeta (e.g. "97.1" → min/max_format
      *     [97, 1])
      * @param description description to use when there is no pack.mcmeta
@@ -50,20 +128,44 @@ public final class PackBuilder {
     /**
      * @param sha1 SHA-1 of the zip (40 hex digits, for client verification)
      * @param files number of files added
-     * @param notes notes produced while merging (overlapping files, unreadable packs)
+     * @param notes notes produced while merging (overlapping files, unreadable packs, left-out
+     *     files)
+     * @param skipped merge packs that could not be read and were left out
+     * @param optimized what the lossless optimizations saved
+     * @param ignored number of files left out because Minecraft does not read their type
      */
     public record Built(
-            Path zip, String sha1, long sizeBytes, int files, PackIndex index, List<String> notes) {
+            Path zip,
+            String sha1,
+            long sizeBytes,
+            int files,
+            PackIndex index,
+            List<String> notes,
+            List<Path> skipped,
+            PackOptimizer.Stats optimized,
+            int ignored) {
         public Built {
             notes = List.copyOf(notes);
+            skipped = List.copyOf(skipped);
         }
     }
 
-    /** item_model and sound lists contained in the pack. */
-    public record PackIndex(Set<String> models, Set<String> sounds) {
+    /**
+     * item_model and sound lists contained in the pack.
+     *
+     * @param soundTicks sound event ({@code ns:key}) → length in ticks, for events whose files are
+     *     Ogg Vorbis in the pack (longest file of the event)
+     */
+    public record PackIndex(
+            Set<String> models, Set<String> sounds, Map<String, Integer> soundTicks) {
         public PackIndex {
             models = Set.copyOf(models);
             sounds = Set.copyOf(sounds);
+            soundTicks = Map.copyOf(soundTicks);
+        }
+
+        public PackIndex(Set<String> models, Set<String> sounds) {
+            this(models, sounds, Map.of());
         }
     }
 
@@ -103,17 +205,31 @@ public final class PackBuilder {
     public static Built build(
             Path source, List<Path> merges, Path out, Meta meta, Map<String, byte[]> generated)
             throws IOException {
+        return build(source, merges, out, meta, generated, Settings.PLAIN);
+    }
+
+    /** As above, with lossless optimizations and file selection ({@link Settings}). */
+    public static Built build(
+            Path source,
+            List<Path> merges,
+            Path out,
+            Meta meta,
+            Map<String, byte[]> generated,
+            Settings settings)
+            throws IOException {
         if (!hasAssets(source)) {
             throw new IOException("assets 폴더가 없습니다: " + source.getFileName());
         }
         List<String> notes = new ArrayList<>();
+        List<Path> skipped = new ArrayList<>();
         List<PackSource> sources = new ArrayList<>();
         try {
-            sources.add(PackSource.open(source));
+            sources.add(PackSource.open(source, settings.keep()));
             for (Path merge : merges) {
                 try {
-                    sources.add(PackSource.open(merge));
+                    sources.add(PackSource.open(merge, settings.keep()));
                 } catch (IOException e) {
+                    skipped.add(merge);
                     notes.add("합칠 팩을 읽지 못했습니다: " + merge + " (" + e.getMessage() + ")");
                 }
             }
@@ -128,6 +244,9 @@ public final class PackBuilder {
                 }
             }
             generated.keySet().forEach(name -> owners.putIfAbsent(name, List.of()));
+            int ignored = noteIgnored(sources, notes);
+            PackOptimizer optimizer = new PackOptimizer(settings.optimize());
+            boolean store = settings.optimize().enabled();
             Path parent = out.toAbsolutePath().getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
@@ -136,34 +255,101 @@ public final class PackBuilder {
             boolean hasMeta = owners.containsKey("pack.mcmeta");
             Set<String> models = new TreeSet<>();
             Set<String> sounds = new TreeSet<>();
-            try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(tmp))) {
-                zip.setLevel(9);
+            Map<String, Integer> fileTicks = new TreeMap<>();
+            Map<String, byte[]> soundsJson = new TreeMap<>();
+            ZipConformance level = settings.zip();
+            PackZipWriter writer =
+                    level == ZipConformance.PEDANTIC
+                            ? null
+                            : new PackZipWriter(Files.newOutputStream(tmp), level);
+            try (EntrySink zip =
+                    writer != null ? writer : new StandardSink(Files.newOutputStream(tmp))) {
                 if (!hasMeta) {
-                    put(zip, "pack.mcmeta", mcmeta(meta).getBytes(StandardCharsets.UTF_8));
+                    zip.put("pack.mcmeta", mcmeta(meta).getBytes(StandardCharsets.UTF_8), false);
                 }
                 for (Map.Entry<String, List<PackSource>> e : owners.entrySet()) {
                     String path = e.getKey();
                     byte[] made = generated.get(path);
                     byte[] data =
-                            made != null ? made : PackMerge.resolve(path, e.getValue(), notes);
-                    put(zip, path, data);
+                            optimizer.apply(
+                                    path,
+                                    made != null
+                                            ? made
+                                            : PackMerge.resolve(path, e.getValue(), notes));
+                    zip.put(path, data, store);
                     itemModelKey(path).ifPresent(models::add);
-                    soundsNamespace(path).ifPresent(ns -> PackMerge.soundKeys(ns, data, sounds));
+                    soundsNamespace(path)
+                            .ifPresent(
+                                    ns -> {
+                                        PackMerge.soundKeys(ns, data, sounds);
+                                        soundsJson.put(ns, data);
+                                    });
+                    String soundFile = SoundLengths.fileKey(path);
+                    if (soundFile != null) {
+                        fileTicks.put(soundFile, SoundLengths.oggTicks(data));
+                    }
                 }
             }
+            if (writer != null) {
+                notes.add(
+                        "zip: "
+                                + level.key()
+                                + " (같은 내용 파일 "
+                                + writer.shared()
+                                + "개 공유"
+                                + (level == ZipConformance.DISREGARD
+                                        ? ", 압축 해제 방지: 일반 압축 프로그램으로는 잘 안 풀림"
+                                        : "")
+                                + ")");
+            }
+            Map<String, Integer> soundTicks = new TreeMap<>();
+            soundsJson.forEach((ns, json) -> SoundLengths.events(ns, json, fileTicks, soundTicks));
             Files.move(tmp, out, StandardCopyOption.REPLACE_EXISTING);
+            optimizer.pruneCache();
             return new Built(
                     out,
                     sha1(out),
                     Files.size(out),
                     owners.size() + (hasMeta ? 0 : 1),
-                    new PackIndex(models, sounds),
-                    notes);
+                    new PackIndex(models, sounds, soundTicks),
+                    notes,
+                    skipped,
+                    optimizer.stats(),
+                    ignored);
         } finally {
             for (PackSource s : sources) {
                 s.close();
             }
         }
+    }
+
+    /** Lists left-out file types in notes (first few names, then a count). */
+    private static int noteIgnored(List<PackSource> sources, List<String> notes) {
+        List<String> all = new ArrayList<>();
+        for (PackSource s : sources) {
+            for (String path : s.ignored()) {
+                all.add(s.name() + ":" + path);
+            }
+        }
+        List<String> audio =
+                all.stream().filter(p -> AUDIO.contains(PackOptimizer.extension(p))).toList();
+        if (!audio.isEmpty()) {
+            notes.add(
+                    "마인크래프트는 소리로 Ogg Vorbis(.ogg)만 재생합니다. 다음 파일은 .ogg로 바꿔 넣어야 합니다: "
+                            + String.join(", ", audio));
+        }
+        if (!all.isEmpty()) {
+            String sample =
+                    String.join(", ", all.subList(0, Math.min(IGNORED_NOTE_LIMIT, all.size())));
+            notes.add(
+                    "마인크래프트가 읽지 않는 파일 "
+                            + all.size()
+                            + "개를 팩에서 뺐습니다 ("
+                            + sample
+                            + (all.size() > IGNORED_NOTE_LIMIT ? ", …" : "")
+                            + "). 꼭 넣으려면 pack.keep에 확장자를 적습니다");
+        }
+        return all.size();
     }
 
     /** {@code assets/<ns>/sounds.json} → ns. */
@@ -285,13 +471,65 @@ public final class PackBuilder {
         return !parts[2].equals("rigs");
     }
 
-    private static void put(ZipOutputStream zip, String name, byte[] data) throws IOException {
+    /**
+     * Whether Minecraft reads this file type (pack.mcmeta/pack.png at the root, {@link
+     * #PACK_EXTENSIONS} under assets, unifont-style .zip under font/), or its extension is in keep.
+     */
+    static boolean recognized(String path, Set<String> keep) {
+        if (path.equals("pack.mcmeta") || path.equals("pack.png")) {
+            return true;
+        }
+        String ext = PackOptimizer.extension(path);
+        if (PACK_EXTENSIONS.contains(ext) || keep.contains(ext)) {
+            return true;
+        }
+        String[] parts = path.split("/", -1);
+        if (ext.equals("txt")) {
+            // splashes.txt, end.txt, postcredits.txt…
+            return parts.length >= 4 && parts[2].equals("texts");
+        }
+        return ext.equals("zip") && parts.length >= 4 && parts[2].equals("font");
+    }
+
+    /**
+     * @param storeIfIncompressible store (no deflate) already-compressed files that deflating does
+     *     not shrink
+     */
+    private static void put(
+            ZipOutputStream zip, String name, byte[] data, boolean storeIfIncompressible)
+            throws IOException {
         ZipEntry entry = new ZipEntry(name);
         entry.setTime(FIXED_TIME.toMillis());
+        if (storeIfIncompressible
+                && PRECOMPRESSED.contains(PackOptimizer.extension(name))
+                && deflatedSize(data) >= data.length) {
+            CRC32 crc = new CRC32();
+            crc.update(data);
+            entry.setMethod(ZipEntry.STORED);
+            entry.setSize(data.length);
+            entry.setCompressedSize(data.length);
+            entry.setCrc(crc.getValue());
+        }
         zip.putNextEntry(entry);
         OutputStream out = zip;
         out.write(data);
         zip.closeEntry();
+    }
+
+    private static long deflatedSize(byte[] data) {
+        Deflater deflater = new Deflater(9, true);
+        try {
+            deflater.setInput(data);
+            deflater.finish();
+            byte[] buf = new byte[64 * 1024];
+            long size = 0;
+            while (!deflater.finished()) {
+                size += deflater.deflate(buf);
+            }
+            return size;
+        } finally {
+            deflater.end();
+        }
     }
 
     private static String relative(Path root, Path file) {

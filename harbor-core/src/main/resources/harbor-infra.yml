@@ -45,7 +45,12 @@ resource_packs: []
 #   format: "97.1"                          # pack.mcmeta가 없을 때 쓸 팩 형식
 #   description: 크리퍼 항구
 #   merge:                                # 같이 합칠 다른 리소스팩 (폴더·zip, 앞쪽 우선). plugins/Harbor/pack-merge/ 안의 팩은 자동
-#     - plugins/ModelEngine/resource pack
+#     - plugins/SomePlugin/pack.zip
+#   auto_merge: true                      # 설치된 플러그인이 만든 팩도 합친다 (ModelEngine·BetterModel·ItemsAdder·Nexo·Oraxen 기본 위치)
+#   watch: true                           # 에셋 폴더·합칠 팩이 바뀌면 (예: /meg reload) 자동으로 다시 빌드·업로드
+#   optimize: true                        # 무손실 최적화 (PackSquash 방식): JSON 압축, PNG 재압축, 이미 압축된 파일은 저장만
+#   keep: []                              # 마인크래프트가 읽지 않지만 넣을 확장자 (기본은 README.md·.bbmodel·.psd 등을 뺌). 예: [bbmodel]
+#   zip: pedantic                         # pedantic 표준 zip / balanced 같은 내용 파일 공유 / disregard 압축 해제 방지 (게임은 읽지만 일반 압축 프로그램은 잘 못 풂. 호스팅·백신이 의심할 수 있음)
 #   cdn:
 #     url: https://cdn.creeper.wiki
 #     api_key: ""                           # CDN에서 발급한 키. 이 파일은 커밋하지 않는다

@@ -43,6 +43,21 @@ public final class ActivePack {
                 || snapshot.single(ResourcePackIndex.TYPE).hasModel(model);
     }
 
+    /**
+     * Length of a sound event in ticks, when the served pack has it as Ogg (e.g. region music, so
+     * it restarts when the track ends). Empty without an auto-built pack or for unknown sounds.
+     */
+    public static java.util.OptionalInt soundTicks(String sound) {
+        State s = state;
+        if (s == null) {
+            return java.util.OptionalInt.empty();
+        }
+        Integer ticks = s.pack().soundTicks().get(sound);
+        return ticks == null || ticks <= 0
+                ? java.util.OptionalInt.empty()
+                : java.util.OptionalInt.of(ticks);
+    }
+
     public static boolean hasSound(ContentSnapshot snapshot, String sound) {
         State s = state;
         if (s != null) {
