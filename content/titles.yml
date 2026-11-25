@@ -6,7 +6,14 @@
 - {id: title/codex_50, name: "<green>열성 수집가", style: rare, source_hint: "누적 도감 50%"}
 - {id: title/codex_75, name: "<aqua>노련한 수집가", style: epic, source_hint: "누적 도감 75%"}
 - {id: title/codex_100, name: "<gold>바다의 기록자", style: legendary, source_hint: "누적 도감 100%"}
+# 지역 완성 (collection.yml region_complete.title_prefix + "/" + 지역 이름, 시즌 도감·신화 제외). 이름은 제안값
 - {id: title/codex_region/harbor, name: "<white>항구 박물학자", style: rare, source_hint: "크리퍼 항구 도감 완성"}
+- {id: title/codex_region/swamp, name: "<dark_green>늪지 박물학자", style: rare, source_hint: "이끼 강 & 버섯 늪지 도감 완성"}
+- {id: title/codex_region/coral_isles, name: "<aqua>산호 박물학자", style: rare, source_hint: "산호 군도 도감 완성"}
+- {id: title/codex_region/lava_lake, name: "<red>용암 박물학자", style: epic, source_hint: "용암 호수 도감 완성"}
+- {id: title/codex_region/frost_fjord, name: "<white>협만 박물학자", style: epic, source_hint: "서리 협만 도감 완성"}
+- {id: title/codex_region/ash_trench, name: "<gray>해구 박물학자", style: epic, source_hint: "잿빛 해구 도감 완성"}
+- {id: title/codex_region/void_sea, name: "<light_purple>공허 박물학자", style: legendary, source_hint: "공허의 바다 도감 완성"}
 
 # ---- 보스 ('7. 밸런스 기획' 9장)
 - {id: title/swamp_master, name: "<dark_green>늪지의 주인을 낚은 자", style: rare, source_hint: "늪지의 주인 '그놈' 처치"}

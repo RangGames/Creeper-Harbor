@@ -12,16 +12,20 @@ import org.junit.jupiter.api.Test;
 import wiki.creeper.harbor.collection.content.AquariumRules;
 import wiki.creeper.harbor.collection.content.BillboardRules;
 import wiki.creeper.harbor.collection.content.CollectionContent;
+import wiki.creeper.harbor.collection.content.CollectionRules;
+import wiki.creeper.harbor.collection.content.CollectionTitles;
 import wiki.creeper.harbor.collection.content.DisplayCaseRules;
 import wiki.creeper.harbor.collection.content.ReleaseRules;
 import wiki.creeper.harbor.common.content.ContentLoader;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.CoreContent;
+import wiki.creeper.harbor.common.content.type.RegionDef;
 import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.common.util.ValidationError;
 import wiki.creeper.harbor.common.util.ValidationErrors;
 import wiki.creeper.harbor.fishing.content.FishingContent;
 import wiki.creeper.harbor.season.content.SeasonContent;
+import wiki.creeper.harbor.season.content.TitleDef;
 
 /**
  * Checks that the Collection files in the repository content/ load with the same loader as the
@@ -36,7 +40,8 @@ class CollectionContentTest {
                     "display_case.yml",
                     "release.yml",
                     "billboard.yml",
-                    "reset_plan.yml");
+                    "reset_plan.yml",
+                    "titles.yml");
 
     @Test
     void repositoryContentParses() {
@@ -76,6 +81,17 @@ class CollectionContentTest {
                 assertEquals(10, display.slotCount(5));
                 assertEquals("climax_done", snapshot.single(ReleaseRules.TYPE).flag());
                 assertTrue(snapshot.single(BillboardRules.TYPE).enabled());
+                // Every region has a codex completion title (granted the same way as harbor)
+                CollectionRules rules = snapshot.single(CollectionRules.TYPE);
+                for (RegionDef region : snapshot.all(RegionDef.TYPE).values()) {
+                    var title =
+                            CollectionTitles.titleId(
+                                    CollectionTitles.regionTitle(
+                                            rules.regionTitlePrefix(), region.id()));
+                    assertTrue(
+                            snapshot.get(TitleDef.TYPE, title).isPresent(),
+                            () -> "지역 완성 칭호가 titles.yml에 없습니다: " + title);
+                }
             }
         }
     }

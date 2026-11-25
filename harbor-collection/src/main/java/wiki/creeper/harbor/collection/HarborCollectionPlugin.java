@@ -18,6 +18,7 @@ import wiki.creeper.harbor.collection.hook.NpcBridge;
 import wiki.creeper.harbor.collection.release.ReleaseManager;
 import wiki.creeper.harbor.collection.service.AquariumManager;
 import wiki.creeper.harbor.collection.service.Billboard;
+import wiki.creeper.harbor.collection.service.CatchSources;
 import wiki.creeper.harbor.collection.service.CollectionCommands;
 import wiki.creeper.harbor.collection.service.CollectionManager;
 import wiki.creeper.harbor.collection.service.ItemReturns;
@@ -59,6 +60,8 @@ public final class HarborCollectionPlugin extends HarborModule {
         AquariumManager aquarium = new AquariumManager(api, ctx.tasks(), getSLF4JLogger(), returns);
         this.aquarium = aquarium;
         ctx.listen(collection);
+        // Trap harvests (collection only) and release_only boss fish (Harbor-Boss, by class name)
+        ctx.listen(new CatchSources(this, api, getSLF4JLogger(), collection));
         ctx.listen(aquarium);
         ctx.handoffBlocker(aquarium.handoffBlocker());
         ctx.itemCustody(aquarium::held);
@@ -87,6 +90,8 @@ public final class HarborCollectionPlugin extends HarborModule {
         // enables after Collection, so it is looked up on use
         ShopThemes themes = new ShopThemes(getSLF4JLogger());
         if (enabled("Harbor-World")) {
+            wiki.creeper.harbor.collection.hook.WorldHooks.installTreasureHints(
+                    this, api, collection);
             display =
                     wiki.creeper.harbor.collection.hook.WorldHooks.install(
                             this, api, ctx.tasks(), getSLF4JLogger(), npc, themes);

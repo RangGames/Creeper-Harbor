@@ -7,11 +7,17 @@
 ## 주요 기능
 
 - **도감:** 처음 낚은 어종을 등록한다. 누적 도감과 시즌 도감이 따로 있다.
+  - 낚싯대 포획은 도감과 최대어 기록에 모두 들어간다. **통발 수확**(Fishing `TrapHarvestEvent`)은 도감에만 들어가고 기록에서는 빠진다.
+  - **release_only 보스 어종**(해구의 군주·녹빛 폭뢰어)은 아이템이 없다. 낚으면(방류 포획) 도감에 등록되고, Boss 보스전(`BossEncounterEndEvent`)이 CLEARED로 끝나면 이 서버에 있는 참가자 모두의 도감에 등록된다. 크기는 어종 범위 안에서 무작위, 품질 ★1(제안값)이고 기록에는 들어가지 않는다. 스토리 전투(`story: true`, 6장 진정 전투)는 등록하지 않는다.
+  - 시즌 도감 첫 등록은 **토스트**(발전과제 알림)로 알린다. 데이터팩 없이 서버 시작 때 `harbor:codex/root`·`harbor:codex/<지역>/<어종>` 발전과제를 메모리에만 등록하고(`UnsafeValues.loadAdvancement(…, false)`, 파일을 쓰지 않음), 등록 순간 기준을 줬다가 `collection.toast.keep_ticks` 뒤 다시 회수한다. 그래서 발전과제 화면에는 남지 않고 다음 시즌에도 다시 뜬다. 아이콘은 어종 모델(리소스팩에 있을 때), 테두리는 등급(전설 이상 challenge, 영웅 goal). 등록에 실패하거나 끄면 예전처럼 제목 알림을 쓴다. 리로드로 추가된 어종은 재시작 전까지 제목 알림이다.
   - 희귀 이상을 처음 낚으면 물비늘 1개를 받는다.
-  - **지역 완성**(시즌 도감, 신화 제외): 칭호와 물비늘 3개.
+  - **지역 완성**(시즌 도감, 신화 제외): 칭호와 물비늘 3개. 칭호는 7개 지역 모두 `titles.yml`의 `title/codex_region/<지역>`에 있다 (항구·늪지·산호·용암·협만·해구·공허 박물학자, 이름은 제안값).
   - **누적 달성률 25·50·75·100%:** 칭호. 치장품은 Shop이 같은 이벤트로 준다.
   - **시즌 도감 달성률 20·40·60·80%:** 버프 (경험치·판매가·희귀 가중치 소폭).
-- **힌트:** 미등록 어종은 실루엣과 힌트로 보인다. 힌트 단계(0~3)는 NPC 대화(`collection:hint`)나 보물 지도 수령으로 오른다.
+- **힌트:** 미등록 어종은 실루엣과 힌트로 보인다. 힌트 단계(0~3)는 NPC 대화(`collection:hint`), 퀘스트 보상(`rewards.hints`), 보물 지도 수령으로 오른다.
+  - 단계별 공개: 0 지역 → 1 시간대 → 2 날씨·미끼(아이템 이름으로) → 3 세부 구역·달·필요 직업 단계·`hint_text`.
+  - `hint_text`(추가 제안): `fish/*.yml` 어종의 선택 필드. 힌트 3단계에 "메모"로 보인다.
+  - 보물 지도: World `TreasureClaimedEvent`의 `hint()`가 참이면 그 지도의 지역을 먼저 보고 무작위 힌트 하나를 준다 (`HintService.grantRandom`, 출처 `treasure`). 줄 힌트가 없으면 안내만 한다.
 - **최대어 기록:** 어종마다 시즌·누적 최고 크기를 남긴다. 리그는 기록 때의 직업 단계로 나뉜다 (1차 · 2차 · 전체). 서버 TOP 10과 "TOP 10까지 몇 cm"를 보여 준다. 서버 기록을 깨면 이벤트가 나고, 명예의 전당(Season)에 제출된다.
 - **항구 수족관:** 모든 플레이어가 어종을 기부해 서버 단계를 올린다.
   - 단계는 기부된 어종 비율로 정한다: 10% · 25% · 45% · 65% · 80%.
@@ -67,6 +73,8 @@
 ## 설정 값
 
 - `balance.yml` `collection.menu.bar_width`: 도감·보상 트랙·수족관 막대 칸 수 (제안값 10)
+- `balance.yml` `collection.toast.enabled`: 도감 등록 토스트 (false면 제목 알림. 등록은 시작 때라 켜기는 재시작 뒤)
+- `balance.yml` `collection.toast.keep_ticks`: 토스트 뒤 발전과제를 회수하기까지 틱 (제안값 20)
 - 문구: `messages_ko.yml`의 `collection.*`
 
 ## 다른 모듈과의 연결
@@ -76,10 +84,11 @@
   - `RecordService.weeklyRecords`: 이번 주 서버 기록 (최신순, 이 서버가 받은 것만, 주간 초기화 때 비움)
 - **이벤트:** `CollectionRegisteredEvent`, `CollectionMilestoneEvent`, `RecordBrokenEvent`, `AquariumDonatedEvent`, `AquariumStageChangedEvent`, `FishReleasedEvent`
 - **쓰는 것:**
-  - Fishing: 포획 이벤트를 받고, `CollectionProvider`로 첫 포획 여부를 알려 준다.
+  - Fishing: 포획·통발 수확 이벤트를 받고, `CollectionProvider`로 첫 포획 여부를 알려 준다.
   - Season (필수): 칭호 지급, 랭킹 원천, 명예의 전당 제출, 시즌 훅.
   - Npc (선택): 대화 액션 `aquarium:donate`·`collection:hint`, 최고 평판 등급(어항 칸), 방류 평판.
-  - World (선택): 개인 어항 수조 자리(`DisplayAnchor`), 편집 권한, 플롯 로드·언로드.
+  - World (선택): 개인 어항 수조 자리(`DisplayAnchor`), 편집 권한, 플롯 로드·언로드, 보물 지도 힌트(`TreasureClaimedEvent`).
+  - Boss (선택): `BossEncounterEndEvent`로 release_only 보스 어종 도감 등록. Boss가 Shop을 거쳐 Collection 위에 있으므로 컴파일 의존 없이 서버 시작이 끝난 뒤(`ServerLoadEvent`) 클래스 이름으로 구독한다 (`CatchSources`).
   - Shop (선택): 어항 테마 보유 확인. Shop은 Collection보다 뒤에 켜지므로 서비스로 찾는다.
 - **원장 사유:** `CODEX_FIRST_CATCH`, `CODEX_REWARD`
 

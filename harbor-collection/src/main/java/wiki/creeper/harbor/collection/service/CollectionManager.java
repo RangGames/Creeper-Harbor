@@ -92,6 +92,7 @@ public final class CollectionManager
     private final Logger log;
     private final SeasonLink seasonLink;
     private final RecordBoard records;
+    private final CodexToasts toasts;
     private Index index;
 
     /** Region denominators and species index (rebuilt on every reload). */
@@ -120,11 +121,13 @@ public final class CollectionManager
         this.log = log;
         this.seasonLink = seasonLink;
         this.records = new RecordBoard(api, tasks, log, seasonLink);
+        this.toasts = new CodexToasts(api, tasks, log);
         this.index = Index.of(api.content().snapshot(), api.infra().season());
     }
 
     public void start() {
         records.start();
+        var _ = tasks.later(1, toasts::register);
     }
 
     SeasonLink seasonLink() {
@@ -302,21 +305,7 @@ public final class CollectionManager
         UUID uuid = hp.uuid();
         CollectionRules rules = rules();
         if (player != null) {
-            // Custom advancement toasts come after the datapack is ready; notify with title and
-            // sound for now
-            api.ui()
-                    .title(
-                            player,
-                            api.messages().get("collection.registered.title"),
-                            api.messages()
-                                    .get(
-                                            "item.name." + fish.grade().key(),
-                                            Placeholder.unparsed("name", fish.name())),
-                            Duration.ofMillis(200),
-                            Duration.ofSeconds(2),
-                            Duration.ofMillis(500));
-            HarborSounds.play(
-                    player, "harbor:ui.codex_register"); // '15. Sound' 4.5 collection registration
+            toasts.announce(player, fish);
         }
         Bukkit.getPluginManager()
                 .callEvent(

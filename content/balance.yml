@@ -364,13 +364,16 @@ quest:
   active_limit: 20                 # 진행 중 퀘스트 상한 (의뢰 제외)
   abandon_cooldown_minutes: 10     # 포기 후 같은 cycle 재수락 대기
   tracker:
-    waypoint_actionbar: true       # 추적 목표 방향·거리 액션바 (위치 표시 막대 waypoint는 Phase 1 검증 뒤)
+    waypoint_actionbar: true       # 추적 목표 방향·거리 액션바 (위치 표시 막대와 함께)
+    locator: true                  # 추적 목표를 위치 표시 막대 waypoint로 (Core WaypointService, docs 20 6.4). 색·모양은 waypoint.colors/styles.quest(_main·_ready)
+    locator_clamp_m: 96            # 목표가 이보다 멀면 같은 방향 이 거리에 표식을 둔다 (로드 안 된 청크에 표식을 만들지 않게, 제안값)
     waypoint_quiet_s: 3            # 다른 액션바(지역·배·보스 등)가 나간 뒤 이 시간 동안은 방향 액션바로 덮지 않음 (제안값)
     waypoint_refresh_ticks: 5      # 방향 계산 주기 (화살표·거리가 바뀔 때만 보냄, 서버 시작 때 읽음, 제안값)
     waypoint_keep_s: 1.5           # 바뀌지 않아도 이 간격으로 다시 보내 액션바가 사라지지 않게 함 (제안값)
     waypoint_arrive_m: 3           # 이 수평 거리 안이면 화살표 대신 ● (제안값)
     waypoint_vertical_m: 4         # 높이 차가 이 이상이면 ▲/▼ 높이 표시 (제안값)
-    bossbar: true                  # 추적 퀘스트 보스바 (플레이어는 /퀘스트 표시로 끔, 추가 제안)
+    bossbar: true                  # 추적 퀘스트 보스바 (false면 서버 전체에서 끔). 기본은 시간 제한 이벤트 퀘스트에만 (docs 20 6.4)
+    bossbar_all: false             # true면 모든 추적 퀘스트에 보스바가 기본 (그때 /퀘스트 표시는 끄기). false면 /퀘스트 표시로 각자 켬 (추가 제안)
   journal:
     style: gui                     # /퀘스트: gui(퀘스트북 상자 화면) 또는 dialog(예전 목록 화면). /퀘스트 목록은 늘 dialog (추가 제안)
   book:
@@ -496,8 +499,9 @@ waypoint:
   boss_range: 512             # 보스전 참가자에게 보스 방향
   hide_players: true          # 다른 플레이어의 바닐라 위치 표시를 끄고 파티원만 보여 줌 (false면 바닐라대로 모두 보이고 파티원 표식이 더해짐)
   party_range: 1024           # 파티원 위치 ('8. 시스템 상세 기획' 0장 위치 표시 막대: 파티원 위치). 같은 서버·월드의 파티원만
-  colors: {spot: "#4fc3f7", hidden_spot: "#b388ff", treasure: "#ffca28", boss: "#ef5350", party: "#66bb6a"}
-  styles: {spot: "harbor:fish_school", treasure: "harbor:treasure", boss: "harbor:boss", party: "harbor:party"}   # 리소스팩 waypoint_style (없으면 기본 점)
+  quest_range: 4096           # 추적 퀘스트 목표 (표식은 quest.tracker.locator_clamp_m 안에 두고 방향만 가리킴, 제안값)
+  colors: {spot: "#4fc3f7", hidden_spot: "#b388ff", treasure: "#ffca28", boss: "#ef5350", party: "#66bb6a", quest: "#4fa3ff", quest_main: "#ffd54f", quest_ready: "#9ccc65"}
+  styles: {spot: "harbor:fish_school", treasure: "harbor:treasure", boss: "harbor:boss", party: "harbor:party"}   # 리소스팩 waypoint_style (없으면 기본 점). quest·quest_main·quest_ready도 쓸 수 있음
 
 # Harbor-World (docs 20 8.4 · '12. 월드 · 하우징 · 통발'). 문서에 없는 값은 모두 제안값
 world:
@@ -662,6 +666,9 @@ sounds:
 collection:
   menu:
     bar_width: 10            # 도감·보상 트랙·수족관 진행 막대 칸 수 (제안값)
+  toast:                     # 도감 등록 토스트 (서버 시작 때 메모리에만 등록하는 발전과제, 데이터팩 없음. 추가 제안)
+    enabled: true            # false면 예전처럼 제목 알림 (끄기는 리로드로 바로, 켜기는 등록이 시작 때라 재시작 뒤)
+    keep_ticks: 20           # 토스트를 띄운 뒤 발전과제를 다시 회수하기까지 (발전과제 화면에 남지 않게, 제안값)
 
 # Harbor-Skript (추가 제안)
 skript:
