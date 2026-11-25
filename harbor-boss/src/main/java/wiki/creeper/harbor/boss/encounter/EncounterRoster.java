@@ -168,9 +168,13 @@ final class EncounterRoster {
             if (here) {
                 if (m.absentSince >= 0) {
                     m.absentSince = -1;
+                    // Leaving closed this anchor's line (onAbsent): hook it again on return
+                    if (m.role == BossRole.ANCHOR && m.session == null && m.reopenAt < 0) {
+                        m.reopenAt = now + 20;
+                    }
                 }
                 if (p != null && !e.def.isWorld() && e.fight.state().fighting()) {
-                    if (!m.fallen(now) && DeckGround.fallen(p, e.deckSpawn().getY())) {
+                    if (!m.fallen(now) && e.ground.fallen(p)) {
                         fall(m, p);
                     }
                 }

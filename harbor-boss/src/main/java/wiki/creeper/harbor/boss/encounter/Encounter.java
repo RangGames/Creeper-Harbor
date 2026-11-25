@@ -93,6 +93,7 @@ public final class Encounter {
     final WorldBossTracker worldBoss = new WorldBossTracker(this);
     final EncounterRoster roster = new EncounterRoster(this);
     final PhaseTransitions transitions = new PhaseTransitions(this);
+    final DeckGround ground = new DeckGround(this);
 
     private boolean launched;
     boolean launching;
@@ -163,16 +164,9 @@ public final class Encounter {
         return center.clone().add(v.x(), v.y(), v.z());
     }
 
-    /** Deck spawn on the actual platform near the configured point (found once per fight). */
-    private @Nullable Location standSpawn;
-
+    /** Deck spawn on the actual platform near the configured point ({@link DeckGround}). */
     Location deckSpawn() {
-        Location s = standSpawn;
-        if (s == null) {
-            s = DeckGround.standable(deck(def.arena().deck().spawn()));
-            standSpawn = s;
-        }
-        return s.clone();
+        return ground.spawn();
     }
 
     Location bossLocation() {

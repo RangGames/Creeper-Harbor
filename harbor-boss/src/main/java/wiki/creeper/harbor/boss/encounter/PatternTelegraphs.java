@@ -53,6 +53,11 @@ final class PatternTelegraphs {
         }
     }
 
+    /** Whether a telegraph is up (the HUD holds back role hints so the warning stays visible). */
+    boolean telegraphing() {
+        return !telegraphs.isEmpty();
+    }
+
     int entityCount() {
         return telegraphs.stream().mapToInt(Telegraph::entityCount).sum();
     }
@@ -88,7 +93,9 @@ final class PatternTelegraphs {
         Location boss = e.bossRig.location();
         double ox;
         double oz;
-        double floorY = spawn.getY() - 1;
+        // Deck surface: the spawn is the feet position on the platform, so tiles at floorY sit on
+        // top of the deck blocks (one block lower, they were drawn inside them and never seen)
+        double floorY = spawn.getY();
         double dirX = spawn.getX() - boss.getX();
         double dirZ = spawn.getZ() - boss.getZ();
         switch (pattern.telegraph().at()) {
@@ -106,7 +113,7 @@ final class PatternTelegraphs {
                     ox = tl.getX();
                     oz = tl.getZ();
                     if (def.isWorld()) {
-                        floorY = tl.getY() - 0.98;
+                        floorY = tl.getY();
                     }
                 }
             }
@@ -123,7 +130,7 @@ final class PatternTelegraphs {
                     if (target != null) {
                         dirX = target.getX() - ox;
                         dirZ = target.getZ() - oz;
-                        floorY = target.getY() - 0.98;
+                        floorY = target.getY();
                     }
                 }
             }
@@ -172,6 +179,18 @@ final class PatternTelegraphs {
                                 p,
                                 e.msg("boss.charge.title"),
                                 e.msg("boss.charge." + side.key()),
+                                Duration.ZERO,
+                                Duration.ofMillis(ticks * 50L),
+                                Duration.ofMillis(100));
+            } else if (m.session != null) {
+                // The anchor gauge redraws the action bar every 2 ticks, so a warning there would
+                // never be seen: use the subtitle for the telegraph time instead
+                e.mgr.api()
+                        .ui()
+                        .title(
+                                p,
+                                Component.empty(),
+                                e.msg("boss.pattern.warn", Placeholder.component("pattern", name)),
                                 Duration.ZERO,
                                 Duration.ofMillis(ticks * 50L),
                                 Duration.ofMillis(100));
@@ -249,7 +268,9 @@ final class PatternTelegraphs {
         if (effect.tension() != 0 && !evaded) {
             for (Member m : e.members.values()) {
                 TensionSession s = m.session;
-                if (s != null && s.isActive()) {
+                // A lowered (paused) line is not pulled: the jolt would pile up while paused and
+                // snap the line the moment the rod is raised again
+                if (s != null && s.isActive() && !s.paused()) {
                     s.addTension(effect.tension());
                 }
             }

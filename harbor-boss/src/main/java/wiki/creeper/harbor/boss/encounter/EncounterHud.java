@@ -94,7 +94,10 @@ final class EncounterHud {
         if (now % 20 == 0) {
             waypoints();
         }
-        if (fight.state() == EncounterState.COUNTER && now % 20 == 0) {
+        // Role hints share the action bar with pattern warnings, so none while a telegraph is up
+        if (fight.state() == EncounterState.COUNTER
+                && now % 20 == 0
+                && !e.patterns.telegraphing()) {
             for (Member m : e.members.values()) {
                 Player p = Bukkit.getPlayer(m.uuid);
                 if (p == null || !m.present() || m.session != null) {

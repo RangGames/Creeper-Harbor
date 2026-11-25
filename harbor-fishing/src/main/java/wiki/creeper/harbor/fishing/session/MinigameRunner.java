@@ -126,8 +126,8 @@ final class MinigameRunner {
                                 player, spec.title(), 1f, MinigameDisplay.barColor(spec.grade()));
         tensions.put(uuid, session);
         display.lockMovement(player, true);
-        api.messages().send(player, "fishing.minigame.help");
-        api.messages().send(player, "fishing.tension.help");
+        // No help text here: the caller explains its own controls once (Boss anchor guide).
+        // Sending it on every open repeated two chat lines each time a broken line re-hooked
         return Optional.of(session);
     }
 

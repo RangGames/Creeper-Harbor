@@ -82,6 +82,8 @@ public final class Minigame {
     private int activeLeft;
     private @Nullable MinigameResult result;
     private boolean endOnCaught = true;
+    private double safeLowOverride = -1;
+    private double safeHighOverride = -1;
 
     public Minigame(MinigameSpec spec, Gear gear, double lineStrengthStep, RandomGenerator random) {
         this.spec = spec;
@@ -233,11 +235,23 @@ public final class Minigame {
     }
 
     public double safeLow() {
-        return spec.safeLow();
+        return safeLowOverride >= 0 ? safeLowOverride : spec.safeLow();
     }
 
     public double safeHigh() {
+        if (safeHighOverride >= 0) {
+            return safeHighOverride;
+        }
         return Math.min(0.95, spec.safeLow() + spec.safeWidth() * gear.safeZone());
+    }
+
+    /**
+     * Fixed safe band for external sessions (Boss anchor band, proposed). Negative values restore
+     * the grade and gear band.
+     */
+    public void setSafeZone(double low, double high) {
+        safeLowOverride = low;
+        safeHighOverride = high;
     }
 
     public boolean inSafeZone() {

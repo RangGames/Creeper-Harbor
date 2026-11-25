@@ -78,6 +78,16 @@ final class TensionSessionImpl implements TensionSession {
     }
 
     @Override
+    public void setSafeZone(double low, double high) {
+        game.setSafeZone(low, high);
+    }
+
+    @Override
+    public boolean inSafeZone() {
+        return game.inSafeZone();
+    }
+
+    @Override
     public boolean isActive() {
         return finished == null;
     }

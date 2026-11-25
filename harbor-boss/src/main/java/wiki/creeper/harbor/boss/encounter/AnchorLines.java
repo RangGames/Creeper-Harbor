@@ -22,13 +22,12 @@ final class AnchorLines {
         this.e = e;
     }
 
-    /** In the safe band with the rod raised (a lowered rod does not hold the boss). */
+    /**
+     * In the safe band with the rod raised (a lowered rod does not hold the boss). The band is the
+     * one set on the session in {@link #open}, so it is exactly the green part of the gauge.
+     */
     boolean inSafe(TensionSession s) {
-        if (s.paused()) {
-            return false;
-        }
-        double t = s.tension();
-        return t >= e.bb.anchorSafeMin() && t <= e.bb.anchorSafeMax();
+        return !s.paused() && s.inSafeZone();
     }
 
     void open(Member m) {
@@ -64,6 +63,7 @@ final class AnchorLines {
             return;
         }
         TensionSession session = opened.get();
+        session.setSafeZone(e.bb.anchorSafeMin(), e.bb.anchorSafeMax());
         m.session = session;
         m.closingSession = false;
         session.onEnd(result -> sessionEnded(m, session, result));

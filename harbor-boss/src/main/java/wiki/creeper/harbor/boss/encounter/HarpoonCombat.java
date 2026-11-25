@@ -160,7 +160,14 @@ final class HarpoonCombat {
             return;
         }
         if (e.fight.state() != EncounterState.COUNTER) {
-            mgr.api().ui().actionBar(p, e.msg("boss.hit.not_hooked"));
+            mgr.api()
+                    .ui()
+                    .actionBar(
+                            p,
+                            e.msg(
+                                    e.fight.state() == EncounterState.FINAL_TUG
+                                            ? "boss.hit.tug"
+                                            : "boss.hit.not_hooked"));
             return;
         }
         BossDef.Part part = e.def.partByBone(bone).orElse(null);

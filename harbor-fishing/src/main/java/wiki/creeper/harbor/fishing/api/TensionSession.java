@@ -39,6 +39,21 @@ public interface TensionSession {
         return false;
     }
 
+    /**
+     * Replaces the safe band of this session (the green part of the gauge), so the gauge shows the
+     * band the caller actually counts, e.g. the Boss anchor band (proposed). Ignored by
+     * implementations without a gauge.
+     */
+    default void setSafeZone(double low, double high) {}
+
+    /**
+     * Whether the tension is inside the safe band shown on the gauge (green). Implementations
+     * without a gauge return false (proposed).
+     */
+    default boolean inSafeZone() {
+        return false;
+    }
+
     /** Boss pattern: adds tension (negative lowers it). */
     void addTension(double delta);
 
