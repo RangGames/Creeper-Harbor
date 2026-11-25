@@ -131,15 +131,33 @@ public final class DecorManager implements Listener {
     }
 
     /**
-     * Puts recovered decor straight into the player's inventory (the rest drops at their feet). The
-     * world is saved on the next tick, before the inventory's write-behind save, so a crash in
-     * between can lose the item but never leave it both in the world and the inventory.
+     * Puts recovered decor straight into the player's inventory; what does not fit goes to their
+     * storage (crafted decor as its whole-item share). The world is saved on the next tick, before
+     * the inventory's write-behind save, so a crash in between can lose the item but never leave it
+     * both in the world and the inventory.
      */
     void give(Player player, ItemStack item, World world) {
-        player.getInventory()
-                .addItem(item)
-                .values()
-                .forEach(rest -> player.getWorld().dropItemNaturally(WorldKit.loc(player), rest));
+        UUID uuid = player.getUniqueId();
+        boolean stored = false;
+        for (ItemStack rest : player.getInventory().addItem(item).values()) {
+            Optional<DecorDef> d = def(rest);
+            if (d.isPresent()) {
+                creditAfterWorldSave(world, uuid, d.get().id(), rest.getAmount());
+                stored = true;
+                continue;
+            }
+            int amount = rest.getAmount();
+            for (Map.Entry<HarborId, Double> e : crafting.share(rest).entrySet()) {
+                int n = DecorCrafting.whole(e.getValue() * amount);
+                if (n > 0) {
+                    creditAfterWorldSave(world, uuid, e.getKey(), n);
+                    stored = true;
+                }
+            }
+        }
+        if (stored) {
+            kit.actionBar(player, "world.decor.inventory_full");
+        }
         scheduleWorldSave(world);
     }
 
