@@ -129,7 +129,8 @@ public final class FishingManager implements FishingService, Listener {
         this.tasks = tasks;
         this.log = log;
         this.macro = new MacroGuard(api, tasks, log);
-        this.ctx = new CastContext(api, seaEvents, log);
+        BaitStacks baits = new BaitStacks(plugin, api);
+        this.ctx = new CastContext(api, baits, seaEvents, log);
         this.engine = new RollEngine(api.content().snapshot(), balance());
         this.mythicCounter = new MythicCounter(api.database());
         // Shadow: Core rig (species rig → grade default rig); a single ItemDisplay if there is no
@@ -139,7 +140,7 @@ public final class FishingManager implements FishingService, Listener {
                         api.rigs(), new DisplayShadowPresenter(plugin, tasks), tasks);
         this.presenter = new CatchPresenter(plugin, api, tasks);
         this.traps = new TrapManager(plugin, api, tasks, jobs, this, log);
-        this.gear = new FishingGear(plugin, api, tasks, ctx);
+        this.gear = new FishingGear(api, tasks, baits);
         this.mythic = new MythicHolds(api, tasks, log, mythicCounter, ctx, this::engine, random);
         this.display = new MinigameDisplay(plugin, api, tasks, presenter, ctx);
         this.casts =
@@ -477,6 +478,10 @@ public final class FishingManager implements FishingService, Listener {
     }
 
     /** Roll modifiers (category product, "7. Balance design" 4.2). */
+    BaitStacks baits() {
+        return ctx.baits();
+    }
+
     RollModifiers modifiers(UUID uuid, Map<String, Double> gearStats, RegionId region) {
         return ctx.modifiers(uuid, gearStats, region);
     }

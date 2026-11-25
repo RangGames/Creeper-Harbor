@@ -2,6 +2,7 @@
 #   legend_only: 1 → 전설의 미끼 (D8: 전설 어종을 실제로 낚았을 때만 1개 소모, 통발에는 못 넣음)
 #   uses: N → 차감 대신 남은 횟수를 줄임 (반짝이 루어 100회)
 #   rare_weight · epic_weight · bite_wait → 판정 보정 (미끼·장비 범주)
+# 효과 줄은 아이템 설명에 자동으로 붙는다 (messages_ko.yml item.stat.*).
 
 - id: item/bait/legendary
   name: 전설의 미끼
@@ -21,7 +22,7 @@
   grade: uncommon
   base_item: minecraft:tripwire_hook
   model: harbor:bait/shiny_lure
-  stats: {uses: 100}
+  stats: {uses: 100, bite_wait: -0.15, rare_weight: 0.05}   # bite_wait·rare_weight 제안값
   buy_price: 1200
   tradeable: true
   season_reset: true

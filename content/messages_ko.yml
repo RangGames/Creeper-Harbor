@@ -41,6 +41,16 @@ item:
     epic: "<light_purple><name>"
     legendary: "<gold><name>"
     mythic: "<red><name>"
+  # 미끼 아이템 효과 줄 (stats 키별, 문구가 없는 키는 표시하지 않음). <percent>: 부호 있는 %, <value>: 값 그대로
+  stat:
+    bite_wait: "<gray>입질 대기 <green><percent>%"
+    rare_weight: "<gray>희귀 이상 확률 <green><percent>%"
+    epic_weight: "<gray>영웅 이상 확률 <green><percent>%"
+    legend_chance: "<gray>전설 확률 <green><percent>%"
+    uses: "<gray>사용 <white><value>회"
+    legend_only: "<gold>전설 어종을 낚았을 때만 사라집니다"
+  bait:
+    hint: "<dark_gray>왼손에 들거나 /미끼로 골라서 사용"
   fish:
     quality: "<gray>품질 <yellow><quality>"
     size: "<gray>크기 <white><size>cm"
@@ -196,6 +206,26 @@ fishing:
   rod_broken: "<red>낚싯대가 망가지기 직전입니다. <gray>낚시용품점이나 /수리로 고치세요"
   bait_changed: "<gray>미끼가 바뀌어 물고기가 달아났습니다."
   bait_uses: "<gray>루어 남은 사용 횟수 <white><left>"
+  bait:
+    cast: "<gray>미끼 <white><name></white><uses>"
+    cast_uses: " <dark_gray>(<left>회 남음)"
+    none: "<gray>미끼 없음 · 입질 대기 <red>+<percent>%</red> <dark_gray>(/미끼로 고르기)"
+    out: "<yellow><name></yellow><gray>이(가) 다 떨어졌습니다 · 입질 대기 <red>+<percent>%</red> <dark_gray>(/미끼)"
+    chosen: "<green>이제 <name></green><green>을(를) 미끼로 씁니다. <gray>(왼손에 든 미끼가 있으면 그것이 먼저)"
+    cleared: "<gray>고른 미끼를 해제했습니다. 왼손에 든 미끼만 씁니다."
+    save_failed: "<red>미끼 선택을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요."
+    menu:
+      title: "미끼 고르기"
+      body: "<gray>고른 미끼는 인벤토리에서 하나씩 씁니다. 왼손에 미끼를 들고 있으면 그 미끼가 먼저 쓰입니다."
+      current: "<gray>지금 쓰는 미끼: <name>"
+      current_none: "<gray>고른 미끼가 없습니다."
+      offhand: "<yellow>왼손에 든 <name></yellow><yellow>이(가) 먼저 쓰입니다."
+      entry: "<name> <gray>×<count>"
+      entry_selected: "<green>✔</green> <name> <gray>×<count>"
+      clear: "<gray>선택 해제"
+      clear_tip: "<gray>고른 미끼를 쓰지 않습니다"
+      close: "<gray>닫기"
+      empty: "<gray>가진 미끼가 없습니다. <white>낚시용품점</white>에서 살 수 있습니다."
   junk: "<aqua>함께 건졌다! <white><name></white> <gray>×<amount>"
   present:
     big_bite: "<dark_red><bold>무언가 거대한 것이 걸렸다!"

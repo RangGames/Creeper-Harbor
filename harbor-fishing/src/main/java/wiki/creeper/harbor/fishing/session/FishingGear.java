@@ -3,7 +3,6 @@ package wiki.creeper.harbor.fishing.session;
 import static wiki.creeper.harbor.fishing.session.FishingManager.loc;
 
 import io.papermc.paper.datacomponent.DataComponentTypes;
-import java.util.Optional;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Item;
@@ -11,7 +10,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.id.ItemId;
@@ -26,14 +24,12 @@ final class FishingGear {
 
     private final HarborApi api;
     private final Tasks tasks;
-    private final CastContext ctx;
-    private final NamespacedKey baitUses;
+    private final BaitStacks baits;
 
-    FishingGear(Plugin plugin, HarborApi api, Tasks tasks, CastContext ctx) {
+    FishingGear(HarborApi api, Tasks tasks, BaitStacks baits) {
         this.api = api;
         this.tasks = tasks;
-        this.ctx = ctx;
-        this.baitUses = new NamespacedKey(plugin, "bait_uses");
+        this.baits = baits;
     }
 
     // ------------------------------------------------------------------ Bait · rod
@@ -50,26 +46,25 @@ final class FishingGear {
     }
 
     /**
-     * Deducts 1 off-hand bait. For bait with uses (shiny lure uses), decrements the remaining uses
-     * by 1 and removes 1 item when it reaches 0.
+     * Deducts 1 bait (off hand or the stack chosen with /미끼). For bait with uses (shiny lure uses),
+     * decrements the remaining uses by 1 and removes 1 item when it reaches 0.
      */
     void consumeBait(Player player, @Nullable ItemId bait) {
         if (bait == null) {
             return;
         }
-        ItemStack offhand = player.getInventory().getItemInOffHand();
-        Optional<ItemDef> def = ctx.itemDef(offhand).filter(d -> d.id().equals(bait));
-        if (def.isEmpty()) {
+        BaitStacks.Stack stack = baits.current(player);
+        if (stack == null || !stack.def().id().equals(bait)) {
             return;
         }
-        int uses = (int) Math.round(def.get().stats().getOrDefault("uses", 0.0));
-        if (uses > 1) {
-            Integer stored =
-                    offhand.getPersistentDataContainer().get(baitUses, PersistentDataType.INTEGER);
-            int left = (stored == null ? uses : stored) - 1;
+        ItemStack item = stack.item();
+        NamespacedKey key = baits.usesKey();
+        if (BaitStacks.usesPerItem(stack.def()) > 1) {
+            int left = baits.usesLeft(stack) - 1;
             if (left > 0) {
-                offhand.editPersistentDataContainer(
-                        pdc -> pdc.set(baitUses, PersistentDataType.INTEGER, left));
+                item.editPersistentDataContainer(
+                        pdc -> pdc.set(key, PersistentDataType.INTEGER, left));
+                baits.write(player, stack);
                 api.ui()
                         .actionBar(
                                 player,
@@ -80,9 +75,10 @@ final class FishingGear {
                                                         "left", String.valueOf(left))));
                 return;
             }
-            offhand.editPersistentDataContainer(pdc -> pdc.remove(baitUses));
+            item.editPersistentDataContainer(pdc -> pdc.remove(key));
         }
-        offhand.setAmount(offhand.getAmount() - 1);
+        item.setAmount(item.getAmount() - 1);
+        baits.write(player, stack);
     }
 
     void refundBait(Player player, ItemId bait) {

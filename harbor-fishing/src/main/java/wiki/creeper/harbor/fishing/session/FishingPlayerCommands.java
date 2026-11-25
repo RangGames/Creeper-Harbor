@@ -22,17 +22,23 @@ import wiki.creeper.harbor.fishing.api.FishEarnings;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.data.DailyCatch;
 
-/** Player commands /낚시 설정 and /통발 (docs 20 3.5), split out of {@link FishingCommands}. */
+/**
+ * Player commands /낚시 설정, /통발 (docs 20 3.5) and /미끼 (proposed), split out of {@link
+ * FishingCommands}.
+ */
 final class FishingPlayerCommands {
 
     private final HarborApi api;
     private final Tasks tasks;
     private final FishingAdminSubcommands subcommands;
+    private final BaitMenu baitMenu;
 
-    FishingPlayerCommands(HarborApi api, Tasks tasks, FishingAdminSubcommands subcommands) {
+    FishingPlayerCommands(
+            HarborApi api, Tasks tasks, FishingAdminSubcommands subcommands, BaitMenu baitMenu) {
         this.api = api;
         this.tasks = tasks;
         this.subcommands = subcommands;
+        this.baitMenu = baitMenu;
     }
 
     void register(Commands commands) {
@@ -74,6 +80,19 @@ final class FishingPlayerCommands {
                                 })
                         .build(),
                 "내 통발 목록",
+                List.of());
+        commands.register(
+                Commands.literal("미끼")
+                        .requires(src -> src.getExecutor() instanceof Player)
+                        .executes(
+                                ctx -> {
+                                    if (ctx.getSource().getExecutor() instanceof Player p) {
+                                        baitMenu.open(p);
+                                    }
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                        .build(),
+                "낚시에 쓸 미끼 고르기",
                 List.of());
     }
 

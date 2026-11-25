@@ -140,6 +140,7 @@ final class CastHandler {
         s.waitTicks = waitTicks;
         macro.recordCast(player);
         presenter.step(loc(player), "cast");
+        ctx.baits().castNotice(player, bait, b.noBaitWaitMult());
     }
 
     void tickCast(Player player, FishingSession s) {

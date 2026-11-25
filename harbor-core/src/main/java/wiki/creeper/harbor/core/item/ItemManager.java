@@ -81,7 +81,7 @@ public final class ItemManager implements ItemService {
     @Override
     public ItemStack create(ItemDef def, int amount) {
         ItemStack stack = ItemStack.of(material(def.baseItem()), amount);
-        decorate(stack, def.name(), def.grade(), def.model(), lore(def.lore()));
+        decorate(stack, def.name(), def.grade(), def.model(), baitLines(def, lore(def.lore())));
         stack.editPersistentDataContainer(
                 pdc -> {
                     pdc.set(ItemKeys.ID, PersistentDataType.STRING, def.id().toString());
@@ -293,6 +293,36 @@ public final class ItemManager implements ItemService {
         balance.string("items.tooltip_style." + grade.key())
                 .ifPresent(
                         style -> stack.setData(DataComponentTypes.TOOLTIP_STYLE, Key.key(style)));
+    }
+
+    /**
+     * Effect lines of bait items from their stats (messages item.stat.&lt;key&gt;, in key order;
+     * keys without a message are not shown) and the usage hint (proposed).
+     */
+    private List<Component> baitLines(ItemDef def, List<Component> lore) {
+        if (def.type() != ItemDef.Type.BAIT) {
+            return lore;
+        }
+        for (var e : new java.util.TreeMap<>(def.stats()).entrySet()) {
+            String key = "item.stat." + e.getKey();
+            if (!messages.has(key)) {
+                continue;
+            }
+            double v = e.getValue();
+            String percent = String.format(Locale.ROOT, "%+.0f", v * 100).replace("-", "−");
+            String value =
+                    v == Math.rint(v)
+                            ? String.valueOf((long) v)
+                            : String.format(Locale.ROOT, "%.2f", v);
+            lore.add(
+                    line(
+                            key,
+                            TagResolver.resolver(
+                                    Placeholder.unparsed("percent", percent),
+                                    Placeholder.unparsed("value", value))));
+        }
+        lore.add(line("item.bait.hint", TagResolver.empty()));
+        return lore;
     }
 
     /** Lore text (designers may use MiniMessage formatting). Turns off the default italics. */

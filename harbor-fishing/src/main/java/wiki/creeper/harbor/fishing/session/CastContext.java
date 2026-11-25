@@ -47,13 +47,15 @@ final class CastContext {
     private static final double BASE_WARN_SECONDS = 0.6;
 
     private final HarborApi api;
+    private final BaitStacks baits;
     private final Logger log;
     private final SeaEventBook seaEvents;
     private @Nullable CollectionProvider collection;
     private @Nullable RegionKeyResolver regionResolver;
 
-    CastContext(HarborApi api, SeaEventBook seaEvents, Logger log) {
+    CastContext(HarborApi api, BaitStacks baits, SeaEventBook seaEvents, Logger log) {
         this.api = api;
+        this.baits = baits;
         this.seaEvents = seaEvents;
         this.log = log;
     }
@@ -64,6 +66,10 @@ final class CastContext {
 
     void registerRegionResolver(RegionKeyResolver resolver) {
         this.regionResolver = resolver;
+    }
+
+    BaitStacks baits() {
+        return baits;
     }
 
     @Nullable CollectionProvider collection() {
@@ -200,12 +206,10 @@ final class CastContext {
         return api.modifiers().value(uuid, StatKey.of(key));
     }
 
-    /** Off-hand bait (ItemDef type: bait). */
+    /** Bait the cast uses: off hand first, else the bait chosen with /미끼 ({@link BaitStacks}). */
     @Nullable ItemId equippedBait(Player player) {
-        return itemDef(player.getInventory().getItemInOffHand())
-                .filter(d -> d.type() == ItemDef.Type.BAIT)
-                .map(ItemDef::id)
-                .orElse(null);
+        BaitStacks.Stack stack = baits.current(player);
+        return stack == null ? null : stack.def().id();
     }
 
     Optional<ItemDef> itemDef(@Nullable ItemStack stack) {
@@ -219,14 +223,15 @@ final class CastContext {
                 .flatMap(p -> api.content().snapshot().get(ItemDef.TYPE, p.id().id()));
     }
 
-    /** Sum of the stats of the rod (main hand) + bait (off hand). */
+    /** Sum of the stats of the rod (main hand) + bait (off hand or chosen with /미끼). */
     Map<String, Double> gearStats(Player player) {
         Map<String, Double> sum = new HashMap<>();
         itemDef(player.getInventory().getItemInMainHand())
                 .ifPresent(d -> d.stats().forEach((k, v) -> sum.merge(k, v, Double::sum)));
-        itemDef(player.getInventory().getItemInOffHand())
-                .filter(d -> d.type() == ItemDef.Type.BAIT)
-                .ifPresent(d -> d.stats().forEach((k, v) -> sum.merge(k, v, Double::sum)));
+        BaitStacks.Stack bait = baits.current(player);
+        if (bait != null) {
+            bait.def().stats().forEach((k, v) -> sum.merge(k, v, Double::sum));
+        }
         return sum;
     }
 

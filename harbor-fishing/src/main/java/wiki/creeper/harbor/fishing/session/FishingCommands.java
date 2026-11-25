@@ -46,7 +46,9 @@ public final class FishingCommands {
         this.api = api;
         this.fishing = fishing;
         this.subcommands = new FishingAdminSubcommands(api, fishing, food);
-        this.playerCommands = new FishingPlayerCommands(api, tasks, subcommands);
+        this.playerCommands =
+                new FishingPlayerCommands(
+                        api, tasks, subcommands, new BaitMenu(api, fishing.baits()));
     }
 
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {
