@@ -45,6 +45,7 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.world.api.HousingService;
 import wiki.creeper.harbor.world.api.PlotInfo;
 import wiki.creeper.harbor.world.api.PlotPermission;
+import wiki.creeper.harbor.world.api.TankBounds;
 import wiki.creeper.harbor.world.api.event.DisplayAnchorChangedEvent;
 import wiki.creeper.harbor.world.api.event.PlotLoadedEvent;
 import wiki.creeper.harbor.world.api.event.PlotUnloadedEvent;
@@ -106,21 +107,61 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         }
     }
 
-    /** One drawn slot. */
+    /**
+     * One drawn slot. Slots of one tank (several fish in a larger tank, World TankBounds) share the
+     * tank's box, swim area and label spot; the first slot of a tank owns its click boxes.
+     */
     static final class SlotView {
+        /** Middle of the swim area. */
         final Location center;
+
         final Interaction box;
+        final TankBounds tank;
+
+        /** Where info labels appear (above the tank). */
+        final Location label;
+
+        /** Swim half-extents around {@link #center} (x, y, z). */
+        final double rx;
+
+        final double ry;
+        final double rz;
+
+        /** All slots of this tank in slot order (just this slot for a 1×1 tank). */
+        List<Integer> mates = List.of();
+
+        /** Click boxes of the tank, removed with the first slot. */
+        List<Interaction> boxes = List.of();
+
         @Nullable RigInstance rig;
         @Nullable BlockDisplay floor;
         @Nullable Particle particle;
 
-        SlotView(Location center, Interaction box) {
+        SlotView(
+                Location center,
+                Interaction box,
+                TankBounds tank,
+                Location label,
+                double rx,
+                double ry,
+                double rz) {
             this.center = center;
             this.box = box;
+            this.tank = tank;
+            this.label = label;
+            this.rx = rx;
+            this.ry = ry;
+            this.rz = rz;
+        }
+
+        /** The first slot of its tank (click and hover target). */
+        int head(int slot) {
+            return mates.isEmpty() ? slot : mates.getFirst();
         }
 
         void remove() {
             box.remove();
+            boxes.forEach(Interaction::remove);
             RigInstance r = rig;
             if (r != null) {
                 r.remove();
@@ -385,7 +426,6 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
             }
         }
         if (ticks % SWIM_TICKS == 0) {
-            double radius = rules().swimRadius();
             for (PlotView view : plots.values()) {
                 if (view.viewers.isEmpty()) {
                     continue; // skip movement when nobody is watching
@@ -395,7 +435,7 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
                     if (rig != null
                             && rig.isValid()
                             && ThreadLocalRandom.current().nextInt(3) == 0) {
-                        DisplayCaseRenderer.swim(rig, sv.center, radius);
+                        DisplayCaseRenderer.swim(rig, sv);
                     }
                 }
             }

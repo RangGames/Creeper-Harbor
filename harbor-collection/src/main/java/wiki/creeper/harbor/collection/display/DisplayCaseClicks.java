@@ -3,7 +3,6 @@ package wiki.creeper.harbor.collection.display;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import java.util.Map;
 import java.util.UUID;
-import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -19,6 +18,7 @@ import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.collection.display.DisplayCaseManager.PlotView;
 import wiki.creeper.harbor.collection.display.DisplayCaseManager.SlotRef;
 import wiki.creeper.harbor.collection.display.DisplayCaseManager.SlotView;
+import wiki.creeper.harbor.collection.service.Locs;
 import wiki.creeper.harbor.world.api.HousingService;
 import wiki.creeper.harbor.world.api.PlotPermission;
 
@@ -93,10 +93,10 @@ final class DisplayCaseClicks implements Listener {
         }
         event.setCancelled(true);
         PlotView view = plots.get(ref.plotId());
-        SlotView sv = view == null ? null : view.views.get(ref.slot());
         Player player = event.getPlayer();
-        if (view != null && sv != null && housing.can(player, view.plot, PlotPermission.BUILD)) {
-            var _ = player.breakBlock(sv.center.getBlock());
+        if (view != null && housing.can(player, view.plot, PlotPermission.BUILD)) {
+            // The box stands on the bottom block of its column of the tank
+            var _ = player.breakBlock(Locs.of(event.getAttacked()).getBlock());
         }
     }
 
@@ -107,11 +107,9 @@ final class DisplayCaseClicks implements Listener {
                 continue;
             }
             for (Map.Entry<Integer, SlotView> e : view.views.entrySet()) {
-                Location c = e.getValue().center;
-                if (c.getBlockX() == block.getX()
-                        && c.getBlockY() == block.getY()
-                        && c.getBlockZ() == block.getZ()) {
-                    return new SlotRef(view.plot.plotId(), e.getKey());
+                SlotView sv = e.getValue();
+                if (sv.tank.contains(block.getX(), block.getY(), block.getZ())) {
+                    return new SlotRef(view.plot.plotId(), sv.head(e.getKey()));
                 }
             }
         }
@@ -123,7 +121,18 @@ final class DisplayCaseClicks implements Listener {
         if (view == null) {
             return;
         }
-        if (housing.can(player, view.plot, PlotPermission.EDIT_DISPLAY) && !player.isSneaking()) {
+        boolean editor =
+                housing.can(player, view.plot, PlotPermission.EDIT_DISPLAY) && !player.isSneaking();
+        SlotView sv = view.views.get(ref.slot());
+        if (sv != null && sv.mates.size() > 1) {
+            if (editor) {
+                menus.openTank(player, view, sv.mates);
+            } else if (!hover.showing(player, ref)) {
+                menus.showTankInfo(player, view, sv);
+            }
+            return;
+        }
+        if (editor) {
             menus.openEditor(player, view, ref.slot());
         } else if (!hover.showing(player, ref)) {
             menus.showInfo(player, view, ref.slot());

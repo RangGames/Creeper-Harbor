@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -42,6 +43,7 @@ import wiki.creeper.harbor.core.api.RigOptions;
 import wiki.creeper.harbor.world.api.DisplayAnchor;
 import wiki.creeper.harbor.world.api.HousingService;
 import wiki.creeper.harbor.world.api.PlotInfo;
+import wiki.creeper.harbor.world.api.TankBounds;
 
 /**
  * Spawns and removes the entities of a personal aquarium plot: rigs, floors, particles and
@@ -74,6 +76,7 @@ final class DisplayCaseRenderer {
                 .forEach(
                         v -> {
                             boxes.remove(v.box.getUniqueId());
+                            v.boxes.forEach(b -> boxes.remove(b.getUniqueId()));
                             v.remove();
                         });
         view.views.clear();
@@ -113,64 +116,113 @@ final class DisplayCaseRenderer {
         }
         List<Player> viewers = viewers(view, world);
         view.viewers = ids(viewers);
+        // Anchors with the same box are one tank (several fish in a larger tank)
+        Map<TankBounds, List<DisplayAnchor>> tanks = new LinkedHashMap<>();
         for (DisplayAnchor a : anchors) {
-            if (!a.world().equals(world.getName())
-                    || !world.isChunkLoaded(a.x() >> 4, a.z() >> 4)) {
-                continue;
+            if (a.world().equals(world.getName()) && world.isChunkLoaded(a.x() >> 4, a.z() >> 4)) {
+                tanks.computeIfAbsent(housing.tankOf(a), k -> new ArrayList<>()).add(a);
             }
-            Location center = new Location(world, a.x() + 0.5, a.y() + 0.5, a.z() + 0.5);
-            Interaction box =
-                    world.spawn(
-                            new Location(world, a.x() + 0.5, a.y(), a.z() + 0.5),
-                            Interaction.class,
-                            e -> {
-                                e.setPersistent(false);
-                                e.setInteractionWidth(1.0f);
-                                e.setInteractionHeight(1.0f);
-                                e.setResponsive(true);
-                            });
-            SlotView sv = new SlotView(center, box);
-            boxes.put(box.getUniqueId(), new SlotRef(view.plot.plotId(), a.slot()));
-            view.views.put(a.slot(), sv);
-            DisplaySlot row = view.rows.get(a.slot());
-            if (row == null || !DisplayCaseRules.slotOpen(a.slot(), view.slotCount)) {
-                continue;
+        }
+        double radius = rules.swimRadius();
+        for (Map.Entry<TankBounds, List<DisplayAnchor>> tank : tanks.entrySet()) {
+            TankBounds b = tank.getKey();
+            List<DisplayAnchor> members = tank.getValue();
+            List<Integer> slots = members.stream().map(DisplayAnchor::slot).sorted().toList();
+            long plotId = view.plot.plotId();
+            List<Interaction> tankBoxes = new ArrayList<>();
+            for (int x = b.minX(); x <= b.maxX(); x++) {
+                for (int z = b.minZ(); z <= b.maxZ(); z++) {
+                    Interaction box =
+                            world.spawn(
+                                    new Location(world, x + 0.5, b.minY(), z + 0.5),
+                                    Interaction.class,
+                                    e -> {
+                                        e.setPersistent(false);
+                                        e.setInteractionWidth(1.0f);
+                                        e.setInteractionHeight(b.sizeY());
+                                        e.setResponsive(true);
+                                    });
+                    tankBoxes.add(box);
+                    boxes.put(box.getUniqueId(), new SlotRef(plotId, slots.getFirst()));
+                }
             }
-            DisplayCaseRules.Theme theme = rules.theme(row.theme()).orElse(rules.defaultTheme());
-            sv.floor = floor(world, a, theme);
-            sv.particle = theme.particle() == null ? null : particle(theme.particle());
-            int mode = plan.getOrDefault(a.slot(), 2);
-            Optional<RigId> rig =
-                    mode == 0
-                            ? rigFor(row.fish())
-                            : mode == 1 ? Optional.ofNullable(simple) : Optional.empty();
-            if (rig.isEmpty() && mode == 0 && hasSimple) {
-                rig = Optional.ofNullable(simple);
+            Location center =
+                    new Location(
+                            world,
+                            (b.minX() + b.maxX() + 1) / 2.0,
+                            (b.minY() + b.maxY() + 1) / 2.0,
+                            (b.minZ() + b.maxZ() + 1) / 2.0);
+            Location label = new Location(world, center.getX(), b.maxY() + 1.4, center.getZ());
+            double rx = b.single() ? radius : Math.max(radius, b.sizeX() / 2.0 - 0.35);
+            double ry = b.single() ? radius / 2 : Math.max(radius / 2, b.sizeY() / 2.0 - 0.3);
+            double rz = b.single() ? radius : Math.max(radius, b.sizeZ() / 2.0 - 0.35);
+            // Room for one fish: 0.7 of a block in a 1×1 tank, more across a wider tank
+            double room = 0.7 * Math.min(b.sizeX(), b.sizeZ());
+            boolean floored = false;
+            for (DisplayAnchor a : members) {
+                SlotView sv = new SlotView(center, tankBoxes.getFirst(), b, label, rx, ry, rz);
+                sv.mates = slots;
+                if (a.slot() == slots.getFirst()) {
+                    sv.boxes = List.copyOf(tankBoxes);
+                }
+                view.views.put(a.slot(), sv);
+                DisplaySlot row = view.rows.get(a.slot());
+                if (row == null || !DisplayCaseRules.slotOpen(a.slot(), view.slotCount)) {
+                    continue;
+                }
+                DisplayCaseRules.Theme theme =
+                        rules.theme(row.theme()).orElse(rules.defaultTheme());
+                if (!floored) {
+                    sv.floor = floor(world, b, theme);
+                    floored = true;
+                }
+                sv.particle = theme.particle() == null ? null : particle(theme.particle());
+                spawnFish(sv, a, row, plan, simple, hasSimple, room, viewers);
             }
-            if (rig.isEmpty()) {
-                continue;
-            }
-            double length =
+        }
+    }
+
+    /** The fish of one slot: real rig, simple rig or nothing by the part budget plan. */
+    private void spawnFish(
+            SlotView sv,
+            DisplayAnchor a,
+            DisplaySlot row,
+            Map<Integer, Integer> plan,
+            @Nullable RigId simple,
+            boolean hasSimple,
+            double room,
+            List<Player> viewers) {
+        int mode = plan.getOrDefault(a.slot(), 2);
+        Optional<RigId> rig =
+                mode == 0
+                        ? rigFor(row.fish())
+                        : mode == 1 ? Optional.ofNullable(simple) : Optional.empty();
+        if (rig.isEmpty() && mode == 0 && hasSimple) {
+            rig = Optional.ofNullable(simple);
+        }
+        if (rig.isEmpty()) {
+            return;
+        }
+        double length =
+                api.rigs()
+                        .definition(rig.get())
+                        .map(r -> r.length() * r.scale())
+                        .filter(l -> l > 0)
+                        .orElse(0.5);
+        double scale = Math.clamp(room / Math.max(0.1, length), 0.2, 1.0);
+        Location at = new Location(sv.center.getWorld(), a.x() + 0.5, a.y() + 0.5, a.z() + 0.5);
+        try {
+            sv.rig =
                     api.rigs()
-                            .definition(rig.get())
-                            .map(r -> r.length() * r.scale())
-                            .filter(l -> l > 0)
-                            .orElse(0.5);
-            double scale = Math.clamp(0.7 / Math.max(0.1, length), 0.2, 1.0);
-            try {
-                RigInstance instance =
-                        api.rigs()
-                                .spawn(
-                                        rig.get(),
-                                        center.clone(),
-                                        RigOptions.privateTo(viewers)
-                                                .withAnimation("swim")
-                                                .withPhase(-1)
-                                                .withScale(scale));
-                sv.rig = instance;
-            } catch (IllegalArgumentException e) {
-                log.warn("어항 리그를 띄우지 못했습니다: {} {}", rig.get(), String.valueOf(e.getMessage()));
-            }
+                            .spawn(
+                                    rig.get(),
+                                    at,
+                                    RigOptions.privateTo(viewers)
+                                            .withAnimation("swim")
+                                            .withPhase(-1)
+                                            .withScale(scale));
+        } catch (IllegalArgumentException e) {
+            log.warn("어항 리그를 띄우지 못했습니다: {} {}", rig.get(), String.valueOf(e.getMessage()));
         }
     }
 
@@ -190,8 +242,7 @@ final class DisplayCaseRenderer {
         return api.rigs().ids().contains(byId) ? Optional.of(byId) : Optional.empty();
     }
 
-    private @Nullable BlockDisplay floor(
-            World world, DisplayAnchor a, DisplayCaseRules.Theme theme) {
+    private @Nullable BlockDisplay floor(World world, TankBounds b, DisplayCaseRules.Theme theme) {
         BlockData data;
         try {
             data = Bukkit.createBlockData(theme.floor());
@@ -199,7 +250,7 @@ final class DisplayCaseRenderer {
             return null;
         }
         return world.spawn(
-                new Location(world, a.x(), a.y(), a.z()),
+                new Location(world, b.minX(), b.minY(), b.minZ()),
                 BlockDisplay.class,
                 e -> {
                     e.setPersistent(false);
@@ -208,7 +259,7 @@ final class DisplayCaseRenderer {
                             new Transformation(
                                     new Vector3f(0.05f, 0.02f, 0.05f),
                                     new AxisAngle4f(),
-                                    new Vector3f(0.9f, 0.06f, 0.9f),
+                                    new Vector3f(b.sizeX() - 0.1f, 0.06f, b.sizeZ() - 0.1f),
                                     new AxisAngle4f()));
                 });
     }
@@ -223,14 +274,16 @@ final class DisplayCaseRenderer {
 
     // ------------------------------------------------------------------ viewers and swimming
 
-    static void swim(RigInstance rig, Location center, double radius) {
+    /** Swims to a random point in the slot's tank (the whole tank for a larger one). */
+    static void swim(RigInstance rig, SlotView sv) {
         ThreadLocalRandom r = ThreadLocalRandom.current();
         Location to =
-                center.clone()
+                sv.center
+                        .clone()
                         .add(
-                                r.nextDouble(-radius, radius),
-                                r.nextDouble(-radius / 2, radius / 2),
-                                r.nextDouble(-radius, radius));
+                                sv.rx > 0 ? r.nextDouble(-sv.rx, sv.rx) : 0,
+                                sv.ry > 0 ? r.nextDouble(-sv.ry, sv.ry) : 0,
+                                sv.rz > 0 ? r.nextDouble(-sv.rz, sv.rz) : 0);
         Location from = rig.location();
         double dx = to.getX() - from.getX();
         double dz = to.getZ() - from.getZ();

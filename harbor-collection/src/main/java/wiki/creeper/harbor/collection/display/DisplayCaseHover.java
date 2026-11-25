@@ -187,6 +187,10 @@ final class DisplayCaseHover {
             return;
         }
         boolean editor = housing.can(player, view.plot, PlotPermission.EDIT_DISPLAY);
+        if (sv.mates.size() > 1) {
+            spawn(player, state, sv, menus.tankLines(view, sv, editor));
+            return;
+        }
         if (!DisplayCaseRules.slotOpen(ref.slot(), view.slotCount)) {
             spawn(
                     player,
@@ -261,7 +265,7 @@ final class DisplayCaseHover {
         Component text = Component.join(JoinConfiguration.newlines(), lines);
         TextDisplay label =
                 world.spawn(
-                        sv.center.clone().add(0, 0.9, 0),
+                        sv.label.clone(),
                         TextDisplay.class,
                         e -> {
                             e.setPersistent(false);

@@ -21,6 +21,9 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  *     material for block decor
  * @param amount number received per purchase
  * @param reputationMin best cross-season reputation tier required (0 = none)
+ * @param size tank size [width, height, depth] in blocks (tank only, proposed; width runs to the
+ *     placer's right, depth away from them)
+ * @param fish fish a tank holds (tank only, proposed; one display slot each)
  */
 public record DecorDef(
         HarborId id,
@@ -33,7 +36,18 @@ public record DecorDef(
         int amount,
         long price,
         int reputationMin,
-        String category) {
+        String category,
+        List<Integer> size,
+        int fish) {
+
+    public DecorDef {
+        size = List.copyOf(size);
+    }
+
+    /** Blocks in a tank (1 for 1×1). */
+    public int volume() {
+        return size.get(0) * size.get(1) * size.get(2);
+    }
 
     /** Decor kind. */
     public enum Kind {
@@ -70,7 +84,9 @@ public record DecorDef(
                         "amount",
                         "price",
                         "reputation_min",
-                        "category"));
+                        "category",
+                        "size",
+                        "fish"));
         HarborId id =
                 node.require("id")
                         .flatMap(n -> n.asId(PREFIX))
@@ -101,6 +117,28 @@ public record DecorDef(
         if (block != null && kind != Kind.BLOCK) {
             node.error("block은 kind: block 장식에만 씁니다");
         }
+        List<Integer> size = List.of(1, 1, 1);
+        List<YamlNode> rawSize = node.list("size");
+        if (!rawSize.isEmpty()) {
+            if (kind != Kind.TANK) {
+                node.error("size는 kind: tank 장식에만 씁니다");
+            }
+            List<Integer> s = rawSize.stream().map(YamlNode::asInt).toList();
+            if (s.size() != 3 || s.stream().anyMatch(v -> v < 1 || v > 8)) {
+                node.error("size는 [가로, 높이, 깊이] (각 1~8)이어야 합니다");
+            } else {
+                size = s;
+            }
+        }
+        int volume = size.get(0) * size.get(1) * size.get(2);
+        int fish = node.integer("fish", 1, 1, 64);
+        if (fish > volume) {
+            node.error("fish(" + fish + ")가 수조 칸 수(" + volume + ")보다 많습니다");
+            fish = volume;
+        }
+        if (node.has("fish") && kind != Kind.TANK) {
+            node.error("fish는 kind: tank 장식에만 씁니다");
+        }
         long price = node.longValue("price", 0);
         if (price <= 0) {
             node.error("price는 0보다 커야 합니다");
@@ -116,7 +154,9 @@ public record DecorDef(
                 node.integer("amount", 1, 1, 64),
                 price,
                 node.integer("reputation_min", 0, 0, 10),
-                node.string("category", "misc"));
+                node.string("category", "misc"),
+                size,
+                fish);
     }
 
     private static @Nullable HarborId ref(

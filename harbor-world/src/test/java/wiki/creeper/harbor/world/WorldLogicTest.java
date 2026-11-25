@@ -405,4 +405,26 @@ class WorldLogicTest {
         assertEquals(Optional.empty(), table.tier("epic", harbor));
         assertNotEquals(0, table.mult(harbor));
     }
+
+    @Test
+    void tankBoundsRoundTripAndContain() {
+        var b = new wiki.creeper.harbor.world.api.TankBounds("harbor_homes", 1, 64, -3, 3, 65, -2);
+        assertEquals(
+                b, wiki.creeper.harbor.world.api.TankBounds.decode("harbor_homes", b.encode()));
+        assertEquals(3, b.sizeX());
+        assertEquals(2, b.sizeY());
+        assertEquals(2, b.sizeZ());
+        assertTrue(b.contains(2, 65, -2));
+        assertFalse(b.contains(4, 64, -3));
+        assertFalse(b.single());
+        assertEquals(null, wiki.creeper.harbor.world.api.TankBounds.decode("w", "1,2,3"));
+    }
+
+    @Test
+    void spreadPicksEvenlyPlacedCells() {
+        List<Integer> cells = List.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+        assertEquals(List.of(1, 4, 7, 10), PlotGrid.spread(cells, 4));
+        assertEquals(List.of(0, 1), PlotGrid.spread(List.of(0, 1), 2));
+        assertEquals(List.of(6), PlotGrid.spread(cells, 1));
+    }
 }

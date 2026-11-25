@@ -24,6 +24,8 @@
 - **개인 어항 전시:** 하우징 플롯의 수조 자리(World `kind: tank` 장식)에 물고기를 전시한다.
   - 기본 6칸이고, 시즌 간 최고 평판 등급 3·5에서 +2·+4칸.
   - Shop 어항 테마 코스메틱으로 바닥 블록·파티클이 바뀐다.
+  - 큰 수조(World `size`·`fish`)는 물고기 여러 마리가 수조 전체를 헤엄친다. 마리마다 전시 칸 하나를 쓰고, 수조가 넓을수록 물고기가 크게 보인다. 우클릭하면 어느 물고기를 바꿀지 고르는 창이 열리고, 바라보면 수조 안 물고기 목록이 뜬다.
+  - 수조를 바라보면 물고기 정보가 바라보는 사람에게만 뜬다 (`display_case.yml` `hover_distance`, 0이면 끔).
 - **랭킹 전광판:** 어시장 광장에 Season 랭킹 캐시를 페이지로 돌려 보여 준다.
 
 ## 플레이어 명령
@@ -58,7 +60,7 @@
 | `collection.yml` | 도감 보상 | `first_catch`(`min_grade` `mulbineul`) `region_complete`(`mulbineul` `title_prefix`) `total_milestones`(`percent` `title`) `season_buffs`(`percent` `modifiers`) |
 | `aquarium.yml` | 수족관 | `points` `quality_bonus` `first_species_mult` `per_player_species_cap` `stages`(`stage` `rate` `flag` `modifiers` `structure`) `display`(수조 좌표·`tanks`·`visible_max`·`rotate_minutes` 등) |
 | `release.yml` | 방류 | `flag` `reward_min_grade` `reputation` `buff`(`stat` `value` `minutes`) |
-| `display_case.yml` | 개인 어항 | `base_slots` `rep_bonus` `base_theme_slots` `part_budget` `view_radius` `simple_rig` `default_theme` `themes`(`cosmetic` `floor` `particle`) |
+| `display_case.yml` | 개인 어항 | `base_slots` `rep_bonus` `base_theme_slots` `part_budget` `view_radius` `info_seconds` `hover_distance` `swim_radius` `simple_rig` `default_theme` `themes`(`cosmetic` `floor` `particle`) |
 | `billboard.yml` | 랭킹 전광판 | `server` `world` `at` `yaw` `line_width` `page_seconds` `lines` `pages`(`board` `league` 또는 `region`) |
 
 ## 설정 값

@@ -33,6 +33,14 @@ public interface HousingService {
     /** Tank slots of a loaded plot (slot order). */
     List<DisplayAnchor> displayAnchors(long plotId);
 
+    /**
+     * The tank an anchor belongs to. Anchors with equal bounds are one tank holding several fish
+     * (proposed). The default is the 1×1 tank of the anchor block.
+     */
+    default TankBounds tankOf(DisplayAnchor anchor) {
+        return TankBounds.of(anchor);
+    }
+
     /** Result of {@link #visit}. */
     enum VisitResult {
         /** Sent to the plot entry (a server move if housing runs on another server). */

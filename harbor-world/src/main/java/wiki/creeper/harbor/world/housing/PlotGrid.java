@@ -95,6 +95,18 @@ public final class PlotGrid {
         return new Bounds(minX, minZ, minX + size - 1, minZ + size - 1);
     }
 
+    /**
+     * n items spread evenly through the list (the middle of each equal share), e.g. which blocks of
+     * a larger tank get the fish anchors.
+     */
+    public static <T> java.util.List<T> spread(java.util.List<T> items, int n) {
+        java.util.List<T> out = new java.util.ArrayList<>(n);
+        for (int k = 0; k < n; k++) {
+            out.add(items.get((int) ((k + 0.5) * items.size() / n)));
+        }
+        return out;
+    }
+
     /** Size determined by the best cross-season reputation tier (never shrinks once grown, D11). */
     public static int size(int current, int bestTier, int largeTier, int baseSize, int largeSize) {
         int wanted = bestTier >= largeTier ? largeSize : baseSize;

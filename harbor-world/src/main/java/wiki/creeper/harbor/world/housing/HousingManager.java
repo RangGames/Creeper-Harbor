@@ -26,6 +26,7 @@ import wiki.creeper.harbor.world.api.DisplayAnchor;
 import wiki.creeper.harbor.world.api.HousingService;
 import wiki.creeper.harbor.world.api.PlotInfo;
 import wiki.creeper.harbor.world.api.PlotPermission;
+import wiki.creeper.harbor.world.api.TankBounds;
 import wiki.creeper.harbor.world.api.VisitPolicy;
 import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.region.ServerRouter;
@@ -370,6 +371,19 @@ public final class HousingManager implements HousingService, Listener {
 
     // ------------------------------------------------------------------ redstone and tanks
     // (DecorManager)
+
+    /** Tank geometry (set by DecorPlacement). */
+    private @Nullable Tanks tanks;
+
+    void useTanks(Tanks tanks) {
+        this.tanks = tanks;
+    }
+
+    @Override
+    public TankBounds tankOf(DisplayAnchor anchor) {
+        Tanks t = tanks;
+        return t == null ? TankBounds.of(anchor) : t.tankOf(anchor);
+    }
 
     void addAnchor(PlotState state, DisplayAnchor anchor) {
         state.anchors.add(anchor);

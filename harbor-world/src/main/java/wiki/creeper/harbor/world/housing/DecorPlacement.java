@@ -2,7 +2,6 @@ package wiki.creeper.harbor.world.housing;
 
 import java.util.Optional;
 import java.util.UUID;
-import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -33,9 +32,7 @@ import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.event.FurnitureRemoveEvent;
 import wiki.creeper.harbor.world.WorldKit;
-import wiki.creeper.harbor.world.api.DisplayAnchor;
 import wiki.creeper.harbor.world.api.PlotPermission;
-import wiki.creeper.harbor.world.api.event.DisplayAnchorChangedEvent;
 import wiki.creeper.harbor.world.content.DecorDef;
 
 /**
@@ -47,11 +44,14 @@ public final class DecorPlacement implements Listener {
     private final WorldKit kit;
     private final HousingManager housing;
     private final DecorManager decor;
+    private final Tanks tanks;
 
     DecorPlacement(WorldKit kit, HousingManager housing, DecorManager decor) {
         this.kit = kit;
         this.housing = housing;
         this.decor = decor;
+        this.tanks = new Tanks(kit, housing, this);
+        housing.useTanks(tanks);
     }
 
     private NamespacedKey tag() {
@@ -108,7 +108,7 @@ public final class DecorPlacement implements Listener {
         return kit.key("d_" + (block.getX() & 15) + "_" + block.getY() + "_" + (block.getZ() & 15));
     }
 
-    private Optional<DecorDef> placedAt(Block block) {
+    Optional<DecorDef> placedAt(Block block) {
         String raw =
                 block.getChunk()
                         .getPersistentDataContainer()
@@ -116,8 +116,18 @@ public final class DecorPlacement implements Listener {
         return raw == null ? Optional.empty() : HarborId.tryParse(raw).flatMap(this::def);
     }
 
-    private boolean tagged(Block block) {
+    boolean tagged(Block block) {
         return block.getChunk().getPersistentDataContainer().has(blockKey(block));
+    }
+
+    void tag(Block block, DecorDef d) {
+        block.getChunk()
+                .getPersistentDataContainer()
+                .set(blockKey(block), PersistentDataType.STRING, d.id().toString());
+    }
+
+    void untag(Block block) {
+        block.getChunk().getPersistentDataContainer().remove(blockKey(block));
     }
 
     /**
@@ -143,10 +153,10 @@ public final class DecorPlacement implements Listener {
      */
     private void clearStale(Block block) {
         Optional<DecorDef> d = placedAt(block);
-        block.getChunk().getPersistentDataContainer().remove(blockKey(block));
         if (d.isPresent() && d.get().kind() == DecorDef.Kind.TANK) {
-            housing.stateAt(block.getLocation()).ifPresent(p -> removeAnchorAt(p, block));
+            tanks.remove(block, housing.stateAt(block.getLocation()), d.get());
         }
+        block.getChunk().getPersistentDataContainer().remove(blockKey(block));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -168,51 +178,13 @@ public final class DecorPlacement implements Listener {
         if (d.get().kind() == DecorDef.Kind.FURNITURE) {
             return; // Core furniture placement confirmation (no block is placed)
         }
-        if (d.get().kind() == DecorDef.Kind.TANK
-                && plot.get().anchors.size() >= kit.balance().housingAnchorLimit()) {
-            event.setCancelled(true);
-            kit.actionBar(
-                    event.getPlayer(),
-                    "world.decor.tank_limit",
-                    Placeholder.unparsed(
-                            "limit", String.valueOf(kit.balance().housingAnchorLimit())));
+        if (d.get().kind() == DecorDef.Kind.TANK) {
+            if (!tanks.place(event.getPlayer(), plot.get(), d.get(), block)) {
+                event.setCancelled(true);
+            }
             return;
         }
-        block.getChunk()
-                .getPersistentDataContainer()
-                .set(blockKey(block), PersistentDataType.STRING, d.get().id().toString());
-        if (d.get().kind() == DecorDef.Kind.TANK) {
-            addAnchor(event.getPlayer(), plot.get(), d.get(), block);
-        }
-    }
-
-    private void addAnchor(Player player, HousingManager.PlotState plot, DecorDef d, Block block) {
-        int slot = 0;
-        while (true) {
-            int s = slot;
-            if (plot.anchors.stream().noneMatch(a -> a.slot() == s)) {
-                break;
-            }
-            slot++;
-        }
-        BlockFace face = player.getFacing().getOppositeFace();
-        DisplayAnchor anchor =
-                new DisplayAnchor(
-                        plot.info.plotId(),
-                        slot,
-                        d.id(),
-                        plot.info.world(),
-                        block.getX(),
-                        block.getY(),
-                        block.getZ(),
-                        face.name());
-        housing.addAnchor(plot, anchor);
-        var _ = kit.api().database().asyncVoid(c -> HousingRepository.addAnchor(c, anchor));
-        Bukkit.getPluginManager().callEvent(new DisplayAnchorChangedEvent(plot.info, anchor, true));
-        kit.actionBar(
-                player,
-                "world.decor.tank_placed",
-                Placeholder.unparsed("slot", String.valueOf(slot + 1)));
+        tag(block, d.get());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -240,34 +212,9 @@ public final class DecorPlacement implements Listener {
         } else {
             creditAfterWorldSave(block.getWorld(), owner, d.get().id(), 1);
         }
-        if (d.get().kind() == DecorDef.Kind.TANK && plot.isPresent()) {
-            removeAnchorAt(plot.get(), block);
+        if (d.get().kind() == DecorDef.Kind.TANK) {
+            tanks.remove(block, plot, d.get());
         }
-    }
-
-    private void removeAnchorAt(HousingManager.PlotState plot, Block block) {
-        plot.anchors.stream()
-                .filter(
-                        a ->
-                                a.x() == block.getX()
-                                        && a.y() == block.getY()
-                                        && a.z() == block.getZ())
-                .findFirst()
-                .ifPresent(
-                        a -> {
-                            housing.removeAnchor(plot, a.slot());
-                            long id = a.plotId();
-                            int slot = a.slot();
-                            var _ =
-                                    kit.api()
-                                            .database()
-                                            .asyncVoid(
-                                                    c ->
-                                                            HousingRepository.removeAnchor(
-                                                                    c, id, slot));
-                            Bukkit.getPluginManager()
-                                    .callEvent(new DisplayAnchorChangedEvent(plot.info, a, false));
-                        });
     }
 
     // Decor tags are tied to positions, so moving the block leaves only the tag behind: prevent

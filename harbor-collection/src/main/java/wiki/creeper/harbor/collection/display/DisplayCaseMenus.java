@@ -13,6 +13,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -95,16 +96,19 @@ final class DisplayCaseMenus {
         if (!player.isOnline()) {
             return;
         }
-        List<Component> lines = infoLines(view, row, rank);
+        spawnLabel(player, view, sv.label, infoLines(view, row, rank));
+    }
+
+    /** A label only {@code player} sees, removed after info_seconds. */
+    private void spawnLabel(Player player, PlotView view, Location at, List<Component> lines) {
         World world = Bukkit.getWorld(view.plot.world());
         if (world == null) {
             return;
         }
-        Location at = sv.center.clone().add(0, 0.9, 0);
         Component text = Component.join(JoinConfiguration.newlines(), lines);
         TextDisplay display =
                 world.spawn(
-                        at,
+                        at.clone(),
                         TextDisplay.class,
                         e -> {
                             e.setPersistent(false);
@@ -116,15 +120,104 @@ final class DisplayCaseMenus {
         var _ = tasks.later(manager.rules().infoSeconds() * 20L, display::remove);
     }
 
+    // ------------------------------------------------------------------ larger tanks
+
+    /**
+     * Lines for a tank holding several fish: owner, then one line per slot (name, size, stars;
+     * empty or locked), and an edit hint for editors.
+     */
+    List<Component> tankLines(PlotView view, SlotView sv, boolean editor) {
+        MessageService msg = api.messages();
+        List<Component> lines = new ArrayList<>();
+        lines.add(
+                msg.get(
+                        "collection.display.tank_title",
+                        Placeholder.unparsed("owner", view.plot.ownerName())));
+        int n = 0;
+        for (int slot : sv.mates) {
+            n++;
+            lines.add(tankLine(view, slot, n));
+        }
+        if (editor) {
+            lines.add(msg.get("collection.display.tank_hint_edit"));
+        }
+        return lines;
+    }
+
+    private Component tankLine(PlotView view, int slot, int n) {
+        MessageService msg = api.messages();
+        TagResolver num = Placeholder.unparsed("n", String.valueOf(n));
+        if (!DisplayCaseRules.slotOpen(slot, view.slotCount)) {
+            return msg.get("collection.display.tank_line_locked", num);
+        }
+        DisplaySlot row = view.rows.get(slot);
+        if (row == null) {
+            return msg.get("collection.display.tank_line_empty", num);
+        }
+        return msg.get(
+                "collection.display.tank_line",
+                num,
+                Placeholder.unparsed("name", fishName(row)),
+                Placeholder.unparsed("size", CollectionManager.fmt(row.size())),
+                Placeholder.unparsed(
+                        "quality", Quality.of(Math.clamp(row.quality(), 1, 5)).display()));
+    }
+
+    /** Visitor click on a tank holding several fish: its lines for a few seconds. */
+    void showTankInfo(Player player, PlotView view, SlotView sv) {
+        spawnLabel(player, view, sv.label, tankLines(view, sv, false));
+    }
+
+    /** Editor click on a tank holding several fish: pick which fish to change. */
+    void openTank(Player player, PlotView view, List<Integer> slots) {
+        MessageService msg = api.messages();
+        Menu menu =
+                new Menu(
+                        msg.get(
+                                "collection.display.tank_menu_title",
+                                Placeholder.unparsed("count", String.valueOf(slots.size()))),
+                        Math.clamp((slots.size() + 8) / 9, 1, 6));
+        for (int i = 0; i < slots.size() && i < 54; i++) {
+            int slot = slots.get(i);
+            Component line = tankLine(view, slot, i + 1);
+            DisplaySlot row = view.rows.get(slot);
+            ItemStack icon;
+            if (!DisplayCaseRules.slotOpen(slot, view.slotCount)) {
+                icon = named(Material.BARRIER, line);
+            } else if (row == null) {
+                icon = named(Material.GLASS, line);
+            } else {
+                icon =
+                        api.content()
+                                .snapshot()
+                                .get(FishDef.TYPE, row.fish().id())
+                                .map(f -> icon(f, null))
+                                .orElse(named(Material.COD, line));
+                icon.setData(
+                        DataComponentTypes.LORE,
+                        ItemLore.lore(
+                                List.of(
+                                        line.decorationIfAbsent(
+                                                TextDecoration.ITALIC,
+                                                TextDecoration.State.FALSE))));
+            }
+            menu.button(i, icon, e -> openEditor(player, view, slot));
+        }
+        menu.open(player);
+    }
+
+    private String fishName(DisplaySlot row) {
+        return api.content()
+                .snapshot()
+                .get(FishDef.TYPE, row.fish().id())
+                .map(FishDef::name)
+                .orElse(row.fish().id().name());
+    }
+
     /** Info lines: name and owner, size and stars, first catch date, server rank. */
     List<Component> infoLines(PlotView view, DisplaySlot row, int rank) {
         MessageService msg = api.messages();
-        String name =
-                api.content()
-                        .snapshot()
-                        .get(FishDef.TYPE, row.fish().id())
-                        .map(FishDef::name)
-                        .orElse(row.fish().id().name());
+        String name = fishName(row);
         List<Component> lines = new ArrayList<>();
         lines.add(
                 msg.get(
