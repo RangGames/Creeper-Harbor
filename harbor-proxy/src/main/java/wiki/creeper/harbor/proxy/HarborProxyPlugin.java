@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import wiki.creeper.harbor.common.config.InfraConfig;
 import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.db.Migrations;
+import wiki.creeper.harbor.common.donor.DonorTier;
 import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.common.redis.Redis;
 import wiki.creeper.harbor.common.session.SessionLocks;
@@ -99,6 +100,8 @@ public final class HarborProxyPlugin {
         db = database;
         ClassLoader loader = getClass().getClassLoader();
         Migrations.migrate(database.dataSource(), "proxy", loader);
+        // Donor tier lookups fall back to subscriptions when harbor:donor has no value
+        DonorTier.useDatabase(database);
 
         Redis r = Redis.connect(infra.redis());
         redis = r;
@@ -312,6 +315,7 @@ public final class HarborProxyPlugin {
             redis.close();
         }
         if (db != null) {
+            DonorTier.useDatabase(null);
             db.close();
         }
     }

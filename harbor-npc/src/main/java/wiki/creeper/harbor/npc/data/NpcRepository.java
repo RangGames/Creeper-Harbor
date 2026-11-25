@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import wiki.creeper.harbor.common.account.BestReputation;
 import wiki.creeper.harbor.common.id.NpcId;
 import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.model.SeasonId;
@@ -25,8 +26,8 @@ import wiki.creeper.harbor.npc.api.ReputationLogEntry;
 import wiki.creeper.harbor.npc.api.ReputationSource;
 
 /**
- * npc_affinity · npc_reputation_log · npc_rep_best · cutscene_restore SQL. Call only from virtual
- * threads.
+ * npc_affinity · npc_reputation_log · best tier (players.best_rep_tier, npc_rep_best fallback) ·
+ * cutscene_restore SQL. Call only from virtual threads.
  */
 public final class NpcRepository {
 
@@ -181,18 +182,28 @@ public final class NpcRepository {
         }
     }
 
+    /**
+     * Best tier across seasons: Common players.best_rep_tier ('11. Data design' 3.2), with the
+     * older npc_rep_best table as a fallback (rows written before the column existed, or players
+     * without a players row). The higher of the two wins; 1 if neither has a value.
+     */
     public static int loadBest(Connection c, UUID uuid) throws SQLException {
+        int best = BestReputation.read(c, uuid).orElse(1);
         try (PreparedStatement ps =
                 c.prepareStatement("SELECT best_tier FROM npc_rep_best WHERE uuid = ?")) {
             ps.setString(1, uuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : 1;
+                return rs.next() ? Math.max(best, rs.getInt(1)) : best;
             }
         }
     }
 
-    /** The best tier only goes up. */
+    /**
+     * The best tier only goes up. Writes players.best_rep_tier and keeps npc_rep_best in step (the
+     * fallback for players without a players row).
+     */
     public static void raiseBest(Connection c, UUID uuid, int tier) throws SQLException {
+        BestReputation.raise(c, uuid, tier);
         try (PreparedStatement ps =
                 c.prepareStatement(
                         "INSERT INTO npc_rep_best (uuid, best_tier) VALUES (?, ?) ON DUPLICATE KEY UPDATE"

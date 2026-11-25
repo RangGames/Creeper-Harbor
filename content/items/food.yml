@@ -1,4 +1,6 @@
 # 요리 ('3. 아이템 목록' 8장). 버프는 fishing/food.yml (Harbor-Fishing, 출처 food:, 1종만 적용). 레시피는 Economy (요리 화로).
+# components: 먹는 시간·애니메이션(consumable), 허기·포화(food), 그릇 반환(use_remainder) ('8. 시스템 상세 기획' 2장).
+# 허기·포화는 기본 아이템 값을 따랐고, 버프 요리라 배가 불러도 먹을 수 있게 했다 (can_always_eat, 제안값).
 
 - id: item/food/grilled_fish
   name: 생선구이
@@ -9,6 +11,9 @@
   model: harbor:food/grilled_fish
   tradeable: true
   season_reset: true
+  components:
+    consumable: {seconds: 1.6, animation: eat}
+    food: {nutrition: 5, saturation: 6.0, can_always_eat: true}
 
 - id: item/food/spicy_stew
   name: 항구식 매운탕
@@ -19,6 +24,10 @@
   model: harbor:food/spicy_stew
   tradeable: true
   season_reset: true
+  components:
+    consumable: {seconds: 1.6, animation: eat}
+    food: {nutrition: 6, saturation: 7.2, can_always_eat: true}
+    use_remainder: minecraft:bowl
 
 - id: item/food/sashimi_platter
   name: 모둠회 한 접시
@@ -29,6 +38,9 @@
   model: harbor:food/sashimi_platter
   tradeable: true
   season_reset: true
+  components:
+    consumable: {seconds: 1.6, animation: eat}
+    food: {nutrition: 6, saturation: 9.6, can_always_eat: true}
 
 - id: item/food/fjord_soup
   name: 협만 생선 수프
@@ -39,6 +51,10 @@
   model: harbor:food/fjord_soup
   tradeable: true
   season_reset: true
+  components:
+    consumable: {seconds: 1.6, animation: eat}
+    food: {nutrition: 6, saturation: 7.2, can_always_eat: true}
+    use_remainder: minecraft:bowl
 
 - id: item/food/lucky_tea
   name: 행운의 차
@@ -49,3 +65,7 @@
   model: harbor:food/lucky_tea
   tradeable: true
   season_reset: true
+  components:
+    consumable: {seconds: 2.0, animation: drink, sound: "minecraft:item.honey_bottle.drink"}
+    food: {nutrition: 6, saturation: 1.2, can_always_eat: true}
+    use_remainder: minecraft:glass_bottle

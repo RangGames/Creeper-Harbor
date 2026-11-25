@@ -130,7 +130,7 @@
 | 파일 | 내용 | 주요 필드 |
 |---|---|---|
 | `fish/*.yml` | 어종 | `id` `no` `name` `lore` `grade` `region` `size_cm` `base_price` `model` `season` `time` `weather` `moon` `area` `bait` `job_tier_min` `unlock_flag` `release_only` `weight` |
-| `items/*.yml` | 아이템 (낚싯대·줄·찌·릴·미끼·통발·선박 증서·도구·장비·음식·재료 등) | `id` `name` `lore` `type` `grade` `base_item` `model` `stats` `buy_price` `sell_price` `tradeable` `season_reset` `region_access` |
+| `items/*.yml` | 아이템 (낚싯대·줄·찌·릴·미끼·통발·선박 증서·도구·장비·음식·재료 등) | `id` `name` `lore` `type` `grade` `base_item` `model` `stats` `buy_price` `sell_price` `tradeable` `season_reset` `region_access` `components` (아래) |
 | `regions.yml` | 지역 | `id` `name` `world` `bounds` `biome` `fishing_spots` `rec_level` `trap_zone` `unlock` `music` |
 | `balance.yml` | 모든 수치 | 모듈별 절 (아래) |
 | `messages_ko.yml` | 모든 문구 | MiniMessage |
@@ -141,6 +141,25 @@
 | `quick_menu.yml` | 빠른 메뉴 (클라이언트 '빠른 작업' 키, 기본 G). 부트스트랩이 Dialog `harbor:quick_menu`로 등록하고 `minecraft:quick_actions` 태그에 넣는다 (데이터팩 없음). 서버를 다시 켜야 반영 | `title` `columns` `buttons[]`: `label` `tooltip` `command` `width` |
 | `furniture/furniture.yml` | 가구 | `model` `base_item` `width` `height` `seat` `solid` `light` `rotation` `scale` `offset_y` |
 | `furniture/blocks.yml` | 커스텀 블록 (노트블록 상태) | `state`(1~399, 바꾸지 않음) `texture`/`top`·`side`/`model`/`textures` `rotation` `hardness` `tool` `tier` `drops` `silk_touch` `exp` |
+
+### 아이템 데이터 컴포넌트 (`components:`)
+
+아이템 정의에 종류별 바닐라 컴포넌트를 얹는다 ('8. 시스템 상세 기획' 2장, 추가 제안 형식). 적지 않은 항목은 기본 아이템(`base_item`)의 컴포넌트를 그대로 쓴다. 아이템을 만들 때만 붙으므로, 이미 가진 아이템에는 다시 받아야 반영된다.
+
+```yaml
+components:
+  consumable: {seconds: 1.6, animation: eat, sound: "minecraft:entity.generic.eat", particles: true}
+  food: {nutrition: 6, saturation: 7.2, can_always_eat: true}
+  use_remainder: minecraft:bowl                  # 바닐라 아이템만
+  use_cooldown: {seconds: 30, group: "harbor:return_conch"}
+  equippable: {slot: head, camera_overlay: "harbor:overlay/diving_helmet", asset_id: "harbor:diving_helmet"}
+  max_stack: 16                                  # 1~99, 내구도가 있는 아이템은 1만
+```
+
+- `animation`: `none` `eat` `drink` `block` `bow` `trident` `crossbow` `spyglass` `toot_horn` `brush` `bundle` `spear`
+- `slot`: `head` `chest` `legs` `feet` `mainhand` `offhand` `body` `saddle`. 기본 아이템이 같은 칸의 장비면 그 값(가죽 모양·소리)에서 시작한다.
+- `camera_overlay`·`asset_id`는 그 아이템의 `model`이 지금 리소스팩에 있을 때만 붙인다 (없는 텍스처는 화면 전체를 보라·검정 무늬로 덮는다).
+- 캡스톤 아이템의 `use_cooldown`은 핫바 표시용이고 실제 쿨타임은 Jobs가 관리한다. Jobs가 아이템 종류로 쿨타임을 표시하므로 `group`은 비운다.
 
 ## 설정 값
 
@@ -159,6 +178,8 @@
 | `sounds` | `custom`: 리소스팩 소리 사용 여부 |
 
 서버 설정은 `plugins/Harbor/harbor-infra.yml`이다 ([README](README.md#서버-설정-기본-harbor-infrayml)).
+
+**현재 시즌:** Core는 시작할 때 DB 마이그레이션 직후 `season_meta`(Season 소유)에서 ACTIVE 시즌(없으면 TRANSITIONING)을 읽어 그 번호와 시작일을 쓴다. 그래서 시즌 전환 뒤 서버를 다시 켜면 `harbor-infra.yml`을 고치지 않아도 새 시즌으로 돈다. 테이블이나 행이 없으면(새 DB, Season 없음) `season.id`를 쓰고, `season.source: config`면 항상 `season.id`를 쓴다. 실행 중에 시즌이 바뀌면 Season이 경고하고, 다시 켜야 반영된다.
 
 ## 디스플레이 리그
 
@@ -226,6 +247,9 @@
 
   `type`은 `모듈.사건` 형식(소문자·숫자·밑줄을 점으로 잇기)이다. 아무 스레드에서 불러도 된다. Redis가 없으면 아무것도 하지 않는다.
 - **테이블 소유:** `players`·`sessions`·`admin_log`·`ledger`·`pearl_ledger`는 Common, `player_season`·`fish_ledger`·`player_flags`·`server_flags`·`player_inventory`는 Core다. 나머지는 각 모듈이 갖는다. 마이그레이션 이력은 `flyway_<모듈ID>`에 남는다.
+- **고유 ID 장부 (`fish_ledger`):** ★5·전설·신화 어종(`fish_id`·`size`·`quality`)과 보스 장비(`item_id`, Boss `RewardService`가 기록, 어종 열은 비움)를 같은 표에 둔다. 상태는 `ACTIVE`·`IN_AUCTION`·`LISTED`·`SOLD`·`DONATED`·`RELEASED`·`GIFTED`·`DESTROYED`·`ARCHIVED`(시즌 전환). 비어종 기록은 `FishLedger.insertItem`.
+- **최고 평판 단계 (`players.best_rep_tier`):** 시즌을 넘어 유지된다. Common `BestReputation`으로 읽고 올리며, NPC `ReputationService.bestTier`가 이 값을 쓴다 (예전 `npc_rep_best`는 NPC 마이그레이션이 옮겼고 예비 기록으로 남는다).
+- **후원 등급 (`DonorTier`):** Redis `harbor:donor`를 먼저 읽고, 값이 없거나 Redis가 끊겼으면 Shop의 `subscriptions`(state·period_end + 3일 유예)를 읽는다. Core와 Proxy가 시작할 때 `DonorTier.useDatabase`로 DB를 등록하므로 `DonorTier.lookup(redis, uuid)`만 불러도 된다 (가상 스레드에서).
 
 ## 주의 사항
 

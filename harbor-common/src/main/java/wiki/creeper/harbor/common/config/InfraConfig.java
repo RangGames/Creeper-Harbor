@@ -34,6 +34,10 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * @param lobbyServer lobby server name to send players to on resource pack refusal or session wait
  * @param packBuild whether this server builds the resource pack from the asset folder and uploads
  *     it to the CDN (null means no build, proposed)
+ * @param seasonFromDb whether Core replaces {@link #season} with the ACTIVE row of season_meta at
+ *     startup (harbor-infra.yml season.source: db, the default). With season.source: config the
+ *     configured season.id is forced (override). The configured value is always the fallback when
+ *     season_meta has no usable row (proposed)
  */
 public record InfraConfig(
         String serverId,
@@ -49,7 +53,8 @@ public record InfraConfig(
         @Nullable Path contentDir,
         String lobbyServer,
         List<ResourcePack> resourcePacks,
-        @Nullable PackBuild packBuild) {
+        @Nullable PackBuild packBuild,
+        boolean seasonFromDb) {
 
     /** Required resource pack sent on join. sha1 is 40 hex digits. */
     public record ResourcePack(String id, String url, String sha1) {}
@@ -114,6 +119,28 @@ public record InfraConfig(
 
     private static final Pattern SHA1 = Pattern.compile("[0-9a-f]{40}");
 
+    /**
+     * Copy with another season number and start date (Core, after reading season_meta at startup).
+     */
+    public InfraConfig withSeason(SeasonId newSeason, LocalDate newStart) {
+        return new InfraConfig(
+                serverId,
+                role,
+                dev,
+                database,
+                redis,
+                newSeason,
+                newStart,
+                zone,
+                dailyReset,
+                weeklyReset,
+                contentDir,
+                lobbyServer,
+                resourcePacks,
+                packBuild,
+                seasonFromDb);
+    }
+
     public HarborTime time() {
         return new HarborTime(java.time.Clock.system(zone), dailyReset, weeklyReset, seasonStart);
     }
@@ -168,6 +195,10 @@ public record InfraConfig(
 
         YamlNode seasonNode = root.require("season").orElse(root);
         int seasonNumber = seasonNode.integer("id", 1, 1, 1000);
+        String seasonSource = seasonNode.string("source", "db");
+        if (!seasonSource.equals("db") && !seasonSource.equals("config")) {
+            seasonNode.error("season.source는 db 또는 config여야 합니다: '" + seasonSource + "'");
+        }
         LocalDate seasonStart = LocalDate.now(HarborTime.DEFAULT_ZONE);
         Optional<YamlNode> start = seasonNode.require("start");
         if (start.isPresent()) {
@@ -264,6 +295,7 @@ public record InfraConfig(
                 root.optString("content_dir").map(Path::of).orElse(null),
                 root.string("lobby_server", "lobby"),
                 List.copyOf(packs),
-                packBuild);
+                packBuild,
+                seasonSource.equals("db"));
     }
 }
