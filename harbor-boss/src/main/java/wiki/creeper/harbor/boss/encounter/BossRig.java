@@ -8,6 +8,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Interaction;
+import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.core.api.HarborSounds;
@@ -61,6 +62,80 @@ final class BossRig {
         } catch (IllegalArgumentException ex) {
             e.mgr.log().warn("보스 리그를 띄우지 못했습니다 {}: {}", def.rig(), String.valueOf(ex.getMessage()));
         }
+    }
+
+    // ------------------------------------------------------------------ Swimming (proposed)
+
+    /** Movement update interval (ticks); each step is interpolated over it on the client. */
+    private static final int MOVE_PERIOD = 4;
+
+    private @Nullable Location moveTarget;
+    private long restUntil;
+
+    /**
+     * Swims between random points near the arena boss point (balance.yml boss.move), facing where
+     * it goes. While a pattern telegraph is up it stops and faces the deck, so attacks still come
+     * from the boss. Hitboxes move with the rig.
+     */
+    void tickMove(long now, boolean telegraphing) {
+        RigInstance r = rig;
+        var bb = e.bb;
+        if (r == null || !r.isValid() || bb.moveSpeed() <= 0 || now % MOVE_PERIOD != 0) {
+            return;
+        }
+        Location cur = r.location();
+        Location deck = e.deckSpawn();
+        if (telegraphing) {
+            face(r, deck.toVector().subtract(cur.toVector()));
+            moveTarget = null;
+            restUntil = now + bb.moveRestTicks();
+            return;
+        }
+        if (now < restUntil) {
+            return;
+        }
+        Location target = moveTarget;
+        if (target == null) {
+            target = pickTarget(deck);
+            moveTarget = target;
+        }
+        Vector d = target.toVector().subtract(cur.toVector()).setY(0);
+        double len = d.length();
+        double step = bb.moveSpeed() * MOVE_PERIOD / 20.0;
+        if (len < 0.3) {
+            moveTarget = null;
+            restUntil = now + bb.moveRestTicks();
+            return;
+        }
+        Location next =
+                len <= step ? target.clone() : cur.clone().add(d.clone().multiply(step / len));
+        next.setY(e.bossLocation().getY());
+        r.moveTo(next, MOVE_PERIOD);
+        face(r, d);
+    }
+
+    private Location pickTarget(Location deck) {
+        Location home = e.bossLocation();
+        var bb = e.bb;
+        for (int i = 0; i < 8; i++) {
+            double angle = e.random.nextDouble() * Math.PI * 2;
+            double dist = Math.sqrt(e.random.nextDouble()) * bb.moveRadius();
+            Location c = home.clone().add(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+            double dx = c.getX() - deck.getX();
+            double dz = c.getZ() - deck.getZ();
+            if (dx * dx + dz * dz >= bb.moveMinDeckDistance() * bb.moveMinDeckDistance()) {
+                return c;
+            }
+        }
+        return home;
+    }
+
+    private static void face(RigInstance r, Vector dir) {
+        if (dir.getX() * dir.getX() + dir.getZ() * dir.getZ() < 1e-6) {
+            return;
+        }
+        float yaw = (float) Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ()));
+        r.setHeading(yaw, 0);
     }
 
     /** Current boss position (rig if spawned, else the arena boss point). */

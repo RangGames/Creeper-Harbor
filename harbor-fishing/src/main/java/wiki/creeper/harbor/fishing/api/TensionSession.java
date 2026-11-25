@@ -30,6 +30,15 @@ public interface TensionSession {
     /** Null while in progress. */
     @Nullable MinigameResult result();
 
+    /**
+     * The player lowered the rod (switched to another item): the line is held loosely, tension and
+     * health do not change and the player can move. Raising the rod again resumes. Callers should
+     * not count a paused line as holding (proposed).
+     */
+    default boolean paused() {
+        return false;
+    }
+
     /** Boss pattern: adds tension (negative lowers it). */
     void addTension(double delta);
 

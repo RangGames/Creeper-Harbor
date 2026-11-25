@@ -33,6 +33,9 @@ final class TensionSessionImpl implements TensionSession {
 
     private @Nullable MinigameResult finished;
 
+    /** Rod lowered: the session does not advance (see {@link TensionSession#paused}). */
+    boolean paused;
+
     TensionSessionImpl(UUID player, Minigame game, TensionSpec spec, Runnable onClosed) {
         this.player = player;
         this.game = game;
@@ -67,6 +70,11 @@ final class TensionSessionImpl implements TensionSession {
     @Override
     public int phase() {
         return game.phase();
+    }
+
+    @Override
+    public boolean paused() {
+        return paused;
     }
 
     @Override

@@ -22,7 +22,11 @@ final class AnchorLines {
         this.e = e;
     }
 
+    /** In the safe band with the rod raised (a lowered rod does not hold the boss). */
     boolean inSafe(TensionSession s) {
+        if (s.paused()) {
+            return false;
+        }
         double t = s.tension();
         return t >= e.bb.anchorSafeMin() && t <= e.bb.anchorSafeMax();
     }
@@ -67,7 +71,14 @@ final class AnchorLines {
         if (session.hpRatio() > ratio) {
             session.damage(session.hpRatio() - ratio);
         }
-        e.send(m.uuid, "boss.anchor.hooked_on");
+        if (m.anchorGuided) {
+            e.mgr.api().ui().actionBar(p, e.msg("boss.anchor.rehooked"));
+        } else {
+            // First line of the fight: what the anchor does and how to hold it
+            m.anchorGuided = true;
+            e.send(m.uuid, "boss.anchor.hooked_on");
+            e.send(m.uuid, "boss.anchor.guide");
+        }
     }
 
     private void sessionEnded(Member m, TensionSession session, MinigameResult result) {
@@ -80,7 +91,14 @@ final class AnchorLines {
         }
         if (result == MinigameResult.LINE_BROKE || result == MinigameResult.ESCAPED) {
             e.fight.lineBroken();
-            e.broadcast("boss.anchor.line_broke", Placeholder.unparsed("player", m.name));
+            // LINE_BROKE: tension reached the limit (reeled too hard). ESCAPED: the anchor left
+            // or died (slack no longer ends the line)
+            e.broadcast(
+                    result == MinigameResult.LINE_BROKE
+                            ? "boss.anchor.line_broke"
+                            : "boss.anchor.line_lost",
+                    Placeholder.unparsed("player", m.name),
+                    Placeholder.unparsed("seconds", String.valueOf(e.bb.hookReopenTicks() / 20)));
             m.reopenAt = e.mgr.now() + e.bb.hookReopenTicks();
         }
     }

@@ -57,6 +57,9 @@ final class Member {
     // Anchor
     @Nullable TensionSession session;
 
+    /** Got the anchor guide this fight (later re-hooks only show an action bar). */
+    boolean anchorGuided;
+
     /** Closing intentionally (so onEnd is not treated as a line snap). */
     boolean closingSession;
 

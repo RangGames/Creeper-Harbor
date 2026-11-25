@@ -14,6 +14,7 @@ import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.id.ItemId;
@@ -105,7 +106,10 @@ final class MinigameRunner {
                         base.patternIntervalSeconds(),
                         base.safeLow(),
                         base.safeWidth(),
-                        base.escapeTicks(),
+                        // A slack line never ends an external session: only a snapped line
+                        // (tension 1) or leaving does. Otherwise not reeling for a moment
+                        // reported "line broke" on boss anchors (proposed)
+                        Integer.MAX_VALUE,
                         base.phased());
         Minigame game =
                 new Minigame(
@@ -123,6 +127,7 @@ final class MinigameRunner {
         tensions.put(uuid, session);
         display.lockMovement(player, true);
         api.messages().send(player, "fishing.minigame.help");
+        api.messages().send(player, "fishing.tension.help");
         return Optional.of(session);
     }
 
@@ -212,6 +217,24 @@ final class MinigameRunner {
         }
         if (!t.isActive()) {
             return;
+        }
+        boolean rodInHand =
+                player.getInventory().getItemInMainHand().getType() == Material.FISHING_ROD;
+        if (!rodInHand) {
+            if (!t.paused) {
+                t.paused = true;
+                display.lockMovement(player, false);
+                t.reel = display.reelSound(player, false, t.reel);
+            }
+            if (t.game().ticks() % 2 == 0 || player.getTicksLived() % 10 == 0) {
+                api.ui().actionBar(player, api.messages().get("fishing.tension.paused"));
+            }
+            return;
+        }
+        if (t.paused) {
+            t.paused = false;
+            t.baseYaw = loc(player).getYaw();
+            display.lockMovement(player, true);
         }
         Minigame game = t.game();
         FishingSettings settings = FishingSettings.of(api.flags(), player.getUniqueId());

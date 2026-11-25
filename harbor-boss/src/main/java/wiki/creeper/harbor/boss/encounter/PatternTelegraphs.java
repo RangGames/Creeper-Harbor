@@ -85,7 +85,8 @@ final class PatternTelegraphs {
             }
         }
         Location spawn = e.deckSpawn();
-        Location boss = e.bossLocation();
+        // Where the boss is now (it swims around), not its arena point
+        Location boss = e.bossRig.location();
         double ox;
         double oz;
         double floorY = spawn.getY() - 1;
@@ -201,6 +202,7 @@ final class PatternTelegraphs {
                 t.particles(now, viewers);
             }
         }
+        e.bossRig.tickMove(now, !telegraphs.isEmpty());
     }
 
     /**

@@ -477,11 +477,11 @@ public final class FishingManager implements FishingService, Listener {
         return ctx.context(player, key, bait);
     }
 
-    /** Roll modifiers (category product, "7. Balance design" 4.2). */
     BaitStacks baits() {
         return ctx.baits();
     }
 
+    /** Roll modifiers (category product, "7. Balance design" 4.2). */
     RollModifiers modifiers(UUID uuid, Map<String, Double> gearStats, RegionId region) {
         return ctx.modifiers(uuid, gearStats, region);
     }
@@ -605,9 +605,14 @@ public final class FishingManager implements FishingService, Listener {
                 || tensions.containsKey(player.getUniqueId());
     }
 
+    /**
+     * The hotbar stays locked only in the fishing minigame. In an external tension session (boss
+     * anchor) switching items lowers the rod and pauses the line instead, so a solo player can also
+     * use a harpoon or repair kit (proposed).
+     */
     @EventHandler(ignoreCancelled = true)
     public void onHeld(PlayerItemHeldEvent event) {
-        if (locked(event.getPlayer())) {
+        if (session(event.getPlayer().getUniqueId()) == SessionState.MINIGAME) {
             event.setCancelled(true);
         }
     }

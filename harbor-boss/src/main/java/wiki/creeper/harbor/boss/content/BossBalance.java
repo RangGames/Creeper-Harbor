@@ -152,6 +152,26 @@ public record BossBalance(Balance balance) {
         return balance.integer("boss.hook.anchor_grace_seconds", 5) * 20;
     }
 
+    /** Boss swims within this radius of its arena point (blocks, proposed value). */
+    public double moveRadius() {
+        return balance.number("boss.move.radius", 7.0);
+    }
+
+    /** Swim speed (blocks per second; 0 keeps the boss in place, proposed value). */
+    public double moveSpeed() {
+        return balance.number("boss.move.speed", 1.2);
+    }
+
+    /** Never closer to the deck spawn than this (blocks, proposed value). */
+    public double moveMinDeckDistance() {
+        return balance.number("boss.move.min_deck_distance", 7.0);
+    }
+
+    /** Pause at each waypoint (ticks, proposed value). */
+    public int moveRestTicks() {
+        return (int) Math.round(balance.number("boss.move.rest_seconds", 1.5) * 20);
+    }
+
     public double anchorSafeMin() {
         return balance.number("boss.anchor.safe_min", 0.2);
     }
