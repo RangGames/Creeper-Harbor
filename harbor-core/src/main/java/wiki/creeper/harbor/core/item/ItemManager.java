@@ -44,7 +44,9 @@ import wiki.creeper.harbor.core.api.MessageService;
 
 /**
  * Item definition (YAML) → ItemStack. Attaches item_model, item_name, lore and tooltip_style via
- * the Paper Data Component API, and stores Harbor data in custom_data (PersistentDataContainer).
+ * the Paper Data Component API, plus the definition's per-type components (consumable, food,
+ * use_remainder, use_cooldown, equippable, max_stack; {@link ItemComponentApplier}), and stores
+ * Harbor data in custom_data (PersistentDataContainer).
  */
 public final class ItemManager implements ItemService {
 
@@ -82,6 +84,7 @@ public final class ItemManager implements ItemService {
     public ItemStack create(ItemDef def, int amount) {
         ItemStack stack = ItemStack.of(material(def.baseItem()), amount);
         decorate(stack, def.name(), def.grade(), def.model(), baitLines(def, lore(def.lore())));
+        ItemComponentApplier.apply(stack, def, content.get());
         stack.editPersistentDataContainer(
                 pdc -> {
                     pdc.set(ItemKeys.ID, PersistentDataType.STRING, def.id().toString());

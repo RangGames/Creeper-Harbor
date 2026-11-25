@@ -56,6 +56,7 @@ public final class HarborContent implements ContentService {
         CoreContent.register(loader);
         // Checks that need the server API (skipped in harbor-tools)
         loader.addCheck(ItemDef.TYPE, (item, ctx) -> checkMaterial(item.baseItem(), ctx));
+        loader.addCheck(ItemDef.TYPE, HarborContent::checkRemainder);
         loader.addCheck(ItemDef.TYPE, (item, ctx) -> checkModel(item.model(), ctx));
         loader.addCheck(FishDef.TYPE, (fish, ctx) -> checkModel(fish.model(), ctx));
         loader.addCheck(RigDef.TYPE, HarborContent::checkRigParts);
@@ -220,6 +221,18 @@ public final class HarborContent implements ContentService {
         Material material = Material.matchMaterial(baseItem);
         if (material == null || !material.isItem()) {
             ctx.error("base_item '" + baseItem + "'는 바닐라 아이템이 아닙니다");
+        }
+    }
+
+    /** components.use_remainder must be a vanilla item. */
+    private static void checkRemainder(ItemDef item, ContentCheck.Context ctx) {
+        String remainder = item.components().useRemainder();
+        if (remainder == null) {
+            return;
+        }
+        Material material = Material.matchMaterial(remainder);
+        if (material == null || !material.isItem()) {
+            ctx.error("components.use_remainder '" + remainder + "'는 바닐라 아이템이 아닙니다");
         }
     }
 

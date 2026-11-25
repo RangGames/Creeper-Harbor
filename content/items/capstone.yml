@@ -1,4 +1,6 @@
 # 캡스톤 사용 아이템 ('10. 스킬 트리', docs 20 2.4). 모델은 리소스팩 준비 후 교체한다.
+# use_cooldown: 핫바 쿨타임 표시 ('8. 시스템 상세 기획' 6장). 실제 쿨타임은 Jobs가 서버에서 관리하고
+# 아이템 종류로 표시하므로 group은 비운다 (group을 넣으면 Jobs의 표시와 어긋난다).
 
 - id: item/capstone/uncharted_waters
   name: 미개척 해역의 나침반
@@ -9,6 +11,8 @@
   model: harbor:capstone/uncharted_waters
   tradeable: false
   season_reset: true
+  components:
+    use_cooldown: {seconds: 7200}   # jobs.yml cooldown_s와 같게
 
 - id: item/capstone/legend_presence
   name: 전설의 기척
@@ -19,3 +23,5 @@
   model: harbor:capstone/legend_presence
   tradeable: false
   season_reset: true
+  components:
+    use_cooldown: {seconds: 86400}  # jobs.yml cooldown_s와 같게

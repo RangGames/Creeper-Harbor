@@ -98,7 +98,8 @@ gradlew.bat :harbor-core:runServer   :: 모든 Purpur 모듈을 넣은 로컬 �
 | `dev` | 메인 스레드 DB·Redis 입출력 감지 경고 |
 | `database.*` | MariaDB 접속 정보. `pool_size` 기본값 main 20, lobby·instance 8, 프록시 5 |
 | `redis.uri` | Redis 주소 |
-| `season.id` · `season.start` | 이 서버가 돌리는 시즌 번호와 시작일. 시즌 전환 뒤 운영자가 바꾼다 |
+| `season.id` · `season.start` | 이 서버가 돌리는 시즌 번호와 시작일. `season.source: db`(기본)면 시작할 때 `season_meta`의 ACTIVE 시즌을 쓰고 이 값은 행이 없을 때의 대체값이다 |
+| `season.source` | `db`(기본) 또는 `config`. `config`면 `season.id`·`season.start`를 강제로 쓴다 (비상용) |
 | `time.zone` · `daily_reset` · `weekly_reset` | 일일·주간 초기화 시각 (기본 Asia/Seoul, 06:00, 월요일) |
 | `content_dir` | 콘텐츠 폴더. 비우면 `plugins/Harbor/content` (이때만 기본 콘텐츠 자동 맞춤) |
 | `lobby_server` | 로비 서버 ID |

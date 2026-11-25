@@ -20,6 +20,7 @@ import wiki.creeper.harbor.common.content.type.Messages;
 import wiki.creeper.harbor.common.db.Database;
 import wiki.creeper.harbor.common.db.Migrations;
 import wiki.creeper.harbor.common.db.WriteBehindQueue;
+import wiki.creeper.harbor.common.donor.DonorTier;
 import wiki.creeper.harbor.common.redis.DistributedLock;
 import wiki.creeper.harbor.common.redis.MessageBus;
 import wiki.creeper.harbor.common.redis.Redis;
@@ -73,6 +74,7 @@ import wiki.creeper.harbor.core.proxy.ProxyLink;
 import wiki.creeper.harbor.core.rig.FishDemoCommand;
 import wiki.creeper.harbor.core.rig.RigCommand;
 import wiki.creeper.harbor.core.rig.RigManager;
+import wiki.creeper.harbor.core.season.CurrentSeason;
 import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.core.waypoint.WaypointManager;
 
@@ -146,21 +148,25 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
 
         // 1. Infra config
         Result<InfraConfig, ValidationErrors> loaded = InfraConfig.load(infraFile);
-        if (!(loaded instanceof Result.Ok<InfraConfig, ValidationErrors>(InfraConfig infra))) {
+        if (!(loaded instanceof Result.Ok<InfraConfig, ValidationErrors>(InfraConfig configured))) {
             log.error(
                     "harbor-infra.yml 오류:\n{}",
                     ((Result.Err<InfraConfig, ValidationErrors>) loaded).error().format());
             Bukkit.shutdown();
             return;
         }
-        boolean dev = infra.dev() || Boolean.getBoolean("harbor.dev");
-        log.info("서버 {} ({}) 시즌 {}", infra.serverId(), infra.role().key(), infra.season());
+        boolean dev = configured.dev() || Boolean.getBoolean("harbor.dev");
 
         // 2. DB connection and migrations (dependency order: common → core → each module)
-        Database database = Database.connect(infra.database(), Bukkit::isPrimaryThread, dev);
+        Database database = Database.connect(configured.database(), Bukkit::isPrimaryThread, dev);
         db = database;
         Migrations.migrate(database.dataSource(), "common", getClassLoader());
         Migrations.migrate(database.dataSource(), "core", getClassLoader());
+        // Current season from season_meta (config season.id is the fallback / override)
+        InfraConfig infra = CurrentSeason.resolve(configured, database, log);
+        log.info("서버 {} ({}) 시즌 {}", infra.serverId(), infra.role().key(), infra.season());
+        // Donor tier lookups fall back to subscriptions when harbor:donor has no value
+        DonorTier.useDatabase(database);
 
         // 3. Redis
         Redis r = Redis.connect(infra.redis());
@@ -479,6 +485,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
             redis.close();
         }
         if (db != null) {
+            DonorTier.useDatabase(null);
             db.close();
         }
         Harbor.install(null);

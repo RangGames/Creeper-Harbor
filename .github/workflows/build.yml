@@ -1,0 +1,43 @@
+# 전체 빌드 + 테스트 + spotlessCheck + 콘텐츠 검사 ('16. 플러그인 설계' 5.2 CI 검사).
+# Java 소스는 저장소에 CRLF로 들어 있고 actions/checkout은 줄바꿈을 바꾸지 않으므로
+# spotless(lineEndings = WINDOWS) 검사가 리눅스에서도 그대로 통과한다.
+# *IT 테스트는 러너의 Docker로 Testcontainers(MariaDB·Redis)를 띄운다.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and validate content
+        run: ./gradlew build validateContent --no-daemon
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/'
+          retention-days: 7

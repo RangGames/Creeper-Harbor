@@ -273,7 +273,7 @@ public final class RewardService {
             for (LootRoller.Rolled r : rolled.items()) {
                 entries.add(
                         new PendingReward.Entry(
-                                "item", r.item().toString(), r.count(), uidFor(r.item())));
+                                "item", r.item().toString(), r.count(), uidFor(r.item(), uuid)));
             }
             rolled.pity().forEach((k, v) -> pityOut.put(k.toString(), v));
             if (c.top()) {
@@ -355,20 +355,46 @@ public final class RewardService {
                                 });
     }
 
-    /** Attaches a unique ID to boss gear (lines, harpoons, etc.; gear/line) (proposed). */
-    private @Nullable String uidFor(ItemId item) {
-        return mgr.items()
-                .def(item)
-                .filter(
-                        d ->
-                                d.type()
-                                                == wiki.creeper.harbor.common.content.type.ItemDef
-                                                        .Type.GEAR
-                                        || d.type()
-                                                == wiki.creeper.harbor.common.content.type.ItemDef
-                                                        .Type.LINE)
-                .map(d -> UUID.randomUUID().toString())
-                .orElse(null);
+    /**
+     * Attaches a unique ID to boss gear (lines, harpoons, etc.; gear/line, proposed) and records it
+     * in fish_ledger with item_id ('11. Data design' 3.2, docs 19 5.5). The ledger row is written
+     * asynchronously like Core's fish rows; the item also keeps the ID in PDC harbor:boss_uid.
+     */
+    private @Nullable String uidFor(ItemId item, UUID owner) {
+        boolean gear =
+                mgr.items()
+                        .def(item)
+                        .map(
+                                d ->
+                                        d.type()
+                                                        == wiki.creeper.harbor.common.content.type
+                                                                .ItemDef.Type.GEAR
+                                                || d.type()
+                                                        == wiki.creeper.harbor.common.content.type
+                                                                .ItemDef.Type.LINE)
+                        .orElse(false);
+        if (!gear) {
+            return null;
+        }
+        UUID uid = UUID.randomUUID();
+        wiki.creeper.harbor.common.model.SeasonId season = SeasonServices.clock().current();
+        var _ =
+                api.database()
+                        .asyncVoid(
+                                c ->
+                                        wiki.creeper.harbor.core.item.FishLedger.insertItem(
+                                                c, uid, item, owner, season))
+                        .exceptionally(
+                                err -> {
+                                    mgr.log()
+                                            .error(
+                                                    "고유 ID 장부 기록 실패: {} {} {}",
+                                                    item,
+                                                    uid,
+                                                    String.valueOf(err.getMessage()));
+                                    return null;
+                                });
+        return uid.toString();
     }
 
     /**

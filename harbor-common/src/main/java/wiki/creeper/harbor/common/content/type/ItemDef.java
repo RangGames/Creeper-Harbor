@@ -16,7 +16,10 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.model.Keyed;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
-/** Item definition (items/*.yml). Fields follow '11. Data design' 2.2. */
+/**
+ * Item definition (items/*.yml). Fields follow '11. Data design' 2.2, plus the optional {@code
+ * components:} block ({@link ItemComponents}, docs 19 5.5 per-type components, proposed YAML).
+ */
 public record ItemDef(
         ItemId id,
         String name,
@@ -31,7 +34,42 @@ public record ItemDef(
         OptionalInt sellPrice,
         List<NpcId> shop,
         boolean tradeable,
-        boolean seasonReset) {
+        boolean seasonReset,
+        ItemComponents components) {
+
+    /** Definition without component overrides. */
+    public ItemDef(
+            ItemId id,
+            String name,
+            List<String> lore,
+            Type type,
+            Grade grade,
+            String baseItem,
+            String model,
+            Map<String, Double> stats,
+            List<RegionId> regionAccess,
+            OptionalInt buyPrice,
+            OptionalInt sellPrice,
+            List<NpcId> shop,
+            boolean tradeable,
+            boolean seasonReset) {
+        this(
+                id,
+                name,
+                lore,
+                type,
+                grade,
+                baseItem,
+                model,
+                stats,
+                regionAccess,
+                buyPrice,
+                sellPrice,
+                shop,
+                tradeable,
+                seasonReset,
+                ItemComponents.NONE);
+    }
 
     /** Item category. */
     public enum Type implements Keyed {
@@ -76,7 +114,8 @@ public record ItemDef(
                     "sell_price",
                     "shop",
                     "tradeable",
-                    "season_reset");
+                    "season_reset",
+                    "components");
 
     public static final ContentType.Entries<ItemDef> TYPE =
             new ContentType.Entries<>(
@@ -113,7 +152,8 @@ public record ItemDef(
                 price(node, "sell_price"),
                 Refs.npcs(node.list("shop"), ctx),
                 node.bool("tradeable"),
-                node.bool("season_reset"));
+                node.bool("season_reset"),
+                node.get("components").map(ItemComponents::parse).orElse(ItemComponents.NONE));
     }
 
     private static OptionalInt price(YamlNode node, String key) {

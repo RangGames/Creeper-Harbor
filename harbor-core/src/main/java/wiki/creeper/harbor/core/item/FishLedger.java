@@ -8,11 +8,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
+import wiki.creeper.harbor.common.id.ItemId;
+import wiki.creeper.harbor.common.model.SeasonId;
 import wiki.creeper.harbor.core.api.HarborItem;
 
 /**
  * Unique ID ledger (fish_ledger). Records ★5, legendary and mythic fish and boss gear when created,
  * and checks their status on auction listing and trades to block duplicated items.
+ *
+ * <p>Fish rows fill fish_id, size and quality; non-fish unique items (boss gear) fill item_id and
+ * leave those empty ('11. Data design' 3.2). catcher is the player the item was first given to.
  */
 public final class FishLedger {
 
@@ -29,7 +34,18 @@ public final class FishLedger {
         IN_AUCTION,
         /** Gifted to an NPC (NPC affinity). */
         GIFTED,
-        DESTROYED
+        DESTROYED,
+        /** Item of a past season, closed by the season transition (Season reset_plan.yml). */
+        ARCHIVED;
+
+        /** Parses a stored state. Unknown values read as DESTROYED (never usable). */
+        public static State parse(String raw) {
+            try {
+                return valueOf(raw);
+            } catch (IllegalArgumentException e) {
+                return DESTROYED;
+            }
+        }
     }
 
     private FishLedger() {}
@@ -49,12 +65,31 @@ public final class FishLedger {
         }
     }
 
+    /**
+     * Records a non-fish unique item (boss gear etc.) with item_id; fish_id, size and quality stay
+     * empty. Blocking (call inside Database.async/tx).
+     *
+     * @param owner the player the item was created for
+     */
+    public static void insertItem(Connection c, UUID uid, ItemId item, UUID owner, SeasonId season)
+            throws SQLException {
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "INSERT INTO fish_ledger (item_uuid, item_id, catcher, season) VALUES (?, ?, ?, ?)")) {
+            ps.setString(1, uid.toString());
+            ps.setString(2, item.toString());
+            ps.setString(3, owner.toString());
+            ps.setInt(4, season.value());
+            ps.executeUpdate();
+        }
+    }
+
     public static Optional<State> state(Connection c, UUID uid) throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement("SELECT state FROM fish_ledger WHERE item_uuid = ?")) {
             ps.setString(1, uid.toString());
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.of(State.valueOf(rs.getString(1))) : Optional.empty();
+                return rs.next() ? Optional.of(State.parse(rs.getString(1))) : Optional.empty();
             }
         }
     }
