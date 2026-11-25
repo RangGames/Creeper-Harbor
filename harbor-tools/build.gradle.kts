@@ -28,7 +28,7 @@ application {
 }
 
 // ./gradlew validateContent → validates the content/ folder. Fails on errors
-val validateContent by tasks.registering(JavaExec::class) {
+val validateContent = tasks.register<JavaExec>("validateContent") {
     group = "verification"
     description = "content/ YAML을 서버와 같은 로더로 검사한다"
     classpath = sourceSets.main.get().runtimeClasspath
@@ -37,7 +37,7 @@ val validateContent by tasks.registering(JavaExec::class) {
 }
 
 // ./gradlew packIndex -Ppack=<resource pack folder or zip> → content/resource_pack.yml (item_model and sound lists in the pack)
-val packIndex by tasks.registering(JavaExec::class) {
+val packIndex = tasks.register<JavaExec>("packIndex") {
     group = "content"
     description = "리소스팩에서 content/resource_pack.yml을 만든다 (-Ppack=<폴더 또는 zip>)"
     classpath = sourceSets.main.get().runtimeClasspath
@@ -50,7 +50,7 @@ val packIndex by tasks.registering(JavaExec::class) {
 }
 
 // ./gradlew rigImport -Prigs=<resource pack assets/harbor/rigs/fish or rigs/boss folder> [-PrigStep=<ticks>] → content/rigs/{fish,boss}/<name>.yml (rig conversion)
-val rigImport by tasks.registering(JavaExec::class) {
+val rigImport = tasks.register<JavaExec>("rigImport") {
     group = "content"
     description = "리소스팩 리그 JSON(harbor_rig_v1)을 content/rigs/fish·boss/*.yml로 바꾼다 (-Prigs=<폴더>)"
     classpath = sourceSets.main.get().runtimeClasspath

@@ -30,11 +30,11 @@ fun Configuration.pluginJarAttributes(shadowed: Boolean) {
 }
 
 // Core/Proxy: the shadowJar output of the shadow plugin
-val shadedPurpurPlugins by configurations.creating { pluginJarAttributes(shadowed = true) }
-val shadedVelocityPlugins by configurations.creating { pluginJarAttributes(shadowed = true) }
+val shadedPurpurPlugins = configurations.create("shadedPurpurPlugins") { pluginJarAttributes(shadowed = true) }
+val shadedVelocityPlugins = configurations.create("shadedVelocityPlugins") { pluginJarAttributes(shadowed = true) }
 
 // Game modules: plain jar
-val modulePlugins by configurations.creating { pluginJarAttributes(shadowed = false) }
+val modulePlugins = configurations.create("modulePlugins") { pluginJarAttributes(shadowed = false) }
 
 dependencies {
     shadedPurpurPlugins(project(":harbor-core"))
@@ -45,7 +45,7 @@ dependencies {
 // harbor-fishing-0.1.0-SNAPSHOT.jar → harbor-fishing.jar (so the server only needs an overwrite)
 val versionSuffix = Regex("-\\d[\\w.]*(-SNAPSHOT)?\\.jar$")
 
-val dist by tasks.registering(Sync::class) {
+val dist = tasks.register<Sync>("dist") {
     group = "distribution"
     description = "서버에 넣을 플러그인 jar를 build/dist/{purpur,velocity}/plugins에 모은다"
     into(layout.buildDirectory.dir("dist"))

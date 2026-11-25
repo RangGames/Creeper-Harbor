@@ -18,7 +18,7 @@ dependencies {
 
 // External libraries are not bundled; the PluginLoader downloads them from Maven at startup.
 // The list is generated from the version catalog (server-runtime bundle) and added as a resource.
-val generateLibraryList by tasks.registering {
+val generateLibraryList = tasks.register("generateLibraryList") {
     val coordinates = libs.bundles.server.runtime.get().map {
         "${it.module.group}:${it.module.name}:${it.versionConstraint.requiredVersion}"
     }
@@ -34,7 +34,7 @@ val generateLibraryList by tasks.registering {
 
 // Bundle the repository's content/ into the jar as default content (harbor-content/ plus the file list harbor-content.txt).
 // On startup Core extracts only the files missing from plugins/Harbor/content (DefaultContent)
-val bundleDefaultContent by tasks.registering(Sync::class) {
+val bundleDefaultContent = tasks.register<Sync>("bundleDefaultContent") {
     val outputRoot = layout.buildDirectory.dir("generated/harbor-default-content")
     from(rootProject.layout.projectDirectory.dir("content")) { into("harbor-content") }
     into(outputRoot)
@@ -73,7 +73,7 @@ tasks.assemble {
 
 // ---------------------------------------------------------------- local test server
 // ./gradlew :harbor-core:runServer → runs a test server with every Purpur module (configure DB/Redis in harbor-infra.yml)
-val devPlugins by configurations.creating {
+val devPlugins = configurations.create("devPlugins") {
     isCanBeConsumed = false
     isTransitive = false
     attributes {
@@ -89,7 +89,7 @@ dependencies {
     ).forEach { devPlugins(project(":harbor-$it")) }
 }
 
-val syncDevContent by tasks.registering(Sync::class) {
+val syncDevContent = tasks.register<Sync>("syncDevContent") {
     from(rootProject.layout.projectDirectory.dir("content"))
     into(layout.projectDirectory.dir("run/plugins/Harbor/content"))
 }
