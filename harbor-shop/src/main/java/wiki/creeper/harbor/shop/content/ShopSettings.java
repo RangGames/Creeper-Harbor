@@ -66,9 +66,20 @@ public record ShopSettings(
      * @param nameColor name color MiniMessage opening tag (e.g. {@code <aqua>})
      * @param chatIcon chat icon glyph (read by the Proxy chat format)
      * @param title donor title (Season, revoked when the subscription ends)
+     * @param cosmetics cosmetics granted (owned, kept after cancellation) while the tier is active,
+     *     e.g. the fleet ship flag ('6. BM plan' 3.2, proposed field)
      */
     public record DonorPerk(
-            long monthlyPearls, String nameColor, String chatIcon, @Nullable String title) {}
+            long monthlyPearls,
+            String nameColor,
+            String chatIcon,
+            @Nullable String title,
+            List<HarborId> cosmetics) {
+
+        public DonorPerk {
+            cosmetics = List.copyOf(cosmetics);
+        }
+    }
 
     /** Webhook inbox retries (docs 20 12.4: 1 min, 5 min, 30 min; admin alert after 5 failures). */
     public record Inbox(List<Integer> retryMinutes, int maxAttempts, int pollSeconds) {
@@ -102,7 +113,7 @@ public record ShopSettings(
 
     public DonorPerk perk(DonorTier tier) {
         DonorPerk perk = donor.get(tier);
-        return perk != null ? perk : new DonorPerk(0, "", "", null);
+        return perk != null ? perk : new DonorPerk(0, "", "", null, List.of());
     }
 
     public FxStrength fx(Grade grade) {
@@ -153,7 +164,16 @@ public record ShopSettings(
             if (p == null) {
                 continue;
             }
-            p.allowOnly(Set.of("monthly_pearls", "name_color", "chat_icon", "title"));
+            p.allowOnly(Set.of("monthly_pearls", "name_color", "chat_icon", "title", "cosmetics"));
+            List<HarborId> cosmetics = new java.util.ArrayList<>();
+            for (YamlNode v : p.list("cosmetics")) {
+                v.asId(CosmeticDef.PREFIX)
+                        .ifPresent(
+                                c -> {
+                                    cosmetics.add(c);
+                                    ctx.ref(CosmeticDef.TYPE.name(), c, v.pos());
+                                });
+            }
             String title = p.optString("title").orElse(null);
             if (title != null) {
                 TitleRefs.ref(ctx, title, p);
@@ -164,7 +184,8 @@ public record ShopSettings(
                             p.longValue("monthly_pearls", 0),
                             p.string("name_color", ""),
                             p.string("chat_icon", ""),
-                            title));
+                            title,
+                            cosmetics));
         }
         Map<String, HarborId> monthly = new LinkedHashMap<>();
         d.get("monthly_cosmetics")

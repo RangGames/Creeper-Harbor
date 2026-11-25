@@ -45,9 +45,9 @@ import wiki.creeper.harbor.fishing.api.FishingService;
  * values are kept; if there is no update for more than 3 hours, admins are alerted.
  *
  * <p>Expected appearance share uses the Fishing api's expectedShare (falls back to computing from
- * grade and species weights). The number of players staying in a region for the baseline S₀ will
- * switch to per-region records once the World module exists. For now it uses this server's online
- * count (proposed).
+ * grade and species weights). The baseline S₀ uses the hourly region occupancy history sampled from
+ * World's Redis records ({@link MarketInputs}); without World it falls back to the network online
+ * count × window hours.
  *
  * <p>Also computes the next-hour forecast next_coef (economy line "Market Forecast").
  */
@@ -66,6 +66,7 @@ public final class MarketEngine implements PriceService {
     private final Tasks tasks;
     private final Logger log;
     private final AdminAlerts alerts;
+    private final MarketInputs inputs;
     private volatile Map<FishId, Stat> stats = Map.of();
     private volatile Instant lastComputedHour = Instant.EPOCH;
     private volatile Instant newestHour = Instant.now();
@@ -76,6 +77,7 @@ public final class MarketEngine implements PriceService {
         this.tasks = tasks;
         this.log = log;
         this.alerts = alerts;
+        this.inputs = new MarketInputs(api, log);
     }
 
     public void start() {
@@ -283,6 +285,10 @@ public final class MarketEngine implements PriceService {
             Instant windowStart = hour.minus(window);
             ContentSnapshot snapshot = api.content().snapshot();
             int online = networkOnline();
+            // Region player-hours over the window (World occupancy history), empty without World
+            Optional<Map<String, Double>> playerHours =
+                    inputs.playerHours(hour, b.marketWindowHours());
+            Map<String, Double> pins = inputs.activePins();
             Optional<FishingService> fishing = api.service(FishingService.class);
             api.writeBehind().flush();
             String range =
@@ -339,29 +345,49 @@ public final class MarketEngine implements PriceService {
                                                                                                                                 .region()))
                                                                                         .toList(),
                                                                                 gradeWeights));
+                                        // S0 = Σ hourly region occupancy × 80 × 0.85 × share
+                                        // (docs 20 7.4 step 3); without World, network online ×
+                                        // window hours
+                                        double hours =
+                                                playerHours
+                                                        .map(
+                                                                m ->
+                                                                        m.getOrDefault(
+                                                                                fish.region()
+                                                                                        .toString(),
+                                                                                0.0))
+                                                        .orElse(
+                                                                (double) online
+                                                                        * b.marketWindowHours());
                                         double s0 =
                                                 Math.max(
                                                         b.s0Floor(),
-                                                        online
+                                                        hours
                                                                 * b.catchesPerHour()
                                                                 * b.sellRatio()
-                                                                * share
-                                                                * b.marketWindowHours());
+                                                                * share);
                                         String id = fish.id().toString();
                                         long s = sales.getOrDefault(id, 0L);
+                                        Double pinned = pins.get(id);
                                         ps.setString(1, id);
                                         ps.setTimestamp(2, Timestamp.from(hour));
                                         ps.setLong(3, s);
                                         ps.setDouble(4, s0);
-                                        ps.setDouble(5, MarketMath.coefficient(s, s0, b));
+                                        ps.setDouble(
+                                                5,
+                                                pinned != null
+                                                        ? pinned
+                                                        : MarketMath.coefficient(s, s0, b));
                                         ps.setDouble(
                                                 6,
-                                                MarketMath.forecast(
-                                                        s,
-                                                        leaving.getOrDefault(id, 0L),
-                                                        lastHour.getOrDefault(id, 0L),
-                                                        s0,
-                                                        b));
+                                                pinned != null
+                                                        ? pinned
+                                                        : MarketMath.forecast(
+                                                                s,
+                                                                leaving.getOrDefault(id, 0L),
+                                                                lastHour.getOrDefault(id, 0L),
+                                                                s0,
+                                                                b));
                                         ps.addBatch();
                                     }
                                     ps.executeBatch();
@@ -496,12 +522,29 @@ public final class MarketEngine implements PriceService {
                 .thenApplyAsync(v -> v, tasks.main());
     }
 
+    /** Admin: removes a pin; the next hourly computation uses the formula again. */
+    public void unpin(FishId fish) {
+        var _ = tasks.async(() -> inputs.unpin(fish));
+    }
+
     /**
      * Admin: manually pin the market rate (written as this hour's value and announced to all
-     * servers).
+     * servers). The hourly computation keeps the pinned value until it expires (Redis pin, docs 20
+     * 7.5 {@code /harbor market set <fish> <coef> [hours]}).
      */
-    public void override(FishId fish, double coef) {
+    public void override(FishId fish, double coef, Duration duration) {
         Instant hour = currentHour();
+        Instant until = Instant.now().plus(duration);
+        var _ =
+                tasks.async(() -> inputs.pin(fish, coef, until))
+                        .exceptionally(
+                                e -> {
+                                    log.warn(
+                                            "시세 고정 저장 실패 {}: {}",
+                                            fish,
+                                            String.valueOf(e.getMessage()));
+                                    return null;
+                                });
         var _ =
                 api.database()
                         .asyncVoid(

@@ -15,11 +15,15 @@
     - {item: item/line/cotton}
     - {item: item/float/feather}
     - {item: item/reel/brass}
+    - {item: item/tool/telescope}
+    - {item: item/tool/first_aid_bandage}
+    - {item: item/tool/rescue_flare}
 
 - id: shop/fish_market
   npc: npc/fish_market
   title: 어시장 상인
   entries:
+    - {item: item/tool/return_conch}
     - {vanilla: minecraft:iron_ingot, price: 20, daily_limit: 64}
     - {vanilla: minecraft:gold_ingot, price: 60, daily_limit: 64}
     - {vanilla: minecraft:gunpowder, price: 8, daily_limit: 64}
@@ -37,6 +41,7 @@
   entries:
     - {item: item/trap/wood}
     - {item: item/boat/repair_kit}
+    - {item: item/tool/nav_compass}
 
 - id: shop/peddler
   npc: npc/peddler

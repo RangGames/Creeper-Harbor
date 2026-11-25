@@ -2,6 +2,7 @@ package wiki.creeper.harbor.economy.service;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -17,7 +18,6 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.economy.content.ShopDef;
@@ -34,6 +34,7 @@ final class EconomyAdminCommands {
     private final CraftManager craft;
     private final FraudMonitor fraud;
     private final StationManager stations;
+    private final EconomyAdminExtras extra;
 
     EconomyAdminCommands(
             HarborApi api,
@@ -52,6 +53,7 @@ final class EconomyAdminCommands {
         this.craft = craft;
         this.fraud = fraud;
         this.stations = stations;
+        this.extra = new EconomyAdminExtras(api, market, mail);
     }
 
     private int done(CommandContext<CommandSourceStack> ctx, boolean ok) {
@@ -91,24 +93,45 @@ final class EconomyAdminCommands {
                                                                                                 0.1,
                                                                                                 5))
                                                                         .executes(
-                                                                                ctx -> {
-                                                                                    market.override(
-                                                                                            new FishId(
-                                                                                                    EconomyCommands
-                                                                                                            .harborId(
-                                                                                                                    ctx
-                                                                                                                            .getArgument(
-                                                                                                                                    "fish",
-                                                                                                                                    Key
-                                                                                                                                            .class))),
-                                                                                            DoubleArgumentType
-                                                                                                    .getDouble(
-                                                                                                            ctx,
-                                                                                                            "coef"));
-                                                                                    return done(
-                                                                                            ctx,
-                                                                                            true);
-                                                                                }))));
+                                                                                ctx ->
+                                                                                        extra
+                                                                                                .setMarket(
+                                                                                                        ctx,
+                                                                                                        1))
+                                                                        .then(
+                                                                                Commands.argument(
+                                                                                                "hours",
+                                                                                                IntegerArgumentType
+                                                                                                        .integer(
+                                                                                                                1,
+                                                                                                                720))
+                                                                                        .executes(
+                                                                                                ctx ->
+                                                                                                        extra
+                                                                                                                .setMarket(
+                                                                                                                        ctx,
+                                                                                                                        IntegerArgumentType
+                                                                                                                                .getInteger(
+                                                                                                                                        ctx,
+                                                                                                                                        "hours")))))))
+                        .then(
+                                Commands.literal("unpin")
+                                        .then(
+                                                Commands.argument("fish", ArgumentTypes.key())
+                                                        .executes(
+                                                                ctx -> {
+                                                                    try {
+                                                                        market.unpin(
+                                                                                EconomyAdminExtras
+                                                                                        .fishArg(
+                                                                                                ctx));
+                                                                    } catch (
+                                                                            IllegalArgumentException
+                                                                                    e) {
+                                                                        return done(ctx, false);
+                                                                    }
+                                                                    return done(ctx, true);
+                                                                })));
         LiteralArgumentBuilder<CommandSourceStack> mailCmd =
                 Commands.literal("mail")
                         .then(
@@ -121,6 +144,36 @@ final class EconomyAdminCommands {
                                                                                 LongArgumentType
                                                                                         .longArg(1))
                                                                         .executes(this::mailGold))))
+                        .then(
+                                Commands.literal("send")
+                                        .then(
+                                                Commands.argument("target", ArgumentTypes.player())
+                                                        .then(
+                                                                Commands.argument(
+                                                                                "item",
+                                                                                ArgumentTypes.key())
+                                                                        .executes(
+                                                                                ctx ->
+                                                                                        extra
+                                                                                                .mailSend(
+                                                                                                        ctx,
+                                                                                                        1))
+                                                                        .then(
+                                                                                Commands.argument(
+                                                                                                "count",
+                                                                                                IntegerArgumentType
+                                                                                                        .integer(
+                                                                                                                1,
+                                                                                                                2304))
+                                                                                        .executes(
+                                                                                                ctx ->
+                                                                                                        extra
+                                                                                                                .mailSend(
+                                                                                                                        ctx,
+                                                                                                                        IntegerArgumentType
+                                                                                                                                .getInteger(
+                                                                                                                                        ctx,
+                                                                                                                                        "count")))))))
                         .then(
                                 Commands.literal("held")
                                         .then(

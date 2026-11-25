@@ -2,6 +2,7 @@
 # starts_at에 날짜만 쓰면 그날 일일 초기화 시각(harbor-infra.yml time.daily_reset, 기본 06:00)에 시작한다.
 # 서버가 돌리는 시즌 번호는 harbor-infra.yml season.id다 (전환 후 운영자가 바꾼다, next-season.yml 참고).
 # 시즌 1 = CBT (제안: SeasonId는 1부터라 CBT를 1로 두고 정식 시즌 1을 2로 둔다. 표시 이름으로 구분)
+# 다른 콘텐츠의 season: 값도 이 번호다 (shop/pass_s1·festivals·시즌 한정 코스메틱 = 2, 진주 보물함 = 3).
 
 seasons:
   - season: 1

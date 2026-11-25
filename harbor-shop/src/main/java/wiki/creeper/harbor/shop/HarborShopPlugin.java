@@ -83,7 +83,7 @@ public final class HarborShopPlugin extends HarborModule {
         ShopRuntime rt = new ShopRuntime(api, ctx.tasks(), getSLF4JLogger());
         PearlManager pearls = new PearlManager(rt);
         CosmeticManager cosmetics = new CosmeticManager(rt);
-        DonorManager donors = new DonorManager(rt);
+        DonorManager donors = new DonorManager(rt, cosmetics);
         PassManager passes = new PassManager(rt, pearls, cosmetics);
         ChestManager chests = new ChestManager(rt, pearls, cosmetics);
         FestivalManager festivals = new FestivalManager(rt, cosmetics);

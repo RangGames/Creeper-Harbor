@@ -1,4 +1,5 @@
 # 늪지 은둔자 = 등대지기 한결 (5장에서 정체 공개, 이름 변형은 npcs.yml name_variants)
+# 메인 2장 '그놈': 퀘스트 진행 중이면 은둔자가 그놈을 직접 불러낸다 (boss:start, 소환 미끼 없음. '3. 아이템 목록' 3장)
 - id: dialog/hermit
   entries:
     - {conditions: [flag: story/hermit_revealed], node: revealed}
@@ -9,6 +10,7 @@
       pages: [npc.dialog.hermit.greet.1]
       options:
         - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.lure_gnome, conditions: [{quest_state: {quest: quest/main/ch2_the_thing, state: active}}], actions: [{type: boss:start, boss: boss/swamp_catfish}]}
         - {label: npc.dialog.option.green_light, goto: green_light}
         - {label: npc.dialog.option.gift, actions: [gift:open]}
         - {label: npc.dialog.option.bye, actions: [close]}
@@ -20,6 +22,7 @@
       pages: [npc.dialog.hermit.riddle.1, npc.dialog.hermit.riddle.2]
       options:
         - {label: npc.dialog.option.quests, actions: [quest:list]}
+        - {label: npc.dialog.option.lure_gnome, conditions: [{quest_state: {quest: quest/main/ch2_the_thing, state: active}}], actions: [{type: boss:start, boss: boss/swamp_catfish}]}
         - {label: npc.dialog.option.gift, actions: [gift:open]}
         - {label: npc.dialog.option.bye, actions: [close]}
     revealed:

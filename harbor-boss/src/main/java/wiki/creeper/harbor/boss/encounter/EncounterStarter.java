@@ -77,6 +77,37 @@ final class EncounterStarter {
                 BossItems.loc(leader));
     }
 
+    /**
+     * Quest or dialog start without a summon bait ('3. item list' 3: "the first main chapter 2
+     * encounter is summoned by the quest directly"; also the chapter 6 story fight). The player's
+     * party (or the player alone) is moved to the free slot nearest to them; party size min and the
+     * arena radius are not checked (max still applies). Uses the same per-leader cooldown as summon
+     * bait (summon.cooldown, otherwise balance.yml boss.scripted_cooldown_seconds).
+     */
+    StartResult tryScripted(Player leader, BossDef def) {
+        if (def.arena().mode() != BossDef.ArenaMode.FIELD) {
+            return StartResult.WRONG_SERVER;
+        }
+        if (!parties.isLeader(leader.getUniqueId())) {
+            return StartResult.NOT_LEADER;
+        }
+        Long until = summonCooldown.get(leader.getUniqueId());
+        if (until != null && until > mgr.now()) {
+            return StartResult.COOLDOWN;
+        }
+        StartResult r =
+                startField(def, leader, partyPlayers(leader), null, true, BossItems.loc(leader));
+        if (r == StartResult.STARTED) {
+            BossDef.Summon summon = def.summon();
+            long seconds =
+                    summon != null
+                            ? summon.cooldownSeconds()
+                            : mgr.balance().scriptedCooldownSeconds();
+            summonCooldown.put(leader.getUniqueId(), mgr.now() + seconds * 20L);
+        }
+        return r;
+    }
+
     StartResult startField(
             BossDef def,
             Player leader,

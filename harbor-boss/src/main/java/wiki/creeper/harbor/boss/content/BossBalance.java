@@ -404,6 +404,32 @@ public record BossBalance(Balance balance) {
         return balance.integer("boss.party.invite_seconds", 60);
     }
 
+    /** Cooldown after a quest or dialog start without a summon item (proposed value 30s). */
+    public int scriptedCooldownSeconds() {
+        return balance.integer("boss.scripted_cooldown_seconds", 30);
+    }
+
+    /** Support items (bandage, flare; proposed values). */
+    public double bandageHeal() {
+        return balance.number("boss.support.bandage_heal", 6);
+    }
+
+    public int bandageCooldownTicks() {
+        return balance.integer("boss.support.bandage_cooldown_seconds", 10) * 20;
+    }
+
+    public double flareRadius() {
+        return balance.number("boss.support.flare_radius", 160);
+    }
+
+    public int flareSeconds() {
+        return balance.integer("boss.support.flare_seconds", 60);
+    }
+
+    public int flareCooldownTicks() {
+        return balance.integer("boss.support.flare_cooldown_seconds", 30) * 20;
+    }
+
     // ------------------------------------------------------------------ World boss
 
     /** Minimum number of valid participants (10, confirmed). */

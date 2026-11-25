@@ -3,7 +3,7 @@
 # 표를 바꾸면 table_version을 올리고 바꾸기 전에 공지한다. 게임 안 확률표는 이 파일에서 그대로 만든다.
 - id: chest/s2_tide
   name: 심연의 보물함
-  season: 2
+  season: 3                      # 시즌 2 이후 = 시즌 번호 3 (season/seasons.yml, 1 = CBT)
   price: {single: 150, ten: 1350}
   table_version: 1
   pity: {count: 50, grade: legendary}      # 50회 안에 최상위 등급 확정, 시즌 안에서 이월

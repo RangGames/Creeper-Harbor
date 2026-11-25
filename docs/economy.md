@@ -14,6 +14,8 @@
 - **시세:**
   - 매시 정각에 분산 잠금을 잡은 서버 하나가 계수를 계산하고 Redis `harbor:market`으로 알린다.
   - `/시세` 시세판에서 보이는 것은 '시세 정보'·'시세 예측' 스킬에 따라 달라진다: 현재 계수, 24시간 추세 ▲▼, 급변 강조, 다음 시간 예측.
+  - 기준량 S₀ = Σ(지난 24시간 각 시간의 그 어종 지역 체류 인원) × 80 × 0.85 × 기대 출현 비율 (docs 20 7.4 3단계). 체류 인원은 World가 Redis `harbor:world:occupancy`에 1분마다 올리는 값을 시세 계산 때 시간별로 떠서 `harbor:economy:occupancy:<시각>`(창 + 2시간 보관)에 모은 것이다. 표본이 없는 시간(배포 직후 등)은 있는 시간으로 비례 보정하고, World가 없으면 예전처럼 전체 접속 인원 × 24로 계산한다.
+  - **어시장 시세 게시판 (추가 제안):** `stations.yml`의 `type: market_board` 자리에 Text Display로 시세 계수가 1.0에서 가장 먼 어종 `economy.market.board.display_lines`개(★1 현재 가격·▲▼)를 띄우고 매시 갱신한다. 누르면 누구나 시세판 화면(기본 보기, '시세 정보' 2랭크면 24시간 추세)이 열린다. 스킬이 없을 때 `/시세`는 이 게시판 이름을 알려 준다.
 - **경매장 (`/경매`):**
   - 분류·정렬(최신·가격·마감 임박·등급)·검색(입력 화면)·내 경매·거래 기록이 있다.
   - 등록할 때 지금 최저가와 최근 낙찰 평균을 보여 준다.
@@ -44,8 +46,8 @@
 
 | 명령 | 설명 |
 |---|---|
-| `market recompute` · `market set <어종> <계수>` | 시세 다시 계산 · 계수 고정 |
-| `mail gold <플레이어> …` · `mail held <플레이어>` | 우편으로 골드 보내기 · 보류 우편 보기 |
+| `market recompute` · `market set <어종> <계수> [시간]` · `market unpin <어종>` | 시세 다시 계산 · 계수 고정(기본 1시간, 최대 720시간. Redis `harbor:economy:market_pin`에 만료 시각과 함께 두고 매시 계산이 그때까지 고정값을 쓴다) · 고정 풀기 |
+| `mail gold <플레이어> …` · `mail send <플레이어> <아이템> [개수]` · `mail held <플레이어>` | 우편으로 골드 보내기 · 아이템 정의로 만들어 보내기(보상 재발송, 한 묶음씩 나눔) · 손에 든 아이템 보내기 |
 | `npcshop open <상점>` | 상점 화면 열기 |
 | `auction cancel <id>` · `auction list <플레이어>` · `auction expire` | 경매 취소 · 목록 · 만료 처리 |
 | `econ report` · `econ flags` · `econ flag release\|resolve …` | 경제 보고 · 부정 거래 의심 목록 · 보류 풀기 / 처리 |
@@ -58,10 +60,10 @@
 - **콘텐츠:**
   - `content/shops.yml`: NPC 상점
   - `content/recipes.yml`: 제작 레시피
-  - `content/stations.yml`: 제작 스테이션
+  - `content/stations.yml`: 제작 스테이션·경매 게시판·어시장 시세 게시판(`market_board`)
   - `content/auction_refs.yml`: 경매 참고가
 - **balance.yml `economy`:**
-  - `market`: 시세 계수 식 (기울기·최소·최대), `market.board`: 시세판 보합 기준·강조 수
+  - `market`: 시세 계수 식 (기울기·최소·최대), `market.board`: 시세판 보합 기준·강조 수·게시판 표시 줄 수(`display_lines`)
   - `auction`: 수수료·기간·`price_info_days`
   - 판매 미끄러짐과 부정 거래 기준
 - **DB:** `market_*`, `auction_*`, `mail`, `craft_*`, `fraud_*` 테이블 (마이그레이션 `economy/V1~V3`)
@@ -72,6 +74,8 @@
 - **대신 거래하기:** `SaleService.sellHeld · sellInventory · sellBox`, `ShopService.buy`, `AuctionService.listHeld · buy · listing`, `CraftService.craft`, `RepairService.repairHeld`. 플레이어 화면과 같은 흐름(TradeGuard, 원장 한 트랜잭션, 실패 시 반환)에서 확인 창만 뺀 것이고 `TradeResult`(상태·골드·개수·매물 번호)를 메인 스레드에서 돌려준다. Skript 문법은 harbor-skript 문서의 "대신 거래하기".
 - **이벤트:** `FishSoldEvent`, `AuctionListedEvent`, `AuctionSoldEvent`, `ShopPurchaseEvent`, `ItemCraftedEvent`, `MarketUpdatedEvent`, `TradeFlaggedEvent`. Harbor-Web이 `economy.*` 외부 이벤트로 옮긴다.
 - **Core:** `CurrencyService.history`로 원장을 읽는다 (`/거래내역`, REST `/v1/players/{id}/ledger`).
+- **World (코드 의존 없음):** 지역 체류 인원은 World의 Redis 해시를 직접 읽는다 (docs 20 0.3 의존 방향 유지).
+- **Shop (코드 의존 없음):** 경매에 올리는 낚싯대의 코스메틱 스킨은 Shop `CosmeticService.stripSkin`으로 벗긴다 (`CosmeticBridge`가 ServicesManager에서 클래스 이름으로 찾아 부름. Gradle 순환을 피하려고 컴파일 의존을 두지 않음).
 
 ## 주의 사항 (실서버 확인 필요)
 

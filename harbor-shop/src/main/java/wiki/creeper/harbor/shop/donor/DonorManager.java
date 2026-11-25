@@ -19,6 +19,7 @@ import wiki.creeper.harbor.season.api.SeasonServices;
 import wiki.creeper.harbor.season.api.TitleId;
 import wiki.creeper.harbor.season.api.TitleService;
 import wiki.creeper.harbor.shop.ShopRuntime;
+import wiki.creeper.harbor.shop.api.CosmeticService;
 import wiki.creeper.harbor.shop.api.DonorService;
 import wiki.creeper.harbor.shop.api.event.DonorTierChangedEvent;
 import wiki.creeper.harbor.shop.content.CosmeticDef;
@@ -43,9 +44,11 @@ public final class DonorManager implements DonorService {
     private static final long SWEEP_TICKS = 20L * 60 * 10;
 
     private final ShopRuntime rt;
+    private final CosmeticService cosmetics;
 
-    public DonorManager(ShopRuntime rt) {
+    public DonorManager(ShopRuntime rt, CosmeticService cosmetics) {
         this.rt = rt;
+        this.cosmetics = cosmetics;
     }
 
     public void start() {
@@ -259,6 +262,25 @@ public final class DonorManager implements DonorService {
             }
         }
         applyName(player);
+        grantTierCosmetics(player, tier);
+    }
+
+    /**
+     * Owned cosmetics of the current tier (shop.yml donor.&lt;tier&gt;.cosmetics, e.g. the fleet
+     * ship flag, '6. BM plan' 3.2). They are ownership records, so they stay after cancellation
+     * like the monthly cosmetic. grant is idempotent (cosmetics_owned key is player and cosmetic).
+     */
+    private void grantTierCosmetics(Player player, DonorTier tier) {
+        if (tier == DonorTier.NONE) {
+            return;
+        }
+        UUID uuid = player.getUniqueId();
+        for (HarborId c : rt.settings().perk(tier).cosmetics()) {
+            if (rt.cosmetic(c).isEmpty() || cosmetics.owns(uuid, c)) {
+                continue;
+            }
+            var _ = cosmetics.grant(uuid, c, "DONOR_TIER", "donor_tier:" + uuid);
+        }
     }
 
     /**

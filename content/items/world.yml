@@ -137,3 +137,37 @@
   buy_price: 40000         # 제안값 ('13' 2장에 없음)
   tradeable: true
   season_reset: true
+
+# ---- 항해·탐험 도구 ('3. 아이템 목록' 5·6장, 가격 '13. 제작 · 상점 가격' 2장). 동작은 World (오른쪽 클릭, balance.yml world.tools)
+- id: item/tool/return_conch
+  name: 귀환 소라
+  lore: "귀에 대면 항구의 종소리가 들린다. 불면 그곳으로 돌아간다."
+  type: tool
+  grade: uncommon
+  base_item: minecraft:nautilus_shell
+  model: harbor:tool/return_conch
+  buy_price: 100           # 어시장 상인
+  tradeable: true
+  season_reset: true
+
+- id: item/tool/nav_compass
+  name: 항해용 나침반
+  lore: "바늘이 가리키는 곳에 아직 보지 못한 바다가 있다."
+  type: tool
+  grade: uncommon
+  base_item: minecraft:compass
+  model: harbor:tool/nav_compass
+  buy_price: 800           # 조선공
+  tradeable: true
+  season_reset: true
+
+- id: item/tool/telescope
+  name: 망원경
+  lore: "등대지기가 쓰던 망원경. 수평선 너머까지 보인다."
+  type: tool
+  grade: uncommon
+  base_item: minecraft:spyglass
+  model: harbor:tool/telescope
+  buy_price: 500           # 낚시용품점
+  tradeable: true
+  season_reset: true

@@ -26,7 +26,7 @@ name_change:             # 닉네임 표시 변경권 500 진주 ('6. BM 기획'
 donor:                   # 후원 등급 ('6. BM 기획' 3.2)
   grace_days: 3
   harbor: {monthly_pearls: 300, name_color: "<aqua>", chat_icon: "⚓", title: title/donor_harbor}
-  fleet: {monthly_pearls: 700, name_color: "<gold>", chat_icon: "⛵", title: title/donor_fleet}
+  fleet: {monthly_pearls: 700, name_color: "<gold>", chat_icon: "⛵", title: title/donor_fleet, cosmetics: [cosmetic/donor_fleet_flag]}   # cosmetics: 등급 동안 지급하는 소유형 코스메틱 (전용 선박 깃발, 해지 후에도 유지)
   monthly_cosmetics:     # 선단 후원자 월 1회 한정 코스메틱 (소유형, 해지 후에도 유지)
     "2027-07": cosmetic/donor_2027_07_pet
 

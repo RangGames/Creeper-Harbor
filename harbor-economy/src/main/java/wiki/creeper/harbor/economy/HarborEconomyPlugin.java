@@ -17,7 +17,6 @@ import wiki.creeper.harbor.economy.api.ShopService;
 import wiki.creeper.harbor.economy.content.EconomyContent;
 import wiki.creeper.harbor.economy.content.RecipeDef;
 import wiki.creeper.harbor.economy.content.ShopDef;
-import wiki.creeper.harbor.economy.content.StationDef;
 import wiki.creeper.harbor.economy.service.AdminAlerts;
 import wiki.creeper.harbor.economy.service.AuctionHouse;
 import wiki.creeper.harbor.economy.service.CraftManager;
@@ -77,14 +76,6 @@ public final class HarborEconomyPlugin extends HarborModule {
         AuctionHouse auction =
                 new AuctionHouse(
                         api, ctx.tasks(), getSLF4JLogger(), market, mail, guard, fraud, stations);
-        stations.setOpener(
-                (player, station) -> {
-                    if (station.kind() == StationDef.Kind.AUCTION) {
-                        auction.open(player, "all", null, false, 0);
-                    } else {
-                        craft.openStation(player, station.id());
-                    }
-                });
 
         alerts.start();
         market.start();
@@ -108,6 +99,15 @@ public final class HarborEconomyPlugin extends HarborModule {
                 new EconomyCommands(
                         api, market, sell, mail, shops, repair, auction, craft, fraud, stations,
                         sellMenu);
+        stations.setOpener(
+                (player, station) -> {
+                    switch (station.kind()) {
+                        case AUCTION -> auction.open(player, "all", null, false, 0);
+                        case MARKET_BOARD -> commands.openMarketBoard(player);
+                        default -> craft.openStation(player, station.id());
+                    }
+                });
+        stations.setBoardText(commands::marketBoardText);
         commands.adminCommands().forEach(ctx::adminCommand);
         getLifecycleManager()
                 .registerEventHandler(

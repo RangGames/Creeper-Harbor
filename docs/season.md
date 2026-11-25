@@ -70,6 +70,7 @@
 | `titles.yml` | 칭호 | `id`(title/…) `name` `style`(common·rare·epic·legendary·special) `permanent` `source_hint` |
 
 - 1번 시즌은 CBT다. 정식 시즌 1은 2번이고, 표시 이름으로 구분한다. 서버가 돌리는 시즌 번호는 `harbor-infra.yml`의 `season.id`다.
+- 다른 콘텐츠의 `season:` 값도 이 번호를 쓴다. CBT(1)에는 BM이 없으므로('6. BM 기획' 7장) 시즌 1 패스 `shop/pass_s1.yml`·항구 축제 `shop/festivals.yml`·시즌 한정 코스메틱 `cosmetic/s1_rod_lighthouse`는 `season: 2`, 시즌 2 이후 기능인 진주 보물함 `shop/chests.yml`은 `season: 3`이다.
 - **season 열이 있는 새 테이블은 반드시 `reset_plan.yml`의 `tables`에 넣는다.** 빠지면 PRECHECK와 리로드 검사에서 거부한다.
 
 ## 설정 값
