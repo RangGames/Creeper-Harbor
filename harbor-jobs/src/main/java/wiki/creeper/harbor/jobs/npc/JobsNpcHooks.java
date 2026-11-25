@@ -62,6 +62,9 @@ public final class JobsNpcHooks {
         if (hp.jobTier() == JobTier.FIRST || current == null) {
             return ActionResult.failMessage("jobs.npc.change_line_tier");
         }
+        if (jobs.lineChangeBlocked(player)) {
+            return ActionResult.fail(null);
+        }
         long cost = jobs.balance().lineChangeCost(hp.jobTier());
         int tier = hp.jobTier().level();
         List<JobLine> lines = new ArrayList<>();

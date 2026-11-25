@@ -8,6 +8,7 @@ import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.fishing.Locs;
+import wiki.creeper.harbor.fishing.api.SessionState;
 import wiki.creeper.harbor.fishing.api.ShadowDriver;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
 import wiki.creeper.harbor.fishing.present.ShadowPresenter;
@@ -69,6 +70,41 @@ final class ShadowControl {
 
     private static Location under(Location at) {
         return at.clone().add(0, -DEPTH, 0);
+    }
+
+    /**
+     * FishingService.claimShadow for a session: only while waiting. Hands an existing shadow over,
+     * or starts a driver-only control if none was drawn yet.
+     */
+    static boolean claimFor(
+            FishingSession s,
+            Player player,
+            ShadowDriver driver,
+            ShadowPresenter shadows,
+            FishingPresets presets,
+            RandomGenerator random) {
+        FishDef fish = s.fish;
+        Location hook = s.hookLoc;
+        if (fish == null || hook == null || s.state != SessionState.WAITING) {
+            return false;
+        }
+        int remaining = Math.max(20, s.waitTicks - s.castTicks);
+        ShadowControl control = s.shadow;
+        if (control != null) {
+            return control.claim(driver, remaining);
+        }
+        s.shadow =
+                new ShadowControl(
+                        shadows,
+                        player,
+                        fish,
+                        presets.of(fish.grade()),
+                        false,
+                        hook,
+                        remaining,
+                        driver,
+                        random);
+        return true;
     }
 
     /**

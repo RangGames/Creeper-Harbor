@@ -62,6 +62,11 @@ public record JobsBalance(Balance balance) {
                         tier == JobTier.THIRD ? 80_000 : 30_000);
     }
 
+    /** Line change cooldown in days (docs 20 2.8, proposed value 7). */
+    public double lineChangeCooldownDays() {
+        return balance.number("jobs.line_change_cooldown_days", 7);
+    }
+
     public double refundRatio() {
         return balance.number("jobs.refund_ratio", 0.8);
     }

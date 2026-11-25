@@ -17,15 +17,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDismountEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerFishEvent;
-import org.bukkit.event.player.PlayerInputEvent;
-import org.bukkit.event.player.PlayerItemHeldEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerSwapHandItemsEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
@@ -41,7 +33,6 @@ import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
-import wiki.creeper.harbor.core.api.MailService;
 import wiki.creeper.harbor.core.api.PlayerComponent;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.task.Tasks;
@@ -120,6 +111,8 @@ public final class FishingManager implements FishingService, Listener {
     private final CatchRewards rewards;
     private final MinigameRunner minigames;
     private final FoodManager food;
+    private final SessionGuards guards;
+    private final ItemDelivery delivery;
     private RollEngine engine;
     private long ticks;
 
@@ -128,7 +121,7 @@ public final class FishingManager implements FishingService, Listener {
         this.api = api;
         this.tasks = tasks;
         this.log = log;
-        this.macro = new MacroGuard(api, tasks, log);
+        this.macro = new MacroGuard(api, tasks, log, () -> balance().dailyZone());
         BaitStacks baits = new BaitStacks(plugin, api);
         this.ctx = new CastContext(api, baits, seaEvents, log);
         this.engine = new RollEngine(api.content().snapshot(), balance());
@@ -159,9 +152,16 @@ public final class FishingManager implements FishingService, Listener {
         this.rewards = new CatchRewards(api, jobs, log, ctx, gear, presenter, random);
         this.minigames =
                 new MinigameRunner(
-                        api, ctx, gear, mythic, display, casts, rewards, presenter, stats, random,
-                        sessions, tensions);
+                        api, ctx, gear, mythic, display, casts, rewards, presenter, stats, macro,
+                        random, sessions, tensions);
         this.food = new FoodManager(api, COMPONENT, log);
+        this.delivery = new ItemDelivery(api, gear, log);
+        this.guards = new SessionGuards(this, sessions, tensions, mythic, presenter, macro);
+    }
+
+    /** Input lock, abort and quit handling plus macro activity (listener registered by plugin). */
+    public Listener guards() {
+        return guards;
     }
 
     /** Food buffs (listener registered by the plugin). */
@@ -189,6 +189,7 @@ public final class FishingManager implements FishingService, Listener {
                                                             envelope.payload(), Instant.now()));
                         });
         traps.start();
+        macro.start();
     }
 
     public TrapManager trapManager() {
@@ -258,8 +259,7 @@ public final class FishingManager implements FishingService, Listener {
 
     @Override
     public int missedBigCount(UUID player) {
-        FishingSession s = sessions.get(player);
-        return s == null ? 0 : s.missedBig;
+        return api.players().get(player).map(p -> p.get(COMPONENT).missedBig()).orElse(0);
     }
 
     @Override
@@ -344,10 +344,9 @@ public final class FishingManager implements FishingService, Listener {
 
     @Override
     public void resetMissedBig(UUID player) {
-        FishingSession s = sessions.get(player);
-        if (s != null) {
-            s.missedBig = 0;
-        }
+        api.players()
+                .get(player)
+                .ifPresent(p -> p.set(COMPONENT, p.get(COMPONENT).withMissedBig(0)));
     }
 
     @Override
@@ -393,31 +392,9 @@ public final class FishingManager implements FishingService, Listener {
     public boolean claimShadow(UUID player, ShadowDriver driver) {
         FishingSession s = sessions.get(player);
         Player p = Bukkit.getPlayer(player);
-        FishDef fish = s == null ? null : s.fish;
-        Location hook = s == null ? null : s.hookLoc;
-        if (s == null || p == null || fish == null || hook == null) {
-            return false;
-        }
-        if (s.state != SessionState.WAITING) {
-            return false;
-        }
-        int remaining = Math.max(20, s.waitTicks - s.castTicks);
-        ShadowControl control = s.shadow;
-        if (control != null) {
-            return control.claim(driver, remaining);
-        }
-        s.shadow =
-                new ShadowControl(
-                        shadows,
-                        p,
-                        fish,
-                        ctx.presets().of(fish.grade()),
-                        false,
-                        hook,
-                        remaining,
-                        driver,
-                        random);
-        return true;
+        return s != null
+                && p != null
+                && ShadowControl.claimFor(s, p, driver, shadows, ctx.presets(), random);
     }
 
     @Override
@@ -427,8 +404,14 @@ public final class FishingManager implements FishingService, Listener {
 
     @Override
     public CompletableFuture<SimulationResult> simulate(RegionId region, int count) {
+        return simulate(region, count, Simulation.Conditions.DEFAULT);
+    }
+
+    /** /harbor fishing simulate with conditions (virtual thread, current snapshot). */
+    CompletableFuture<SimulationResult> simulate(
+            RegionId region, int count, Simulation.Conditions conditions) {
         RollEngine snapshotEngine = engine;
-        return tasks.supplyAsync(() -> Simulation.run(snapshotEngine, region, count));
+        return tasks.supplyAsync(() -> Simulation.run(snapshotEngine, region, count, conditions));
     }
 
     @Override
@@ -494,33 +477,9 @@ public final class FishingManager implements FishingService, Listener {
         return ctx.itemDef(stack);
     }
 
-    /**
-     * If the inventory is full, drops it at the feet and lets only the owner pick it up for 60
-     * seconds. For items given after a DB commit, such as trap harvests, retrievals and refunds. If
-     * the player left in the meantime or the server-move snapshot was already taken, putting it in
-     * the inventory would not be saved (it is already gone from the DB), so it is sent by mail. If
-     * there is no mailbox, it is only logged.
-     */
+    /** Gives an item after a DB commit (trap harvests, retrievals, refunds): see ItemDelivery. */
     public void give(Player player, ItemStack stack) {
-        UUID uuid = player.getUniqueId();
-        if (player.isOnline() && !api.players().frozen(uuid)) {
-            gear.give(player, stack);
-            return;
-        }
-        Optional<MailService> mail = api.mail();
-        if (mail.isEmpty()) {
-            log.error("우편함이 없어 통발 아이템을 줄 수 없습니다 (관리자 복구 필요): {} {}", uuid, stack);
-            return;
-        }
-        String ref = "trap_give:" + UUID.randomUUID();
-        var _ =
-                mail.get()
-                        .sendItem(uuid, stack, "trap_give", ref)
-                        .exceptionally(
-                                e -> {
-                                    log.error("통발 아이템 우편 실패 (관리자 복구 필요): {} {}", uuid, stack, e);
-                                    return null;
-                                });
+        delivery.give(player, stack);
     }
 
     // ------------------------------------------------------------------ Fishing events
@@ -578,92 +537,6 @@ public final class FishingManager implements FishingService, Listener {
         for (TensionSessionImpl t : List.copyOf(tensions.values())) {
             minigames.tickTension(t);
         }
-    }
-
-    // ------------------------------------------------------------------ Input · abort
-
-    /**
-     * Pressing Shift (reel) on a boat dismounts, so dismounting is prevented during the minigame.
-     */
-    @EventHandler(ignoreCancelled = true)
-    public void onDismount(EntityDismountEvent event) {
-        if (event.getEntity() instanceof Player player && event.isCancellable() && locked(player)) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onInput(PlayerInputEvent event) {
-        FishingSession s = sessionOf(event.getPlayer());
-        s.inputSneak = event.getInput().isSneak();
-        s.inputLeft = event.getInput().isLeft();
-        s.inputRight = event.getInput().isRight();
-    }
-
-    private boolean locked(Player player) {
-        return session(player.getUniqueId()) == SessionState.MINIGAME
-                || tensions.containsKey(player.getUniqueId());
-    }
-
-    /**
-     * The hotbar stays locked only in the fishing minigame. In an external tension session (boss
-     * anchor) switching items lowers the rod and pauses the line instead, so a solo player can also
-     * use a harpoon or repair kit (proposed).
-     */
-    @EventHandler(ignoreCancelled = true)
-    public void onHeld(PlayerItemHeldEvent event) {
-        if (session(event.getPlayer().getUniqueId()) == SessionState.MINIGAME) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void onDrop(PlayerDropItemEvent event) {
-        if (locked(event.getPlayer())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void onSwap(PlayerSwapHandItemsEvent event) {
-        if (locked(event.getPlayer())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onDeath(PlayerDeathEvent event) {
-        abort(event.getPlayer(), MinigameResult.ESCAPED);
-        TensionSessionImpl t = tensions.get(event.getPlayer().getUniqueId());
-        if (t != null) {
-            t.close(MinigameResult.ESCAPED);
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void onTeleport(PlayerTeleportEvent event) {
-        abort(event.getPlayer(), MinigameResult.ESCAPED);
-    }
-
-    @EventHandler
-    public void onQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        abort(player, MinigameResult.ESCAPED);
-        TensionSessionImpl t = tensions.get(player.getUniqueId());
-        if (t != null) {
-            t.close(MinigameResult.ESCAPED);
-        }
-        FishingSession s = sessions.remove(player.getUniqueId());
-        if (s != null) {
-            CastHandler.closeShadow(s, false);
-            FishingSession.MythicHold hold = s.mythic;
-            if (hold != null) {
-                mythic.releaseMythic(hold);
-            }
-            mythic.discardPending(s);
-        }
-        presenter.forget(player);
-        macro.reset(player.getUniqueId());
     }
 
     /** Ends it as a failure if in a minigame (bait already deducted, pity kept). */

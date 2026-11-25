@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -27,15 +26,11 @@ import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.content.type.RegionDef;
 import wiki.creeper.harbor.common.id.SkillId;
-import wiki.creeper.harbor.common.ledger.LedgerEntry;
-import wiki.creeper.harbor.common.ledger.LedgerError;
 import wiki.creeper.harbor.common.ledger.LedgerReason;
 import wiki.creeper.harbor.common.model.Currency;
 import wiki.creeper.harbor.common.model.JobLine;
 import wiki.creeper.harbor.common.model.JobTier;
 import wiki.creeper.harbor.common.model.Quality;
-import wiki.creeper.harbor.common.model.SeasonId;
-import wiki.creeper.harbor.common.util.Result;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.HarborSounds;
@@ -54,7 +49,6 @@ import wiki.creeper.harbor.jobs.api.JobsService;
 import wiki.creeper.harbor.jobs.api.SkillNodeInfo;
 import wiki.creeper.harbor.jobs.api.event.JobExpGainEvent;
 import wiki.creeper.harbor.jobs.api.event.JobLevelUpEvent;
-import wiki.creeper.harbor.jobs.api.event.SkillAllocatedEvent;
 import wiki.creeper.harbor.jobs.content.JobLineDef;
 import wiki.creeper.harbor.jobs.content.JobsBalance;
 import wiki.creeper.harbor.jobs.content.SkillNode;
@@ -88,6 +82,8 @@ public final class JobsManager implements JobsService, Listener {
     private java.util.function.@Nullable Predicate<Player> advanceCutscene;
     private final JobAdvancement advancement = new JobAdvancement(this);
     private final SkillResets resets = new SkillResets(this);
+    private final SkillAllocator allocator = new SkillAllocator(this);
+    private final JoinRewards joinRewards = new JoinRewards(this);
 
     public JobsManager(Plugin plugin, HarborApi api, Tasks tasks, Logger log) {
         this.plugin = plugin;
@@ -337,64 +333,7 @@ public final class JobsManager implements JobsService, Listener {
 
     /** Whether investment is possible (docs 20 2.4 check order). OK means it is. */
     public InvestResult checkInvest(HarborPlayer hp, SkillId nodeId) {
-        SkillNode node = nodes().get(nodeId);
-        if (node == null) {
-            return InvestResult.UNKNOWN_NODE;
-        }
-        JobsBalance b = balance();
-        JobsData data = data(hp);
-        JobLine myLine = hp.jobLine().orElse(null);
-        int tier = hp.jobTier().level();
-        switch (node.kind()) {
-            case COMMON -> {}
-            case LINE_SECOND -> {
-                if (tier < 2) {
-                    return InvestResult.JOB_LOCKED;
-                }
-                if (node.line() != myLine) {
-                    // Other lines' 2nd tier trees allow up to 40 total after the 3rd advancement
-                    long other =
-                            pointsIn(
-                                    data,
-                                    n ->
-                                            n.kind() == SkillNode.Kind.LINE_SECOND
-                                                    && n.line() != myLine);
-                    if (tier < 3 || other + node.cost() > b.otherLineLimit()) {
-                        return InvestResult.JOB_LOCKED;
-                    }
-                }
-            }
-            case LINE_THIRD -> {
-                if (tier < 3 || node.line() != myLine) {
-                    return InvestResult.JOB_LOCKED;
-                }
-            }
-            case CAPSTONE -> {
-                long third =
-                        pointsIn(
-                                data,
-                                n -> n.kind() == SkillNode.Kind.LINE_THIRD && n.line() == myLine);
-                if (tier < 3 || node.line() != myLine || third < b.capstoneRequires()) {
-                    return InvestResult.JOB_LOCKED;
-                }
-            }
-        }
-        long inTree = pointsIn(data, n -> n.tree().equals(node.tree()) && n.line() == node.line());
-        if (inTree < b.tierPoints(node.tier()) || inTree < node.pointsInTree()) {
-            return InvestResult.TIER_LOCKED;
-        }
-        for (SkillId required : node.requiredNodes()) {
-            if (data.rank(required) <= 0) {
-                return InvestResult.REQUIRES_NODES;
-            }
-        }
-        if (data.rank(nodeId) >= node.maxRank()) {
-            return InvestResult.MAX_RANK;
-        }
-        if (hp.balance(Currency.MULBINEUL) < node.cost()) {
-            return InvestResult.NOT_ENOUGH_MULBINEUL;
-        }
-        return InvestResult.OK;
+        return allocator.check(hp, nodeId);
     }
 
     /**
@@ -403,45 +342,7 @@ public final class JobsManager implements JobsService, Listener {
      */
     @Override
     public CompletableFuture<InvestResult> invest(Player player, SkillId nodeId) {
-        HarborPlayer hp = api.players().get(player);
-        UUID uuid = hp.uuid();
-        InvestResult check = checkInvest(hp, nodeId);
-        if (check != InvestResult.OK) {
-            return CompletableFuture.completedFuture(check);
-        }
-        if (!busy.add(uuid)) {
-            return CompletableFuture.completedFuture(InvestResult.BUSY);
-        }
-        SkillNode node = Objects.requireNonNull(nodes().get(nodeId));
-        int rank = data(hp).rank(nodeId) + 1;
-        SeasonId season = hp.season();
-        String ref = "inv:" + UUID.randomUUID();
-        return api.currency()
-                .atomic(
-                        List.of(
-                                new LedgerEntry(
-                                        uuid,
-                                        Currency.MULBINEUL,
-                                        -node.cost(),
-                                        LedgerReason.SKILL_INVEST,
-                                        ref)),
-                        c -> JobsRepository.setRank(c, uuid, season, nodeId, rank))
-                .thenApply(
-                        r -> {
-                            busy.remove(uuid);
-                            if (r
-                                    instanceof
-                                    Result.Err<List<Long>, LedgerError>(LedgerError error)) {
-                                return error == LedgerError.INSUFFICIENT_FUNDS
-                                        ? InvestResult.NOT_ENOUGH_MULBINEUL
-                                        : InvestResult.FAILED;
-                            }
-                            hp.set(COMPONENT, data(hp).withRank(nodeId, rank));
-                            rebuildModifiers(hp);
-                            Bukkit.getPluginManager()
-                                    .callEvent(new SkillAllocatedEvent(uuid, nodeId, rank));
-                            return InvestResult.OK;
-                        });
+        return allocator.invest(player, nodeId);
     }
 
     /**
@@ -461,6 +362,26 @@ public final class JobsManager implements JobsService, Listener {
      */
     public CompletableFuture<Boolean> changeLine(UUID uuid, JobLine newLine, boolean charge) {
         return resets.changeLine(uuid, newLine, charge);
+    }
+
+    /** Line change cooldown length (balance.yml jobs.line_change_cooldown_days). */
+    Duration lineChangeCooldown() {
+        return Duration.ofMinutes(Math.round(balance().lineChangeCooldownDays() * 24 * 60));
+    }
+
+    /**
+     * If the player's line change is still on cooldown, sends the remaining time and returns true
+     * (NPC dialog pre-check; changeLine checks again).
+     */
+    public boolean lineChangeBlocked(Player player) {
+        HarborPlayer hp = api.players().get(player);
+        Duration left =
+                SkillResets.cooldownLeft(data(hp), lineChangeCooldown(), java.time.Instant.now());
+        if (!left.isPositive()) {
+            return false;
+        }
+        SkillResets.sendCooldown(this, player, left);
+        return true;
     }
 
     /**
@@ -517,33 +438,6 @@ public final class JobsManager implements JobsService, Listener {
             }
         }
         sources.put(uuid, added);
-    }
-
-    /**
-     * Points invested in nodes removed from content are fully refunded and the rows deleted (docs
-     * 20 2.4 edge cases).
-     */
-    private void refundRemovedNodes(HarborPlayer hp) {
-        JobsData data = data(hp);
-        Map<SkillId, SkillNode> nodes = nodes();
-        for (Map.Entry<SkillId, Integer> e : data.skills().entrySet()) {
-            if (nodes.containsKey(e.getKey())) {
-                continue;
-            }
-            SkillId removed = e.getKey();
-            UUID uuid = hp.uuid();
-            SeasonId season = hp.season();
-            // The original cost is unknown, so it cannot be reversed from the investment records
-            // (ledger). Log it for admin review and just delete the row
-            log.warn("사라진 스킬 노드 {}에 {}랭크 투자 ({}). 관리자 환급 필요", removed, e.getValue(), hp.name());
-            var _ =
-                    api.database()
-                            .asyncVoid(
-                                    c ->
-                                            JobsRepository.deleteNodes(
-                                                    c, uuid, season, List.of(removed)));
-            hp.set(COMPONENT, data(hp).withRank(removed, 0));
-        }
     }
 
     // ------------------------------------------------------------------ Capstones
@@ -663,7 +557,8 @@ public final class JobsManager implements JobsService, Listener {
                 .get(event.getPlayer().getUniqueId())
                 .ifPresent(
                         hp -> {
-                            refundRemovedNodes(hp);
+                            joinRewards.grantSeasonJoin(hp);
+                            joinRewards.refundRemovedNodes(hp);
                             rebuildModifiers(hp);
                             if (catchUp != null) {
                                 catchUp.apply(hp.uuid());

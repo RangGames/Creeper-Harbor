@@ -14,7 +14,7 @@
   - 물고기가 ◀◀/▶▶ 쪽으로 도망치면 A/D를 같은 쪽으로 누르고 있어야 제 속도로 감긴다.
   - 등급이 높을수록 체력·텐션 상승·패턴 수가 늘어난다. 패턴은 돌진·잠수·점프·지침이다.
   - 텐션이 85%를 넘으면 화면 가장자리 경고가 뜬다. 줄 강도 1당 텐션 한계가 +8%다.
-- **크기와 품질:** 크기는 어종의 `size_cm` 범위에서 정한다. 품질 ★1~★5는 백분위 경계(★2 40%, ★3 70%, ★4 90%, ★5 98%)로 정하고, 직업 단계 상한을 넘으면 깎인다. 상한 때문에 깎이면 "놓친 대어" 안내가 나온다.
+- **크기와 품질:** 크기는 어종의 `size_cm` 범위에서 정한다. 품질 ★1~★5는 백분위 경계(★2 40%, ★3 70%, ★4 90%, ★5 98%)로 정하고, 직업 단계 상한을 넘으면 깎인다. 상한 때문에 깎이면 "놓친 대어" 안내가 나오고 횟수를 센다. 횟수는 `fishing_state.missed_big`(시즌별)에 저장돼 재접속·서버 이동 뒤에도 남고, 길드 마스터·전직 퀘스트 쪽은 `FishingService.missedBigCount`로 읽고 `resetMissedBig`로 지운다.
 - **미끼:** 왼손에 든 미끼를 먼저 쓰고, 없으면 `/미끼`로 고른 종류를 인벤토리에서 하나씩 쓴다 (아이템은 인벤토리에 그대로 있다. 선택은 플레이어 플래그 `fishing/bait`). 던질 때 액션바에 쓰는 미끼·루어 남은 횟수를, 미끼가 없으면 입질 대기 벌칙과 `/미끼` 안내를 띄운다. 미끼 아이템 설명에는 `stats` 효과 줄(`item.stat.*` 문구)이 자동으로 붙는다.
 - **장비 내구도:** 루어 사용 횟수, 낚싯대 내구도가 있다. 망가지기 직전이면 수리를 안내한다. 미끼를 바꾸면 걸린 물고기가 달아난다.
 - **잡템:** 낚시 중 함께 건지는 아이템 (`fishing/junk.yml`).
@@ -32,10 +32,20 @@
   - 미끼를 넣어 두면 8시간 주기로 물고기가 들어온다 (주기 2회까지 쌓임).
   - 설치 개수 기본 2개, 생산 계열 2·3차에 +1씩 최대 4개.
   - 슬롯 확장은 슬롯당 2,000G × 통발 단계이고, 통발당 3칸까지다.
-  - 하루 수익 상한: 수동 낚시 시간당 골드 × 40%(생산 2차 50%, 3차 60%).
+  - 하루 수익 상한: 계정의 모든 통발 24시간 산출 가치 합이 "주인이 해금한 가장 높은 지역"의 수동 낚시 시간당 골드(`trap.hourly_gold`) × 40%(생산 2차 50%, 3차 60%)를 넘으면 더 산출하지 않는다. 해금 = World가 첫 방문 때 거는 플레이어 플래그 `visited/<지역>` (Core FlagService로 읽음). 통발을 둔 지역은 하한으로만 쓴다 (World가 없을 때 대비).
   - 7일 동안 손대지 않으면 자동 회수한다. 심해 통발은 생산 캡스톤 "심해 통발"이 있어야 쓴다.
 - **요리 버프:** 요리를 먹으면 일정 시간 효과가 이어진다. 요리 효과는 하나만 유지되고, 새로 먹으면 바뀐다. 연회 요리(생산 3차 `feast_share`)는 16블록 안 파티원과 함께 받는다. 2랭크면 공유 버프 지속이 `food.feast_share_bonus`(+50%)만큼 늘어난다.
-- **매크로 방지:** 자동 낚시가 의심되면 "물고기를 고르세요" 확인 화면을 띄운다. 통과하지 못하면 5분 동안 낚시를 막는다.
+- **매크로 방지:** 신호별 의심 점수(제안값)를 더해 60 이상이면 "물고기를 고르세요" 확인 화면(30초)을 띄운다. 점수는 10분마다 5씩 줄고, 통과하면 0이 된다. 통과하지 못하면 5분 동안 낚시를 막고 `fishing_flags`에 남긴다.
+
+  | 신호 (`/harbor fishing macro`의 이유 키) | 점수 |
+  |---|---|
+  | 최근 30회 캐스팅 간격 표준편차 150ms 미만 (`cast_interval`) | +25 |
+  | 20회 이상 시선 각도가 소수점까지 같음 (`same_look`) | +25 |
+  | 입질 반응 120ms 미만이 10회 이상 (`fast_reaction`) | +20 |
+  | 미니게임 감기·풀기 전환 간격(틱)이 최근 20회 이상에서 두 가지 값 이하로 일정 (`reel_rhythm`) | +20 |
+  | 3시간 이상 이동(위치 변경)·채팅 없이 낚시 (`no_activity`) | +10 |
+
+  하루(`fishing.daily_zone` 기준)에 확인 실패가 3회 이상이면 모든 서버의 `harbor.admin.alerts` 권한자에게 알림(`fishing.macro.admin_alert`, Redis `harbor:fishing_alert`)을 보낸다. 자동 제재는 없다.
 - **해상 이벤트 효과:** World가 일정을 돌리는 이벤트(유령선·물고기 대이동·첫 물고기의 귀환 등) 동안 신화 어종 출현과 어종 가중치 배율을 적용한다.
 
 ## 플레이어 명령
@@ -56,10 +66,10 @@
 | 명령 | 설명 |
 |---|---|
 | `/harbor fishing roll <플레이어> [횟수]` | 그 플레이어 조건으로 판정만 반복해 등급 분포 보기 (기본 1,000회) |
-| `/harbor fishing simulate <지역>` | 지역 시뮬레이션 (등급 분포, 전설 첫 포획 평균 횟수) |
+| `/harbor fishing simulate <지역> [횟수] [조건]` | 지역 시뮬레이션 (등급 분포, 전설 첫 포획 평균 횟수). 횟수 기본 100,000. 조건은 공백으로 나눈 `키=값`: `time=dawn\|day\|dusk\|night` `weather=clear\|rain\|thunder` `moon=full\|new\|none` `bait=<아이템 ID>` `tier=1~3` (기본 낮·맑음·미끼 없음·3차) |
 | `/harbor fishing pity <플레이어> <어종> [set <값>]` | 천장 카운터 보기·설정 |
 | `/harbor fishing session <플레이어>` | 진행 중인 낚시 상태 (어종·텐션·체력·패턴) |
-| `/harbor fishing force <플레이어> <어종>` | 다음 판정을 그 어종으로 고정 |
+| `/harbor fishing force <플레이어> <어종> [품질 1~5]` | 다음 판정을 그 어종으로 고정 (품질을 주면 품질도 고정, 직업 상한 무시) |
 | `/harbor fishing macro <플레이어> [reset]` | 매크로 의심 점수 보기·초기화 |
 | `/harbor fishing stats` | 최근 24시간 등급별 미니게임 시도·성공률·평균 시간 |
 | `/harbor fishing trap list <플레이어>` | 그 플레이어의 통발 |
@@ -101,7 +111,7 @@
 ## 다른 모듈과의 연결
 
 - **제공 서비스:** `FishingService`(포획 결과·세션·그림자·도감 제공자 등록), `TrapService`
-  - `FishingService` 관리·조회 API: `sessionInfo`(상태·굴린 어종·입질 대기·미니게임 장력·지역·미끼), `forceNextFish`·`clearForcedFish`(= `/harbor fishing force`), `setPity`·`resetPity`·`resetMissedBig`(= `pity ... set`), `foodBuff`·`applyFood`·`clearFood`(요리 버프, 먹은 것과 같은 규칙)
+  - `FishingService` 관리·조회 API: `sessionInfo`(상태·굴린 어종·입질 대기·미니게임 장력·지역·미끼), `forceNextFish`·`clearForcedFish`(= `/harbor fishing force`), `setPity`·`resetPity`(= `pity ... set`), `missedBigCount`·`resetMissedBig`(놓친 대어 횟수, 시즌별 저장), `foodBuff`·`applyFood`·`clearFood`(요리 버프, 먹은 것과 같은 규칙)
   - `TrapService` 행동 API: `trap(id)`·`trapIdAt(위치)`, `place`(손으로 설치할 때와 같은 검사, 아이템을 가져가거나 무료), `harvest`·`addBait`·`remove`(통발 화면과 같은 흐름: 오프라인 계산 → DB 커밋 뒤 아이템, 서버 이동 중이면 우편), `adminRemove`. 결과는 `TrapAction`(결과 키·통발 ID·수량)
 - **확장 지점:** `RegionKeyResolver`(World가 세부 구역 판정을 등록), `TreasureDropHook`(World 보물 지도 드롭), `CollectionProvider`(Collection이 첫 포획 여부를 알려 줌), `ShadowDriver`(Wildlife가 그림자 대신 야생 물고기를 움직임), `CatchPresentationOverride`(Shop 포획 연출 코스메틱)
 - **이벤트:** `FishingCastEvent`, `FishBiteEvent`, `FishRollEvent`, `QualityRolledEvent`, `MinigameEndEvent`, `FishCaughtEvent`, `FishingSessionEndEvent`, `TrapHarvestEvent`

@@ -49,6 +49,7 @@ final class MinigameRunner {
     private final CatchRewards rewards;
     private final CatchPresenter presenter;
     private final MinigameStats stats;
+    private final MacroGuard macro;
     private final RandomGenerator random;
     private final Map<UUID, FishingSession> sessions;
     private final Map<UUID, TensionSessionImpl> tensions;
@@ -63,6 +64,7 @@ final class MinigameRunner {
             CatchRewards rewards,
             CatchPresenter presenter,
             MinigameStats stats,
+            MacroGuard macro,
             RandomGenerator random,
             Map<UUID, FishingSession> sessions,
             Map<UUID, TensionSessionImpl> tensions) {
@@ -75,6 +77,7 @@ final class MinigameRunner {
         this.rewards = rewards;
         this.presenter = presenter;
         this.stats = stats;
+        this.macro = macro;
         this.random = random;
         this.sessions = sessions;
         this.tensions = tensions;
@@ -165,6 +168,7 @@ final class MinigameRunner {
                         s.settings.lookMode(),
                         s.baseYaw);
         MinigameResult result = game.tick(input);
+        trackReelSwitch(s, input.reeling(), game.ticks());
         Minigame.Pattern warning = game.warning();
         if (warning != null && warningBefore == null) {
             api.ui()
@@ -207,6 +211,18 @@ final class MinigameRunner {
         if (result != null) {
             end(player, s, result);
         }
+    }
+
+    /** Records the interval since the last reel/release switch (MacroGuard rhythm signal). */
+    private static void trackReelSwitch(FishingSession s, boolean reeling, int tick) {
+        if (reeling == s.lastReeling) {
+            return;
+        }
+        if (s.lastSwitchTick >= 0) {
+            s.reelSwitches.add(tick - s.lastSwitchTick);
+        }
+        s.lastSwitchTick = tick;
+        s.lastReeling = reeling;
     }
 
     void tickTension(TensionSessionImpl t) {
@@ -305,6 +321,7 @@ final class MinigameRunner {
         Location hookLoc = s.hookLoc;
         FishingSession.MythicHold hold = s.mythic;
         CastHandler.closeShadow(s, result == MinigameResult.CAUGHT);
+        macro.recordReelSwitches(player, List.copyOf(s.reelSwitches));
         s.state = SessionState.RESULT;
         s.clearCast();
         if (fish == null || game == null) {

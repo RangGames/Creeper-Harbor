@@ -1,5 +1,7 @@
 package wiki.creeper.harbor.jobs.service;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -8,7 +10,9 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.db.SqlConsumer;
 import wiki.creeper.harbor.common.id.SkillId;
@@ -106,6 +110,16 @@ final class SkillResets {
             return CompletableFuture.completedFuture(false);
         }
         JobsData data = m.data(hp);
+        // 7-day cooldown after a change (docs 20 2.8). Admin changes (charge = false) bypass it
+        Duration wait = cooldownLeft(data, m.lineChangeCooldown(), Instant.now());
+        if (charge && wait.isPositive()) {
+            Player online = Bukkit.getPlayer(uuid);
+            if (online != null) {
+                sendCooldown(m, online, wait);
+            }
+            return CompletableFuture.completedFuture(false);
+        }
+        Instant changedAt = Instant.now();
         Map<SkillId, SkillNode> nodes = m.nodes();
         List<SkillId> lineNodes =
                 data.skills().keySet().stream()
@@ -132,25 +146,47 @@ final class SkillResets {
         lineNodes.forEach(kept::remove);
         SeasonId season = hp.season();
         JobTier tier = hp.jobTier();
+        JobsData after = data.withSkills(kept).withCapstoneCleared().withLineChangedAt(changedAt);
         SqlConsumer extra =
                 c -> {
                     JobsRepository.deleteNodes(c, uuid, season, lineNodes);
                     JobsRepository.updateJob(c, uuid, season, newLine, tier);
+                    JobsRepository.saveState(c, uuid, season, after);
                 };
         return runChange(uuid, entries, extra)
                 .thenApply(
                         ok -> {
                             if (ok) {
                                 hp.setJob(newLine, tier, hp.level(), hp.exp());
-                                hp.set(
-                                        JobsManager.COMPONENT,
-                                        data.withSkills(kept).withCapstoneCleared());
+                                hp.set(JobsManager.COMPONENT, after);
                                 m.rebuildModifiers(hp);
                                 Bukkit.getPluginManager()
                                         .callEvent(new JobLineChangedEvent(uuid, oldLine, newLine));
                             }
                             return ok;
                         });
+    }
+
+    /** Time left until the line can change again (zero if allowed now). */
+    static Duration cooldownLeft(JobsData data, Duration cooldown, Instant now) {
+        Instant last = data.lineChangedAt();
+        if (last == null || !cooldown.isPositive()) {
+            return Duration.ZERO;
+        }
+        Duration left = Duration.between(now, last.plus(cooldown));
+        return left.isNegative() ? Duration.ZERO : left;
+    }
+
+    /** Line change cooldown message (days and hours left, hours rounded up). */
+    static void sendCooldown(JobsManager m, Player player, Duration left) {
+        long hours = Math.max(1, (left.toMinutes() + 59) / 60);
+        m.api()
+                .messages()
+                .send(
+                        player,
+                        "jobs.npc.change_line_cooldown",
+                        Placeholder.unparsed("days", String.valueOf(hours / 24)),
+                        Placeholder.unparsed("hours", String.valueOf(hours % 24)));
     }
 
     /**

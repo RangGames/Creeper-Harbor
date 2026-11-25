@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.content.type.ItemDef;
+import wiki.creeper.harbor.common.content.type.RegionDef;
 import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.model.JobLine;
 import wiki.creeper.harbor.common.model.Quality;
@@ -33,6 +34,9 @@ import wiki.creeper.harbor.jobs.api.JobsService;
  * the main thread and rolls run on a virtual thread.
  */
 final class TrapCalculator {
+
+    /** World first-visit flag prefix (WorldFlags.visited, season scope). */
+    private static final String VISITED_PREFIX = "visited/";
 
     private final HarborApi api;
     private final Tasks tasks;
@@ -71,6 +75,7 @@ final class TrapCalculator {
         double cycleDelta = traps.stat(uuid, "trap_cycle_hours");
         double extraChance = traps.stat(uuid, "trap_extra_chance");
         Predicate<String> flags = flagSnapshot(snapshot);
+        double unlockedHourly = unlockedHourlyGold(uuid, snapshot, b);
         int season = traps.season();
         SplittableRandom random = new SplittableRandom();
         // The region species pool and trap spec are built on the main thread beforehand (rolls run
@@ -119,7 +124,10 @@ final class TrapCalculator {
                                     if (acc.cycles() == 0) {
                                         return new TrapManager.Calc(row, 0, false);
                                     }
-                                    double hourly = 0;
+                                    // Cap base: the highest region the owner has unlocked. Trap
+                                    // regions only act as a floor (a trap can only be placed in a
+                                    // reached region, and covers servers without World)
+                                    double hourly = unlockedHourly;
                                     double others = 0;
                                     for (TrapRow r : rows) {
                                         hourly =
@@ -227,6 +235,22 @@ final class TrapCalculator {
                             return null;
                         });
         return traps.track(uuid, future);
+    }
+
+    /**
+     * Manual fishing gold per hour of the highest region the owner has unlocked (docs 20 3.4
+     * revenue cap). Unlocked = the World first-visit player flag {@code visited/<region>}, read
+     * through Core FlagService so Fishing does not depend on World.
+     */
+    private double unlockedHourlyGold(UUID owner, ContentSnapshot snapshot, FishingBalance b) {
+        double best = 0;
+        for (RegionDef region : snapshot.all(RegionDef.TYPE).values()) {
+            String name = region.id().id().name();
+            if (api.flags().hasPlayer(owner, VISITED_PREFIX + name)) {
+                best = Math.max(best, b.hourlyGold(name));
+            }
+        }
+        return best;
     }
 
     /** Freezes server flags at their current values (so FlagService is not called off-thread). */
