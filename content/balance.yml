@@ -242,6 +242,11 @@ session:
 lobby:
   music: "harbor:music.harbor"
 
+# 채팅 머리 (추가 제안, OGminso/ChatHeadFont 방식). 채팅 줄 <head>에 보낸 사람 얼굴 8×8을 그린다.
+# 폰트는 자동 빌드 리소스팩에 들어간다 (harbor:chat_head). 자동 빌드 팩이 없으면 그리지 않는다
+chat:
+  heads: true
+
 # 잠수 시 로비로 (본 서버만, 추가 제안). 움직임·시점·키 입력·채팅·명령·클릭이 없으면 로비로 보낸다 (자리 유예, harbor.afk.exempt 제외)
 afk:
   lobby_minutes: 15     # 0이면 끔 (제안값)

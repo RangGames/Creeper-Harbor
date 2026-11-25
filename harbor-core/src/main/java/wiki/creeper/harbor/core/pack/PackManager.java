@@ -26,6 +26,7 @@ import wiki.creeper.harbor.common.config.InfraConfig;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
 import wiki.creeper.harbor.common.content.type.CustomBlockDef;
 import wiki.creeper.harbor.common.pack.CdnClient;
+import wiki.creeper.harbor.common.pack.ChatHeadPack;
 import wiki.creeper.harbor.common.pack.FurnishingPack;
 import wiki.creeper.harbor.common.pack.PackBuilder;
 import wiki.creeper.harbor.common.pack.PackOptimizer;
@@ -372,7 +373,7 @@ public final class PackManager {
                             merges,
                             out,
                             new PackBuilder.Meta(config.format(), config.description()),
-                            furnishing.files(),
+                            generated(furnishing.files()),
                             new PackBuilder.Settings(
                                     new PackOptimizer.Options(
                                             config.optimize(),
@@ -430,6 +431,13 @@ public final class PackManager {
             Thread.currentThread().interrupt();
             return new Outcome.Failed("중단됨");
         }
+    }
+
+    /** Server-generated pack files: custom blocks and the chat head font. */
+    private static Map<String, byte[]> generated(Map<String, byte[]> furnishing) {
+        Map<String, byte[]> all = new java.util.TreeMap<>(furnishing);
+        all.putAll(ChatHeadPack.files());
+        return all;
     }
 
     /**

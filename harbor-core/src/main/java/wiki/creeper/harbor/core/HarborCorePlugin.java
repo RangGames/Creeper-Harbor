@@ -34,6 +34,7 @@ import wiki.creeper.harbor.core.api.ModuleHost;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
 import wiki.creeper.harbor.core.border.WorldBorderManager;
 import wiki.creeper.harbor.core.chat.ChatBridge;
+import wiki.creeper.harbor.core.chat.ChatHeads;
 import wiki.creeper.harbor.core.chat.PlaceholderApiHook;
 import wiki.creeper.harbor.core.command.HarborCommand;
 import wiki.creeper.harbor.core.command.HelpCommand;
@@ -372,6 +373,9 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         pm.registerEvents(soundCues, this);
         soundCues.subscribe(messageBus, tasks);
         NetworkEvents.subscribe(messageBus, tasks);
+        ChatHeads chatHeads = new ChatHeads(content::snapshot, tasks, log);
+        pm.registerEvents(chatHeads, this);
+        chatHeads.start();
         pm.registerEvents(
                 new ChatBridge(
                         infra,
@@ -380,6 +384,7 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
                         content::snapshot,
                         ui,
                         new PlaceholderApiHook(log),
+                        chatHeads,
                         tasks),
                 this);
         pm.registerEvents(this, this);

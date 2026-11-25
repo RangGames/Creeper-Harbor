@@ -33,11 +33,12 @@ import wiki.creeper.harbor.core.task.Tasks;
  * recovers).
  *
  * <p>Chat line format (proposed): messages_ko.yml {@code chat.format}/{@code chat.party_format} are
- * rendered on this server (from the sender's perspective, including PlaceholderAPI {@code %…%} and
- * {@code <glyph:…>}) and sent along to the proxy. Only the message slot is left empty, and the
- * proxy fills in the profanity-filtered message. Without the key, the proxy's harbor-proxy.yml
- * chat.format is used. Most PlaceholderAPI expansions are not thread-safe, so the format is
- * rendered on the main thread (the chat event is async, so it goes out one tick later).
+ * rendered on this server (from the sender's perspective, including PlaceholderAPI {@code %…%},
+ * {@code <glyph:…>} and the sender's {@code <head>} from {@link ChatHeads}) and sent along to the
+ * proxy. Only the message slot is left empty, and the proxy fills in the profanity-filtered
+ * message. Without the key, the proxy's harbor-proxy.yml chat.format is used. Most PlaceholderAPI
+ * expansions are not thread-safe, so the format is rendered on the main thread (the chat event is
+ * async, so it goes out one tick later).
  */
 public final class ChatBridge implements Listener {
 
@@ -49,6 +50,7 @@ public final class ChatBridge implements Listener {
     private final Supplier<ContentSnapshot> content;
     private final Ui ui;
     private final PlaceholderApiHook papi;
+    private final ChatHeads heads;
     private final Tasks tasks;
 
     public ChatBridge(
@@ -58,6 +60,7 @@ public final class ChatBridge implements Listener {
             Supplier<ContentSnapshot> content,
             Ui ui,
             PlaceholderApiHook papi,
+            ChatHeads heads,
             Tasks tasks) {
         this.infra = infra;
         this.redis = redis;
@@ -65,6 +68,7 @@ public final class ChatBridge implements Listener {
         this.content = content;
         this.ui = ui;
         this.papi = papi;
+        this.heads = heads;
         this.tasks = tasks;
     }
 
@@ -127,6 +131,7 @@ public final class ChatBridge implements Listener {
                                     applied.resolver(),
                                     ui.glyphs(),
                                     Placeholder.unparsed("name", player.getName()),
+                                    Placeholder.component("head", heads.head(player)),
                                     Placeholder.component("display_name", player.displayName()),
                                     Placeholder.unparsed("server", infra.serverId()),
                                     Placeholder.unparsed("message", ProxyMessages.MESSAGE_SLOT));

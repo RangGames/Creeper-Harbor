@@ -972,10 +972,11 @@ fish_demo:
 
 # 채팅 줄 형식 (추가 제안). 보낸 사람이 있는 서버가 그려서 프록시로 보낸다 (이 키를 지우면 harbor-proxy.yml chat.format).
 #   <name> 이름 · <display_name> 표시 이름 · <server> 서버 ID · <message> 메시지 · <glyph:이름> 글리프
+#   <head> 보낸 사람 머리 8×8 (뒤에 빈칸 포함, 스킨을 아직 못 읽었거나 balance.yml chat.heads: false면 비어 있음)
 #   PlaceholderAPI가 있으면 %플레이스홀더%도 쓸 수 있다 (예: %luckperms_prefix%, &·§ 색 코드는 색으로 바뀐다)
 chat:
-  format: "<gray>[<server>]</gray> <white><name></white><gray>:</gray> <message>"
-  party_format: "<aqua>[파티]</aqua> <white><name></white><gray>:</gray> <message>"
+  format: "<gray>[<server>]</gray> <head><white><name></white><gray>:</gray> <message>"
+  party_format: "<aqua>[파티]</aqua> <head><white><name></white><gray>:</gray> <message>"
 
 inventory:
   apply_failed: "<red>인벤토리를 불러오지 못했습니다. 이번 접속에서는 저장되지 않으니 운영진에게 알려 주세요."
