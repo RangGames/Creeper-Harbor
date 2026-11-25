@@ -19,6 +19,7 @@ import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
@@ -169,7 +170,7 @@ final class DisplayCaseRenderer {
                 if (a.slot() == slots.getFirst()) {
                     sv.boxes = List.copyOf(tankBoxes);
                     // The tank's own model goes with the first slot, filled or empty
-                    ItemDisplay model = tankModel(world, b, a);
+                    Display model = tankModel(world, b, a);
                     if (model != null) {
                         sv.props.add(model);
                     }
@@ -277,15 +278,32 @@ final class DisplayCaseRenderer {
     }
 
     /**
-     * The decor's tank model (World housing_decor.yml tank_model: frame, water and decoration) over
-     * the glass blocks, stretched to the box and turned so its front (model north) faces the side
-     * the tank was placed from. Null if the decor has none or the pack lacks it.
+     * The decor's tank model (World housing_decor.yml tank_model: frame, glass, water and
+     * decoration) over the tank blocks, stretched to the box and turned so its front (model north)
+     * faces the side the tank was placed from. Without a usable model, a tank of invisible barrier
+     * blocks gets one stretched glass block instead so it is never invisible; otherwise null.
      */
-    private @Nullable ItemDisplay tankModel(World world, TankBounds b, DisplayAnchor a) {
+    private @Nullable Display tankModel(World world, TankBounds b, DisplayAnchor a) {
         String model = housing.tankModel(a).orElse(null);
         ItemStack item = new ItemStack(Material.GLASS);
         if (model == null || !ItemModels.apply(item, model, api.content().snapshot())) {
-            return null;
+            if (world.getBlockAt(b.minX(), b.minY(), b.minZ()).getType() != Material.BARRIER) {
+                return null;
+            }
+            BlockData glass = Material.GLASS.createBlockData();
+            return world.spawn(
+                    new Location(world, b.minX(), b.minY(), b.minZ()),
+                    BlockDisplay.class,
+                    e -> {
+                        e.setPersistent(false);
+                        e.setBlock(glass);
+                        e.setTransformation(
+                                new Transformation(
+                                        new Vector3f(),
+                                        new AxisAngle4f(),
+                                        new Vector3f(b.sizeX(), b.sizeY(), b.sizeZ()),
+                                        new AxisAngle4f()));
+                    });
         }
         String facing = a.facing().toUpperCase(Locale.ROOT);
         boolean sideways = facing.equals("EAST") || facing.equals("WEST");

@@ -3,6 +3,7 @@ package wiki.creeper.harbor.world.housing;
 import java.util.Optional;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -139,6 +140,11 @@ public final class DecorPlacement implements Listener {
         if (custom != null) {
             return kit.api().furniture().blockAt(block).map(custom::equals).orElse(false);
         }
+        if (d.kind() == DecorDef.Kind.TANK) {
+            // Tank blocks cannot be pushed or washed away, and tanks placed before their material
+            // changed (glass → barrier) must still return their decor
+            return !block.getType().isAir();
+        }
         String raw = d.material();
         Material m = raw == null ? null : Material.matchMaterial(raw);
         // Blocks whose type changes when placed (like wall torches) are compared by their placement
@@ -215,6 +221,27 @@ public final class DecorPlacement implements Listener {
         if (d.get().kind() == DecorDef.Kind.TANK) {
             tanks.remove(block, plot, d.get());
         }
+    }
+
+    /**
+     * Left-click on a tank block that cannot be mined (material: minecraft:barrier, so only the
+     * tank model shows and multi-block tanks have no glass seams): break it as the player right
+     * away, so the usual break handling (plot permission, decor return) runs. Creative players
+     * break barriers themselves.
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onHitTank(PlayerInteractEvent event) {
+        Block block = event.getClickedBlock();
+        Player player = event.getPlayer();
+        if (event.getAction() != Action.LEFT_CLICK_BLOCK
+                || block == null
+                || block.getType() != Material.BARRIER
+                || player.getGameMode() == GameMode.CREATIVE
+                || placedAt(block).map(d -> d.kind() != DecorDef.Kind.TANK).orElse(true)) {
+            return;
+        }
+        event.setCancelled(true);
+        var _ = player.breakBlock(block);
     }
 
     // Decor tags are tied to positions, so moving the block leaves only the tag behind: prevent
