@@ -11,6 +11,9 @@ import wiki.creeper.harbor.common.id.SkillId;
  * HarborPlayer (player_season); only skill investments and jobs_state are kept here.
  *
  * @param capstoneWeek season week in which weekly uses were counted
+ * @param lineChangedAt last line change (7-day cooldown, docs 20 2.8), null if never this season
+ * @param joinBonusGiven the season first-join mulbineul was granted (proposed column, the ledger
+ *     reference ID still guards against double grants)
  */
 public record JobsData(
         Map<SkillId, Integer> skills,
@@ -20,9 +23,12 @@ public record JobsData(
         int capstoneWeek,
         int capstoneWeekUses,
         boolean tierFirstQ4,
-        boolean tierFirstQ5) {
+        boolean tierFirstQ5,
+        @Nullable Instant lineChangedAt,
+        boolean joinBonusGiven) {
 
-    public static final JobsData EMPTY = new JobsData(Map.of(), 0, false, null, 0, 0, false, false);
+    public static final JobsData EMPTY =
+            new JobsData(Map.of(), 0, false, null, 0, 0, false, false, null, false);
 
     public JobsData {
         skills = Map.copyOf(skills);
@@ -39,15 +45,7 @@ public record JobsData(
         } else {
             next.put(node, rank);
         }
-        return new JobsData(
-                next,
-                overflowExp,
-                freeResetUsed,
-                capstoneUsedAt,
-                capstoneWeek,
-                capstoneWeekUses,
-                tierFirstQ4,
-                tierFirstQ5);
+        return withSkills(next);
     }
 
     public JobsData withSkills(Map<SkillId, Integer> nextSkills) {
@@ -59,7 +57,9 @@ public record JobsData(
                 capstoneWeek,
                 capstoneWeekUses,
                 tierFirstQ4,
-                tierFirstQ5);
+                tierFirstQ5,
+                lineChangedAt,
+                joinBonusGiven);
     }
 
     public JobsData withOverflow(long value) {
@@ -71,7 +71,9 @@ public record JobsData(
                 capstoneWeek,
                 capstoneWeekUses,
                 tierFirstQ4,
-                tierFirstQ5);
+                tierFirstQ5,
+                lineChangedAt,
+                joinBonusGiven);
     }
 
     public JobsData withFreeResetUsed() {
@@ -83,12 +85,23 @@ public record JobsData(
                 capstoneWeek,
                 capstoneWeekUses,
                 tierFirstQ4,
-                tierFirstQ5);
+                tierFirstQ5,
+                lineChangedAt,
+                joinBonusGiven);
     }
 
     public JobsData withCapstoneUse(Instant at, int week, int weekUses) {
         return new JobsData(
-                skills, overflowExp, freeResetUsed, at, week, weekUses, tierFirstQ4, tierFirstQ5);
+                skills,
+                overflowExp,
+                freeResetUsed,
+                at,
+                week,
+                weekUses,
+                tierFirstQ4,
+                tierFirstQ5,
+                lineChangedAt,
+                joinBonusGiven);
     }
 
     public JobsData withCapstoneCleared() {
@@ -100,7 +113,9 @@ public record JobsData(
                 capstoneWeek,
                 capstoneWeekUses,
                 tierFirstQ4,
-                tierFirstQ5);
+                tierFirstQ5,
+                lineChangedAt,
+                joinBonusGiven);
     }
 
     public JobsData withTierFirst(int quality) {
@@ -112,6 +127,36 @@ public record JobsData(
                 capstoneWeek,
                 capstoneWeekUses,
                 tierFirstQ4 || quality == 4,
-                tierFirstQ5 || quality == 5);
+                tierFirstQ5 || quality == 5,
+                lineChangedAt,
+                joinBonusGiven);
+    }
+
+    public JobsData withLineChangedAt(@Nullable Instant at) {
+        return new JobsData(
+                skills,
+                overflowExp,
+                freeResetUsed,
+                capstoneUsedAt,
+                capstoneWeek,
+                capstoneWeekUses,
+                tierFirstQ4,
+                tierFirstQ5,
+                at,
+                joinBonusGiven);
+    }
+
+    public JobsData withJoinBonusGiven() {
+        return new JobsData(
+                skills,
+                overflowExp,
+                freeResetUsed,
+                capstoneUsedAt,
+                capstoneWeek,
+                capstoneWeekUses,
+                tierFirstQ4,
+                tierFirstQ5,
+                lineChangedAt,
+                true);
     }
 }

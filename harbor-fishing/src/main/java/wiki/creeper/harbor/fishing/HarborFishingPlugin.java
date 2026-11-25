@@ -70,6 +70,7 @@ public final class HarborFishingPlugin extends HarborModule {
         fishing = new FishingManager(this, api, ctx.tasks(), jobs, getSLF4JLogger());
         FoodManager food = fishing.food();
         ctx.listen(fishing);
+        ctx.listen(fishing.guards());
         ctx.listen(fishing.trapManager());
         ctx.listen(food);
         ctx.handoffBlocker(fishing.handoffBlocker());

@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.fishing.session;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +61,6 @@ final class FishingSession {
 
     @Nullable Minigame minigame;
     @Nullable BossBar bar;
-    int missedBig;
 
     // CAST → WAITING
     @Nullable FishHook hook;
@@ -76,6 +76,11 @@ final class FishingSession {
     float baseYaw;
     int lastPhase = 1;
     boolean borderWarn;
+
+    // Reel/release switch rhythm for MacroGuard (intervals in minigame ticks)
+    boolean lastReeling;
+    int lastSwitchTick = -1;
+    final List<Integer> reelSwitches = new ArrayList<>();
 
     /** Reel looping sound (while reeling with Shift, "15. Sound" fishing.reel_loop). */
     HarborSounds.Loop reel = HarborSounds.Loop.NONE;
@@ -114,5 +119,8 @@ final class FishingSession {
         lastPhase = 1;
         borderWarn = false;
         lastActive = null;
+        lastReeling = false;
+        lastSwitchTick = -1;
+        reelSwitches.clear();
     }
 }

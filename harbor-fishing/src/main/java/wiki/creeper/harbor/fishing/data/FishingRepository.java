@@ -55,7 +55,19 @@ public final class FishingRepository {
                 }
             }
         }
-        return new FishingData(pity, food, loadDaily(c, uuid));
+        return new FishingData(pity, food, loadDaily(c, uuid), loadMissedBig(c, uuid, season));
+    }
+
+    private static int loadMissedBig(Connection c, UUID uuid, SeasonId season) throws SQLException {
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "SELECT missed_big FROM fishing_state WHERE uuid = ? AND season = ?")) {
+            ps.setString(1, uuid.toString());
+            ps.setInt(2, season.value());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
     }
 
     /** The most recent day's summary (callers check whether it is today). */
@@ -114,9 +126,21 @@ public final class FishingRepository {
         }
     }
 
-    /** Saves all pity counters (write-behind). There are few species, so all are written. */
+    /**
+     * Saves all pity counters, the missed big fish count and the daily summary (write-behind).
+     * There are few species, so all are written.
+     */
     public static void save(Connection c, UUID uuid, SeasonId season, FishingData data)
             throws SQLException {
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "INSERT INTO fishing_state (uuid, season, missed_big) VALUES (?, ?, ?)"
+                                + " ON DUPLICATE KEY UPDATE missed_big = VALUES(missed_big)")) {
+            ps.setString(1, uuid.toString());
+            ps.setInt(2, season.value());
+            ps.setInt(3, data.missedBig());
+            ps.executeUpdate();
+        }
         try (PreparedStatement ps =
                 c.prepareStatement(
                         "INSERT INTO pity_counter (uuid, season, fish_id, casts) VALUES (?, ?, ?, ?)"
@@ -175,6 +199,20 @@ public final class FishingRepository {
             ps.setString(3, reasons);
             ps.setString(4, action);
             ps.executeUpdate();
+        }
+    }
+
+    /** Failed macro checks (wrong answer, timeout) of a player since the given time. */
+    public static int countFailuresSince(Connection c, UUID uuid, java.time.Instant since)
+            throws SQLException {
+        try (PreparedStatement ps =
+                c.prepareStatement(
+                        "SELECT COUNT(*) FROM fishing_flags WHERE uuid = ? AND created_at >= ?")) {
+            ps.setString(1, uuid.toString());
+            ps.setTimestamp(2, Timestamp.from(since));
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
         }
     }
 }

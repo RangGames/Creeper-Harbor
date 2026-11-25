@@ -2,6 +2,7 @@ package wiki.creeper.harbor.fishing.session;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -11,6 +12,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -94,12 +96,13 @@ public final class FishingCommands {
                                                                                                     .toString()));
                                                             return b.buildFuture();
                                                         })
-                                                .then(
-                                                        Commands.argument(
-                                                                        "count",
-                                                                        IntegerArgumentType.integer(
-                                                                                1, 1_000_000))
-                                                                .executes(this::simulate))))
+                                                .executes(
+                                                        ctx ->
+                                                                simulate(
+                                                                        ctx,
+                                                                        Simulation.DEFAULT_COUNT,
+                                                                        ""))
+                                                .then(simulateCount())))
                 .then(
                         Commands.literal("pity")
                                 .then(
@@ -189,7 +192,43 @@ public final class FishingCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    private int simulate(CommandContext<CommandSourceStack> ctx) {
+    /** {@code <count> [conditions]}: conditions are space-separated key=value (Simulation). */
+    private RequiredArgumentBuilder<CommandSourceStack, Integer> simulateCount() {
+        return Commands.argument("count", IntegerArgumentType.integer(1, 1_000_000))
+                .executes(ctx -> simulate(ctx, IntegerArgumentType.getInteger(ctx, "count"), ""))
+                .then(
+                        Commands.argument("conditions", StringArgumentType.greedyString())
+                                .suggests(
+                                        (ctx, b) -> {
+                                            for (String hint : SIMULATE_HINTS) {
+                                                b.suggest(hint);
+                                            }
+                                            return b.buildFuture();
+                                        })
+                                .executes(
+                                        ctx ->
+                                                simulate(
+                                                        ctx,
+                                                        IntegerArgumentType.getInteger(
+                                                                ctx, "count"),
+                                                        StringArgumentType.getString(
+                                                                ctx, "conditions"))));
+    }
+
+    private static final List<String> SIMULATE_HINTS =
+            List.of(
+                    "time=night",
+                    "time=dawn",
+                    "time=dusk",
+                    "weather=rain",
+                    "weather=thunder",
+                    "moon=full",
+                    "moon=new",
+                    "tier=1",
+                    "tier=2",
+                    "bait=");
+
+    private int simulate(CommandContext<CommandSourceStack> ctx, int count, String conditionText) {
         CommandSender sender = ctx.getSource().getSender();
         Key key = ctx.getArgument("region", Key.class);
         RegionId region;
@@ -199,9 +238,19 @@ public final class FishingCommands {
             api.messages().send(sender, "fishing.no_region");
             return 0;
         }
-        int count = IntegerArgumentType.getInteger(ctx, "count");
+        Simulation.Conditions conditions;
+        try {
+            conditions = Simulation.Conditions.parse(conditionText);
+        } catch (IllegalArgumentException e) {
+            api.messages()
+                    .send(
+                            sender,
+                            "fishing.admin.bad_condition",
+                            Placeholder.unparsed("value", String.valueOf(e.getMessage())));
+            return 0;
+        }
         var _ =
-                fishing.simulate(region, count)
+                fishing.simulate(region, count, conditions)
                         .thenAcceptAsync(
                                 result ->
                                         api.messages()
@@ -222,7 +271,10 @@ public final class FishingCommands {
                                                                         Locale.ROOT,
                                                                         "%.0f",
                                                                         result
-                                                                                .legendAverageCasts()))),
+                                                                                .legendAverageCasts())),
+                                                        Placeholder.unparsed(
+                                                                "conditions",
+                                                                conditions.describe())),
                                 api.database().executor());
         return Command.SINGLE_SUCCESS;
     }

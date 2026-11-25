@@ -22,6 +22,7 @@ tables:
   - {table: jobs_state, policy: archive_reset}
   - {table: codex_season, policy: archive_reset}
   - {table: pity_counter, policy: archive_reset}
+  - {table: fishing_state, policy: archive_reset}     # 놓친 대어 횟수 (추가 제안)
   - {table: npc_affinity, policy: archive_reset}
   - {table: npc_reputation_log, policy: archive_reset}
   - {table: traps, policy: archive_reset}

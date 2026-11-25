@@ -195,7 +195,7 @@ final class CatchRewards {
             s.forcedQuality = null;
         }
         if (rolled.capped()) {
-            s.missedBig++;
+            hp.set(COMPONENT, hp.get(COMPONENT).withMissedBig(hp.get(COMPONENT).missedBig() + 1));
             api.ui().actionBar(player, api.messages().get("fishing.missed_big"));
         }
         QualityRolledEvent qualityEvent =
