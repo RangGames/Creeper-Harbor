@@ -302,4 +302,34 @@ public record WorldBalance(Balance b) {
     public int eventCheckSeconds() {
         return b.integer("world.event.check_s", 60);
     }
+
+    // ---------------------------------------------------------------- tools (proposed values)
+    /** Return conch destination region. */
+    public String conchRegion() {
+        return b.string("world.tools.conch_region").orElse("region/harbor");
+    }
+
+    public int conchCooldownSeconds() {
+        return b.integer("world.tools.conch_cooldown_s", 300);
+    }
+
+    public int compassSeconds() {
+        return b.integer("world.tools.compass_seconds", 60);
+    }
+
+    public int compassCooldownSeconds() {
+        return b.integer("world.tools.compass_cooldown_s", 5);
+    }
+
+    public String compassColor() {
+        return b.string("world.tools.compass_color").orElse("#7fd4ff");
+    }
+
+    public int telescopeCooldownSeconds() {
+        return b.integer("world.tools.telescope_cooldown_s", 3);
+    }
+
+    public int telescopeBossStaleSeconds() {
+        return b.integer("world.tools.telescope_boss_stale_s", 10);
+    }
 }

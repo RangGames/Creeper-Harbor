@@ -55,6 +55,11 @@
 - **보스 방향:** 참가자의 로케이터 바에 보스 위치 웨이포인트를 보여 준다 (`balance.yml` `waypoint.boss_range`, Core `WaypointService`).
 - **파티원 위치:** 로케이터 바에 같은 월드의 파티원 표식을 보여 준다 (`waypoint.party_range`). `waypoint.hide_players`(기본 true)면 다른 플레이어의 바닐라 위치 표시는 끈다.
 - **파티:** 보스전용 파티(최대 인원은 보스 정의). 초대는 60초 동안 유효하다. 채팅을 `!`로 시작하면 파티원에게만 간다 (다른 서버에 있어도 됨).
+- **퀘스트·대화 소환 (`boss:start`, 추가 제안):** 대화 액션 `{type: boss:start, boss: boss/<이름>}`이 말을 건 사람의 파티(파티가 없으면 혼자)를 가장 가까운 빈 필드 슬롯으로 보내 소환 미끼 없이 시작한다 ('3. 아이템 목록' 3장: 메인 2장 그놈 첫 조우는 퀘스트가 직접 소환). 파티장만 쓸 수 있고, 최소 인원·경기장 반경은 보지 않으며(최대 인원은 적용), 같은 파티장 재시작 대기는 보스의 `summon.cooldown`, 없으면 `boss.scripted_cooldown_seconds`다. 필드 경기장 보스만 되고 콘텐츠 검사에서 확인한다. 은둔자 대화(`dialogs/hermit.yml`)에 메인 2장 '그놈' 진행 중일 때만 보이는 선택지가 있다. 6장 스토리 전투 `boss/trench_lord_story`도 같은 액션으로 시작한다 (6장 퀘스트·대화는 아직 없음).
+- **보스전 보조 도구 ('3. 아이템 목록' 7장, 동작은 제안):** 손에 들고 우클릭 (`encounter/SupportItems`).
+  - **응급 붕대** (`item/tool/first_aid_bandage`, 낚시용품점 20G, 소모): 어디서나 체력 `boss.support.bandage_heal` 회복, 쿨타임 `bandage_cooldown_seconds`. 체력이 가득하면 쓰지 않는다.
+  - **구조 신호탄** (`item/tool/rescue_flare`, 낚시용품점 50G, 소모, 보스전 중에만): 머리 위로 초록 불빛 기둥을 올리고, 같은 월드 `flare_radius` 안에서 그 보스전에 없는 플레이어에게 채팅 알림과 경기장 웨이포인트(`flare_seconds` 동안)를 보낸다. 바닐라 폭죽 발사·겉날개 가속은 막는다.
+- **월드 보스 하늘 연출:** 75·50·25% 단계(`WorldBossProgressEvent`)마다 경기장 `boss.world.sky_radius` 안 플레이어에게 개인 비, 노을(50%)·밤(25%) 개인 시간, 피해 없는 번개 연출, 25%에는 초록 빛기둥을 보여 주고 월드 보스가 끝나면 되돌린다 (`encounter/WorldBossSky`, 연출 수치는 제안).
 
 ## 플레이어 명령
 
@@ -79,7 +84,7 @@
 | `/harbor boss end <조우> clear\|fail\|abort` | `harbor.admin.boss.end` | 조우 강제 종료 |
 | `/harbor boss world start <보스>` · `resume` · `stop` · `status` | `harbor.admin.boss.world` | 월드 보스 시작·이어 하기·중지·상태 |
 | `/harbor boss pending <플레이어> [redeliver]` | `harbor.admin.boss.pending` | 받지 못한 보상 보기·다시 보내기 |
-| `/harbor boss debug <조우>` · `/harbor boss list` | `harbor.admin.boss.debug` | 조우 상태, 진행 중 조우 목록 |
+| `/harbor boss debug <조우>` · `/harbor boss list` | `harbor.admin.boss.debug` | 조우 상태(두 번째 줄에 그 조우의 메인 스레드 틱 비용: 이동 평균·최근 10초 최대, 기준 0.5ms), 진행 중 조우 목록 |
 
 ## 콘텐츠 파일
 
@@ -117,7 +122,9 @@
 | `leave` | 이탈 자리 유지, 전원 이탈 실패, 낙수 복귀 |
 | `limits` | 동시 조우 상한 (`field` 6, `instance` 4) |
 | `party.invite_seconds` · `items.repair_kit` | 초대 유효 시간, 정비사 수리 키트 |
-| `world` | 월드 보스 `min_participants` `active_seconds` `radius` `max_anchors` `resume_minutes` `climax_boss` 등 |
+| `scripted_cooldown_seconds` | `boss:start` 대화 소환 뒤 같은 파티장 재시작 대기 (보스에 `summon`이 없을 때) |
+| `support` | 응급 붕대 `bandage_heal` `bandage_cooldown_seconds`, 구조 신호탄 `flare_radius` `flare_seconds` `flare_cooldown_seconds` (제안값) |
+| `world` | 월드 보스 `min_participants` `active_seconds` `radius` `sky_radius` `max_anchors` `resume_minutes` `climax_boss` 등 |
 | `instance` | 경기장 칸 수·간격, 배정·도착 대기, 재접속 TTL |
 
 ## 다른 모듈과의 연결
@@ -126,7 +133,7 @@
 
 - **이벤트:** `BossEncounterStartEvent`, `BossEncounterEndEvent`, `BossPhaseChangeEvent`, `WorldBossProgressEvent`
 - **쓰는 것:** Fishing(텐션 세션, 보스 어종 포획), Season(주간 제한, 명예의 전당 제출, 칭호), Core 리그(보스·부위 판정)
-- **선택 의존:** Npc(대화 액션 `boss:enter`, 첫 처치·월드 보스 평판), Shop(보스전 중 펫 숨김. Shop이 Boss 이벤트를 듣기 때문에 Shop이 뒤에 켜진다)
+- **선택 의존:** Npc(대화 액션 `boss:enter`·`boss:start`, 첫 처치·월드 보스 평판), Shop(보스전 중 펫 숨김. Shop이 Boss 이벤트를 듣기 때문에 Shop이 뒤에 켜진다)
 - **Quest:** 보스 목표, 클라이맥스 시작 플래그
 - **원장 사유:** `BOSS_REWARD`
 

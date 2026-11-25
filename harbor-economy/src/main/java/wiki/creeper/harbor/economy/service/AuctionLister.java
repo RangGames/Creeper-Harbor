@@ -419,6 +419,8 @@ final class AuctionLister {
         // Hold: take it out of the inventory
         ItemStack custody = now.clone();
         inv.setItem(slot, null);
+        // A cosmetic rod skin stays with its owner (docs 20 12.4)
+        CosmeticBridge.stripSkin(custody);
         byte[] data = custody.serializeAsBytes();
         EconomyBalance b = balance();
         Instant expires = Instant.now().plus(Duration.ofHours(b.auctionDurationHours()));

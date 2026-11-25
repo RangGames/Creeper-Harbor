@@ -76,6 +76,7 @@ economy:
     board:                 # /시세 시세판 (추가 제안, 제안값)
       flat: 0.01           # 24시간 변화가 이 이하면 보합
       top_movers: 5        # 급변 어종으로 강조할 수
+      display_lines: 10    # 어시장 시세 게시판(Text Display)에 보여 줄 어종 수 (시세 계수가 1.0에서 가장 먼 순, 제안값)
   quality_mult: {1: 1.0, 2: 1.2, 3: 1.5, 4: 2.5, 5: 5.0}   # D2 확정값 (docs 20 0.6, 7.4)
   region_factor: {void_sea: 0.65}
   legend_cap: 3000
@@ -395,6 +396,13 @@ quest:
 
 # Harbor-Boss (docs 20 10.4, '7. 밸런스 기획' 9장). 유형 표는 문서 값, 나머지는 제안값
 boss:
+  scripted_cooldown_seconds: 30   # 퀘스트·대화 소환(boss:start) 뒤 같은 파티장 재시작 대기 (summon이 없을 때, 제안값)
+  support:                        # 보스전 보조 도구 ('3. 아이템 목록' 7장, 모두 제안값)
+    bandage_heal: 6               # 응급 붕대 회복량 (체력 6 = 하트 3칸)
+    bandage_cooldown_seconds: 10
+    flare_radius: 160             # 구조 신호탄 알림 반경 (블록, 같은 월드)
+    flare_seconds: 60             # 받은 사람 위치 표시 막대에 보스전 위치를 띄우는 시간
+    flare_cooldown_seconds: 30
   types:
     # per_player_rate: 인원당 체력 증가, time_limit: 초, weekly: 주간 보상 횟수, gold: 클리어 골드(제안값),
     # telegraph_ticks: 예고 시간(제안값), pattern_gap_ticks: 패턴 간격(제안값), anchors_min: 시작에 필요한 앵커 수
@@ -479,6 +487,7 @@ boss:
     save_seconds: 10                            # harbor:worldboss:state·DB 저장
     resume_minutes: 10
     radius: 64
+    sky_radius: 192                             # 75·50·25% 하늘 연출을 보여 줄 반경 (블록, 제안값)
     max_anchors: 20
     climax_boss: boss/green_thunder_fish        # Quest 서버 플래그 climax_start로 시작할 월드 보스
   instance:
@@ -567,6 +576,14 @@ world:
     stale_s: 180
   event:
     check_s: 60
+  tools:                      # 항해·탐험 도구 ('3. 아이템 목록' 5·6장, 모두 제안값)
+    conch_region: region/harbor   # 귀환 소라 목적지 (그 지역 안전 지점)
+    conch_cooldown_s: 300         # 귀환 소라 쿨타임 (모든 소라 공용)
+    compass_seconds: 60           # 항해용 나침반 웨이포인트 표시 시간
+    compass_cooldown_s: 5
+    compass_color: "#7fd4ff"
+    telescope_cooldown_s: 3
+    telescope_boss_stale_s: 10    # 이 시간 넘게 월드 보스 방송(harbor:worldboss)이 없으면 끝난 것으로 봄
 
 # 야생 물고기 ('17-3' 9.3·9.4). 예산·LOD·위협 감지 값은 문서의 제안값, 나머지는 제안값 (CBT 뒤 Phase 3 부하 테스트로 조정)
 wildlife:

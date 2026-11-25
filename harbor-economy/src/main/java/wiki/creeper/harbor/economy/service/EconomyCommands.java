@@ -59,7 +59,7 @@ public final class EconomyCommands {
             SellMenu sellMenu) {
         this.api = api;
         this.sellMenu = sellMenu;
-        this.board = new MarketBoard(api, market);
+        this.board = new MarketBoard(api, market, stations);
         this.history =
                 new LedgerHistoryMenu(api, org.slf4j.LoggerFactory.getLogger("Harbor-Economy"));
         this.market = market;
@@ -252,7 +252,7 @@ public final class EconomyCommands {
                         ? api.modifiers().value(p.getUniqueId(), MARKET_INFO)
                         : 2;
         if (info < 1) {
-            api.messages().send(sender, "economy.market.locked");
+            board.sendLocked(sender);
             return 0;
         }
         Optional<FishDef> def = FishArgs.get(ctx, "fish", api.content().snapshot());
@@ -310,6 +310,16 @@ public final class EconomyCommands {
 
     static String format(double value) {
         return String.format(Locale.ROOT, "%.2f", value);
+    }
+
+    /** Click on a market_board station: the price board screen. */
+    public void openMarketBoard(Player player) {
+        board.openAtBoard(player);
+    }
+
+    /** Text Display content of market_board stations. */
+    public net.kyori.adventure.text.Component marketBoardText() {
+        return MarketBoardText.build(api, market);
     }
 
     /**

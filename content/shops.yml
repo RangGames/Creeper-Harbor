@@ -18,11 +18,15 @@
     - {item: item/gear/apprentice_harpoon}
     - {item: item/gear/cold_coat, requires: {flags: [story/ch4_done]}}       # 진입 장비: 메인 4장 완료 후 ('13. 제작 · 상점 가격' 2장)
     - {item: item/gear/diving_helmet, requires: {flags: [story/ch5_done]}}   # 메인 5장 완료 후
+    - {item: item/tool/telescope}
+    - {item: item/tool/first_aid_bandage}
+    - {item: item/tool/rescue_flare}
 
 - id: shop/fish_market
   npc: npc/fish_market
   title: 어시장 상인
   entries:
+    - {item: item/tool/return_conch}
     - {vanilla: minecraft:iron_ingot, price: 20, daily_limit: 64}
     - {vanilla: minecraft:gold_ingot, price: 60, daily_limit: 64}
     - {vanilla: minecraft:gunpowder, price: 8, daily_limit: 64}
@@ -40,6 +44,7 @@
   entries:
     - {item: item/trap/wood}
     - {item: item/boat/repair_kit}
+    - {item: item/tool/nav_compass}
 
 - id: shop/fjord_hunter
   npc: npc/seori

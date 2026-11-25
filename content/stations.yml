@@ -1,5 +1,6 @@
 # 제작 스테이션·경매 게시판 (추가 제안, docs 20 7.4). 좌표에 Interaction 엔티티를 두고, 누르면 그 장소의 레시피(경매 게시판은 경매장)를 연다.
-# type: workshop · cooking · shipyard · auction. 경매 등록·취소는 auction 게시판 반경 economy.auction.board_radius 안에서만.
+# type: workshop · cooking · shipyard · auction · market_board. 경매 등록·취소는 auction 게시판 반경 economy.auction.board_radius 안에서만.
+# market_board: 어시장 시세 게시판. 위에 현재 시세 Text Display를 띄우고(매시 갱신), 누르면 시세판 화면을 연다 (docs 20 7.4, 추가 제안).
 # 좌표는 항구 맵 확정 전 제안값 (npcs.yml 상점 NPC 근처).
 
 - id: station/guild_workbench
@@ -21,4 +22,10 @@
   type: auction
   name: 어시장 경매 게시판
   location: {world: harbor_main, x: 6.5, y: 64, z: 28.5}
+  size: {width: 1.5, height: 2}
+
+- id: station/market_board
+  type: market_board
+  name: 항구 어시장 시세 게시판
+  location: {world: harbor_main, x: 2.5, y: 64, z: 28.5}
   size: {width: 1.5, height: 2}

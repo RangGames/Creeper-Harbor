@@ -76,3 +76,26 @@
     line_strength: 5         # 줄 강도 +5 (문서). 텐션 한계 +20%는 Fishing 줄 강도 공식으로 반영
   tradeable: false
   season_reset: true
+
+# ---- 보스전 보조 도구 ('3. 아이템 목록' 7장, 가격 '13. 제작 · 상점 가격' 2장). 동작은 Boss (오른쪽 클릭, balance.yml boss.support)
+- id: item/tool/first_aid_bandage
+  name: 응급 붕대
+  lore: "짠물에 젖어도 떨어지지 않는 붕대."
+  type: tool
+  grade: common
+  base_item: minecraft:paper
+  model: harbor:tool/first_aid_bandage
+  buy_price: 20            # 낚시용품점
+  tradeable: true
+  season_reset: true
+
+- id: item/tool/rescue_flare
+  name: 구조 신호탄
+  lore: "하늘에 초록 불꽃이 터지면 어부들은 하던 일을 멈추고 달려온다."
+  type: tool
+  grade: uncommon
+  base_item: minecraft:firework_rocket
+  model: harbor:tool/rescue_flare
+  buy_price: 50            # 낚시용품점
+  tradeable: true
+  season_reset: true

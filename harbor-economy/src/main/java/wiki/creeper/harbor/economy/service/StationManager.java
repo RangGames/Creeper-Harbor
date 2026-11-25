@@ -5,13 +5,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -24,13 +28,14 @@ import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.event.ContentReloadedEvent;
+import wiki.creeper.harbor.economy.api.event.MarketUpdatedEvent;
 import wiki.creeper.harbor.economy.content.StationDef;
 
 /**
- * Crafting stations and auction boards (docs 20 7.4 "Stations: place an Interaction entity at the
- * stations coordinates; clicking shows only that station's recipes"). Entities are not saved
- * (setPersistent false) and are recreated on content reload and world load. At startup, entities
- * still carrying the PDC marker are removed.
+ * Crafting stations, auction boards and fish market price boards (docs 20 7.4 "Stations: place an
+ * Interaction entity at the stations coordinates; clicking shows only that station's recipes").
+ * Entities are not saved (setPersistent false) and are recreated on content reload and world load.
+ * At startup, entities still carrying the PDC marker are removed.
  */
 public final class StationManager implements Listener {
 
@@ -42,7 +47,12 @@ public final class StationManager implements Listener {
     private final HarborApi api;
     private final NamespacedKey key;
     private final List<Interaction> spawned = new ArrayList<>();
+
+    /** Price boards (market_board stations) shown above their Interaction. */
+    private final List<TextDisplay> boards = new ArrayList<>();
+
     private @Nullable Opener opener;
+    private Supplier<Component> boardText = Component::empty;
 
     public StationManager(Plugin plugin, HarborApi api) {
         this.api = api;
@@ -51,6 +61,32 @@ public final class StationManager implements Listener {
 
     public void setOpener(Opener opener) {
         this.opener = opener;
+    }
+
+    /** Text of the market_board Text Displays (rebuilt on every market update). */
+    public void setBoardText(Supplier<Component> text) {
+        this.boardText = text;
+        refreshBoards();
+    }
+
+    /** Name of the first price board station (for "see the board" messages), if any. */
+    public Optional<String> boardName() {
+        return all().stream()
+                .filter(s -> s.kind() == StationDef.Kind.MARKET_BOARD)
+                .map(StationDef::name)
+                .findFirst();
+    }
+
+    /** Main thread: redraws every price board. */
+    public void refreshBoards() {
+        if (boards.isEmpty()) {
+            return;
+        }
+        Component text = boardText.get();
+        boards.removeIf(d -> !d.isValid());
+        for (TextDisplay d : boards) {
+            d.text(text);
+        }
     }
 
     public Collection<StationDef> all() {
@@ -139,10 +175,35 @@ public final class StationManager implements Listener {
                                     .set(key, PersistentDataType.STRING, station.id().toString());
                         });
         spawned.add(entity);
+        if (station.kind() == StationDef.Kind.MARKET_BOARD) {
+            Component text = boardText.get();
+            TextDisplay board =
+                    world.spawn(
+                            loc.clone().add(0, station.height() + 0.4, 0),
+                            TextDisplay.class,
+                            d -> {
+                                d.setPersistent(false);
+                                d.setBillboard(Display.Billboard.VERTICAL);
+                                d.setLineWidth(240);
+                                d.setAlignment(TextDisplay.TextAlignment.CENTER);
+                                d.text(text);
+                                d.getPersistentDataContainer()
+                                        .set(
+                                                key,
+                                                PersistentDataType.STRING,
+                                                station.id().toString());
+                            });
+            boards.add(board);
+        }
     }
 
     private void cleanup(World world) {
         for (Entity entity : world.getEntitiesByClass(Interaction.class)) {
+            if (entity.getPersistentDataContainer().has(key, PersistentDataType.STRING)) {
+                entity.remove();
+            }
+        }
+        for (Entity entity : world.getEntitiesByClass(TextDisplay.class)) {
             if (entity.getPersistentDataContainer().has(key, PersistentDataType.STRING)) {
                 entity.remove();
             }
@@ -152,6 +213,13 @@ public final class StationManager implements Listener {
     public void despawn() {
         spawned.forEach(Entity::remove);
         spawned.clear();
+        boards.forEach(Entity::remove);
+        boards.clear();
+    }
+
+    @EventHandler
+    public void onMarket(MarketUpdatedEvent event) {
+        refreshBoards();
     }
 
     @EventHandler

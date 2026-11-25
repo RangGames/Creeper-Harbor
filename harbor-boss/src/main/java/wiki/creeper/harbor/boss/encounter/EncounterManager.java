@@ -82,6 +82,7 @@ public final class EncounterManager implements BossService {
     private @Nullable WorldHooks worldHooks;
     private @Nullable InstanceHooks instanceHooks;
     private long tick;
+    private final TickCosts costs = new TickCosts();
 
     /** World boss link (WorldBossManager). */
     public interface WorldHooks {
@@ -312,6 +313,18 @@ public final class EncounterManager implements BossService {
         return starter.trySummon(leader, def);
     }
 
+    /**
+     * Quest or dialog start without a summon bait (dialog action boss:start). The player's party
+     * goes to the nearest free slot.
+     */
+    public StartResult startScripted(BossId bossId, Player leader) {
+        Optional<BossDef> def = definition(bossId);
+        if (def.isEmpty()) {
+            return StartResult.UNKNOWN_BOSS;
+        }
+        return starter.tryScripted(leader, def.get());
+    }
+
     /** Instance server: starts a raid with the arrived party (InstanceManager). */
     public StartResult startInstance(
             BossDef def,
@@ -401,6 +414,7 @@ public final class EncounterManager implements BossService {
         e.broadcast(messageKey);
         e.cleanup();
         byId.remove(e.id);
+        costs.forget(e.id);
         byPlayer.values().removeIf(x -> x == e);
     }
 
@@ -416,6 +430,7 @@ public final class EncounterManager implements BossService {
         EncounterInfo info = e.info();
         e.cleanup();
         byId.remove(e.id);
+        costs.forget(e.id);
         byPlayer.values().removeIf(x -> x == e);
         long durationMs = e.fight.elapsed() * 50L;
         Instant endedAt = Instant.now();
@@ -489,8 +504,10 @@ public final class EncounterManager implements BossService {
     private void tick() {
         tick++;
         for (Encounter e : List.copyOf(byId.values())) {
+            long started = System.nanoTime();
             try {
                 e.tick(tick);
+                costs.record(e.id, System.nanoTime() - started);
             } catch (RuntimeException ex) {
                 log.error("보스 조우 틱 오류 {} — 조우를 중단합니다", e.id, ex);
                 if (!e.finished()) {
@@ -555,6 +572,8 @@ public final class EncounterManager implements BossService {
         if (e == null) {
             return List.of();
         }
-        return EncounterDebug.lines(e);
+        java.util.List<String> lines = new java.util.ArrayList<>(EncounterDebug.lines(e));
+        lines.add(1, costs.describe(e.id));
+        return lines;
     }
 }

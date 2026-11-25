@@ -48,6 +48,10 @@
 - **해역 분위기 (데이터팩 없음):** `world/ambience.yml`대로 그 지역에 있는 플레이어에게만 배경음·환경음 루프, 리소스팩 post effect(화면 색조), 개인 날씨, 주변 파티클을 낸다. 시간대 `phases`(새벽 물안개, 밤 야광 플랑크톤 등)는 오버월드 시간으로 판정하고 앞뒤 `fade` 틱 동안 서서히 바뀐다 (네더·엔드 지역도 오버월드 시간). 배경음은 곡이 끝나면 다시 낸다 (자동 빌드 팩이 알려 준 곡 길이, sounds.yml `loop`가 더 길면 그 간격). 다시 낼 때 바닐라 배경음은 끊는다. 연출 강도 0(`/낚시 설정`)이면 post effect를 끄고 파티클을 줄인다.
   - 바이옴 안개 색·거리, 하늘 색, 조명 색은 데이터팩으로만 바뀌므로 post effect 색조로 대신한다.
 - **웨이포인트 (로케이터 바):** 지금 지역의 물고기 떼(숨은 낚시터는 감지 스킬이 있을 때만)를 `waypoint.spot_range` 안에서, 보물 지도를 들고 있으면 지도가 가리키는 지점을 보여 준다 (Core `WaypointService`). 탐험 계열 `waypoint_range` 스탯만큼 거리가 늘어난다.
+- **항해·탐험 도구 ('3. 아이템 목록' 5·6장, 동작은 제안):** 손에 들고 우클릭한다 (`tool/WorldTools`).
+  - **귀환 소라** (`item/tool/return_conch`, 어시장 상인 100G, 소모): `world.tools.conch_region`(기본 항구)의 안전 지점으로 바로 이동, 공용 쿨타임 `conch_cooldown_s`. 같은 서버 이동은 텔레포트 원인 `CONSUMABLE_EFFECT`라 보스 경기장 안에서는 Boss가 엔더 진주처럼 막고, 다른 서버면 handoff 차단 규칙을 따른다. 이동에 성공했을 때만 소모된다.
+  - **항해용 나침반** (`item/tool/nav_compass`, 조선소 800G): 같은 월드에서 이번 시즌 아직 가 보지 않은 가장 가까운 지역의 안전 지점을 로케이터 바에 `compass_seconds` 동안 띄운다.
+  - **망원경** (`item/tool/telescope`, 낚시용품점 500G, 바닐라 확대도 그대로): 진행 중 해상 이벤트(남은 시간)·예고된 이벤트(시작까지 남은 시간)·출현 중인 월드 보스(남은 게이지·참여 인원)를 채팅으로 보여 준다. 월드 보스는 Boss에 의존하지 않고 `harbor:worldboss` 방송을 같은 모양의 레코드로 받아 읽는다 (`telescope_boss_stale_s` 넘게 방송이 없으면 끝난 것으로 봄).
 
 ## 플레이어 명령
 
@@ -111,6 +115,7 @@
 | `housing` | `world` `server` `cell` `base_size` `large_size` `large_tier` `floor_y` `entity_limit` `redstone_limit` `anchor_limit` |
 | `occupancy` | 서버 인원 발행 주기 |
 | `event.check_s` | 이벤트 일정 확인 주기 |
+| `tools` | 항해·탐험 도구 `conch_region` `conch_cooldown_s` `compass_seconds` `compass_cooldown_s` `compass_color` `telescope_cooldown_s` `telescope_boss_stale_s` (제안값) |
 
 `stats` 절의 `boat_speed` `boat_damage` `debuff_damage` `debuff_duration` `env_rate` `cold_debuff_time` `chart_reward_gold` `event_forewarn_s` `feature_storm_sailing` `feature_hidden_spot` `feature_school_radar`가 World 수치를 보정한다.
 

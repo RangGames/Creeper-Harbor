@@ -814,13 +814,23 @@ economy:
     failed: "<red>골드가 모자라 수리하지 못했습니다."
   market:
     unknown_fish: "<red>없는 어종입니다: <fish>"
-    locked: "<gray>시세는 어시장 게시판에서 볼 수 있습니다. (경제 계열 '시세 정보' 스킬로 어디서나 열람)"
+    locked: "<gray>시세는 <white><board></white>에서 볼 수 있습니다. (경제 계열 '시세 정보' 스킬로 어디서나 열람)"
     coef: "<yellow><fish></yellow> <gray>현재 시세 계수 <white><coef>"
     forecast: "<gray>다음 시간 예측 <aqua><coef>"
     history: "<gray>최근 24시간: <white><values>"
     # /시세 시세판 (추가 제안)
     board:
       title: "시세판 <page>/<pages>"
+      default_name: "항구 어시장 시세 게시판"
+      # 어시장 시세 게시판 Text Display (stations.yml type: market_board, 추가 제안)
+      display:
+        title: "<gold><bold>어시장 시세</bold></gold> <gray>(매시 정각 갱신)"
+        line: "<white><name></white> <gray>★1</gray> <yellow><price>G</yellow> <arrow> <gray>×<coef>"
+        up: "<green>▲"
+        down: "<red>▼"
+        flat: "<gray>-"
+        empty: "<gray>시세 정보가 없습니다."
+        footer: "<dark_gray>우클릭: 전체 시세 보기"
       fish: "<white>No.<no> <name> <dark_gray>(<grade>)"
       coef: "<gray>시세 계수 <yellow><coef>"
       trend_up: "<green>▲ <change></green> <gray>(24시간 전보다)"
@@ -983,6 +993,7 @@ economy:
     flag: "<red>[경제] 의심 거래: <white><value>"
     flag_held: "<red>[경제] 의심 거래 (대금 보류): <white><value>"
     market_stale: "<red>[경제] 시세가 <value>시간째 갱신되지 않았습니다."
+    unknown_item: "<red>없는 아이템입니다: <item>"
     report:
       header: "<yellow>[24시간] 획득 <white><earned>G</white> · 소모 <white><spent>G</white> · 소멸률 <white><rate>"
       reason: "<gray> <reason>: +<plus> / -<minus> (<count>건)"
@@ -1245,6 +1256,7 @@ npc:
       brother: "형님에 대해 묻는다"
       ritual: "첫 물고기 방류 의식"
       memory: "그날 밤을 떠올린다"
+      lure_gnome: "그놈을 불러내 달라고 한다"
       rumor: "소문을 묻는다"
     hansol:
       first_meet:
@@ -2173,6 +2185,13 @@ boss:
   leave:
     blocked: "<red>보스전 중에는 경기장을 벗어날 수 없습니다."
   rejoin: "<yellow>보스전으로 돌아왔습니다."
+  # 보스전 보조 도구 ('3. 아이템 목록' 7장)
+  support:
+    bandage_used: "<green>붕대를 감았습니다."
+    bandage_full: "<gray>다친 곳이 없습니다."
+    flare_no_fight: "<red>구조 신호탄은 보스전 중에만 쏠 수 있습니다."
+    flare_sent: "<green><player>님이 구조 신호탄을 쏘아 올렸습니다!"
+    flare_alert: "<green>[구조 신호]</green> <white><player></white>님이 <boss>와 싸우고 있습니다! <gray>(<x>, <z> · 위치 표시 막대)"
   result:
     title: "<boss> · 결과"
     cleared: "<green>성공! <gray>전투 시간 <white><time>"
@@ -2465,6 +2484,24 @@ world:
     event_started: "<green>시작: <run>"
     spot_line: "<gray><id> (<x>, <z>) 숨김=<hidden>"
     plot_info: "<gray>플롯 #<id> 주인 <white><owner></white> · <size>×<size> · <policy> · 좋아요 <likes> · 수조 <anchors>"
+  # 항해·탐험 도구 ('3. 아이템 목록' 5·6장)
+  tools:
+    time: "<minutes>분 <seconds>초"
+    conch:
+      used: "<aqua>소라를 불자 항구의 종소리가 들려옵니다..."
+      cooldown: "<red>귀환 소라는 <seconds>초 뒤에 다시 불 수 있습니다."
+      failed: "<red>지금은 항구로 돌아갈 수 없습니다."
+    compass:
+      target: "<aqua>나침반 바늘이 <white><region></white> 쪽을 가리킵니다. <gray>(약 <distance>블록, 위치 표시 막대)"
+      none: "<gray>이 바다에서 아직 가 보지 않은 곳이 없습니다."
+    telescope:
+      header: "<aqua>[망원경]</aqua> <gray>수평선 너머를 살핀다..."
+      active: " <yellow><name></yellow> <gray>· <region> · 남은 시간 <white><time>"
+      upcoming: " <gold><name></gold> <gray>예고 · <region> · <white><time></white> 뒤 시작"
+      boss: " <red><name></red> <gray>출현 중 · 남은 게이지 <white><percent>%</white> · 참여 <white><participants></white>명"
+      calm: " <gray>수평선이 잠잠합니다."
+      all_waters: "모든 해역"
+
 wildlife:
   admin:
     players_only: "<red>플레이어만 쓸 수 있습니다."

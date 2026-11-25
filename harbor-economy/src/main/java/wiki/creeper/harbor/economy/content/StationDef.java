@@ -15,7 +15,7 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * regions.yml (dev servers map it via balance.yml world_alias).
  *
  * @param kind place kind. auction is the reference point for the listing/cancel radius (docs 20
- *     7.5)
+ *     7.5); market_board shows current prices in the world (docs 20 7.4)
  */
 public record StationDef(
         HarborId id,
@@ -33,7 +33,12 @@ public record StationDef(
         WORKSHOP,
         COOKING,
         SHIPYARD,
-        AUCTION;
+        AUCTION,
+        /**
+         * Fish market price board (proposed, docs 20 7.4 step 6): a Text Display with the current
+         * prices above the Interaction; clicking opens the price board screen.
+         */
+        MARKET_BOARD;
 
         @Override
         public String key() {
@@ -46,7 +51,7 @@ public record StationDef(
                 case WORKSHOP -> java.util.Optional.of(RecipeDef.Station.WORKSHOP);
                 case COOKING -> java.util.Optional.of(RecipeDef.Station.COOKING);
                 case SHIPYARD -> java.util.Optional.of(RecipeDef.Station.SHIPYARD);
-                case AUCTION -> java.util.Optional.empty();
+                case AUCTION, MARKET_BOARD -> java.util.Optional.empty();
             };
         }
     }

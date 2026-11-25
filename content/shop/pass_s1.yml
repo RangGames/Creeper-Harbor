@@ -2,7 +2,7 @@
 # 경험치 (제안값): 단계당 1,000, 합계 50,000. 일반 유저 기준 약 8주차 완주.
 # 진주 보상: 무료 합계 150, 프리미엄 합계 1,000 (무료 묶음 PASS_REWARD).
 - id: pass/s1
-  season: 1
+  season: 2                      # 시즌 번호 2 = 정식 시즌 1 (season/seasons.yml, 1 = CBT는 BM 없음 '6. BM 기획' 7장)
   name: 항해 일지 · 시즌 1
   levels: 50
   exp_per_level: 1000

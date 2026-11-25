@@ -21,6 +21,7 @@
   - **펫:** 플레이어를 따라다니는 리그다. 보스전 중에는 숨긴다.
   - **포획 연출:** Fishing 포획 연출의 색·모양을 바꾼다 (강도는 등급 기준).
   - **보트 스킨:** World 선박 외형.
+  - **낚싯대 스킨:** 장착하면 낚싯대 모델만 바뀐다. 다른 사람이 줍거나, 경매장에 올리면(Economy가 `CosmeticService.stripSkin`을 클래스 이름으로 찾아 부름) 원래 모델로 돌아간다.
   - **어항 테마:** Collection 개인 어항.
 - **시즌 패스 「항해 일지」 (`/패스`):** 50단계, 무료·프리미엄·프리미엄+(즉시 10단계) 트랙이 있다.
   - 경험치는 포획(등급별), 일일·주간 의뢰, 해도 1%, 보스 클리어에서 얻는다.
@@ -29,12 +30,14 @@
   - 50회 안에 최상위 등급이 확정된다 (시즌 안에서 이월).
   - 중복은 진주 조각으로 바뀌고, 조각으로 교환할 수 있다.
   - 기능 스위치 `features.chest`(기본 꺼짐, 시즌 2 이후).
+- **시즌 번호:** `season/seasons.yml`에서 시즌 번호 1은 CBT(BM 없음, '6. BM 기획' 7장), 2가 정식 시즌 1이다. 그래서 시즌 1 패스(`pass/s1`)·항구 축제·시즌 한정 낚싯대 스킨은 `season: 2`, 진주 보물함(시즌 2 이후)은 `season: 3`이다.
 - **선물 (`/선물`):** 다른 플레이어에게 코스메틱을 선물한다. 하루 5회이고, 플레이 시간 5시간 이상이어야 한다 (현금 거래 우회 방지).
 - **닉네임 표시 변경권 (`/닉네임`):** 진주 500, 2~12자.
 - **크리에이터 코드 (`/크리에이터`):** 코드를 등록해 크리에이터를 후원한다. 기능 스위치 `features.creator_codes`(기본 꺼짐).
 - **항구 축제 (`/축제`):** 서버 공동 후원 목표. 달성하면 보상 코스메틱, 참여자는 칭호를 받는다. 기능 스위치 `features.festival`(기본 꺼짐).
 - **후원 등급:** 항구 후원자(`harbor`)·선단 후원자(`fleet`) 월 구독이다.
   - 월 진주(300·700), 이름 색, 채팅 아이콘, 칭호를 준다. 선단 후원자는 월 한정 코스메틱도 받는다.
+  - 등급별 `cosmetics`(소유형, 해지 뒤에도 유지)는 그 등급인 동안 접속·등급 변경 때 지급한다. 선단 후원자는 전용 선박 깃발 `cosmetic/donor_fleet_flag` ('6. BM 기획' 3.2).
   - 해지 뒤 3일 유예한다.
   - 등급은 Redis `harbor:donor`에 실어 프록시 우선 대기열과 다른 모듈이 읽는다.
 - **도감 치장품:** Collection 도감 이정표를 달성하면 정해진 코스메틱을 자동으로 준다.
@@ -103,7 +106,7 @@
 | `admin.pearl_confirm_over` | 이보다 많은 관리자 지급은 다른 관리자 확인 |
 | `gift` | `daily_limit` `min_playtime_hours` |
 | `name_change` | `price` `min_length` `max_length` |
-| `donor` | `grace_days`, 등급별 `monthly_pearls` `name_color` `chat_icon` `title`, `monthly_cosmetics` |
+| `donor` | `grace_days`, 등급별 `monthly_pearls` `name_color` `chat_icon` `title` `cosmetics`(등급 동안 지급하는 소유형 코스메틱), `monthly_cosmetics` |
 | `inbox` | `retry_minutes` `max_attempts` `poll_seconds` |
 | `reconcile` | `hour` `window_hours` |
 | `pet` | `view_distance` `follow_distance` `update_ticks` `max_parts` |

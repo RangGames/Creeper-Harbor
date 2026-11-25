@@ -19,15 +19,12 @@ import wiki.creeper.harbor.boss.party.PartyActions;
 import wiki.creeper.harbor.boss.party.PartyManager;
 import wiki.creeper.harbor.boss.party.PartyWaypoints;
 import wiki.creeper.harbor.boss.world.WorldBossManager;
-import wiki.creeper.harbor.common.id.BossId;
-import wiki.creeper.harbor.common.id.HarborId;
 import wiki.creeper.harbor.core.api.HandoffBlocker;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborModule;
 import wiki.creeper.harbor.core.api.ModuleContext;
 import wiki.creeper.harbor.core.api.PartyService;
 import wiki.creeper.harbor.fishing.api.FishingService;
-import wiki.creeper.harbor.npc.api.ActionResult;
 import wiki.creeper.harbor.npc.api.DialogService;
 import wiki.creeper.harbor.npc.api.NpcService;
 
@@ -76,6 +73,8 @@ public final class HarborBossPlugin extends HarborModule {
         ctx.listen(mgr.listener());
         ctx.listen(instances);
         ctx.listen(worldBoss);
+        ctx.listen(new wiki.creeper.harbor.boss.encounter.SupportItems(api, mgr));
+        ctx.listen(new wiki.creeper.harbor.boss.encounter.WorldBossSky(mgr));
         ctx.handoffBlocker(
                 (player, destination) ->
                         mgr.blocksHandoff(player)
@@ -145,35 +144,8 @@ public final class HarborBossPlugin extends HarborModule {
         api.service(DialogService.class)
                 .ifPresent(
                         dialogs ->
-                                dialogs.registerAction(
-                                        this,
-                                        "boss:enter",
-                                        (dctx, args) -> {
-                                            String raw =
-                                                    args.string("boss").or(args::value).orElse("");
-                                            try {
-                                                HarborId id =
-                                                        HarborId.parse(
-                                                                raw.contains("/")
-                                                                        ? raw
-                                                                        : BossId.PREFIX + raw);
-                                                InstanceManager.EnterResult r =
-                                                        instances.requestEntry(
-                                                                dctx.player(), new BossId(id));
-                                                if (r == InstanceManager.EnterResult.REQUESTED) {
-                                                    return ActionResult.CLOSE;
-                                                }
-                                                return ActionResult.failMessage(
-                                                        "boss.instance."
-                                                                + r.name()
-                                                                        .toLowerCase(
-                                                                                java.util.Locale
-                                                                                        .ROOT));
-                                            } catch (IllegalArgumentException e) {
-                                                return ActionResult.failMessage(
-                                                        "boss.cmd.unknown_boss");
-                                            }
-                                        }));
+                                wiki.creeper.harbor.boss.npc.BossDialogActions.register(
+                                        this, dialogs, mgr, instances));
     }
 
     @Override

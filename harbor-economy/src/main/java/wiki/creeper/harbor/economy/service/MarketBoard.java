@@ -59,22 +59,50 @@ final class MarketBoard {
 
     private final HarborApi api;
     private final MarketEngine market;
+    private final StationManager stations;
 
-    MarketBoard(HarborApi api, MarketEngine market) {
+    MarketBoard(HarborApi api, MarketEngine market, StationManager stations) {
         this.api = api;
         this.market = market;
+        this.stations = stations;
+    }
+
+    /** "Prices are on the fish market board" (names the market_board station if there is one). */
+    void sendLocked(org.bukkit.command.CommandSender sender) {
+        Component board =
+                stations.boardName()
+                        .map(Component::text)
+                        .map(Component.class::cast)
+                        .orElseGet(() -> api.messages().get("economy.market.board.default_name"));
+        api.messages().send(sender, "economy.market.locked", Placeholder.component("board", board));
     }
 
     void open(Player player) {
         double info = api.modifiers().value(player.getUniqueId(), MARKET_INFO);
         if (info < 1) {
-            api.messages().send(player, "economy.market.locked");
+            sendLocked(player);
             return;
         }
         if (info < 2) {
             show(player, Map.of(), false, Order.NUMBER, 0);
             return;
         }
+        openTrend(player);
+    }
+
+    /**
+     * Clicked at a fish market price board (station market_board): everyone sees the current
+     * prices; economy 'Market Info' rank 2 adds the 24-hour trend as with /시세.
+     */
+    void openAtBoard(Player player) {
+        if (api.modifiers().value(player.getUniqueId(), MARKET_INFO) >= 2) {
+            openTrend(player);
+        } else {
+            show(player, Map.of(), false, Order.NUMBER, 0);
+        }
+    }
+
+    private void openTrend(Player player) {
         var _ =
                 market.coefficientsAt(MarketEngine.currentHour().minus(Duration.ofHours(24)))
                         .thenAccept(

@@ -161,6 +161,11 @@ public final class HarborWorldPlugin extends HarborModule {
             ctx.listen(l);
         }
         ctx.listen(new ReloadListener(kit, regions, charts, spots));
+        // Navigation and exploration tools (conch, compass, telescope)
+        wiki.creeper.harbor.world.tool.WorldBossWatch bossWatch =
+                new wiki.creeper.harbor.world.tool.WorldBossWatch();
+        bossWatch.start(api);
+        ctx.listen(new wiki.creeper.harbor.world.tool.WorldTools(kit, regions, sea, bossWatch));
         ctx.handoffBlocker(ship.handoffBlocker());
         ctx.handoffBlocker(ride.handoffBlocker());
         // Decor cleanup right before the save (it has side effects, so last, after the deny checks)

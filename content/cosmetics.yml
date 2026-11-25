@@ -1,6 +1,7 @@
 # BM 코스메틱 ('11. 데이터 설계' 2.8, '6. BM 기획' 3.3, docs 20 12.3). 모두 비성능·계정 영구 소유·거래 불가 (tradeable 없음).
 # category: rod_skin · line_fx · catch_fx · boat_skin · pet · title_frame · name_color · chat_icon · emote · outfit · aquarium_theme · housing_deco
 # availability: permanent(상시) · rotation(주간 로테이션, shop/rotation.yml) · season(그 시즌만) · pass · chest · donor · free
+# season: 시즌 번호 (season/seasons.yml 기준 1 = CBT, 2 = 정식 시즌 1)
 # grade는 표시 등급(희소도와 무관). price는 진주 (가격대는 '6. BM 기획' 3.3 표 안에서 제안값).
 # model은 리소스팩 item_model 키 (assets/harbor/items/, 준비 전 예시).
 
@@ -21,7 +22,7 @@
 - {id: cosmetic/aquarium_coral_theme, name: "산호초 어항 테마", category: aquarium_theme, grade: rare, price: 800, availability: permanent}
 
 # ---- 시즌 한정 (시즌 1 동안만)
-- {id: cosmetic/s1_rod_lighthouse, name: "등대지기 낚싯대", category: rod_skin, grade: epic, price: 1100, availability: season, season: 1, model: "harbor:cosmetic/rod/s1_lighthouse"}
+- {id: cosmetic/s1_rod_lighthouse, name: "등대지기 낚싯대", category: rod_skin, grade: epic, price: 1100, availability: season, season: 2, model: "harbor:cosmetic/rod/s1_lighthouse"}
 
 # ---- 전설 어종 기념 스킨: 그 어종을 직접 잡은 사람만 구매 ('6. BM 기획' 3.3). 샘플은 1구역 신화 어종 (전설 어종이 추가되면 바꾼다)
 - {id: cosmetic/rod_memorial_ghost_captain, name: "유령 선장의 낚싯대", category: rod_skin, grade: legendary, price: 1500, availability: permanent, model: "harbor:cosmetic/rod/memorial_ghost_captain", requires: {fish_caught: fish/ghost_captain_goldfish}}
