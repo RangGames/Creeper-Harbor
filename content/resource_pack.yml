@@ -4,6 +4,8 @@
 models:
   - harbor:decor/coral_tank
   - harbor:decor/glass_tank
+  - harbor:decor/grand_aquarium
+  - harbor:decor/wide_tank
   - harbor:fish/abyss_lanternfish
   - harbor:fish/abyss_lanternfish/body_1
   - harbor:fish/abyss_lanternfish/body_2

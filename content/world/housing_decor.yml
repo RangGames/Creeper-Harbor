@@ -25,5 +25,5 @@
 - {id: decor/lighthouse_model, name: 등대 모형, kind: furniture, furniture: furniture/lighthouse_model, price: 15000, reputation_min: 4, category: statue}
 - {id: decor/glass_tank, name: 유리 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/glass_tank", price: 3000, category: aquarium}
 - {id: decor/coral_tank, name: 산호 수조, kind: tank, material: minecraft:tinted_glass, model: "harbor:decor/coral_tank", price: 9000, reputation_min: 3, category: aquarium}
-- {id: decor/wide_tank, name: 긴 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/glass_tank", size: [2, 1, 1], fish: 2, price: 7000, category: aquarium}
-- {id: decor/grand_aquarium, name: 대형 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/glass_tank", size: [3, 2, 2], fish: 4, price: 20000, reputation_min: 3, category: aquarium}
+- {id: decor/wide_tank, name: 긴 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/wide_tank", size: [2, 1, 1], fish: 2, price: 7000, category: aquarium}
+- {id: decor/grand_aquarium, name: 대형 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/grand_aquarium", size: [3, 2, 2], fish: 4, price: 20000, reputation_min: 3, category: aquarium}
