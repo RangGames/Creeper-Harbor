@@ -230,7 +230,8 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         if (view != null) {
             view.plot = event.plot();
         }
-        DisplaySlot row = view == null ? null : view.rows.get(slot);
+        // Take the row out of memory now so the redraw below never shows the old fish
+        DisplaySlot row = view == null ? null : view.rows.remove(slot);
         if (view == null || row != null || !event.added()) {
             UUID owner = event.plot().owner();
             var _ =

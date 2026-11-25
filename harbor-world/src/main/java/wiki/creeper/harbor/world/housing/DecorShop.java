@@ -246,6 +246,17 @@ final class DecorShop {
             kit.send(player, "world.decor.empty");
             return;
         }
+        // The menu redraws its current page after a take (counts in the lore), without reopening
+        List<PagedMenu<DecorDef>> self = new ArrayList<>(1);
+        Runnable refresh =
+                () -> {
+                    PagedMenu<DecorDef> m = self.isEmpty() ? null : self.getFirst();
+                    if (m != null
+                            && player.isOnline()
+                            && player.getOpenInventory().getTopInventory().getHolder(false) == m) {
+                        m.show(player, m.page());
+                    }
+                };
         PagedMenu<DecorDef> menu =
                 new PagedMenu<>(
                         msg.get("world.decor.palette_title"),
@@ -260,13 +271,15 @@ final class DecorShop {
                                                         d,
                                                         e.getClick() == ClickType.SHIFT_LEFT
                                                                 ? 16
-                                                                : 1)),
+                                                                : 1,
+                                                        refresh)),
                         Icons.of(Material.ARROW, msg.get("world.decor.previous"), List.of()),
                         Icons.of(Material.ARROW, msg.get("world.decor.next"), List.of()));
+        self.add(menu);
         menu.show(player, 0);
     }
 
-    private void take(Player player, DecorDef d, int wanted) {
+    private void take(Player player, DecorDef d, int wanted, Runnable refresh) {
         UUID uuid = player.getUniqueId();
         int amount = Math.min(wanted, count(uuid, d.id()));
         if (d.kind() != DecorDef.Kind.BLOCK) {
@@ -278,6 +291,7 @@ final class DecorShop {
         int n = amount;
         HarborId id = d.id();
         decor.adjustOwned(uuid, id, -n);
+        refresh.run();
         var _ =
                 kit.api()
                         .database()
@@ -287,6 +301,7 @@ final class DecorShop {
                                     if (error != null) {
                                         decor.adjustOwned(uuid, id, n);
                                         kit.send(player, "world.decor.take_failed");
+                                        refresh.run();
                                         return;
                                     }
                                     // Once the move snapshot has been taken, adding to the
@@ -300,6 +315,9 @@ final class DecorShop {
                                     var left = player.getInventory().addItem(item);
                                     left.values()
                                             .forEach(rest -> addCount(uuid, id, rest.getAmount()));
+                                    if (!left.isEmpty()) {
+                                        refresh.run();
+                                    }
                                     // The storage deduction is already committed: save the
                                     // inventory soon too (items are lost if
                                     // the server dies)
