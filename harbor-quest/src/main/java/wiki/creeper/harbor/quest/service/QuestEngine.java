@@ -161,7 +161,14 @@ public final class QuestEngine
         ContentSnapshot s = snapshot();
         return s.typeNames().contains(ChronicleDef.TYPE.name())
                 ? s.single(ChronicleDef.TYPE)
-                : new ChronicleDef(List.of(), List.of(), null, 3, 150, 27);
+                : new ChronicleDef(
+                        List.of(),
+                        List.of(),
+                        null,
+                        ChronicleDef.DEFAULT_REQUIRED_PIECES,
+                        3,
+                        150,
+                        27);
     }
 
     public Balance balance() {

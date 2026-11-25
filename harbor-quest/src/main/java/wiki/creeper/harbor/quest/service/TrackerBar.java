@@ -24,15 +24,22 @@ import wiki.creeper.harbor.quest.logic.QuestMachine;
 import wiki.creeper.harbor.quest.logic.TrackerLine;
 
 /**
- * Tracker boss bar (proposed): always shows the tracked quest's name, current objective and
- * progress at the top of the screen. When it can be turned in, shows the turn-in NPC. Toggled by
- * the player flag {@value #OFF_FLAG} (/퀘스트 표시), server-wide by balance.yml quest.tracker.bossbar.
- * Hidden during cutscenes. Main thread only.
+ * Tracker boss bar: the tracked quest's name, current objective and progress at the top of the
+ * screen (the turn-in NPC once it can be turned in). Docs 20 6.4 keeps the boss bar for
+ * time-limited event quests only (the locator bar waypoint, {@link QuestLocator}, points at every
+ * tracked objective), so by default it shows only while the tracked quest has a time_window end. A
+ * player can still ask for it on every tracked quest with /퀘스트 표시 (player flag {@value #ON_FLAG});
+ * balance.yml {@code quest.tracker.bossbar_all} makes that the server default, and then /퀘스트 표시
+ * turns it off instead (player flag {@value #OFF_FLAG}, which also hides the event bar). {@code
+ * quest.tracker.bossbar} false turns it off server-wide. Hidden during cutscenes. Main thread only.
  */
 public final class TrackerBar {
 
     /** If this flag is set, the boss bar is not shown to that player. */
     public static final String OFF_FLAG = "settings/quest_bossbar_off";
+
+    /** If this flag is set, the boss bar is shown on every tracked quest, not only timed ones. */
+    public static final String ON_FLAG = "settings/quest_bossbar_on";
 
     private record Shown(BossBar bar, Component name, float progress, BossBar.Color color) {}
 
@@ -55,7 +62,9 @@ public final class TrackerBar {
                 continue;
             }
             Optional<TrackerLine.View> view =
-                    enabled && !hidden(player) ? view(player, hp) : Optional.empty();
+                    enabled && !hidden(player)
+                            ? view(player, hp, alwaysOn(player.getUniqueId()))
+                            : Optional.empty();
             if (view.isEmpty()) {
                 hide(player);
                 continue;
@@ -69,26 +78,58 @@ public final class TrackerBar {
                 || engine.deps.cutscenes().isPlaying(player);
     }
 
+    private boolean allByDefault() {
+        return engine.balance().bool("quest.tracker.bossbar_all", false);
+    }
+
+    /** Whether the bar is shown on every tracked quest for this player (not only timed ones). */
+    public boolean alwaysOn(UUID uuid) {
+        if (engine.api.flags().hasPlayer(uuid, OFF_FLAG)) {
+            return false;
+        }
+        return allByDefault() || engine.api.flags().hasPlayer(uuid, ON_FLAG);
+    }
+
     /**
-     * /퀘스트 표시: turns it off if on, on if off. The result (whether it is on) completes on the main
-     * thread.
+     * /퀘스트 표시: switches between "every tracked quest" and the default (timed event quests only, or
+     * off when quest.tracker.bossbar_all is on). The result (whether the bar is now shown on every
+     * tracked quest) completes on the main thread.
      */
     public CompletableFuture<Boolean> toggle(Player player) {
         UUID uuid = player.getUniqueId();
-        boolean off = engine.api.flags().hasPlayer(uuid, OFF_FLAG);
-        CompletableFuture<Void> write =
-                off
-                        ? engine.api.flags().unsetPlayer(uuid, OFF_FLAG)
-                        : engine.api.flags().setPlayer(uuid, FlagService.Scope.PERM, OFF_FLAG);
+        boolean on = alwaysOn(uuid);
+        var flags = engine.api.flags();
+        CompletableFuture<Void> write;
+        if (allByDefault()) {
+            write =
+                    on
+                            ? flags.setPlayer(uuid, FlagService.Scope.PERM, OFF_FLAG)
+                            : flags.unsetPlayer(uuid, OFF_FLAG);
+        } else if (on) {
+            write = flags.unsetPlayer(uuid, ON_FLAG);
+        } else {
+            // An old "off" setting would keep hiding the bar, so it is cleared with the opt-in
+            write =
+                    flags.unsetPlayer(uuid, OFF_FLAG)
+                            .thenComposeAsync(
+                                    v -> flags.setPlayer(uuid, FlagService.Scope.PERM, ON_FLAG),
+                                    engine.tasks.main());
+        }
         return write.thenApplyAsync(
                 v -> {
                     refresh();
-                    return off;
+                    return !on;
                 },
                 engine.tasks.main());
     }
 
-    private Optional<TrackerLine.View> view(Player player, HarborPlayer hp) {
+    /** Time-limited event quest (time_window with an end): the boss bar is always kept for it. */
+    static boolean timed(QuestDef def) {
+        QuestDef.TimeWindow window = def.timeWindow();
+        return window != null && window.end() != null;
+    }
+
+    private Optional<TrackerLine.View> view(Player player, HarborPlayer hp, boolean always) {
         QuestData data = hp.get(QuestEngine.COMPONENT);
         QuestId tracked = data.tracked();
         if (tracked == null) {
@@ -100,6 +141,9 @@ public final class TrackerBar {
             return Optional.empty();
         }
         QuestDef d = def.get();
+        if (!always && !timed(d)) {
+            return Optional.empty();
+        }
         if (e.state() == QuestState.READY || e.state() == QuestState.COMPLETING) {
             String npc =
                     d.turnInNpc()

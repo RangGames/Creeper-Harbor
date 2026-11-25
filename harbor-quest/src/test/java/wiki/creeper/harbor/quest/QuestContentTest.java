@@ -85,7 +85,10 @@ class QuestContentTest {
         assertEquals("o2", q.objectives().get(1).key());
         assertEquals(Target.Kind.GRADE, q.objectives().getFirst().target().kind());
         assertTrue(q.objectives().getFirst().target().orAbove());
-        assertEquals(3, r.orThrow().single(ChronicleDef.TYPE).recapMulbineul());
+        ChronicleDef chronicle = r.orThrow().single(ChronicleDef.TYPE);
+        assertEquals(3, chronicle.recapMulbineul());
+        // One defined piece does not make the full chronicle (chapters 1~7)
+        assertEquals(ChronicleDef.DEFAULT_REQUIRED_PIECES, chronicle.totalPieces());
     }
 
     @Test

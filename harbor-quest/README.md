@@ -8,7 +8,7 @@
 |---|---|
 | `/퀘스트` | 퀘스트북(상자 GUI). 탭은 진행 중 · 받을 수 있음 · 완료이고, 게시판 · 연대기 · 추적 표시 바로 가기가 있다 |
 | `/퀘스트 목록` | 예전 Dialog 목록 |
-| `/퀘스트 표시` | 화면 위 추적 보스바 켜기/끄기 |
+| `/퀘스트 표시` | 화면 위 추적 보스바를 모든 추적 퀘스트에 켜기/끄기 (기본은 시간 제한 이벤트 퀘스트만. 목표 위치는 늘 위치 표시 막대에 뜬다) |
 | `/퀘스트 추적 <퀘스트>` · `/퀘스트 포기 <퀘스트>` | 명령으로 추적·포기 |
 | `/의뢰` · `/연대기` | 어부 길드 게시판 · 항구 연대기 |
 
@@ -102,7 +102,9 @@ quest:
   journal:
     style: gui              # /퀘스트: gui 또는 dialog
   tracker:
-    bossbar: true           # 추적 보스바
+    locator: true           # 추적 목표를 위치 표시 막대 waypoint로
+    bossbar: true           # 추적 보스바 (기본은 시간 제한 이벤트 퀘스트에만)
+    bossbar_all: false      # true면 모든 추적 퀘스트에 보스바가 기본
   notify:                   # chat · title · actionbar · none (쉼표로 여러 개). <사건>_main은 메인 퀘스트 전용
     accepted: chat
     accepted_main: chat, title

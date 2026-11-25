@@ -31,8 +31,7 @@ import wiki.creeper.harbor.quest.logic.QuestMachine;
  * <ul>
  *   <li>Progress action bar "Harbor Mackerel 3/10" (batched to once per second per player)
  *   <li>Direction and distance to the current objective of the tracked quest (action bar, every 2
- *       seconds). The vanilla locator bar waypoint will be replaced with a hidden marker entity
- *       after Phase 1 verification
+ *       seconds). The locator bar waypoint for the same target is {@link QuestLocator}
  *   <li>visit objectives: without World region entry events, a regions.yml polygon check once per
  *       10 ticks on moves that change block coordinates, only for players with an active visit
  *       objective
@@ -142,7 +141,16 @@ public final class Tracker {
         }
     }
 
-    private Optional<Component> waypoint(Player player, HarborPlayer hp) {
+    /**
+     * Where the tracked quest points now: the turn-in NPC when READY, otherwise the first current
+     * objective's waypoint, talk/deliver NPC or point. Same world as the player only.
+     *
+     * @param ready can be turned in
+     * @param main main story quest
+     */
+    record TrackedTarget(Location at, String label, boolean ready, boolean main) {}
+
+    Optional<TrackedTarget> target(Player player, HarborPlayer hp) {
         QuestData data = hp.get(QuestEngine.COMPONENT);
         var tracked = data.tracked();
         if (tracked == null) {
@@ -155,7 +163,8 @@ public final class Tracker {
         }
         Location target = null;
         String label;
-        if (e.state() == QuestState.READY) {
+        boolean ready = e.state() == QuestState.READY;
+        if (ready) {
             Optional<NpcId> npc = def.get().turnInNpc();
             if (npc.isEmpty()) {
                 return Optional.empty();
@@ -176,6 +185,16 @@ public final class Tracker {
                 || !target.getWorld().equals(player.getWorld())) {
             return Optional.empty();
         }
+        return Optional.of(new TrackedTarget(target, label, ready, def.get().main()));
+    }
+
+    private Optional<Component> waypoint(Player player, HarborPlayer hp) {
+        Optional<TrackedTarget> tracked = target(player, hp);
+        if (tracked.isEmpty()) {
+            return Optional.empty();
+        }
+        Location target = tracked.get().at();
+        String label = tracked.get().label();
         Location at = java.util.Objects.requireNonNull(player.getLocation());
         double dx = target.getX() - at.getX();
         double dz = target.getZ() - at.getZ();
