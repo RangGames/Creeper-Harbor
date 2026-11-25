@@ -163,8 +163,16 @@ public final class Encounter {
         return center.clone().add(v.x(), v.y(), v.z());
     }
 
+    /** Deck spawn on the actual platform near the configured point (found once per fight). */
+    private @Nullable Location standSpawn;
+
     Location deckSpawn() {
-        return deck(def.arena().deck().spawn());
+        Location s = standSpawn;
+        if (s == null) {
+            s = DeckGround.standable(deck(def.arena().deck().spawn()));
+            standSpawn = s;
+        }
+        return s.clone();
     }
 
     Location bossLocation() {

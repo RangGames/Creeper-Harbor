@@ -170,8 +170,7 @@ final class EncounterRoster {
                     m.absentSince = -1;
                 }
                 if (p != null && !e.def.isWorld() && e.fight.state().fighting()) {
-                    double floor = e.deckSpawn().getY() - 3;
-                    if (BossItems.loc(p).getY() < floor && !m.fallen(now)) {
+                    if (!m.fallen(now) && DeckGround.fallen(p, e.deckSpawn().getY())) {
                         fall(m, p);
                     }
                 }

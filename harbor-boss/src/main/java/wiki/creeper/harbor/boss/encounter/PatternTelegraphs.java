@@ -97,8 +97,11 @@ final class PatternTelegraphs {
                     ox = spawn.getX();
                     oz = spawn.getZ();
                 } else {
-                    Player target =
-                            Bukkit.getPlayer(present.get(random.nextInt(present.size())).uuid);
+                    // Prefer members who can move: anchors on a line are frozen in place and
+                    // could never dodge (proposed)
+                    List<Member> free = present.stream().filter(m -> m.session == null).toList();
+                    List<Member> pool = free.isEmpty() ? present : free;
+                    Player target = Bukkit.getPlayer(pool.get(random.nextInt(pool.size())).uuid);
                     Location tl = target == null ? spawn : BossItems.loc(target);
                     ox = tl.getX();
                     oz = tl.getZ();
@@ -225,6 +228,11 @@ final class PatternTelegraphs {
             }
             anyInside = true;
             if (evaded) {
+                continue;
+            }
+            if (m.session != null) {
+                // Anchor holding a line cannot move: the hit still damages the ship, but no
+                // knockback (it would push them into the water) or debuff (proposed)
                 continue;
             }
             if (effect.knockback() > 0) {
