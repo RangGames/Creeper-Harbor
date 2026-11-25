@@ -67,6 +67,30 @@ class PackBuilderTest {
     }
 
     @Test
+    void reportsProgressAfterEachFile(@TempDir Path dir) throws IOException {
+        Path src = sample(dir);
+        List<int[]> calls = new ArrayList<>();
+        PackBuilder.build(
+                src,
+                List.of(),
+                dir.resolve("a.zip"),
+                META,
+                java.util.Map.of(),
+                PackBuilder.Settings.PLAIN,
+                (stage, done, total) -> {
+                    assertEquals(PackBuilder.Stage.PACK, stage);
+                    calls.add(new int[] {done, total});
+                });
+
+        // 3 files (mcmeta is generated before the loop): 0/3 first, then one call per file
+        assertEquals(4, calls.size());
+        for (int i = 0; i < calls.size(); i++) {
+            assertEquals(i, calls.get(i)[0]);
+            assertEquals(3, calls.get(i)[1]);
+        }
+    }
+
+    @Test
     void changedAssetsChangeSha1(@TempDir Path dir) throws IOException {
         Path src = sample(dir);
         String before = PackBuilder.build(src, dir.resolve("a.zip"), META).sha1();

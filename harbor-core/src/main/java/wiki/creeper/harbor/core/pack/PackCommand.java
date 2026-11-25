@@ -7,9 +7,12 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import java.nio.file.Path;
 import java.util.Locale;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import wiki.creeper.harbor.common.pack.PackBuilder;
 import wiki.creeper.harbor.common.pack.PublishedPack;
 import wiki.creeper.harbor.core.admin.AdminLog;
 import wiki.creeper.harbor.core.api.MessageService;
@@ -58,10 +61,42 @@ public final class PackCommand {
     private int build(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         messages.send(sender, "pack.building");
+        // Players get a boss bar; the console sees the server log (every 10%)
+        BossBar bar =
+                sender instanceof Player
+                        ? BossBar.bossBar(
+                                messages.get("pack.building"),
+                                0f,
+                                BossBar.Color.YELLOW,
+                                BossBar.Overlay.PROGRESS)
+                        : null;
+        PackManager.ProgressView view = null;
+        if (bar != null) {
+            BossBar shown = bar;
+            ((Player) sender).showBossBar(shown);
+            view =
+                    (stage, percent, done, total) -> {
+                        if (stage == PackBuilder.Stage.UPLOAD) {
+                            shown.name(messages.get("pack.progress_upload"));
+                            shown.progress(1f);
+                            return;
+                        }
+                        shown.name(
+                                messages.get(
+                                        "pack.progress",
+                                        Placeholder.unparsed("percent", String.valueOf(percent)),
+                                        Placeholder.unparsed("done", String.valueOf(done)),
+                                        Placeholder.unparsed("total", String.valueOf(total))));
+                        shown.progress(Math.clamp(percent / 100f, 0f, 1f));
+                    };
+        }
         var _ =
-                packs.build()
+                packs.build(view)
                         .thenAccept(
                                 outcome -> {
+                                    if (bar != null) {
+                                        ((Player) sender).hideBossBar(bar);
+                                    }
                                     switch (outcome) {
                                         case PackManager.Outcome.Uploaded(
                                                         PublishedPack pack,

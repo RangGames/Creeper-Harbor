@@ -125,6 +125,22 @@ public final class PackBuilder {
      */
     public record Meta(String format, String description) {}
 
+    /** Build stage reported to {@link Progress}. */
+    public enum Stage {
+        /** Optimizing and zipping files (done/total = files). */
+        PACK,
+        /** Uploading the finished zip (reported by the caller, no file counts). */
+        UPLOAD
+    }
+
+    /** Build progress, called on the building thread after each file (proposed). */
+    @FunctionalInterface
+    public interface Progress {
+        Progress NONE = (stage, done, total) -> {};
+
+        void update(Stage stage, int done, int total);
+    }
+
     /**
      * @param sha1 SHA-1 of the zip (40 hex digits, for client verification)
      * @param files number of files added
@@ -217,6 +233,19 @@ public final class PackBuilder {
             Map<String, byte[]> generated,
             Settings settings)
             throws IOException {
+        return build(source, merges, out, meta, generated, settings, Progress.NONE);
+    }
+
+    /** As above, reporting progress after each file. */
+    public static Built build(
+            Path source,
+            List<Path> merges,
+            Path out,
+            Meta meta,
+            Map<String, byte[]> generated,
+            Settings settings,
+            Progress progress)
+            throws IOException {
         if (!hasAssets(source)) {
             throw new IOException("assets 폴더가 없습니다: " + source.getFileName());
         }
@@ -267,6 +296,9 @@ public final class PackBuilder {
                 if (!hasMeta) {
                     zip.put("pack.mcmeta", mcmeta(meta).getBytes(StandardCharsets.UTF_8), false);
                 }
+                int total = owners.size();
+                int done = 0;
+                progress.update(Stage.PACK, 0, total);
                 for (Map.Entry<String, List<PackSource>> e : owners.entrySet()) {
                     String path = e.getKey();
                     byte[] made = generated.get(path);
@@ -288,6 +320,7 @@ public final class PackBuilder {
                     if (soundFile != null) {
                         fileTicks.put(soundFile, SoundLengths.oggTicks(data));
                     }
+                    progress.update(Stage.PACK, ++done, total);
                 }
             }
             if (writer != null) {

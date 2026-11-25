@@ -70,6 +70,50 @@ public final class PackManager {
         record Failed(String reason) implements Outcome {}
     }
 
+    /**
+     * Build progress for a caller (a command sender), called on the main thread whenever the
+     * percentage or stage changes.
+     */
+    @FunctionalInterface
+    public interface ProgressView {
+        void show(PackBuilder.Stage stage, int percent, int done, int total);
+    }
+
+    /**
+     * Turns per-file progress from the build thread into percentages: logs every 10% and forwards
+     * changes to the main thread for a {@link ProgressView}.
+     */
+    private final class Reporter implements PackBuilder.Progress {
+
+        private final @Nullable ProgressView view;
+        private PackBuilder.@Nullable Stage stage;
+        private int percent = -1;
+
+        Reporter(@Nullable ProgressView view) {
+            this.view = view;
+        }
+
+        @Override
+        public void update(PackBuilder.Stage stage, int done, int total) {
+            int now = total <= 0 ? 100 : (int) (done * 100L / total);
+            if (stage == this.stage && now == percent) {
+                return;
+            }
+            boolean newStage = stage != this.stage;
+            if (stage == PackBuilder.Stage.PACK && (newStage || now / 10 != percent / 10)) {
+                log.info("리소스팩 압축 {}% ({}/{})", now, done, total);
+            } else if (stage == PackBuilder.Stage.UPLOAD && newStage) {
+                log.info("리소스팩 올리는 중...");
+            }
+            this.stage = stage;
+            this.percent = now;
+            ProgressView v = view;
+            if (v != null) {
+                tasks.main().execute(() -> v.show(stage, now, done, total));
+            }
+        }
+    }
+
     /** Check interval in case a notification was missed (1 minute, proposed value). */
     private static final long POLL_TICKS = 20L * 60;
 
@@ -197,7 +241,7 @@ public final class PackManager {
         if (builtOnce) {
             log.info("리소스팩 재료가 바뀌어 다시 빌드합니다");
         }
-        var _ = build(true, plugins).thenAccept(this::logOutcome);
+        var _ = build(true, plugins, null).thenAccept(this::logOutcome);
     }
 
     /**
@@ -256,14 +300,20 @@ public final class PackManager {
      * on the main thread.
      */
     public CompletableFuture<Outcome> build() {
-        return build(false, installedPlugins());
+        return build(null);
+    }
+
+    /** As {@link #build()}, showing progress to {@code view} (main thread). */
+    public CompletableFuture<Outcome> build(@Nullable ProgressView view) {
+        return build(false, installedPlugins(), view);
     }
 
     /**
      * @param strict do not upload when a merge pack could not be read (watcher builds: the pack is
      *     probably being rewritten, and the finished write triggers another build)
      */
-    private CompletableFuture<Outcome> build(boolean strict, Set<String> plugins) {
+    private CompletableFuture<Outcome> build(
+            boolean strict, Set<String> plugins, @Nullable ProgressView view) {
         InfraConfig.PackBuild config = infra.packBuild();
         if (config == null || config.apiKey().isBlank()) {
             return CompletableFuture.completedFuture(
@@ -275,7 +325,9 @@ public final class PackManager {
         }
         Path source = source();
         Path out = harborDir.resolve("pack-build").resolve(config.fileName());
-        return tasks.supplyAsync(() -> buildBlocking(config, source, out, strict, plugins))
+        Reporter reporter = new Reporter(view);
+        return tasks.supplyAsync(
+                        () -> buildBlocking(config, source, out, strict, plugins, reporter))
                 .thenApplyAsync(
                         outcome -> {
                             building.set(false);
@@ -293,7 +345,8 @@ public final class PackManager {
             Path source,
             Path out,
             boolean strict,
-            Set<String> plugins) {
+            Set<String> plugins,
+            PackBuilder.Progress progress) {
         try {
             List<Path> merges = merges(config, plugins);
             List<Path> inputs = new ArrayList<>(merges.size() + 1);
@@ -325,7 +378,8 @@ public final class PackManager {
                                             config.optimize(),
                                             harborDir.resolve("pack-build").resolve("cache")),
                                     Set.copyOf(config.keep()),
-                                    config.zip()));
+                                    config.zip()),
+                            progress);
             if (!merges.isEmpty()) {
                 log.info(
                         "리소스팩 합치기: {}",
@@ -353,6 +407,7 @@ public final class PackManager {
                 redis.sync().set(PublishedPack.SHA1_KEY, built.sha1());
                 return new Outcome.Unchanged(stored.get());
             }
+            progress.update(PackBuilder.Stage.UPLOAD, 0, 1);
             CdnClient.Uploaded uploaded =
                     new CdnClient(URI.create(config.cdnUrl()), config.apiKey())
                             .upload(built.zip(), config.namespace(), config.version());
