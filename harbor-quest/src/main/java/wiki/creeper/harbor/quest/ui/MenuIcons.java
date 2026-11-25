@@ -45,7 +45,12 @@ final class MenuIcons {
 
     /** Empty glass pane that fills a slot (no name). */
     static ItemStack filler() {
-        ItemStack stack = ItemStack.of(Material.GRAY_STAINED_GLASS_PANE);
+        return filler(Material.GRAY_STAINED_GLASS_PANE);
+    }
+
+    /** A pane of the given colour with no tooltip (separators, the selected tab marker). */
+    static ItemStack filler(Material pane) {
+        ItemStack stack = ItemStack.of(pane);
         stack.setData(
                 DataComponentTypes.TOOLTIP_DISPLAY,
                 io.papermc.paper.datacomponent.item.TooltipDisplay.tooltipDisplay()

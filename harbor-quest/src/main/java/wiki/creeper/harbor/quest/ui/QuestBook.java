@@ -4,37 +4,29 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
-import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.type.Balance;
 import wiki.creeper.harbor.common.id.NpcId;
-import wiki.creeper.harbor.common.id.QuestId;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.HarborPlayer;
 import wiki.creeper.harbor.core.api.MessageService;
 import wiki.creeper.harbor.core.gui.Menu;
 import wiki.creeper.harbor.quest.api.QuestState;
-import wiki.creeper.harbor.quest.content.Objective;
 import wiki.creeper.harbor.quest.content.QuestDef;
 import wiki.creeper.harbor.quest.content.QuestType;
 import wiki.creeper.harbor.quest.data.QuestEntry;
-import wiki.creeper.harbor.quest.logic.Progress;
-import wiki.creeper.harbor.quest.logic.QuestMachine;
-import wiki.creeper.harbor.quest.logic.TrackerLine;
 import wiki.creeper.harbor.quest.service.QuestEngine;
 import wiki.creeper.harbor.quest.service.QuestServices;
 
 /**
- * Quest book (chest GUI, proposed). Opened with /퀘스트. The top row has tabs (in progress · available
- * · completed) and shortcuts (board · chronicle · tracker display · close), the middle 4 rows quest
- * icons, and the bottom row page navigation. Icon lore includes the objective progress bar, rewards
- * and controls.
+ * Quest book (chest GUI, proposed). Opened with /퀘스트. The top row has tabs with their quest counts
+ * (in progress · available · completed) and shortcuts (board · chronicle · tracker display ·
+ * close), the second row marks the selected tab, the middle 3 rows hold quest icons and the bottom
+ * row page navigation. Icons come from {@link QuestBookIcons}.
  *
  * <ul>
  *   <li>In progress: left click track · right click details (Dialog) · Shift+right click abandon ·
@@ -55,18 +47,24 @@ public final class QuestBook {
     }
 
     private static final int ROWS = 6;
-    private static final int FIRST = 9;
-    private static final int PER_PAGE = 36;
+
+    /** Second row: a coloured pane under the selected tab. */
+    private static final int MARK = 9;
+
+    private static final int FIRST = 18;
+    private static final int PER_PAGE = 27;
     private static final int NAV = 45;
 
     private final HarborApi api;
     private final QuestServices q;
     private final QuestDialogs dialogs;
+    private final QuestBookIcons icons;
 
     public QuestBook(HarborApi api, QuestServices q, QuestDialogs dialogs) {
         this.api = api;
         this.q = q;
         this.dialogs = dialogs;
+        this.icons = new QuestBookIcons(api, q);
     }
 
     private MessageService msg() {
@@ -97,13 +95,22 @@ public final class QuestBook {
                                         Placeholder.component(
                                                 "tab", msg().get("quest.book.tab." + key(tab)))),
                         ROWS);
-        tabs(menu, player, tab);
+        tabs(menu, player, hp, tab);
+        for (int i = 0; i < 9; i++) {
+            menu.button(
+                    MARK + i,
+                    MenuIcons.filler(
+                            i == slot(tab)
+                                    ? Material.LIME_STAINED_GLASS_PANE
+                                    : Material.GRAY_STAINED_GLASS_PANE),
+                    null);
+        }
         int start = shownPage * PER_PAGE;
         for (int i = 0; i < PER_PAGE && start + i < quests.size(); i++) {
             QuestDef def = quests.get(start + i);
             menu.button(
                     FIRST + i,
-                    icon(player, hp, def, tab),
+                    icons.icon(player, hp, def, tab),
                     e -> click(player, def, tab, shownPage, e.getClick()));
         }
         if (quests.isEmpty()) {
@@ -147,26 +154,26 @@ public final class QuestBook {
 
     // ------------------------------------------------------------------ Top row
 
-    private void tabs(Menu menu, Player player, Tab current) {
+    private void tabs(Menu menu, Player player, HarborPlayer hp, Tab current) {
         Balance b = balance();
         tab(
                 menu,
-                0,
                 player,
+                hp,
                 Tab.ACTIVE,
                 current,
                 MenuIcons.material(b, "tab_active", Material.BOOK));
         tab(
                 menu,
-                1,
                 player,
+                hp,
                 Tab.AVAILABLE,
                 current,
                 MenuIcons.material(b, "tab_available", Material.WRITABLE_BOOK));
         tab(
                 menu,
-                2,
                 player,
+                hp,
                 Tab.COMPLETED,
                 current,
                 MenuIcons.material(b, "tab_completed", Material.ENCHANTED_BOOK));
@@ -219,9 +226,10 @@ public final class QuestBook {
                 e -> player.closeInventory());
     }
 
-    private void tab(Menu menu, int slot, Player player, Tab tab, Tab current, Material icon) {
+    private void tab(
+            Menu menu, Player player, HarborPlayer hp, Tab tab, Tab current, Material icon) {
         menu.button(
-                slot,
+                slot(tab),
                 MenuIcons.icon(
                         icon,
                         msg().get(
@@ -229,10 +237,21 @@ public final class QuestBook {
                                                 ? "quest.book.tab_selected"
                                                 : "quest.book.tab_other",
                                         Placeholder.component(
-                                                "tab", msg().get("quest.book.tab." + key(tab)))),
+                                                "tab", msg().get("quest.book.tab." + key(tab))),
+                                        Placeholder.unparsed(
+                                                "count", String.valueOf(quests(hp, tab).size()))),
                         List.of(msg().get("quest.book.tab_hint." + key(tab))),
                         tab == current),
                 tab == current ? null : e -> open(player, tab, 0));
+    }
+
+    /** Top-row slot of a tab (the marker row uses the same column). */
+    private static int slot(Tab tab) {
+        return switch (tab) {
+            case ACTIVE -> 0;
+            case AVAILABLE -> 1;
+            case COMPLETED -> 2;
+        };
     }
 
     private static String key(Tab tab) {
@@ -271,155 +290,6 @@ public final class QuestBook {
                 Comparator.comparing((QuestDef d) -> !d.main())
                         .thenComparing(d -> d.id().id().toString()));
         return found;
-    }
-
-    // ------------------------------------------------------------------ Icons
-
-    private ItemStack icon(Player player, HarborPlayer hp, QuestDef def, Tab tab) {
-        Optional<QuestEntry> entry = hp.get(QuestEngine.COMPONENT).entry(def.id());
-        QuestState state = engine().avail(hp, def).state();
-        QuestId tracked = hp.get(QuestEngine.COMPONENT).tracked();
-        boolean isTracked = tab == Tab.ACTIVE && def.id().equals(tracked);
-        List<Component> lore = new ArrayList<>();
-        lore.add(
-                msg().get(
-                                "quest.book.type",
-                                Placeholder.component(
-                                        "type", msg().get("quest.type." + def.type().key()))));
-        for (String line : def.description()) {
-            lore.add(msg().get("quest.book.description", Placeholder.unparsed("text", line)));
-        }
-        lore.add(Component.empty());
-        lore.add(msg().get("quest.book.objectives"));
-        Optional<Progress> progress = entry.map(QuestEntry::progress);
-        List<Objective> current = progress.map(p -> QuestMachine.current(def, p)).orElse(List.of());
-        for (Objective o : def.objectives()) {
-            lore.add(objectiveLine(player, def, o, progress, tab == Tab.COMPLETED, current));
-        }
-        Progress.Snapshot snap = progress.map(Progress::snap).orElseGet(() -> q.preview(hp, def));
-        lore.add(Component.empty());
-        lore.add(
-                msg().get(
-                                "quest.book.rewards",
-                                Placeholder.unparsed("money", String.valueOf(snap.gold())),
-                                Placeholder.unparsed("mulbineul", String.valueOf(snap.mulbineul())),
-                                Placeholder.unparsed("exp", String.valueOf(snap.exp())),
-                                Placeholder.unparsed(
-                                        "reputation", String.valueOf(snap.reputation()))));
-        if (!def.rewards().items().isEmpty()
-                || def.rewards().title() != null
-                || def.rewards().chronicle() != null) {
-            lore.add(msg().get("quest.dialog.rewards_extra"));
-        }
-        lore.add(Component.empty());
-        lore.addAll(hints(player, def, tab, state, isTracked));
-        String nameKey =
-                switch (state) {
-                    case READY -> "quest.book.name_ready";
-                    case COMPLETED -> "quest.book.name_completed";
-                    default -> def.main() ? "quest.book.name_main" : "quest.book.name";
-                };
-        return MenuIcons.icon(
-                material(def, state),
-                msg().get(nameKey, Placeholder.unparsed("name", def.name())),
-                lore,
-                isTracked || state == QuestState.READY);
-    }
-
-    private Component objectiveLine(
-            Player player,
-            QuestDef def,
-            Objective o,
-            Optional<Progress> progress,
-            boolean completed,
-            List<Objective> current) {
-        int value = completed ? o.count() : progress.map(p -> p.count(o.key())).orElse(0);
-        boolean done = completed || (o.tracked() && value >= o.count());
-        boolean now = !completed && current.contains(o);
-        String key =
-                done
-                        ? "quest.book.objective_done"
-                        : now ? "quest.book.objective_now" : "quest.book.objective";
-        return msg().get(
-                        key,
-                        Placeholder.component(
-                                "bar", bar(o.tracked() || completed ? value : 0, o.count())),
-                        Placeholder.unparsed("text", engine().objectiveText(player, def, o)),
-                        Placeholder.unparsed(
-                                "value", o.tracked() || completed ? String.valueOf(value) : "-"),
-                        Placeholder.unparsed("count", String.valueOf(o.count())));
-    }
-
-    /**
-     * ■■■□□ (balance.yml quest.book.bar_width, characters from messages
-     * quest.book.bar_full/bar_empty).
-     */
-    private Component bar(int value, int count) {
-        int width = Math.max(1, balance().integer("quest.book.bar_width", 10));
-        int filled = TrackerLine.filledCells(value, count, width);
-        Component full = msg().get("quest.book.bar_full");
-        Component empty = msg().get("quest.book.bar_empty");
-        Component out = Component.empty();
-        for (int i = 0; i < width; i++) {
-            out = out.append(i < filled ? full : empty);
-        }
-        return out;
-    }
-
-    private List<Component> hints(
-            Player player, QuestDef def, Tab tab, QuestState state, boolean tracked) {
-        List<Component> lines = new ArrayList<>();
-        switch (tab) {
-            case ACTIVE -> {
-                if (tracked) {
-                    lines.add(msg().get("quest.book.hint.tracked"));
-                } else {
-                    lines.add(msg().get("quest.book.hint.track"));
-                }
-                if (state == QuestState.READY) {
-                    Optional<NpcId> npc = def.turnInNpc();
-                    lines.add(
-                            npc.isPresent()
-                                    ? msg().get(
-                                                    "quest.book.hint.report_to",
-                                                    Placeholder.component(
-                                                            "npc", q.npcName(player, npc.get())))
-                                    : msg().get("quest.book.hint.report"));
-                }
-                lines.add(msg().get("quest.book.hint.detail"));
-                if (def.abandonable() && !def.main()) {
-                    lines.add(msg().get("quest.book.hint.abandon"));
-                }
-            }
-            case AVAILABLE -> {
-                NpcId start = def.startNpc();
-                lines.add(
-                        start == null
-                                ? msg().get("quest.book.hint.accept")
-                                : msg().get(
-                                                "quest.book.hint.start_npc",
-                                                Placeholder.component(
-                                                        "npc", q.npcName(player, start))));
-            }
-            case COMPLETED -> lines.add(msg().get("quest.book.hint.completed"));
-        }
-        return lines;
-    }
-
-    private Material material(QuestDef def, QuestState state) {
-        Balance b = balance();
-        if (state == QuestState.READY) {
-            return MenuIcons.material(b, "ready", Material.EMERALD);
-        }
-        return switch (def.type()) {
-            case MAIN -> MenuIcons.material(b, "main", Material.NETHER_STAR);
-            case REGION -> MenuIcons.material(b, "region", Material.FILLED_MAP);
-            case JOB -> MenuIcons.material(b, "job", Material.FISHING_ROD);
-            case DAILY, WEEKLY -> MenuIcons.material(b, "board_quest", Material.PAPER);
-            case COLLECT -> MenuIcons.material(b, "collect", Material.TROPICAL_FISH_BUCKET);
-            case HIDDEN -> MenuIcons.material(b, "hidden", Material.ECHO_SHARD);
-            case EVENT -> MenuIcons.material(b, "event", Material.FIREWORK_ROCKET);
-        };
     }
 
     // ------------------------------------------------------------------ Clicks
