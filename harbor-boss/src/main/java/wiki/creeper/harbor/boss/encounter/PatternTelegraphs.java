@@ -2,7 +2,6 @@ package wiki.creeper.harbor.boss.encounter;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -187,14 +186,14 @@ final class PatternTelegraphs {
     }
 
     void update(long now) {
-        Iterator<Telegraph> it = telegraphs.iterator();
         List<Player> viewers = e.viewers();
-        while (it.hasNext()) {
-            Telegraph t = it.next();
+        // A copy: resolving can end the encounter, which clears the list (clear()), or start
+        // another telegraph
+        for (Telegraph t : List.copyOf(telegraphs)) {
             if (now >= t.end) {
+                telegraphs.remove(t);
                 resolve(t, now);
                 t.remove();
-                it.remove();
                 if (e.finished()) {
                     return;
                 }
