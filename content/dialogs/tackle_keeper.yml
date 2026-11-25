@@ -1,4 +1,5 @@
 # 상점 거래는 Economy가 shop:open을 등록한다 (할인은 AffinityService.discountPercent).
+# 낚싯대 전용 인챈트('조류 읽기'·'단단한 매듭')는 Fishing이 fishing:enchant를 등록한다 (손에 든 낚싯대에 부여, 추가 제안).
 - id: dialog/tackle_keeper
   entries:
     - {node: greet}
@@ -7,5 +8,6 @@
       pages: [npc.dialog.tackle_keeper.greet.1]
       options:
         - {label: npc.dialog.option.shop, actions: [shop:open]}
+        - {label: fishing.rod.enchant.option_label, actions: [fishing:enchant]}
         - {label: npc.dialog.option.gift, actions: [gift:open]}
         - {label: npc.dialog.option.bye, actions: [close]}

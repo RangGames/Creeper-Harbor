@@ -71,6 +71,7 @@ import wiki.creeper.harbor.fishing.present.CatchPresenter;
 import wiki.creeper.harbor.fishing.present.DisplayShadowPresenter;
 import wiki.creeper.harbor.fishing.present.RigShadowPresenter;
 import wiki.creeper.harbor.fishing.present.ShadowPresenter;
+import wiki.creeper.harbor.fishing.rod.RodParts;
 import wiki.creeper.harbor.fishing.roll.RollContext;
 import wiki.creeper.harbor.fishing.roll.RollEngine;
 import wiki.creeper.harbor.fishing.roll.RollModifiers;
@@ -130,7 +131,7 @@ public final class FishingManager implements FishingService, Listener {
         this.log = log;
         this.macro = new MacroGuard(api, tasks, log);
         BaitStacks baits = new BaitStacks(plugin, api);
-        this.ctx = new CastContext(api, baits, seaEvents, log);
+        this.ctx = new CastContext(api, baits, seaEvents, new RodParts(plugin, api), log);
         this.engine = new RollEngine(api.content().snapshot(), balance());
         this.mythicCounter = new MythicCounter(api.database());
         // Shadow: Core rig (species rig → grade default rig); a single ItemDisplay if there is no
@@ -162,6 +163,16 @@ public final class FishingManager implements FishingService, Listener {
                         api, ctx, gear, mythic, display, casts, rewards, presenter, stats, random,
                         sessions, tensions);
         this.food = new FoodManager(api, COMPONENT, log);
+    }
+
+    /** Rod attachments and rod-only enchants. */
+    public RodParts rods() {
+        return ctx.rods();
+    }
+
+    /** Whether the player is casting, waiting, fighting or in a Boss tension session. */
+    public boolean busy(Player player) {
+        return isFishing(player.getUniqueId()) || tensions.containsKey(player.getUniqueId());
     }
 
     /** Food buffs (listener registered by the plugin). */

@@ -48,6 +48,7 @@ public final class TrapRoller implements TrapMath.Roller {
                             .filter(
                                     f ->
                                             f.bait().isEmpty()
+                                                    && f.extra().isEmpty()
                                                     && !f.releaseOnly()
                                                     && (f.unlockFlag() == null
                                                             || serverFlags.test(f.unlockFlag())))

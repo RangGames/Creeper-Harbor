@@ -47,6 +47,10 @@ public enum LedgerReason {
 
     // Fishing: trap slot expansion (2,000 per slot × trap tier, '7. Balance design' 6.3)
     TRAP_SLOT_EXPAND,
+    // Fishing: rod-only enchants at the tackle shop NPC (I 1,500 / II 4,000 / III 8,000, '13.
+    // Crafting
+    // and shop prices' 5.1). A refund for a rod that disappeared mid-purchase uses the same reason
+    ROD_ENCHANT,
 
     // World
     TREASURE,

@@ -2,6 +2,7 @@
 #   legend_only: 1 → 전설의 미끼 (D8: 전설 어종을 실제로 낚았을 때만 1개 소모, 통발에는 못 넣음)
 #   uses: N → 차감 대신 남은 횟수를 줄임 (반짝이 루어 100회)
 #   rare_weight · epic_weight · bite_wait → 판정 보정 (미끼·장비 범주)
+#   weight_bonus.<조건>[+<조건>] → 조건부 출현 보정 (어종 tags·시간대·지역 이름, items/crafting.yml 머리 주석 참고)
 # 효과 줄은 아이템 설명에 자동으로 붙는다 (messages_ko.yml item.stat.*).
 
 - id: item/bait/legendary
@@ -22,7 +23,19 @@
   grade: uncommon
   base_item: minecraft:tripwire_hook
   model: harbor:bait/shiny_lure
-  stats: {uses: 100, bite_wait: -0.15, rare_weight: 0.05}   # bite_wait·rare_weight 제안값
+  stats: {uses: 100, bite_wait: -0.15, weight_bonus.carnivore+day: 0.15}   # bite_wait 제안값, 낮 시간 육식 어종 출현 +15%
   buy_price: 1200
+  tradeable: true
+  season_reset: true
+
+- id: item/bait/ice_worm
+  name: 얼음 벌레
+  lore: "얼음 속에서 사는 벌레. 손바닥 위에서 금방 녹아버린다."
+  type: bait
+  grade: uncommon
+  base_item: minecraft:snowball
+  model: harbor:bait/ice_worm
+  stats: {weight_bonus.frost_fjord: 0.15}   # 협만 어종 출현 +15%
+  buy_price: 2   # 협만 사냥꾼 판매가 ('13. 제작 · 상점 가격' 2장)
   tradeable: true
   season_reset: true

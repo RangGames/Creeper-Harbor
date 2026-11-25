@@ -73,6 +73,12 @@ final class FishingSession {
 
     // Minigame
     boolean legendBait;
+
+    /**
+     * Whether a bait was deducted at hooking (not legendary bait, not saved by bait_save_chance).
+     */
+    boolean baitConsumed;
+
     float baseYaw;
     int lastPhase = 1;
     boolean borderWarn;
@@ -111,6 +117,7 @@ final class FishingSession {
         mythic = null;
         shadow = null;
         legendBait = false;
+        baitConsumed = false;
         lastPhase = 1;
         borderWarn = false;
         lastActive = null;

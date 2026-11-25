@@ -8,6 +8,7 @@
   lore: "말미잘 속에 숨어 사는 주황 줄무늬 물고기. 산호 군도의 마스코트."
   grade: common
   region: region/coral_isles
+  tags: [sea]
   size_cm: [6, 12]
   base_price: 8
   model: harbor:fish/clown_coralfish
@@ -19,6 +20,7 @@
   lore: "바다보다 더 파란 몸빛. 산호섬 원주민들은 행운의 상징으로 여긴다."
   grade: common
   region: region/coral_isles
+  tags: [sea]
   time: [day]
   size_cm: [15, 30]
   base_price: 8
@@ -31,6 +33,7 @@
   lore: "나비처럼 산호 사이를 팔랑거리며 헤엄친다."
   grade: common
   region: region/coral_isles
+  tags: [sea]
   time: [day]
   size_cm: [10, 20]
   base_price: 8
@@ -43,6 +46,7 @@
   lore: "작은 몸으로 자기 산호 한 덩이를 끝까지 지킨다."
   grade: common
   region: region/coral_isles
+  tags: [sea]
   size_cm: [5, 12]
   base_price: 8
   model: harbor:fish/coral_damselfish
@@ -54,6 +58,7 @@
   lore: "산호를 갉아먹고 하얀 모래를 만든다. 섬의 해변은 이 녀석 덕분이다."
   grade: common
   region: region/coral_isles
+  tags: [sea]
   time: [day]
   size_cm: [20, 40]
   base_price: 8
@@ -66,6 +71,7 @@
   lore: "밤이면 모래 속에 파고들어 잠을 잔다."
   grade: common
   region: region/coral_isles
+  tags: [sea]
   size_cm: [15, 25]
   base_price: 8
   model: harbor:fish/sandbar_wrasse
@@ -77,6 +83,7 @@
   lore: "떼 지어 섬 주위를 빙글빙글 돈다. 회로 먹으면 최고."
   grade: common
   region: region/coral_isles
+  tags: [sea, carnivore]
   size_cm: [25, 45]
   base_price: 8
   model: harbor:fish/tropical_trevally
@@ -88,6 +95,7 @@
   lore: "파도 위로 뛰어오르는 습관이 있다. 가끔 배 위로 스스로 떨어진다."
   grade: common
   region: region/coral_isles
+  tags: [sea]
   time: [day]
   size_cm: [25, 35]
   base_price: 8
@@ -100,6 +108,7 @@
   lore: "앵무새 부리 같은 이빨로 산호를 깨문다. 밤에는 점액 주머니 속에서 잔다."
   grade: uncommon
   region: region/coral_isles
+  tags: [sea]
   time: [day]
   size_cm: [40, 80]
   base_price: 20
@@ -112,6 +121,7 @@
   lore: "사자 갈기 같은 지느러미에 독가시가 숨어 있다. 화려할수록 위험하다."
   grade: uncommon
   region: region/coral_isles
+  tags: [sea, carnivore]
   time: [night]
   size_cm: [20, 40]
   base_price: 20
@@ -124,6 +134,7 @@
   lore: "맑은 날에만 무지개 일곱 빛깔이 모두 드러난다."
   grade: uncommon
   region: region/coral_isles
+  tags: [sea]
   weather: [clear]
   size_cm: [15, 30]
   base_price: 20
@@ -136,6 +147,7 @@
   lore: "산호 구멍에서 입만 벌리고 있다. 손가락을 넣지 말 것."
   grade: uncommon
   region: region/coral_isles
+  tags: [sea, carnivore, toothy]
   time: [night]
   size_cm: [80, 150]
   base_price: 20
@@ -148,6 +160,7 @@
   lore: "비단옷을 입은 듯한 화려한 무늬. 해 질 녘에만 짝을 찾아 나온다."
   grade: uncommon
   region: region/coral_isles
+  tags: [sea]
   time: [dusk]
   size_cm: [5, 10]
   base_price: 20
@@ -160,6 +173,7 @@
   lore: "몸 색을 순식간에 바꾼다. 화가 나면 줄무늬가 번쩍인다."
   grade: uncommon
   region: region/coral_isles
+  tags: [sea]
   time: [night]
   size_cm: [20, 45]
   base_price: 20
@@ -172,6 +186,7 @@
   lore: "이마에 왕관처럼 혹이 솟았다. 산호 군도에서 가장 거만한 물고기."
   grade: rare
   region: region/coral_isles
+  tags: [sea]
   time: [day]
   weather: [clear]
   size_cm: [80, 180]
@@ -185,6 +200,7 @@
   lore: "물 밖으로 나오면 금빛에서 초록, 파랑으로 색이 바뀐다."
   grade: rare
   region: region/coral_isles
+  tags: [sea, carnivore]
   area: [open_sea]
   weather: [clear]
   size_cm: [60, 120]
@@ -198,6 +214,7 @@
   lore: "보랏빛 산호로 완벽하게 위장한다. 다리 여덟 개로 낚싯대를 붙잡고 버틴다."
   grade: rare
   region: region/coral_isles
+  tags: [sea]
   time: [night]
   weather: [rain]
   size_cm: [40, 90]
@@ -211,6 +228,7 @@
   lore: "해 질 녘 붉은 바다를 가르는 은빛 창. 이빨이 면도날 같다."
   grade: rare
   region: region/coral_isles
+  tags: [sea, carnivore, toothy]
   time: [dusk]
   size_cm: [80, 150]
   base_price: 60
@@ -223,6 +241,7 @@
   lore: "몸이 투명해서 산호 사이에서는 거의 보이지 않는다. 보름달 아래에서만 윤곽이 빛난다."
   grade: rare
   region: region/coral_isles
+  tags: [sea]
   weather: [clear]
   moon: [full]
   size_cm: [8, 20]
@@ -236,6 +255,7 @@
   lore: "창 같은 주둥이로 파도를 찢으며 달린다. 1시간 넘게 싸웠다는 어부도 있다."
   grade: epic
   region: region/coral_isles
+  tags: [sea, carnivore]
   area: [open_sea]
   weather: [clear]
   bait: [item/bait/shiny_lure]
@@ -250,6 +270,7 @@
   lore: "보름달 밤에만 산호 위를 미끄러지듯 날아다닌다. 등에 무지개 무늬가 흐른다."
   grade: epic
   region: region/coral_isles
+  tags: [sea]
   time: [night]
   moon: [full]
   size_cm: [100, 250]

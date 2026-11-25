@@ -17,3 +17,7 @@ dependencies:
       load: BEFORE
       required: false
       join-classpath: true
+    Harbor-Npc:
+      load: BEFORE
+      required: false
+      join-classpath: true

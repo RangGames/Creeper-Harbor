@@ -8,6 +8,7 @@
   lore: "크리퍼 항구가 처음 세워진 날 잡혔다는 전설의 물고기. 항구가 다시 번영하자 돌아왔다."
   grade: mythic
   region: region/harbor
+  tags: [sea]
   size_cm: [100, 200]
   base_price: 0
   model: harbor:fish/harbor_first_fish
@@ -19,6 +20,7 @@
   lore: "유령선 선장이 죽어서도 놓지 못한 어항 속 금붕어. 지금도 선장의 휘파람 소리에 반응한다."
   grade: mythic
   region: region/harbor
+  tags: [sea]
   size_cm: [20, 40]
   base_price: 0
   model: harbor:fish/ghost_captain_goldfish
@@ -30,6 +32,7 @@
   lore: "물고기 대이동 때 모든 물고기 떼의 맨 앞에서 헤엄친다. 이 녀석을 잡으면 대이동이 끝난다."
   grade: mythic
   region: region/harbor
+  tags: [sea]
   size_cm: [300, 600]
   base_price: 0
   model: harbor:fish/migration_leader

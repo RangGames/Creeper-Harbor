@@ -5,7 +5,9 @@
 ## 주요 기능
 
 - **캐스팅과 입질:** 지역(`regions.yml`) 안 물에 던지면 15~35초 뒤 입질이 온다. 미끼가 없으면 대기가 1.2배다. 입질 창은 20틱이고 핑이 높으면 보정된다.
-- **어종 판정:** 지역·시간·날씨·달·세부 구역·미끼·직업 단계 조건을 만족하는 어종 중에서 등급 가중치로 고른다.
+- **어종 판정:** 지역·시간·날씨·달·세부 구역·미끼·직업 단계·특수 조건(`extra`)을 만족하는 어종 중에서 등급 가중치로 고른다.
+  - 특수 조건 `extra` (추가 제안): `player_flag`(플레이어 플래그), `world_flag`(서버 플래그), `equipment_tag`(입은 갑옷 재질: gold·iron·diamond 등, 한 부위 이상). 황금 탐욕어 = 금 장비, 기억 잉어 = `story/ch7_done`, 용비늘어 = `boss_clear/void_nebula`. 조건이 있는 어종은 통발에서 나오지 않는다.
+  - 어종 `tags` (추가 제안): `sea`(항구·산호·협만·해구), `fresh`(늪지), `carnivore`(육식), `toothy`(이빨 있음). 미끼·부품의 조건부 보정 대상이다.
   - 기본 가중치: 일반 60 · 고급 25 · 희귀 10 · 영웅 4. 그 지역에 없는 등급은 빼고 다시 100%로 맞춘다.
   - 희귀 이상 보정 합계는 +60%가 상한이다.
   - **전설:** 기본 0.4%. 천장(pity) 카운터가 150회를 넘으면 회당 +0.02%씩 올라 최대 2.5%.
@@ -15,8 +17,15 @@
   - 등급이 높을수록 체력·텐션 상승·패턴 수가 늘어난다. 패턴은 돌진·잠수·점프·지침이다.
   - 텐션이 85%를 넘으면 화면 가장자리 경고가 뜬다. 줄 강도 1당 텐션 한계가 +8%다.
 - **크기와 품질:** 크기는 어종의 `size_cm` 범위에서 정한다. 품질 ★1~★5는 백분위 경계(★2 40%, ★3 70%, ★4 90%, ★5 98%)로 정하고, 직업 단계 상한을 넘으면 깎인다. 상한 때문에 깎이면 "놓친 대어" 안내가 나온다.
+- **조건부 미끼·부품 보정:** 아이템 stats에 `weight_bonus.<조건>[+<조건>]`을 두면 조건이 모두 맞는 어종의 가중치가 `1 + 값`배가 된다. 조건은 어종 tags, 시간대(dawn·day·dusk·night), 지역 이름(frost_fjord 등)이다. 같은 값이 희귀·영웅 등급에도 "그 등급 후보 중 맞는 어종의 가중치 비율 × 값"만큼 붙는다 (미끼 범주, +60% 상한 안). 그래서 지역 전체에 맞는 보정(얼음 벌레의 협만 +15%)은 희귀 이상 +15%와 같다.
+  - 밀가루 떡밥 `fresh` +10%, 새우 미끼 `sea` +10%, 야광 미끼 `night` +15%, 얼음 벌레 `frost_fjord` +15%, 반짝이 루어 `carnivore+day` +15%.
+  - `<스탯>.<조건>`은 조건이 맞을 때만 더한다 (야광 찌 `bite_wait.night` −10%: 밤 낚시 입질 대기).
 - **미끼:** 왼손에 든 미끼를 먼저 쓰고, 없으면 `/미끼`로 고른 종류를 인벤토리에서 하나씩 쓴다 (아이템은 인벤토리에 그대로 있다. 선택은 플레이어 플래그 `fishing/bait`). 던질 때 액션바에 쓰는 미끼·루어 남은 횟수를, 미끼가 없으면 입질 대기 벌칙과 `/미끼` 안내를 띄운다. 미끼 아이템 설명에는 `stats` 효과 줄(`item.stat.*` 문구)이 자동으로 붙는다.
+- **미끼 소모:** 챔질 순간 1개를 쓴다 (성공·실패 모두). `bait_save_chance`(미끼 절약)는 챔질 순간 판정하고, 걸리면 결과와 상관없이 그 미끼를 쓰지 않는다 (액션바 안내). 전설의 미끼는 전설 어종을 실제로 낚았을 때만 쓴다. 강제 이동(ABORTED)은 챔질 때 쓴 미끼만 돌려준다.
 - **장비 내구도:** 루어 사용 횟수, 낚싯대 내구도가 있다. 망가지기 직전이면 수리를 안내한다. 미끼를 바꾸면 걸린 물고기가 달아난다.
+- **낚싯대 부품:** `/낚싯대`로 손에 든 낚싯대에 낚싯줄·찌·릴(items의 type: line·float·reel)을 자리마다 하나씩 단다. 단 부품은 낚싯대 PDC에 아이템 ID로 저장되고, 떼면 아이템으로 돌려받는다 (다른 부품을 달면 원래 부품을 돌려받음). 낚싯대 설명에 단 부품·인챈트가 붙는다. 판정·미니게임의 장비 스탯 = 낚싯대 stats + 단 부품 stats + 인챈트 + 미끼 stats. 낚시 중에는 바꿀 수 없다.
+  - 이빨 있는 어종(`toothy`)이 걸리면 줄 강도가 `fishing/rod.yml` `toothy_line_penalty`(2, 제안값)만큼 약해진다. `bite_proof` 스탯이 있는 줄(강철 와이어 줄)을 달면 벌칙이 없다.
+- **낚싯대 전용 인챈트:** '조류 읽기'(입질 대기 −5/−10/−15%)·'단단한 매듭'(줄 강도 +1/+2/+3), 단계 값은 제안값. 낚시용품점 NPC 대화의 "낚싯대 인챈트"(대화 액션 `fishing:enchant`, Harbor-Npc가 있을 때)로만 손에 든 낚싯대에 부여한다. 가격 I 1,500 / II 4,000 / III 8,000G, 높은 단계를 바로 살 수 있고 이미 가진 단계가 있으면 차액만 낸다. 결제는 원장 `ROD_ENCHANT`이고, 결제 사이에 낚싯대가 사라지면 같은 사유로 돌려준다. 새 낚싯대는 인챈트 없이 시작한다 (바닐라 인챈트가 아니라 낚싯대 PDC 값).
 - **잡템:** 낚시 중 함께 건지는 아이템 (`fishing/junk.yml`).
 - **포획 연출:** 등급별 프리셋(`fishing/presets.yml`)으로 입질·포획 때 화면 어둡게·타이틀·흔들림·빛기둥(등급 색)·폭죽·결과 Dialog·주변 알림·퍼덕임을 낸다. 대기 중에는 등급에 맞는 물고기 그림자를 던진 사람에게만 보여 준다 (어종 리그가 없으면 그림자 리그).
   - 캐스팅: 날아가는 찌를 따라 낚싯줄 궤적(dust), 착수 물보라. 챔질 순간 손 스윙(26.3 swing 애니메이션, `hook_swing`).
@@ -46,6 +55,7 @@
 | `/낚시 요약` | (없음) | 오늘의 어획: 낚은 마릿수·최고 등급·최대어·물고기 판매 수익 (날짜 기준 `fishing.daily_zone`, 서버를 옮겨도 이어짐. 수익은 Economy가 등록한 `FishEarnings`로 원장의 FISH_SELL·BIG_DEAL_SELL 합계, Economy가 없으면 빠짐). G 키 빠른 메뉴에도 있다 |
 | `/통발` | (없음) | 내 통발 목록 (지역·위치·다음 주기·미끼·보관 수·자동 회수까지 남은 시간) |
 | `/미끼` | (없음) | 낚시에 쓸 미끼 고르기 (가진 미끼 종류·개수·효과, 선택 해제) |
+| `/낚싯대` | (없음) | 손에 든 낚싯대의 부품 보기·달기·떼기 (낚싯줄·찌·릴, 인챈트 단계 표시) |
 
 통발 자체는 설치한 통발을 우클릭해 연다 (미끼 넣기·모두 꺼내기·슬롯 확장·철거).
 
@@ -75,6 +85,7 @@
 | `fishing/sea_events.yml` | 해상 이벤트의 낚시 효과 기준표. `id` `region` `duration_min` `fish_effects`(`type: mythic`의 `fish` `chance` `cap`, `type: species_weight`의 `fish` `mult`) |
 | `fishing/junk.yml` | 잡템 표 |
 | `fishing/food.yml` | 요리 버프 규칙 |
+| `fishing/rod.yml` | 낚싯대 전용 인챈트(`enchants`: `id` `stat` `values` `prices`), 이빨 있는 어종 줄 벌칙 `toothy_line_penalty` |
 
 어종(`fish/*.yml`)·아이템(`items/*.yml`)·지역(`regions.yml`)은 Core 형식이다 ([core.md](core.md#콘텐츠-파일-core-소유)). 통발 부표 자리는 `regions.yml`의 `trap_zone`에 있다.
 
@@ -96,7 +107,7 @@
 | `trap` | `cycle_h` `min_cycle_h` `max_cycles` `bait_capacity` `base_count` `max_count` `revenue_cap` `hourly_gold` `slot_price` `max_extra_slots` `retrieve_days` `buoy_radius` `refund_bait_item` |
 | `food.feast_radius` · `food.feast_share_bonus` | 연회 요리 공유 거리, 2랭크 공유 지속 보너스 |
 
-`stats` 절의 `rare_weight`, `bite_wait`, `reel_speed`, `line_strength`, `tension_safe_zone`, `size_luck`, `bait_save_chance`, `cast_distance`, `legend_chance` 등이 낚시 수치를 보정한다.
+`stats` 절의 `rare_weight`, `bite_wait`, `reel_speed`, `line_strength`, `tension_safe_zone`, `size_luck`, `bait_save_chance`, `cast_distance`, `legend_chance` 등이 낚시 수치를 보정한다. `event_spawn_bonus`(추가 제안, 물때 읽기 +5%)는 해상 이벤트가 진행 중인 지역에서 희귀 이상 출현 보정(직업 범주)으로 더한다.
 
 ## 다른 모듈과의 연결
 
@@ -105,8 +116,8 @@
   - `TrapService` 행동 API: `trap(id)`·`trapIdAt(위치)`, `place`(손으로 설치할 때와 같은 검사, 아이템을 가져가거나 무료), `harvest`·`addBait`·`remove`(통발 화면과 같은 흐름: 오프라인 계산 → DB 커밋 뒤 아이템, 서버 이동 중이면 우편), `adminRemove`. 결과는 `TrapAction`(결과 키·통발 ID·수량)
 - **확장 지점:** `RegionKeyResolver`(World가 세부 구역 판정을 등록), `TreasureDropHook`(World 보물 지도 드롭), `CollectionProvider`(Collection이 첫 포획 여부를 알려 줌), `ShadowDriver`(Wildlife가 그림자 대신 야생 물고기를 움직임), `CatchPresentationOverride`(Shop 포획 연출 코스메틱)
 - **이벤트:** `FishingCastEvent`, `FishBiteEvent`, `FishRollEvent`, `QualityRolledEvent`, `MinigameEndEvent`, `FishCaughtEvent`, `FishingSessionEndEvent`, `TrapHarvestEvent`
-- **쓰는 것:** Jobs(경험치 지급, 품질 상한, 전직 첫 품질 보상), Season(시즌 훅: 통발 정리), Core 보정자
-- **원장 사유:** `TRAP_SLOT_EXPAND`
+- **쓰는 것:** Jobs(경험치 지급, 품질 상한, 전직 첫 품질 보상), Season(시즌 훅: 통발 정리), Npc(선택: 대화 액션 `fishing:enchant` 등록), Core 보정자
+- **원장 사유:** `TRAP_SLOT_EXPAND`, `ROD_ENCHANT`
 
 ## 주의 사항
 

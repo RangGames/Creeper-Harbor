@@ -8,6 +8,7 @@
   lore: "배에 작은 등불이 줄지어 켜져 있다. 심해의 별빛."
   grade: common
   region: region/ash_trench
+  tags: [sea]
   size_cm: [5, 15]
   base_price: 12
   model: harbor:fish/deep_lanternfish
@@ -19,6 +20,7 @@
   lore: "납작한 은빛 몸이 도끼날 같다. 위에서 보면 거의 보이지 않는다."
   grade: common
   region: region/ash_trench
+  tags: [sea]
   size_cm: [5, 10]
   base_price: 12
   model: harbor:fish/silver_hatchetfish
@@ -30,6 +32,7 @@
   lore: "해구 바닥의 잿더미에 섞여 있으면 찾을 수 없다."
   grade: common
   region: region/ash_trench
+  tags: [sea]
   size_cm: [50, 100]
   base_price: 12
   model: harbor:fish/ash_skate
@@ -41,6 +44,7 @@
   lore: "몸이 젤리처럼 물렁하다. 국으로 끓이면 시원하다."
   grade: common
   region: region/ash_trench
+  tags: [sea]
   size_cm: [30, 50]
   base_price: 12
   model: harbor:fish/soft_snailfish
@@ -52,6 +56,7 @@
   lore: "빛 한 줄기 없는 곳에서 산다. 눈이 얼굴의 절반이다."
   grade: common
   region: region/ash_trench
+  tags: [sea]
   size_cm: [20, 40]
   base_price: 12
   model: harbor:fish/ash_rockfish
@@ -63,6 +68,7 @@
   lore: "해구 절벽 틈에 몸을 감고 지나가는 먹이를 기다린다."
   grade: common
   region: region/ash_trench
+  tags: [sea]
   size_cm: [40, 80]
   base_price: 12
   model: harbor:fish/trench_eel
@@ -74,6 +80,7 @@
   lore: "머리 위에 초롱을 달고 다닌다. 그 불빛을 따라가면 입속이다."
   grade: uncommon
   region: region/ash_trench
+  tags: [sea, carnivore]
   time: [night]
   size_cm: [10, 40]
   base_price: 28
@@ -86,6 +93,7 @@
   lore: "몸에서 푸른 빛을 깜빡이며 서로 신호를 보낸다."
   grade: uncommon
   region: region/ash_trench
+  tags: [sea]
   size_cm: [30, 80]
   base_price: 28
   model: harbor:fish/deep_squid
@@ -97,6 +105,7 @@
   lore: "하얗고 반투명한 몸으로 소리 없이 지나간다. 잠수부들이 가장 무서워한다."
   grade: uncommon
   region: region/ash_trench
+  tags: [sea]
   time: [night]
   size_cm: [60, 120]
   base_price: 28
@@ -109,6 +118,7 @@
   lore: "바위와 구분이 안 된다. 밟으면 독가시가 박힌다."
   grade: uncommon
   region: region/ash_trench
+  tags: [sea, carnivore]
   size_cm: [20, 40]
   base_price: 28
   model: harbor:fish/venom_scorpionfish
@@ -120,6 +130,7 @@
   lore: "비늘에 고대 문양이 새겨져 있다. 유적 기둥 사이를 집처럼 드나든다."
   grade: uncommon
   region: region/ash_trench
+  tags: [sea]
   area: [ruin]
   size_cm: [30, 60]
   base_price: 28
@@ -132,6 +143,7 @@
   lore: "수면으로 끌어올리면 녹은 젤리처럼 늘어진다. 심해에서는 멀쩡한 물고기다."
   grade: uncommon
   region: region/ash_trench
+  tags: [sea]
   size_cm: [20, 35]
   base_price: 28
   model: harbor:fish/blobfish
@@ -143,6 +155,7 @@
   lore: "몸보다 긴 바늘 이빨 때문에 입을 다물지 못한다. 그래서 늘 웃는 얼굴이다."
   grade: uncommon
   region: region/ash_trench
+  tags: [sea, carnivore, toothy]
   time: [night]
   size_cm: [15, 30]
   base_price: 28
@@ -155,6 +168,7 @@
   lore: "기름이 많아 구우면 잿빛 살이 눈처럼 하얗게 변한다. 심해 연구원의 야식."
   grade: uncommon
   region: region/ash_trench
+  tags: [sea]
   size_cm: [50, 90]
   base_price: 28
   model: harbor:fish/ash_sablefish
@@ -166,6 +180,7 @@
   lore: "붉은 갈기를 단 리본 같은 몸. 나타나면 큰일이 생긴다는 전설이 있다."
   grade: rare
   region: region/ash_trench
+  tags: [sea]
   weather: [storm]
   size_cm: [300, 600]
   base_price: 83
@@ -178,6 +193,7 @@
   lore: "머리가 투명한 유리 돔이다. 그 안의 초록 눈이 위를 올려다본다."
   grade: rare
   region: region/ash_trench
+  tags: [sea]
   time: [night]
   size_cm: [10, 20]
   base_price: 83
@@ -190,6 +206,7 @@
   lore: "은빛 몸에 큰 눈. 상어보다 오래된 혈통을 가진 유령 같은 물고기."
   grade: rare
   region: region/ash_trench
+  tags: [sea]
   time: [night]
   size_cm: [60, 120]
   base_price: 83
@@ -202,6 +219,7 @@
   lore: "화석으로만 알려졌던 물고기. 심해 연구원이 보면 기절할 것이다."
   grade: rare
   region: region/ash_trench
+  tags: [sea]
   area: [ruin]
   size_cm: [120, 200]
   base_price: 83
@@ -214,6 +232,7 @@
   lore: "피부가 흑요석처럼 단단하고 검게 빛난다. 칼이 잘 들지 않는다."
   grade: rare
   region: region/ash_trench
+  tags: [sea, carnivore]
   area: [deep_rift]
   size_cm: [40, 80]
   base_price: 83
@@ -226,6 +245,7 @@
   lore: "머리에 뼈 투구를 썼다. 해저 유적 벽화에 그려진 그 물고기다."
   grade: rare
   region: region/ash_trench
+  tags: [sea]
   area: [ruin]
   time: [night]
   size_cm: [30, 60]
@@ -239,6 +259,7 @@
   lore: "입이 자루처럼 늘어나 자기보다 큰 먹이도 삼킨다. 가끔 낚싯대째 삼키려 든다."
   grade: rare
   region: region/ash_trench
+  tags: [sea, carnivore]
   time: [night]
   size_cm: [60, 100]
   base_price: 83
@@ -252,6 +273,7 @@
   lore: "뜨거운 물이 솟는 해구 틈에서만 산다. 손에 쥐면 비늘이 따뜻하다."
   grade: rare
   region: region/ash_trench
+  tags: [sea]
   size_cm: [20, 40]
   base_price: 83
   model: harbor:fish/vent_fish
@@ -263,6 +285,7 @@
   lore: "턱이 앞으로 튀어나오며 먹이를 낚아챈다. 분홍빛 피부가 오히려 섬뜩하다."
   grade: epic
   region: region/ash_trench
+  tags: [sea, carnivore, toothy]
   time: [night]
   size_cm: [200, 400]
   base_price: 275
@@ -275,6 +298,7 @@
   lore: "해저 유적의 문장과 똑같은 무늬를 가졌다. 유적을 지은 이들이 기르던 물고기일까."
   grade: epic
   region: region/ash_trench
+  tags: [sea]
   area: [ruin]
   moon: [full]
   size_cm: [100, 180]
@@ -289,6 +313,7 @@
   lore: "온몸이 등불처럼 빛난다. 그믐밤, 빛이 하나도 없을 때만 다가온다."
   grade: epic
   region: region/ash_trench
+  tags: [sea]
   moon: [new]
   size_cm: [80, 150]
   base_price: 275
@@ -301,6 +326,7 @@
   lore: "비늘에 옛 왕국 근위대의 문장이 새겨져 있다. 주인이 사라진 뒤에도 왕궁을 지킨다."
   grade: epic
   region: region/ash_trench
+  tags: [sea]
   area: [ruin]
   time: [night]
   size_cm: [150, 250]
@@ -314,6 +340,7 @@
   lore: "옛 항구 왕국의 왕관을 지느러미에 걸고 있다. 왕관의 주인은 아직 밝혀지지 않았다."
   grade: legendary
   region: region/ash_trench
+  tags: [sea]
   area: [ruin]
   moon: [full]
   bait: [item/bait/legendary]

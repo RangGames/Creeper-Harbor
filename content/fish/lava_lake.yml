@@ -176,13 +176,14 @@
   lore: "뼈만 남은 듯한 검은 몸. 초롱 대신 푸른 영혼의 불을 달고 다닌다."
   grade: epic
   region: region/lava_lake
+  tags: [carnivore, toothy]
   time: [night]
   size_cm: [60, 120]
   base_price: 225
   model: harbor:fish/skeleton_angler
   season: 1
 
-# 출현 조건 '금 장비 착용'은 FishDef에 표현할 필드가 없어 생략 (Fishing 판정 추가 필요).
+# 출현 조건 '금 장비 착용': extra equipment_tag gold (금 갑옷 한 부위 이상 착용, 부위 수는 제안값).
 - id: fish/golden_greed
   no: 127
   name: 황금 탐욕어
@@ -190,6 +191,8 @@
   grade: legendary
   region: region/lava_lake
   bait: [item/bait/legendary]
+  extra:
+    - {type: equipment_tag, value: gold}
   size_cm: [50, 90]
   base_price: 1200            # 전설 기본가 고정 ('13. 제작 · 상점 가격' 1장)
   model: harbor:fish/golden_greed

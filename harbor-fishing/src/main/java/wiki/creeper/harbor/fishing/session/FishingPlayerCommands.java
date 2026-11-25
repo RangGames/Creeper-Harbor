@@ -21,9 +21,10 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.api.FishEarnings;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.data.DailyCatch;
+import wiki.creeper.harbor.fishing.rod.RodMenu;
 
 /**
- * Player commands /낚시 설정, /통발 (docs 20 3.5) and /미끼 (proposed), split out of {@link
+ * Player commands /낚시 설정, /통발 (docs 20 3.5), /미끼 and /낚싯대 (proposed), split out of {@link
  * FishingCommands}.
  */
 final class FishingPlayerCommands {
@@ -32,13 +33,19 @@ final class FishingPlayerCommands {
     private final Tasks tasks;
     private final FishingAdminSubcommands subcommands;
     private final BaitMenu baitMenu;
+    private final RodMenu rodMenu;
 
     FishingPlayerCommands(
-            HarborApi api, Tasks tasks, FishingAdminSubcommands subcommands, BaitMenu baitMenu) {
+            HarborApi api,
+            Tasks tasks,
+            FishingAdminSubcommands subcommands,
+            BaitMenu baitMenu,
+            RodMenu rodMenu) {
         this.api = api;
         this.tasks = tasks;
         this.subcommands = subcommands;
         this.baitMenu = baitMenu;
+        this.rodMenu = rodMenu;
     }
 
     void register(Commands commands) {
@@ -93,6 +100,19 @@ final class FishingPlayerCommands {
                                 })
                         .build(),
                 "낚시에 쓸 미끼 고르기",
+                List.of());
+        commands.register(
+                Commands.literal("낚싯대")
+                        .requires(src -> src.getExecutor() instanceof Player)
+                        .executes(
+                                ctx -> {
+                                    if (ctx.getSource().getExecutor() instanceof Player p) {
+                                        rodMenu.open(p);
+                                    }
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                        .build(),
+                "손에 든 낚싯대의 낚싯줄·찌·릴 달기·떼기",
                 List.of());
     }
 

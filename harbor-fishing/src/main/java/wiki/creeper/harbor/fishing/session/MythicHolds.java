@@ -3,7 +3,6 @@ package wiki.creeper.harbor.fishing.session;
 import static wiki.creeper.harbor.fishing.session.FishingManager.COMPONENT;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.function.Supplier;
 import java.util.random.RandomGenerator;
 import org.bukkit.entity.Player;
@@ -87,20 +86,7 @@ final class MythicHolds {
             FishingSession s,
             RegionKeyResolver.RegionKey key,
             @Nullable ItemId bait) {
-        RollContext base = ctx.context(player, key, bait);
-        RollContext rollCtx =
-                new RollContext(
-                        base.region(),
-                        base.time(),
-                        base.weather(),
-                        base.moon(),
-                        base.bait(),
-                        base.jobTier(),
-                        base.serverFlags(),
-                        base.caught(),
-                        base.areas(),
-                        base.areasKnown(),
-                        List.of());
+        RollContext rollCtx = ctx.context(player, key, bait).withoutMythic();
         engine.get()
                 .roll(
                         rollCtx,

@@ -73,6 +73,16 @@ public final class SeaEventBook {
         return List.copyOf(active.values());
     }
 
+    /** Whether any active sea event covers this region (event waters). */
+    public boolean covers(RegionId region, Instant now) {
+        for (Active a : active(now)) {
+            if (a.covers(region)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public Set<String> ids(Instant now) {
         active(now);
         return Set.copyOf(active.keySet());

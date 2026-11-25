@@ -8,6 +8,7 @@
   lore: "얼음 구멍 아래에서 떼로 올라온다. 튀김으로 먹으면 겨울이 즐겁다."
   grade: common
   region: region/frost_fjord
+  tags: [sea]
   area: [ice_field]
   size_cm: [8, 15]
   base_price: 10
@@ -20,6 +21,7 @@
   lore: "입이 커서 '대구'. 협만 사람들의 주식이다."
   grade: common
   region: region/frost_fjord
+  tags: [sea]
   size_cm: [40, 90]
   base_price: 10
   model: harbor:fish/fjord_cod
@@ -31,6 +33,7 @@
   lore: "은빛 떼가 몰려오면 협만 바다가 하얗게 끓는다."
   grade: common
   region: region/frost_fjord
+  tags: [sea]
   size_cm: [20, 35]
   base_price: 10
   model: harbor:fish/northern_herring
@@ -42,6 +45,7 @@
   lore: "알이 꽉 찬 녀석일수록 맛있다. 서리 사냥꾼의 간식."
   grade: common
   region: region/frost_fjord
+  tags: [sea]
   time: [day]
   size_cm: [12, 20]
   base_price: 10
@@ -54,6 +58,7 @@
   lore: "차가운 바닥에 엎드려 겨울을 난다."
   grade: common
   region: region/frost_fjord
+  tags: [sea]
   size_cm: [25, 50]
   base_price: 10
   model: harbor:fish/northern_flounder
@@ -65,6 +70,7 @@
   lore: "피가 얼지 않는 신기한 물고기. 협만 아이들의 관찰 숙제 단골."
   grade: common
   region: region/frost_fjord
+  tags: [sea]
   area: [ice_field]
   size_cm: [10, 20]
   base_price: 10
@@ -77,6 +83,7 @@
   lore: "태어난 강으로 돌아가려고 협만을 지난다. 붉은 살이 일품."
   grade: uncommon
   region: region/frost_fjord
+  tags: [sea]
   time: [dawn]
   size_cm: [50, 90]
   base_price: 25
@@ -89,6 +96,7 @@
   lore: "눈이 내리면 수면 가까이 올라와 눈송이를 받아먹는다."
   grade: uncommon
   region: region/frost_fjord
+  tags: [sea, carnivore]
   weather: [rain]  # '비 · 눈': 협만은 눈 바이옴이라 강수가 곧 눈 (날씨 키 rain)
   size_cm: [40, 70]
   base_price: 25
@@ -101,6 +109,7 @@
   lore: "이름이 열 개도 넘는다. 얼리고 말리는 방법에 따라 다르게 부른다."
   grade: uncommon
   region: region/frost_fjord
+  tags: [sea]
   time: [night]
   size_cm: [40, 70]
   base_price: 25
@@ -113,6 +122,7 @@
   lore: "차가운 호수의 은빛 사냥꾼. 맑은 날 햇빛에 눈부시게 빛난다."
   grade: uncommon
   region: region/frost_fjord
+  tags: [sea]
   weather: [clear]
   size_cm: [30, 60]
   base_price: 25
@@ -126,6 +136,7 @@
   lore: "못생겼지만 맛은 최고. 협만 사냥꾼이 몰래 숨겨두고 먹는다."
   grade: uncommon
   region: region/frost_fjord
+  tags: [sea, carnivore]
   time: [night]
   size_cm: [40, 90]
   base_price: 25
@@ -138,6 +149,7 @@
   lore: "연처럼 넓적한 몸으로 눈 내리는 바다 밑을 날아다닌다."
   grade: uncommon
   region: region/frost_fjord
+  tags: [sea]
   weather: [rain]  # '눈': 협만은 눈 바이옴이라 강수가 곧 눈 (날씨 키 rain)
   size_cm: [60, 120]
   base_price: 25
@@ -150,6 +162,7 @@
   lore: "연어 중의 왕. 폭포를 거슬러 오르는 힘으로 낚싯줄을 끊는다."
   grade: rare
   region: region/frost_fjord
+  tags: [sea, carnivore]
   time: [dawn]
   weather: [rain]
   size_cm: [80, 140]
@@ -163,6 +176,7 @@
   lore: "오로라가 뜨는 밤, 비늘이 하늘빛을 그대로 비춘다."
   grade: rare
   region: region/frost_fjord
+  tags: [sea]
   time: [night]
   weather: [clear]
   size_cm: [40, 80]
@@ -176,6 +190,7 @@
   lore: "갑옷 같은 비늘 판을 두른 고대 물고기. 빙하가 생기기 전부터 살았다."
   grade: rare
   region: region/frost_fjord
+  tags: [sea]
   size_cm: [150, 300]
   base_price: 75
   weight: 30                 # 제안값 (상시 저확률)
@@ -188,6 +203,7 @@
   lore: "배가 노을처럼 붉다. 가장 깊은 얼음 아래에서만 산다."
   grade: rare
   region: region/frost_fjord
+  tags: [sea]
   area: [ice_field]
   time: [night]
   size_cm: [50, 90]
@@ -201,6 +217,7 @@
   lore: "얼음 결정 같은 이빨을 가졌다. 물리면 손이 얼어붙는다는 소문."
   grade: rare
   region: region/frost_fjord
+  tags: [sea, carnivore, toothy]
   time: [night]
   weather: [rain]  # '눈': 협만은 눈 바이옴이라 강수가 곧 눈 (날씨 키 rain)
   size_cm: [60, 120]
@@ -214,6 +231,7 @@
   lore: "몸이 고드름처럼 투명하고 길다. 녹기 전에 어시장으로 가져가자."
   grade: rare
   region: region/frost_fjord
+  tags: [sea]
   weather: [rain]  # '눈': 협만은 눈 바이옴이라 강수가 곧 눈 (날씨 키 rain)
   size_cm: [80, 150]
   base_price: 75
@@ -226,6 +244,7 @@
   lore: "수백 년을 산다는 느림보 상어. 너무 느려서 잡혔다는 사실도 늦게 깨닫는다."
   grade: epic
   region: region/frost_fjord
+  tags: [sea, carnivore, toothy]
   area: [ice_field]
   time: [night]
   size_cm: [250, 500]
@@ -239,6 +258,7 @@
   lore: "눈보라 속에서만 나타난다. 비늘 하나하나가 눈 결정 모양이다."
   grade: epic
   region: region/frost_fjord
+  tags: [sea]
   weather: [storm]  # 폭풍(눈보라)
   size_cm: [100, 180]
   base_price: 250
@@ -251,6 +271,7 @@
   lore: "오로라가 바다로 떨어져 물고기가 되었다는 협만의 옛이야기 그 자체."
   grade: epic
   region: region/frost_fjord
+  tags: [sea]
   time: [night]
   weather: [clear]
   moon: [full]
