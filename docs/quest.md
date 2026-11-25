@@ -19,12 +19,14 @@ YAML 퀘스트를 상태 기계(조건 → 목표 → 보상)로 돌리는 엔�
 - **수락과 보고:** 시작 NPC 대화에서 수락 제안이 뜨고, 목표를 마치면 보고 NPC에게 보고한다. 제안 방식은 퀘스트마다 `offer_style`로 정하고, 비우면 시작 NPC의 대화 방식을 따른다. 요구 조건은 레벨·전직 단계·주차·선행 퀘스트다.
 - **목표 유형:** `catch` `deliver` `visit` `talk` `donate` `collection` `job_level` `job_tier` `boss` `chart_percent` `use_item` `flag` `cutscene` `affinity` `reputation`. `collection`·`job_level` 같은 게이지형은 세지 않고 지금 값을 반영한다. 다른 모듈이 목표 유형을 더 등록할 수 있다.
 - **보상:** 골드·경험치·아이템·물비늘·평판·호감도·플래그·칭호·연대기 조각·전직·도감 힌트 (`rewards`의 `gold` `exp` `items` `mulbineul` `reputation` `affinity` `flags` `title` `chronicle` `job_advance` `hints`). 메인 장 마지막 보상은 진실의 조각·물비늘 3·평판·다음 지역 진입 플래그다.
-- **추적:** 퀘스트 하나를 추적하면 보스바와 액션바 방향 표시(화살표·거리·높이)가 뜬다. 다른 액션바(지역·배·보스)가 나간 직후에는 덮지 않는다.
+- **추적:** 퀘스트 하나를 추적하면 지금 목표(보고 가능하면 보고 NPC) 위치가 **위치 표시 막대 waypoint**(Core `WaypointService`)로 뜨고, 액션바 방향 표시(화살표·거리·높이)도 함께 뜬다. 다른 액션바(지역·배·보스)가 나간 직후에는 덮지 않는다.
+  - waypoint 위치는 목표의 `waypoint`, talk·deliver 대상 NPC, 지점 목표 순으로 정한다. 떠돌이 NPC도 1초마다 따라간다. 목표가 `locator_clamp_m`보다 멀면 같은 방향 그 거리에 표식을 둔다 (막대는 방향만 보여 줌). 색은 `waypoint.colors.quest`·`quest_main`·`quest_ready`.
+  - **보스바**는 시간 제한 이벤트 퀘스트(`time_window`에 `end`가 있는 퀘스트)를 추적할 때만 뜬다 (docs 20 6.4). `/퀘스트 표시`(또는 퀘스트북 나침반 버튼)로 모든 추적 퀘스트에 보스바를 켤 수 있다. `quest.tracker.bossbar_all: true`면 반대로 모두에게 켜진 것이 기본이고 `/퀘스트 표시`로 끈다.
 - **알림:** 수락·보고 가능·완료·포기·실패를 채팅·타이틀·액션바로 알린다. 메인 퀘스트는 따로 정할 수 있다.
 - **어부 길드 게시판 (`/의뢰`):** 일일 3개 중 1개, 주간 3개 중 3개, 수집 2개 중 2개를 고른다. 골드는 해금한 가장 높은 지역 기준이다.
 - **항구 연대기 (`/연대기`):** 메인 스토리 장 목록과 진행이다. 장의 `final` 퀘스트를 완료하면 장 클리어다.
   - **연대기 회상:** 지난 시즌에 이미 완료한 장의 지역에 새 시즌에 처음 들어가면 회상 보상을 받는다 (장당 물비늘 3, 시즌 최대 27).
-  - 모든 장을 마치면 칭호 `title/chronicle_keeper`.
+  - 연대기 전체(1~7장 조각, `chronicle.yml` `required_pieces` 기본 7)를 모으면 칭호 `title/chronicle_keeper`. 정의된 조각이 그보다 적으면(지금은 1~3장) 아무도 칭호를 받지 않는다. `/연대기`의 "모은 조각/전체"도 이 수를 쓴다.
 - **서버 진행도 · 클라이맥스:** 수족관 기부율 80% 이상이고, 7장 클리어 인원이 `max(50, 시즌 활동 유저 × 15%)` 이상이면 클라이맥스가 열린다. 5분마다 판정한다. 시작되면 서버 플래그 `climax_start`로 Boss가 월드 보스를 시작한다.
 - **게임 안 퀘스트 편집기:** 상자 GUI로 퀘스트를 만들고 고친다. 저장하면 `content/quests/<파일>.yml`의 그 항목만 바꿔 쓰고 리로드한다. 검사에 걸리면 되돌린다.
 
@@ -34,7 +36,7 @@ YAML 퀘스트를 상태 기계(조건 → 목표 → 보상)로 돌리는 엔�
 |---|---|---|
 | `/퀘스트` | `harbor.quest` | 퀘스트북 GUI (진행 중·받을 수 있음·완료) |
 | `/퀘스트 목록` | `harbor.quest` | Dialog 목록 |
-| `/퀘스트 표시` | `harbor.quest` | 추적 보스바 켜기/끄기 |
+| `/퀘스트 표시` | `harbor.quest` | 추적 보스바를 모든 추적 퀘스트에 켜기/기본(이벤트 퀘스트만)으로 |
 | `/퀘스트 추적 <퀘스트>` · `/퀘스트 포기 <퀘스트>` | `harbor.quest` | 추적, 포기 (포기 후 같은 주기 재수락 대기 10분) |
 | `/의뢰` | `harbor.quest` | 어부 길드 게시판 |
 | `/연대기` | `harbor.quest.chronicle` | 항구 연대기 |
@@ -61,7 +63,7 @@ YAML 퀘스트를 상태 기계(조건 → 목표 → 보상)로 돌리는 엔�
 |---|---|---|
 | `quests/main.yml` · `region.yml` · `job.yml` · `commissions.yml` | 퀘스트 | `id`(quest/…) `name` `type` `chapter` `description` `requires`(`quests` 등) `start_npc` `end_npc` `cutscene` `offer_style` `objectives`(`key` `type` `target` `count` `waypoint` `text`, 또는 축약형 `{catch: …}`) `rewards`(`gold` `exp` `items` `flags` …) |
 | `board.yml` | 게시판 규칙 | `location` `collect_npc` `daily`·`weekly`·`collect`(`offers` `pick` `mulbineul` `reputation`) `hint_fallback_gold` `gold_by_region` |
-| `chronicle.yml` | 연대기와 장 | `complete_title` `recap`(`mulbineul` `reputation` `max_mulbineul`) `chapters`(`chapter` `name` `final` `region` `area` `cutscene`) |
+| `chronicle.yml` | 연대기와 장 | `complete_title` `required_pieces` `recap`(`mulbineul` `reputation` `max_mulbineul`) `chapters`(`chapter` `name` `final` `region` `area` `cutscene`) |
 | `progress.yml` | 클라이맥스 조건 | `climax`(`donation_rate` `chapter` `min_clears` `clear_ratio`) `check_interval_minutes` `announce` |
 
 - 목표 `key`는 저장된 진행을 이어 붙이는 기준이라 바꾸지 않는다.
@@ -76,7 +78,9 @@ YAML 퀘스트를 상태 기계(조건 → 목표 → 보상)로 돌리는 엔�
 |---|---|
 | `active_limit` | 진행 중 퀘스트 상한 (의뢰 제외, 20) |
 | `abandon_cooldown_minutes` | 포기 후 재수락 대기 |
-| `tracker` | `waypoint_actionbar` `waypoint_quiet_s` `waypoint_refresh_ticks` `waypoint_keep_s` `waypoint_arrive_m` `waypoint_vertical_m` `bossbar` |
+| `tracker` | `waypoint_actionbar` `waypoint_quiet_s` `waypoint_refresh_ticks` `waypoint_keep_s` `waypoint_arrive_m` `waypoint_vertical_m` `locator` `locator_clamp_m` `bossbar` `bossbar_all` |
+
+`balance.yml` `waypoint`: `quest_range`(추적 목표 표식이 보이는 거리), `colors.quest`·`colors.quest_main`·`colors.quest_ready`, `styles.quest`(선택).
 | `journal.style` | `/퀘스트`를 `gui` 또는 `dialog`로 |
 | `book.bar_width` · `book.icons` | 퀘스트북 막대 칸 수, 아이콘 재료 |
 | `notify` | 사건별 알림 형태 (`chat` `title` `actionbar` `none`), `<사건>_main`은 메인 전용 |
@@ -96,6 +100,7 @@ YAML 퀘스트를 상태 기계(조건 → 목표 → 보상)로 돌리는 엔�
 ## 주의 사항
 
 - 메인 4~7장 퀘스트(클라이맥스 조건 포함)는 아직 콘텐츠에 없다. 지금은 프롤로그~3장만 있다.
-- 바닐라 위치 표시 막대(waypoint)는 Phase 1 검증 뒤 숨김 표식 엔티티로 바꿀 예정이다. 지금은 액션바로 방향을 보여 준다.
+- 위치 표시 막대 waypoint는 Core의 숨김 표식 엔티티(갑옷 거치대)를 쓴다. 투명 엔티티가 실제로 신호를 보내는지는 Phase 1 검증 항목이다 (`waypoint.invisible_marker`).
+- 「항구 연대기」 발전과제 탭(`chronicle.yml` 조각의 `advancement`)은 아직 서버에 없으면 건너뛴다. 조각은 시즌을 넘는 영구 플래그라 서버별로 저장되는 발전과제 진행과 맞추려면 접속할 때마다 기준을 줘야 하고, 그때 토스트가 다시 뜨기 때문에 런타임 등록은 하지 않았다.
 - 편집기로 저장한 파일은 DefaultContent가 "고친 파일"로 보고 기본값으로 덮어쓰지 않는다. 저장소 `content/quests/`에는 사람이 옮겨야 한다.
 - 게시판·연대기·클라이맥스 수치는 모두 제안값이다.

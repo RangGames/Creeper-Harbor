@@ -29,6 +29,7 @@ public final class QuestServices {
     private final BoardManager board;
     private final Tracker tracker;
     private final TrackerBar trackerBar;
+    private final QuestLocator locator;
     private final ChronicleManager chronicle;
     private final ServerProgressManager progress;
 
@@ -38,6 +39,7 @@ public final class QuestServices {
         this.board = new BoardManager(engine);
         this.tracker = new Tracker(engine);
         this.trackerBar = new TrackerBar(engine);
+        this.locator = new QuestLocator(engine, tracker);
         this.chronicle = new ChronicleManager(engine);
         this.progress = new ServerProgressManager(engine);
         engine.attach(payer, board, tracker, chronicle);
@@ -68,15 +70,16 @@ public final class QuestServices {
     }
 
     /**
-     * Periodic tasks: batched action bar (20 ticks), tracker boss bar (20 ticks), location check
-     * (10 ticks), tracking direction (balance.yml, default 5 ticks), board entities (600 ticks),
-     * event period end (1200 ticks), climax.
+     * Periodic tasks: batched action bar (20 ticks), tracker boss bar and locator bar waypoint (20
+     * ticks), location check (10 ticks), tracking direction (balance.yml, default 5 ticks), board
+     * entities (600 ticks), event period end (1200 ticks), climax.
      */
     public void start(java.util.function.Consumer<Player> openBoard) {
         board.setOpener(openBoard);
         board.cleanup();
         var _ = engine.tasks.timer(20, 20, tracker::flushBars);
         var _ = engine.tasks.timer(20, 20, trackerBar::refresh);
+        var _ = engine.tasks.timer(20, 20, locator::refresh);
         var _ = engine.tasks.timer(10, 10, tracker::pollPositions);
         long waypointTicks =
                 Math.max(1, engine.balance().integer("quest.tracker.waypoint_refresh_ticks", 5));
@@ -96,6 +99,7 @@ public final class QuestServices {
     public void stop() {
         board.cleanup();
         trackerBar.clear();
+        locator.clear();
     }
 
     public HandoffBlocker.Verdict handoff(Player player, String destination) {
@@ -154,6 +158,7 @@ public final class QuestServices {
         engine.forget(uuid);
         tracker.forget(uuid);
         trackerBar.forget(uuid);
+        locator.forget(uuid);
     }
 
     void expireBoards(Player player, java.util.Set<QuestType> kinds) {

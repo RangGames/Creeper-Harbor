@@ -19,7 +19,9 @@ import wiki.creeper.harbor.collection.api.CollectionScope;
 import wiki.creeper.harbor.collection.api.RecordEntry;
 import wiki.creeper.harbor.collection.view.CollectionView;
 import wiki.creeper.harbor.common.content.type.FishDef;
+import wiki.creeper.harbor.common.content.type.ItemDef;
 import wiki.creeper.harbor.common.content.type.RegionDef;
+import wiki.creeper.harbor.common.id.ItemId;
 import wiki.creeper.harbor.common.model.Quality;
 import wiki.creeper.harbor.core.api.HarborApi;
 import wiki.creeper.harbor.core.api.MessageService;
@@ -321,7 +323,10 @@ final class CollectionMenu {
         return DATE.format(entry.firstCaught().atZone(zone));
     }
 
-    /** Hint reveal per stage (0 region → 1 time of day → 2 weather·bait → 3 zone·moon·job). */
+    /**
+     * Hint reveal per stage (0 region → 1 time of day → 2 weather·bait → 3
+     * zone·moon·job·hint_text).
+     */
     private List<Component> hints(UUID owner, FishDef fish) {
         int level = collection.level(owner, fish.id());
         List<Component> lines = new ArrayList<>();
@@ -348,7 +353,7 @@ final class CollectionMenu {
                                             "value",
                                             list(
                                                     fish.bait().stream()
-                                                            .map(b -> b.id().name())
+                                                            .map(this::itemName)
                                                             .toList()))));
         }
         if (level >= 3) {
@@ -360,8 +365,21 @@ final class CollectionMenu {
                                     Placeholder.unparsed(
                                             "tier",
                                             String.valueOf(Math.max(1, fish.jobTierMin())))));
+            String text = fish.hintText();
+            if (text != null && !text.isBlank()) {
+                lines.add(msg().get("collection.hint.text", Placeholder.unparsed("text", text)));
+            }
         }
         return lines;
+    }
+
+    /** Item name from items/*.yml without MiniMessage tags (the ID name if undefined). */
+    private String itemName(ItemId item) {
+        return api.content()
+                .snapshot()
+                .get(ItemDef.TYPE, item.id())
+                .map(d -> MiniMessage.miniMessage().stripTags(d.name()))
+                .orElse(item.id().name());
     }
 
     private static String list(List<String> values) {

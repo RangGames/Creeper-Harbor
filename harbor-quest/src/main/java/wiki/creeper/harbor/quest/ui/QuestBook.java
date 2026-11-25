@@ -194,11 +194,7 @@ public final class QuestBook {
                     player.closeInventory();
                     q.chronicle().open(player);
                 });
-        boolean barOn =
-                !api.flags()
-                        .hasPlayer(
-                                player.getUniqueId(),
-                                wiki.creeper.harbor.quest.service.TrackerBar.OFF_FLAG);
+        boolean barOn = q.trackerBar().alwaysOn(player.getUniqueId());
         menu.button(
                 7,
                 MenuIcons.icon(

@@ -16,7 +16,10 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * "Harbor Chronicle" and main story chapters (chronicle.yml, proposed, docs 20 6.3·6.4, '5. Server
  * Story' ch. 3·6).
  *
- * @param completeTitle title given when all pieces are collected
+ * @param completeTitle title given when the full chronicle is collected
+ * @param requiredPieces pieces the full chronicle needs (chapters 1~7 of '5. Server Story', default
+ *     7). The title waits for this many even while fewer pieces are defined, so it is not granted
+ *     early when only the CBT chapters exist
  * @param recapMulbineul chronicle recap mulbineul (per chapter, D9)
  * @param recapReputation chronicle recap reputation (per chapter, proposed value)
  * @param recapMax per-season cap on recap mulbineul (D9: 27)
@@ -25,6 +28,7 @@ public record ChronicleDef(
         List<Chapter> chapters,
         List<Piece> pieces,
         @Nullable String completeTitle,
+        int requiredPieces,
         long recapMulbineul,
         int recapReputation,
         long recapMax) {
@@ -69,6 +73,9 @@ public record ChronicleDef(
             @Nullable String advancement,
             List<String> text) {}
 
+    /** Chapters 1~7 each end with one piece ('5. Server Story' 3). */
+    public static final int DEFAULT_REQUIRED_PIECES = 7;
+
     public static final ContentType.Single<ChronicleDef> TYPE =
             new ContentType.Single<>(
                     "quest_chronicle", "chronicle.yml", false, ChronicleDef::parse);
@@ -82,12 +89,17 @@ public record ChronicleDef(
         return pieces.stream().filter(p -> p.id().equals(id)).findFirst();
     }
 
+    /** Pieces needed for the title: required_pieces, or every defined piece if there are more. */
+    public int totalPieces() {
+        return Math.max(requiredPieces, pieces.size());
+    }
+
     public Optional<Chapter> chapter(int chapter) {
         return chapters.stream().filter(c -> c.chapter() == chapter).findFirst();
     }
 
     static ChronicleDef parse(YamlNode node, ParseContext ctx) {
-        node.allowOnly(Set.of("chapters", "pieces", "complete_title", "recap"));
+        node.allowOnly(Set.of("chapters", "pieces", "complete_title", "required_pieces", "recap"));
         List<Chapter> chapters = new ArrayList<>();
         for (YamlNode c : node.list("chapters")) {
             c.allowOnly(Set.of("chapter", "name", "final", "region", "area", "cutscene"));
@@ -175,6 +187,7 @@ public record ChronicleDef(
             reputation = recap.integer("reputation", 150);
             max = recap.longValue("max_mulbineul", 27);
         }
-        return new ChronicleDef(chapters, pieces, title, mulbineul, reputation, max);
+        int required = node.integer("required_pieces", DEFAULT_REQUIRED_PIECES, 1, 64);
+        return new ChronicleDef(chapters, pieces, title, required, mulbineul, reputation, max);
     }
 }

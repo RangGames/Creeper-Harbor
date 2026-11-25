@@ -43,7 +43,8 @@ import wiki.creeper.harbor.season.api.TitleId;
  *
  * <ul>
  *   <li>Pieces: permanent player flag {@code chronicle/<id>} + custom advancement criterion + /연대기
- *       GUI. Collecting all gives the chronicle title
+ *       GUI. Collecting the full chronicle (chronicle.yml required_pieces, chapters 1~7) gives the
+ *       chronicle title
  *   <li>Recap: entering the region of an already completed (carried-over) chapter for the first
  *       time in a new season gives 3 mulbineul + 150 reputation (mulbineul capped at 27 per season,
  *       reference ID recap:&lt;season&gt;:&lt;uuid&gt;:&lt;chapter&gt;). Only once, via the
@@ -98,7 +99,7 @@ public final class ChronicleManager implements ChronicleService {
                                                     uuid,
                                                     pieceId,
                                                     owned.size(),
-                                                    def.pieces().size()));
+                                                    def.totalPieces()));
                             Player player = Bukkit.getPlayer(uuid);
                             if (player != null) {
                                 advancement(player, piece.get().advancement());
@@ -129,7 +130,11 @@ public final class ChronicleManager implements ChronicleService {
     private CompletableFuture<Boolean> completeTitle(UUID uuid) {
         ChronicleDef def = engine.chronicleDef();
         String title = def.completeTitle();
-        if (title == null || def.pieces().isEmpty() || pieces(uuid).size() < def.pieces().size()) {
+        // The full chronicle (chapters 1~7): every defined piece and at least required_pieces
+        if (title == null
+                || def.pieces().isEmpty()
+                || pieces(uuid).size() < def.pieces().size()
+                || def.pieces().size() < def.totalPieces()) {
             return CompletableFuture.completedFuture(true);
         }
         return engine.deps
@@ -288,7 +293,7 @@ public final class ChronicleManager implements ChronicleService {
                                         "quest.chronicle.title",
                                         Placeholder.unparsed("owned", String.valueOf(owned.size())),
                                         Placeholder.unparsed(
-                                                "total", String.valueOf(def.pieces().size()))),
+                                                "total", String.valueOf(def.totalPieces()))),
                         3,
                         chapters,
                         c -> new PagedMenu.Entry(icon(player, c, owned), e -> replay(player, c)),

@@ -13,7 +13,12 @@ import wiki.creeper.harbor.common.id.RegionId;
 import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
-/** Fish species definition (fish/*.yml). Fields follow '11. Data design' 2.1. */
+/**
+ * Fish species definition (fish/*.yml). Fields follow '11. Data design' 2.1.
+ *
+ * @param hintText free text shown at collection hint stage 3 (docs 20 4.3 hint_text, proposed; null
+ *     if absent)
+ */
 public record FishDef(
         FishId id,
         int no,
@@ -34,9 +39,56 @@ public record FishDef(
         int weight,
         boolean releaseOnly,
         String model,
-        int season) {
+        int season,
+        @Nullable String hintText) {
 
     public static final int DEFAULT_WEIGHT = 100;
+
+    /** Without hint_text (keeps the constructor used before the field existed). */
+    public FishDef(
+            FishId id,
+            int no,
+            String name,
+            List<String> lore,
+            Grade grade,
+            RegionId region,
+            List<String> area,
+            List<String> time,
+            List<String> weather,
+            List<String> moon,
+            List<ItemId> bait,
+            int jobTierMin,
+            @Nullable String unlockFlag,
+            double sizeMin,
+            double sizeMax,
+            int basePrice,
+            int weight,
+            boolean releaseOnly,
+            String model,
+            int season) {
+        this(
+                id,
+                no,
+                name,
+                lore,
+                grade,
+                region,
+                area,
+                time,
+                weather,
+                moon,
+                bait,
+                jobTierMin,
+                unlockFlag,
+                sizeMin,
+                sizeMax,
+                basePrice,
+                weight,
+                releaseOnly,
+                model,
+                season,
+                null);
+    }
 
     private static final Set<String> FIELDS =
             Set.of(
@@ -58,7 +110,8 @@ public record FishDef(
                     "weight",
                     "release_only",
                     "model",
-                    "season");
+                    "season",
+                    "hint_text");
 
     public static final ContentType.Entries<FishDef> TYPE =
             new ContentType.Entries<>(
@@ -136,6 +189,7 @@ public record FishDef(
                 weight,
                 node.bool("release_only", false),
                 node.string("model"),
-                node.integer("season"));
+                node.integer("season"),
+                node.optString("hint_text").orElse(null));
     }
 }

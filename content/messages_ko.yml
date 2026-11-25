@@ -357,6 +357,11 @@ collection:
   unknown_fish: "<red>없는 어종입니다."
   registered:
     title: "<aqua>도감 등록!"
+  # 도감 등록 토스트 (런타임 발전과제, balance.yml collection.toast). 제목은 item.name.<등급>
+  toast:
+    root_title: "도감"
+    root_description: "크리퍼 항구의 바다에서 만난 물고기들"
+    description: "<gray>도감 등록 · No.<no> · <region>"
   new_record:
     title: "<gold>NEW RECORD!"
     subtitle: "<yellow><size>cm"
@@ -405,6 +410,9 @@ collection:
     weather: "<gray>날씨: <white><value>"
     bait: "<gray>미끼: <white><value>"
     extra: "<gray>구역 <white><area></white> · 달 <white><moon></white> · <white><tier></white>차 이상"
+    text: "<gray>메모: <white><text>"
+    treasure: "<aqua>지도 구석의 메모에서 No.<no></aqua><gray> 어종의 힌트가 <yellow><level>단계</yellow>로 올랐습니다. /도감에서 확인하세요."
+    treasure_none: "<gray>지도 구석의 메모는 이미 아는 내용이었습니다."
     granted: "<aqua>No.<no></aqua><gray> 어종의 힌트가 <yellow><level>단계</yellow>로 올랐습니다. /도감에서 확인하세요."
     none: "<gray>지금은 더 알려 드릴 힌트가 없어요."
     npc_limit: "<gray>오늘은 힌트를 더 받을 수 없습니다. 내일 다시 찾아오세요."
@@ -1380,14 +1388,14 @@ quest:
     collect: "수집 의뢰"
     hidden: "숨은 퀘스트"
     event: "이벤트"
-  # 추적 보스바 (balance.yml quest.tracker.bossbar, /퀘스트 표시로 끄고 켬)
+  # 추적 보스바 (balance.yml quest.tracker.bossbar). 기본은 시간 제한 이벤트 퀘스트에서만 보이고, /퀘스트 표시로 모든 추적 퀘스트에 켬
   bossbar:
     progress: "<yellow><quest></yellow> <gray>·</gray> <white><objective></white> <gold><value>/<count></gold> <gray><more>"
     goal: "<yellow><quest></yellow> <gray>·</gray> <white><objective></white> <gray><more>"
     ready: "<green>✔ <quest></green> <gray>·</gray> <white><npc></white><gray>에게 보고하세요"
     ready_self: "<green>✔ <quest></green> <gray>· 완료 처리 중"
-    toggled_on: "<gray>퀘스트 추적 표시를 <green>켰습니다</green>."
-    toggled_off: "<gray>퀘스트 추적 표시를 <red>껐습니다</red>. 다시 켜려면 /퀘스트 표시"
+    toggled_on: "<gray>추적 중인 퀘스트를 화면 위 막대에 <green>항상 표시</green>합니다."
+    toggled_off: "<gray>화면 위 막대를 <red>껐습니다</red>. 시간 제한 이벤트 퀘스트만 막대로 보이고, 목표 위치는 위치 표시 막대에 나옵니다. 다시 켜려면 /퀘스트 표시"
   # 알림 형태는 balance.yml quest.notify (chat · title · actionbar). 아래는 title·actionbar로 보낼 때의 문구
   notify:
     title:
@@ -1726,9 +1734,9 @@ quest:
     board_hint: "<gray>일일·주간 의뢰 보기"
     chronicle: "<aqua>항구 연대기"
     chronicle_hint: "<gray>모은 진실의 조각 보기"
-    tracker_on: "<green>추적 표시 켜짐"
-    tracker_off: "<red>추적 표시 꺼짐"
-    tracker_hint: "<gray>눌러서 화면 위 추적 막대를 켜고 끕니다"
+    tracker_on: "<green>추적 막대 항상 표시"
+    tracker_off: "<gray>추적 막대: 이벤트 퀘스트만"
+    tracker_hint: "<gray>눌러서 화면 위 추적 막대를 모든 추적 퀘스트에 켜고 끕니다 (목표 위치는 위치 표시 막대)"
     close: "<red>닫기"
     page: "<white><page>/<pages> 쪽 <gray>(<count>개)"
     empty:
