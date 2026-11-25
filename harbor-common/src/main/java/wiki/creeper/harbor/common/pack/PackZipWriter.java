@@ -29,7 +29,12 @@ import java.util.zip.Deflater;
  *   <li>{@link ZipConformance#BALANCED}: entries with identical content share one copy of the data
  *       (several central directory entries point at the same local header)
  *   <li>{@link ZipConformance#DISREGARD}: also blank local header names and zero CRC-32 fields, so
- *       stream extractors see nameless entries and checking extractors report corruption
+ *       stream extractors see nameless entries and checking extractors report corruption; and the
+ *       end record says this disk holds 0 entries (only the total is right), so tools that take the
+ *       archive as split or spanned refuse it. That catches the extractors that read only the
+ *       central directory and skip CRC checks (Windows Explorer and .NET ZipFile extracted the
+ *       first two tricks cleanly). {@code java.util.zip.ZipFile} reads only the total, the
+ *       directory size and offset from the end record, so the game is unaffected
  * </ul>
  *
  * Plain zip32 only (≤ 65535 entries, &lt; 4 GiB); larger packs fail with an IOException.
@@ -161,7 +166,7 @@ final class PackZipWriter implements PackBuilder.EntrySink {
         end.putInt(END_SIG)
                 .putShort((short) 0)
                 .putShort((short) 0)
-                .putShort((short) central.size())
+                .putShort((short) (protect ? 0 : central.size()))
                 .putShort((short) central.size())
                 .putInt((int) cenSize)
                 .putInt((int) cenStart)
