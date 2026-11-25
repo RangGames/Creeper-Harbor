@@ -9,7 +9,12 @@ import wiki.creeper.harbor.common.content.ContentType;
 public final class FishingContent {
 
     public static final List<ContentType<?>> TYPES =
-            List.of(JunkTable.TYPE, FoodBuffs.TYPE, FishingPresets.TYPE, SeaEventPresets.TYPE);
+            List.of(
+                    JunkTable.TYPE,
+                    FoodBuffs.TYPE,
+                    FishingPresets.TYPE,
+                    SeaEventPresets.TYPE,
+                    RodSettings.TYPE);
 
     private FishingContent() {}
 }

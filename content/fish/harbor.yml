@@ -7,6 +7,7 @@
   lore: "크리퍼 항구 어시장에서 가장 많이 팔리는 생선. 소금만 쳐서 구워도 맛있다."
   grade: common
   region: region/harbor
+  tags: [sea]
   size_cm: [25, 45]
   base_price: 5
   model: harbor:fish/harbor_mackerel
@@ -18,6 +19,7 @@
   lore: "굽는 냄새에 떠났던 어부도 돌아온다는 항구의 별미."
   grade: common
   region: region/harbor
+  tags: [sea]
   size_cm: [15, 30]
   base_price: 5
   model: harbor:fish/calm_bay_shad
@@ -29,6 +31,7 @@
   lore: "작고 흔하지만 통발 미끼로는 이만한 게 없다."
   grade: common
   region: region/harbor
+  tags: [sea]
   size_cm: [5, 15]
   base_price: 5
   model: harbor:fish/silver_anchovy
@@ -40,6 +43,7 @@
   lore: "부두 기둥 사이에 숨어 사는 겁쟁이. 그래도 미끼만 보면 일단 문다."
   grade: common
   region: region/harbor
+  tags: [sea]
   time: [day]
   size_cm: [10, 25]
   base_price: 5
@@ -52,6 +56,7 @@
   lore: "크리퍼를 닮은 초록 비늘. 터지지는 않는다... 아마도."
   grade: common
   region: region/harbor
+  tags: [sea]
   size_cm: [15, 35]
   base_price: 5
   model: harbor:fish/green_filefish
@@ -63,6 +68,7 @@
   lore: "밤이면 방파제 틈에서 나와 먹이를 찾는다. 매운탕 재료 1순위."
   grade: common
   region: region/harbor
+  tags: [sea, carnivore]
   time: [night]
   size_cm: [20, 45]
   base_price: 5
@@ -75,6 +81,7 @@
   lore: "모래 속에 납작 엎드려 눈만 내놓고 있다."
   grade: common
   region: region/harbor
+  tags: [sea]
   size_cm: [20, 40]
   base_price: 5
   model: harbor:fish/sand_flounder
@@ -86,6 +93,7 @@
   lore: "갈매기와 먹이를 다투는 날렵한 물고기. 주둥이가 바늘처럼 뾰족하다."
   grade: common
   region: region/harbor
+  tags: [sea]
   time: [day]
   size_cm: [25, 40]
   base_price: 5
@@ -98,6 +106,7 @@
   lore: "잡히면 깜짝 놀란 표정을 짓는다. 이름의 유래라는 소문이 있다."
   grade: common
   region: region/harbor
+  tags: [sea]
   time: [day]
   size_cm: [15, 30]
   base_price: 5
@@ -110,6 +119,7 @@
   lore: "불빛을 좋아해 밤 부두 조명 아래로 몰려든다."
   grade: common
   region: region/harbor
+  tags: [sea]
   time: [night]
   size_cm: [10, 25]
   base_price: 5
@@ -122,6 +132,7 @@
   lore: "항구장이 축하할 일이 생길 때마다 찾는 붉은 생선."
   grade: uncommon
   region: region/harbor
+  tags: [sea]
   time: [dawn]
   size_cm: [35, 70]
   base_price: 15
@@ -134,6 +145,7 @@
   lore: "파도가 거칠수록 힘이 세진다. 비 오는 날 갯바위의 단골손님."
   grade: uncommon
   region: region/harbor
+  tags: [sea, carnivore]
   weather: [rain]
   size_cm: [40, 90]
   base_price: 15
@@ -146,6 +158,7 @@
   lore: "큰 눈으로 달빛을 모은다. 밤낚시꾼들의 첫 번째 목표."
   grade: uncommon
   region: region/harbor
+  tags: [sea, carnivore]
   time: [night]
   size_cm: [15, 30]
   base_price: 15
@@ -158,6 +171,7 @@
   lore: "놀라면 먹물을 뿜는다. 장갑을 끼고 손질할 것."
   grade: uncommon
   region: region/harbor
+  tags: [sea]
   time: [night]
   size_cm: [15, 35]
   base_price: 15
@@ -170,6 +184,7 @@
   lore: "건드리면 '쉬익-' 소리를 내며 부풀어 오른다. 요리 전에 반드시 독을 뺄 것."
   grade: uncommon
   region: region/harbor
+  tags: [sea]
   bait: [item/bait/gunpowder_paste]
   size_cm: [15, 35]
   base_price: 15
@@ -182,6 +197,7 @@
   lore: "꺼진 등대 그림자 아래에서 은빛 칼처럼 꼿꼿이 선 채 떠오른다. 등대에 다시 불이 켜지면 더 많이 몰려든다고 한다."
   grade: uncommon
   region: region/harbor
+  tags: [sea, carnivore, toothy]
   area: [lighthouse]
   time: [night]
   size_cm: [80, 150]

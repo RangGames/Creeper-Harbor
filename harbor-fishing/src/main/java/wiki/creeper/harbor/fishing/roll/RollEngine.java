@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.random.RandomGenerator;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.ContentSnapshot;
@@ -25,8 +26,11 @@ import wiki.creeper.harbor.fishing.content.FishingBalance;
  *   <li>Mythic: each mythic window of the sea events being participated in is rolled with the event
  *       chance + mythic_chance (FishingManager reserves the server count)
  *   <li>Grade: the base weights of the grades present in the region are renormalized to 100%, and
- *       rare-or-better are boosted (total multiplier capped at 1.6)
- *   <li>Species: picked within the grade by weight × species multiplier (unregistered, event)
+ *       rare-or-better are boosted (total multiplier capped at 1.6). Conditional bait bonuses
+ *       ({@link RollModifiers.WeightBonus}) also boost a rare-or-better grade by the weight share
+ *       of its matching candidates (bait category, inside the same cap)
+ *   <li>Species: picked within the grade by weight × species multiplier (unregistered, event,
+ *       conditional bait bonus)
  * </ol>
  *
  * Mythic species are excluded from normal candidates and only come from mythic windows.
@@ -112,8 +116,55 @@ public final class RollEngine {
                 && fish.area().stream().noneMatch(ctx.areas()::contains)) {
             return false;
         }
+        for (FishDef.Extra extra : fish.extra()) {
+            boolean ok =
+                    switch (extra.type()) {
+                        case PLAYER_FLAG -> ctx.playerFlags().test(extra.value());
+                        case WORLD_FLAG -> ctx.serverFlags().test(extra.value());
+                        case EQUIPMENT_TAG -> ctx.equipment().contains(extra.value());
+                    };
+            if (!ok) {
+                return false;
+            }
+        }
         // Mythics only from event mythic windows
         return fish.grade() != Grade.MYTHIC;
+    }
+
+    /**
+     * Sum of the conditional bait/part bonuses that apply to a species (0 if none). Additive
+     * (proposed).
+     */
+    static double weightBonus(FishDef fish, RollContext ctx, RollModifiers mods) {
+        if (mods.weightBonus().isEmpty()) {
+            return 0;
+        }
+        double sum = 0;
+        Set<String> tokens = ctx.castTokens();
+        for (RollModifiers.WeightBonus b : mods.weightBonus()) {
+            if (b.matches(fish.tags(), tokens)) {
+                sum += b.value();
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * Grade-level share of the conditional bonuses: Σ weight × bonus / Σ weight over the grade's
+     * candidates. A bonus that matches every candidate (ice worm in the fjord) gives its full
+     * value; one that matches a few species gives a fraction.
+     */
+    public static double gradeShare(List<FishDef> fish, RollContext ctx, RollModifiers mods) {
+        if (mods.weightBonus().isEmpty() || fish.isEmpty()) {
+            return 0;
+        }
+        double total = 0;
+        double boosted = 0;
+        for (FishDef f : fish) {
+            total += f.weight();
+            boosted += f.weight() * weightBonus(f, ctx, mods);
+        }
+        return total <= 0 ? 0 : boosted / total;
     }
 
     /**
@@ -171,9 +222,13 @@ public final class RollEngine {
             if (base <= 0) {
                 continue;
             }
-            double bonus =
-                    grade.isAtLeast(Grade.RARE) ? mods.gradeBonus().getOrDefault(grade, 0.0) : 0;
-            weights.put(grade, base * Math.min(1 + bonus, 1 + balance.rareBonusCap()));
+            double mult = 1;
+            if (grade.isAtLeast(Grade.RARE)) {
+                double bonus = mods.gradeBonus().getOrDefault(grade, 0.0);
+                double share = gradeShare(candidates.getOrDefault(grade, List.of()), ctx, mods);
+                mult = Math.min((1 + bonus) * (1 + share), 1 + balance.rareBonusCap());
+            }
+            weights.put(grade, base * mult);
         }
         if (weights.isEmpty()) {
             return Optional.empty();
@@ -212,7 +267,11 @@ public final class RollEngine {
             }
             List<FishDef> list =
                     e.getValue().stream()
-                            .filter(f -> f.bait().isEmpty() && f.unlockFlag() == null)
+                            .filter(
+                                    f ->
+                                            f.bait().isEmpty()
+                                                    && f.unlockFlag() == null
+                                                    && f.extra().isEmpty())
                             .toList();
             if (!list.isEmpty()) {
                 pool.put(e.getKey(), list);
@@ -254,6 +313,7 @@ public final class RollEngine {
                 w *= 1 + mods.uncaughtWeight();
             }
             w *= mods.speciesMult().getOrDefault(f.id().toString(), 1.0);
+            w *= Math.max(0, 1 + weightBonus(f, ctx, mods));
             weights.put(f, w);
         }
         return weighted(weights, random);

@@ -10,6 +10,7 @@
   lore: "늪지 은둔자가 이름도 부르지 않고 '그놈'이라고만 하는 거대 메기."
   grade: rare
   region: region/swamp
+  tags: [fresh, carnivore]
   time: [night]
   weather: [storm]
   size_cm: [150, 300]
@@ -24,6 +25,7 @@
   lore: "난파선 보물상자 위를 떠나지 않는다. 보물보다 이 녀석이 더 값지다는 말도 있다."
   grade: epic
   region: region/coral_isles
+  tags: [sea, carnivore, toothy]
   weather: [storm]
   size_cm: [150, 250]
   base_price: 250            # 제안값
@@ -37,6 +39,7 @@
   lore: "잿빛 해구 그 자체라 불리는 거대어. 해구가 생긴 것도 이 녀석이 몸을 뒤척였기 때문이라고 한다."
   grade: legendary
   region: region/ash_trench
+  tags: [sea]
   weather: [storm]
   moon: [new]
   bait: [item/bait/legendary]
@@ -53,6 +56,7 @@
   lore: "크리퍼 항구를 무너뜨린 대폭발의 원인이라는 전설의 물고기. 비늘 사이로 초록 불꽃이 튄다. 늪지의 누군가는 그 반대라고 중얼거린다."
   grade: legendary
   region: region/ash_trench
+  tags: [sea]
   weather: [storm]
   bait: [item/bait/legendary]
   unlock_flag: climax_done   # 클라이맥스 이후에만 출현 (그 전에는 도감에 실루엣만)
@@ -69,6 +73,7 @@
   lore: "협만의 모든 철갑상어를 거느리는 흰 거인. 등 위의 비늘 판이 얼음처럼 하얗다."
   grade: epic
   region: region/frost_fjord
+  tags: [sea, carnivore]
   weather: [storm]
   size_cm: [300, 500]
   base_price: 250
@@ -82,6 +87,7 @@
   lore: "배만 한 눈으로 낚싯배를 올려다본다. 끌어올리는 데 선원 셋이 필요하다."
   grade: epic
   region: region/ash_trench
+  tags: [sea]
   time: [night]
   weather: [storm]
   size_cm: [600, 1200]

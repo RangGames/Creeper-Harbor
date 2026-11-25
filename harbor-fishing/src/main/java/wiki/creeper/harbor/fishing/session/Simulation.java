@@ -145,7 +145,9 @@ final class Simulation {
                         fish -> false,
                         List.of(),
                         false,
-                        List.of());
+                        List.of(),
+                        flag -> true,
+                        java.util.Set.of());
         Map<Grade, Integer> grades = new EnumMap<>(Grade.class);
         Map<FishId, Integer> species = new HashMap<>();
         Map<FishId, Integer> pity = new HashMap<>();

@@ -1,5 +1,10 @@
 # Harbor-Economy 상점·제작 아이템 ('3. 아이템 목록', '13. 제작 · 상점 가격' 2·3장). 레시피는 recipes.yml.
 # 부품(낚싯줄·찌·릴)의 stats는 Fishing이 읽는 키를 따른다. 문서에 수치가 없는 값은 제안값.
+# 부품은 /낚싯대로 낚싯대에 달아야 효과가 난다 (fishing/rod.yml). 조건부 키 (추가 제안):
+#   <스탯>.<조건>: 조건이 맞을 때만 더함 (bite_wait.night = 밤에만 입질 대기)
+#   weight_bonus.<조건>[+<조건>]: 조건이 모두 맞는 어종의 출현 가중치 + 값. 조건은 어종 tags(fresh·sea·carnivore 등),
+#     시간대(dawn·day·dusk·night), 지역 이름(frost_fjord 등). 지역 전체에 맞으면 희귀 이상 가중치 보정(미끼 범주)이 된다
+#   bite_proof: 1 → 이빨 있는 어종(tags: toothy)에게 줄 강도 벌칙을 받지 않음
 
 - id: item/rod/coral_carbon
   name: 산호 카본 낚싯대
@@ -46,7 +51,7 @@
   grade: rare
   base_item: minecraft:string
   model: harbor:line/steel_wire
-  stats: {line_strength: 3}   # 제안값
+  stats: {line_strength: 3, bite_proof: 1}   # line_strength 제안값, bite_proof = 이빨 있는 어종 줄 끊김 방지
   tradeable: true
   season_reset: true
 
@@ -68,6 +73,7 @@
   grade: uncommon
   base_item: minecraft:glow_ink_sac
   model: harbor:float/glow
+  stats: {bite_wait.night: -0.10}   # 밤 낚시 입질 대기 -10%
   tradeable: true
   season_reset: true
 
@@ -101,6 +107,7 @@
   grade: common
   base_item: minecraft:wheat
   model: harbor:bait/flour_paste
+  stats: {weight_bonus.fresh: 0.10}   # 민물 어종 출현 +10%
   buy_price: 1
   tradeable: true
   season_reset: true
@@ -112,6 +119,7 @@
   grade: common
   base_item: minecraft:salmon
   model: harbor:bait/shrimp
+  stats: {weight_bonus.sea: 0.10}   # 바다 어종 출현 +10%
   buy_price: 1
   tradeable: true
   season_reset: true
@@ -123,6 +131,7 @@
   grade: uncommon
   base_item: minecraft:glow_berries
   model: harbor:bait/glow
+  stats: {weight_bonus.night: 0.15}   # 밤 시간 출현 +15%
   tradeable: true
   season_reset: true
 

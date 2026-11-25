@@ -49,6 +49,13 @@ item:
     legend_chance: "<gray>전설 확률 <green><percent>%"
     uses: "<gray>사용 <white><value>회"
     legend_only: "<gold>전설 어종을 낚았을 때만 사라집니다"
+    # 조건부 출현 보정 (weight_bonus.<조건>, 추가 제안)
+    weight_bonus:
+      fresh: "<gray>민물 어종 출현 <green><percent>%"
+      sea: "<gray>바다 어종 출현 <green><percent>%"
+      night: "<gray>밤 시간 출현 <green><percent>%"
+      frost_fjord: "<gray>서리 협만 어종 출현 <green><percent>%"
+      carnivore+day: "<gray>낮 시간 육식 어종 출현 <green><percent>%"
   bait:
     hint: "<dark_gray>왼손에 들거나 /미끼로 골라서 사용"
   fish:
@@ -194,6 +201,7 @@ fishing:
     unknown: "???"
     help: "<gray><white>Shift</white> 누르고 있기 = 감기, 떼기 = 풀기 · 물고기가 <aqua>◀◀</aqua>/<aqua>▶▶</aqua> 쪽으로 도망치면 <white>A</white>/<white>D</white>를 같은 쪽으로 누르고 있어야 제 속도로 감깁니다 (화살표가 <green>초록</green>이면 맞음, <red>빨강</red>이면 느리게 감김). 화살표가 없으면 아무 쪽도 누르지 마세요"
     phase: "<gold>물고기가 사나워졌다! <gray>(<phase>단계)"
+    toothy: "<red>이빨 있는 물고기다! <gray>줄이 쉽게 끊어집니다 (강철 와이어 줄을 달면 괜찮아요)"
   pattern:
     dash: "<red>돌진! 줄을 풀어요"
     dive: "<aqua>잠수 중…"
@@ -210,6 +218,7 @@ fishing:
   rod_broken: "<red>낚싯대가 망가지기 직전입니다. <gray>낚시용품점이나 /수리로 고치세요"
   bait_changed: "<gray>미끼가 바뀌어 물고기가 달아났습니다."
   bait_uses: "<gray>루어 남은 사용 횟수 <white><left>"
+  bait_saved: "<green>미끼 절약! <gray>이번 챔질은 미끼를 쓰지 않았습니다"
   bait:
     cast: "<gray>미끼 <white><name></white><uses>"
     cast_uses: " <dark_gray>(<left>회 남음)"
@@ -352,6 +361,58 @@ fishing:
     event_stopped: "<gray>해상 이벤트 <white><event></white>을(를) 끝냈습니다."
     unknown_event: "<red>없는 이벤트 프리셋입니다 (fishing/sea_events.yml)."
     food: "<yellow><player></yellow> <gray>요리 버프 <white><food>"
+  # 낚싯대 부품(/낚싯대)과 전용 인챈트 (낚시용품점 NPC, 추가 제안)
+  rod:
+    not_holding: "<gray>낚싯대를 손에 들고 쓰세요."
+    busy: "<gray>낚시 중에는 낚싯대를 손볼 수 없습니다."
+    changed: "<gray>손에 든 낚싯대가 바뀌어 취소했습니다."
+    no_part: "<gray>가방에 그 부품이 없습니다."
+    attached: "<name><gray>을(를) <slot> 자리에 달았습니다."
+    detached: "<name><gray>을(를) 떼어 가방에 넣었습니다."
+    slot:
+      line: "낚싯줄"
+      float: "찌"
+      reel: "릴"
+    lore:
+      part: "<gray><slot>: <name>"
+      enchant: "<light_purple><name> <level>"
+    menu:
+      title: "낚싯대 손보기"
+      rod: "<white><name>"
+      slot_empty: "<gray><slot>: <dark_gray>비어 있음"
+      body: "<gray>단 부품을 고르면 떼어 내고, 가방의 부품을 고르면 그 자리에 답니다 (원래 있던 부품은 돌려받아요)."
+      empty: "<dark_gray>가방에 달 수 있는 부품(낚싯줄·찌·릴)이 없습니다."
+      detach: "<red>떼기</red> <gray><slot>: <name>"
+      attach: "<green>달기</green> <gray><slot>: <name>"
+      close: "<gray>닫기"
+    enchant:
+      option_label: "낚싯대 인챈트"
+      name:
+        tide_reading: "조류 읽기"
+        firm_knot: "단단한 매듭"
+      level:
+        l1: "I"
+        l2: "II"
+        l3: "III"
+        l4: "IV"
+        l5: "V"
+      desc:
+        tide_reading: "<gray>입질 대기 <green><percent>%"
+        firm_knot: "<gray>줄 강도 <green><value>"
+      title: "낚싯대 인챈트"
+      body: "<gray>낚시용품점에서만 받을 수 있는 인챈트입니다. 높은 단계는 바로 살 수 있고, 이미 있는 단계는 차액만 냅니다. 낚싯대를 바꾸면 새로 부여해야 해요."
+      option: "<light_purple><name> <level></light_purple> <gray>· <gold><price>G"
+      maxed: "<gray>이 낚싯대는 모든 인챈트가 최고 단계입니다."
+      no_rod: "<gray>인챈트할 낚싯대를 손에 들고 말을 걸어 주세요."
+      confirm_title: "인챈트 부여"
+      confirm_body: "<white><rod></white><gray>에 <light_purple><name> <level></light_purple>을(를) 부여합니다. <gold><price>G</gold>"
+      yes: "<green>부여하기"
+      no: "<gray>그만두기"
+      done: "<light_purple><name> <level></light_purple> <green>부여 완료! <gray>(<gold>-<price>G</gold>)"
+      no_gold: "<red>골드가 부족합니다."
+      failed: "<red>인챈트에 실패했습니다. 잠시 뒤 다시 시도해 주세요."
+      pending: "<gray>앞 인챈트를 처리하는 중입니다."
+      rod_gone: "<yellow>결제 중에 낚싯대가 사라져 골드를 돌려드렸습니다."
 
 collection:
   unknown_fish: "<red>없는 어종입니다."

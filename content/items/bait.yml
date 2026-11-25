@@ -11,17 +11,6 @@
   tradeable: true
   season_reset: true
 
-- id: item/bait/ice_worm
-  name: 얼음 벌레
-  lore: "얼음 속에서 사는 벌레. 손바닥 위에서 금방 녹아버린다."
-  type: bait
-  grade: uncommon
-  base_item: minecraft:snowball
-  model: harbor:bait/ice_worm
-  buy_price: 2              # 협만 사냥꾼, 개당 ('13. 제작 · 상점 가격' 2장)
-  tradeable: true
-  season_reset: true
-
 - id: item/bait/gunpowder_paste
   name: 화약 떡밥
   lore: "화약 복어가 참지 못하는 매캐한 냄새."

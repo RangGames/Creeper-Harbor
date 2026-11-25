@@ -34,6 +34,7 @@ import wiki.creeper.harbor.fishing.data.FishingData;
 import wiki.creeper.harbor.fishing.present.CatchPresenter;
 import wiki.creeper.harbor.fishing.present.ShadowPresenter;
 import wiki.creeper.harbor.fishing.roll.BaitRule;
+import wiki.creeper.harbor.fishing.roll.ConditionalStats;
 import wiki.creeper.harbor.fishing.roll.RollContext;
 import wiki.creeper.harbor.fishing.roll.RollEngine;
 
@@ -113,7 +114,10 @@ final class CastHandler {
         FishingBalance b = ctx.balance();
         double seconds =
                 b.biteWaitMin() + random.nextDouble() * (b.biteWaitMax() - b.biteWaitMin());
-        seconds *= ctx.stat(uuid, "bite_wait") * (1 + gear.getOrDefault("bite_wait", 0.0));
+        double gearWait =
+                gear.getOrDefault("bite_wait", 0.0)
+                        + ConditionalStats.sum(gear, "bite_wait", ctx.castTokens(player));
+        seconds *= ctx.stat(uuid, "bite_wait") * Math.max(0.1, 1 + gearWait);
         if (bait == null) {
             seconds *= b.noBaitWaitMult();
         }
@@ -340,8 +344,18 @@ final class CastHandler {
         }
         s.state = SessionState.HOOKED;
         s.legendBait = gear.isLegendBait(s.bait);
-        if (BaitRule.consumeOnHook(s.legendBait)) {
+        // bait_save_chance is judged here: when it triggers nothing is deducted, whatever the
+        // result (docs 20 17-1 3.4)
+        s.baitConsumed =
+                s.bait != null
+                        && BaitRule.consumeOnHook(
+                                s.legendBait,
+                                random.nextDouble(),
+                                ctx.stat(player.getUniqueId(), "bait_save_chance"));
+        if (s.baitConsumed) {
             gear.consumeBait(player, s.bait);
+        } else if (s.bait != null && !s.legendBait) {
+            api.ui().actionBar(player, api.messages().get("fishing.bait_saved"));
         }
 
         FishingBalance b = ctx.balance();
@@ -350,15 +364,22 @@ final class CastHandler {
                 hookLoc != null
                         && player.getWorld().equals(hookLoc.getWorld())
                         && hookLoc.distance(loc(player)) >= b.longCastDistance();
+        // Toothy species cut a line that is not bite-proof (steel wire): weaker line (proposed)
+        Map<String, Double> gearStats = ctx.gearStats(player);
+        double toothy = 0;
+        if (fish.tags().contains("toothy") && gearStats.getOrDefault("bite_proof", 0.0) <= 0) {
+            toothy = -ctx.rods().settings().toothyLinePenalty();
+            api.messages().send(player, "fishing.minigame.toothy");
+        }
         s.minigame =
                 new Minigame(
                         b.minigame(fish.grade()),
-                        ctx.gear(player, 0, longCast),
+                        ctx.gear(player, toothy, longCast),
                         b.lineStrengthStep(),
                         random);
         s.state = SessionState.MINIGAME;
         presenter.step(hookLoc != null ? hookLoc : loc(player), "hook");
-        presenter.swing(player, ctx.gearStats(player).getOrDefault("swing_ticks", 0.0));
+        presenter.swing(player, gearStats.getOrDefault("swing_ticks", 0.0));
         s.inputSneak = false;
         s.baseYaw = loc(player).getYaw();
         s.lastPhase = 1;

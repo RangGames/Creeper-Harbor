@@ -14,6 +14,9 @@ import wiki.creeper.harbor.fishing.content.FishingContent;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
 import wiki.creeper.harbor.fishing.food.FoodManager;
 import wiki.creeper.harbor.fishing.present.CatchPresenter;
+import wiki.creeper.harbor.fishing.rod.RodEnchanter;
+import wiki.creeper.harbor.fishing.rod.RodMenu;
+import wiki.creeper.harbor.fishing.rod.RodNpcHooks;
 import wiki.creeper.harbor.fishing.session.FishingCommands;
 import wiki.creeper.harbor.fishing.session.FishingManager;
 import wiki.creeper.harbor.jobs.api.JobsService;
@@ -76,7 +79,16 @@ public final class HarborFishingPlugin extends HarborModule {
         ctx.handoffBlocker(fishing.handoffBlocker());
         fishing.start();
         fishing.trapManager().registerSeasonHook(this);
-        FishingCommands commands = new FishingCommands(api, ctx.tasks(), fishing, food);
+        FishingManager f = fishing;
+        RodMenu rodMenu = new RodMenu(api, f.rods(), f::busy);
+        RodEnchanter enchanter =
+                new RodEnchanter(
+                        this, api, f.rods(), f::busy, ctx.tasks().main(), getSLF4JLogger());
+        var npc = getServer().getPluginManager().getPlugin("Harbor-Npc");
+        if (npc != null && npc.isEnabled()) {
+            RodNpcHooks.register(this, api, enchanter);
+        }
+        FishingCommands commands = new FishingCommands(api, ctx.tasks(), f, food, rodMenu);
         ctx.adminCommand(commands.adminCommand());
         getLifecycleManager()
                 .registerEventHandler(

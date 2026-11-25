@@ -100,6 +100,7 @@
   lore: "눈을 마주치면 낚싯줄을 끊고 사라진다. 고개를 숙이고 낚을 것."
   grade: epic
   region: region/void_sea
+  tags: [carnivore]
   time: [night]
   bait: [item/bait/chorus]
   size_cm: [150, 250]
@@ -132,19 +133,22 @@
   model: harbor:fish/elytra_flyingfish
   season: 1
 
-# 출현 조건 '메인 스토리 7장 클리어 후': unlock_flag는 서버 플래그만 보므로 플레이어별 퀘스트 완료를 표현할 수 없어 생략.
+# 출현 조건 '메인 스토리 7장 클리어 후': 플레이어 플래그 story/ch7_done (메인 7장 퀘스트가 생기면 완료 때 세워야 한다).
 - id: fish/memory_carp
   no: 140
   name: 기억 잉어
   lore: "비늘마다 누군가의 기억이 비친다. 오래 들여다보면 그리운 얼굴이 보인다고 한다."
   grade: epic
   region: region/void_sea
+  extra:
+    - {type: player_flag, value: story/ch7_done}
   size_cm: [50, 100]
   base_price: 300
   model: harbor:fish/memory_carp
   season: 1
 
-# 출현 조건 '공허 성운어 처치 후': 플레이어별 처치 기록을 표현할 필드가 없어 생략 (전설의 미끼 조건만 둔다).
+# 출현 조건 '공허 성운어 처치 후': 플레이어 플래그 boss_clear/void_nebula ('17-1' 3.3 예시. Boss가 처치 때 boss_clear/<보스 이름>을 세우므로
+# 공허 성운어 보스 정의의 이름은 void_nebula여야 한다).
 - id: fish/dragonscale_fish
   no: 142
   name: 용비늘어
@@ -152,6 +156,8 @@
   grade: legendary
   region: region/void_sea
   bait: [item/bait/legendary]
+  extra:
+    - {type: player_flag, value: boss_clear/void_nebula}
   size_cm: [200, 400]
   base_price: 1200            # 전설 기본가 고정 ('13. 제작 · 상점 가격' 1장)
   model: harbor:fish/dragonscale_fish

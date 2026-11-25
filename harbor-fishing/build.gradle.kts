@@ -8,6 +8,8 @@ dependencies {
     testImplementation(project(":harbor-jobs"))
     // Optional dependency: clean up trap blocks on season transition (SeasonHook)
     compileOnly(project(":harbor-season"))
+    // Optional dependency (proposed): tackle shop dialog action fishing:enchant (rod-only enchants)
+    compileOnly(project(":harbor-npc"))
 }
 
 // JOML (Display transform matrices) uses an old class file format that triggers javac classfile warnings; silence only that warning

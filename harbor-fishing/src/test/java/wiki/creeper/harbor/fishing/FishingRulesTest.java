@@ -332,8 +332,11 @@ class FishingRulesTest {
 
     @Test
     void legendBaitIsConsumedOnlyWhenLegendaryCaught() {
-        assertFalse(BaitRule.consumeOnHook(true));
-        assertTrue(BaitRule.consumeOnHook(false));
+        assertFalse(BaitRule.consumeOnHook(true, 0.99, 0));
+        assertTrue(BaitRule.consumeOnHook(false, 0.99, 0));
+        // bait_save_chance is judged at hooking: when it triggers nothing is deducted
+        assertFalse(BaitRule.consumeOnHook(false, 0.05, 0.08), "미끼 절약");
+        assertTrue(BaitRule.consumeOnHook(false, 0.5, 0.08));
         assertTrue(BaitRule.consumeOnResult(true, MinigameResult.CAUGHT, Grade.LEGENDARY));
         assertFalse(
                 BaitRule.consumeOnResult(true, MinigameResult.CAUGHT, Grade.EPIC),
@@ -345,12 +348,11 @@ class FishingRulesTest {
         assertFalse(
                 BaitRule.consumeOnResult(false, MinigameResult.CAUGHT, Grade.LEGENDARY),
                 "일반 미끼는 챔질 때 이미 씀");
-        // Return: legendary bait was not deducted, so there is nothing to return
-        assertFalse(BaitRule.refund(true, MinigameResult.ABORTED, 0, 1));
-        assertTrue(BaitRule.refund(false, MinigameResult.ABORTED, 0.99, 0));
-        assertTrue(BaitRule.refund(false, MinigameResult.CAUGHT, 0.05, 0.08), "미끼 절약");
-        assertFalse(BaitRule.refund(false, MinigameResult.CAUGHT, 0.5, 0.08));
-        assertFalse(BaitRule.refund(false, MinigameResult.LINE_BROKE, 0, 1));
+        // Return: only a bait deducted at hooking, only on a forced abort
+        assertFalse(BaitRule.refund(MinigameResult.ABORTED, false), "전설의 미끼·절약은 차감 없음");
+        assertTrue(BaitRule.refund(MinigameResult.ABORTED, true));
+        assertFalse(BaitRule.refund(MinigameResult.CAUGHT, true));
+        assertFalse(BaitRule.refund(MinigameResult.LINE_BROKE, true));
     }
 
     // ------------------------------------------------------------------ Rare-or-better modifier

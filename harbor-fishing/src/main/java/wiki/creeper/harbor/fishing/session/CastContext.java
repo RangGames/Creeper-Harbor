@@ -4,10 +4,14 @@ import static wiki.creeper.harbor.fishing.session.FishingManager.loc;
 
 import io.papermc.paper.world.MoonPhase;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -33,6 +37,7 @@ import wiki.creeper.harbor.fishing.api.CollectionProvider;
 import wiki.creeper.harbor.fishing.api.RegionKeyResolver;
 import wiki.creeper.harbor.fishing.content.FishingBalance;
 import wiki.creeper.harbor.fishing.content.FishingPresets;
+import wiki.creeper.harbor.fishing.rod.RodParts;
 import wiki.creeper.harbor.fishing.roll.GradeBonus;
 import wiki.creeper.harbor.fishing.roll.RollContext;
 import wiki.creeper.harbor.fishing.roll.RollModifiers;
@@ -50,14 +55,21 @@ final class CastContext {
     private final BaitStacks baits;
     private final Logger log;
     private final SeaEventBook seaEvents;
+    private final RodParts rods;
     private @Nullable CollectionProvider collection;
     private @Nullable RegionKeyResolver regionResolver;
 
-    CastContext(HarborApi api, BaitStacks baits, SeaEventBook seaEvents, Logger log) {
+    CastContext(
+            HarborApi api, BaitStacks baits, SeaEventBook seaEvents, RodParts rods, Logger log) {
         this.api = api;
         this.baits = baits;
         this.seaEvents = seaEvents;
+        this.rods = rods;
         this.log = log;
+    }
+
+    RodParts rods() {
+        return rods;
     }
 
     void registerCollection(CollectionProvider provider) {
@@ -130,11 +142,7 @@ final class CastContext {
 
     RollContext context(Player player, RegionKeyResolver.RegionKey key, @Nullable ItemId bait) {
         World world = player.getWorld();
-        long time = world.getTime();
-        String timeKey =
-                time >= 23000 || time < 1000
-                        ? "dawn"
-                        : time < 12000 ? "day" : time < 13800 ? "dusk" : "night";
+        String timeKey = timeKey(world);
         String weather = world.isThundering() ? "thunder" : world.hasStorm() ? "rain" : "clear";
         MoonPhase phase = world.getMoonPhase();
         String moon =
@@ -160,7 +168,48 @@ final class CastContext {
                         id ->
                                 HarborId.tryParse(id)
                                         .flatMap(h -> snapshot.get(FishDef.TYPE, h))
-                                        .filter(f -> f.grade() == Grade.MYTHIC)));
+                                        .filter(f -> f.grade() == Grade.MYTHIC)),
+                flag -> api.flags().hasPlayer(uuid, flag),
+                equipmentTags(player));
+    }
+
+    /** Time key of a world: dawn · day · dusk · night. */
+    static String timeKey(World world) {
+        long time = world.getTime();
+        return time >= 23000 || time < 1000
+                ? "dawn"
+                : time < 12000 ? "day" : time < 13800 ? "dusk" : "night";
+    }
+
+    /**
+     * Tags of the worn armour for species extra equipment_tag (proposed): the material family of
+     * each piece (gold for golden, iron, diamond, netherite, leather, chainmail, copper …).
+     */
+    static Set<String> equipmentTags(Player player) {
+        Set<String> tags = new HashSet<>();
+        for (ItemStack piece : player.getInventory().getArmorContents()) {
+            if (piece == null || piece.isEmpty()) {
+                continue;
+            }
+            String name = piece.getType().name().toLowerCase(Locale.ROOT);
+            int cut = name.indexOf('_');
+            if (cut > 0) {
+                String family = name.substring(0, cut);
+                tags.add(family.equals("golden") ? "gold" : family);
+            }
+        }
+        return tags;
+    }
+
+    /**
+     * Cast-level condition tokens at the player (time key, region name) for conditional gear stats
+     * such as {@code bite_wait.night} (glow float).
+     */
+    Set<String> castTokens(Player player) {
+        Set<String> tokens = new HashSet<>();
+        tokens.add(timeKey(player.getWorld()));
+        regionAt(loc(player)).ifPresent(r -> tokens.add(r.id().id().name()));
+        return tokens;
     }
 
     /** Roll modifiers (category product, "7. Balance design" 4.2). */
@@ -173,17 +222,28 @@ final class CastContext {
             epic.add(m.source(), addValue(m));
         }
         epic.add(GradeBonus.Category.BAIT, gearStats.getOrDefault("epic_weight", 0.0));
+        // Tide reading (explore 3rd tier): rare-or-better bonus in event waters (proposed key
+        // event_spawn_bonus, job category)
+        if (seaEvents.covers(region, Instant.now())) {
+            double event = stat(uuid, "event_spawn_bonus");
+            rare.add(GradeBonus.Category.JOB, event);
+            epic.add(GradeBonus.Category.JOB, event);
+        }
         double cap = balance().rareBonusCap();
         Map<Grade, Double> bonus = new java.util.EnumMap<>(Grade.class);
         bonus.put(Grade.RARE, rare.capped(cap));
         bonus.put(Grade.EPIC, epic.capped(cap));
+        List<RollModifiers.WeightBonus> weightBonus = new ArrayList<>();
+        gearStats.forEach(
+                (k, v) -> RollModifiers.WeightBonus.parse(k, v).ifPresent(weightBonus::add));
         return new RollModifiers(
                 bonus,
                 stat(uuid, "uncaught_weight"),
                 (int) Math.round(stat(uuid, "legend_pity_start")),
                 stat(uuid, "legend_chance") * (1 + gearStats.getOrDefault("legend_chance", 0.0)),
                 seaEvents.speciesMult(region, Instant.now()),
-                stat(uuid, "mythic_chance"));
+                stat(uuid, "mythic_chance"),
+                weightBonus);
     }
 
     private GradeBonus.Sum categorySum(UUID uuid, String key) {
@@ -223,11 +283,15 @@ final class CastContext {
                 .flatMap(p -> api.content().snapshot().get(ItemDef.TYPE, p.id().id()));
     }
 
-    /** Sum of the stats of the rod (main hand) + bait (off hand or chosen with /미끼). */
+    /**
+     * Sum of the stats of the rod (main hand) with its attached parts and rod-only enchants, and
+     * the bait (off hand or chosen with /미끼).
+     */
     Map<String, Double> gearStats(Player player) {
         Map<String, Double> sum = new HashMap<>();
-        itemDef(player.getInventory().getItemInMainHand())
-                .ifPresent(d -> d.stats().forEach((k, v) -> sum.merge(k, v, Double::sum)));
+        ItemStack rod = player.getInventory().getItemInMainHand();
+        itemDef(rod).ifPresent(d -> d.stats().forEach((k, v) -> sum.merge(k, v, Double::sum)));
+        rods.stats(rod).forEach((k, v) -> sum.merge(k, v, Double::sum));
         BaitStacks.Stack bait = baits.current(player);
         if (bait != null) {
             bait.def().stats().forEach((k, v) -> sum.merge(k, v, Double::sum));

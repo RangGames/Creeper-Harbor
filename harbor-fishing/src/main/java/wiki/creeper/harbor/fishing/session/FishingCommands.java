@@ -34,6 +34,7 @@ import wiki.creeper.harbor.core.task.Tasks;
 import wiki.creeper.harbor.fishing.api.RegionKeyResolver;
 import wiki.creeper.harbor.fishing.data.FishingData;
 import wiki.creeper.harbor.fishing.food.FoodManager;
+import wiki.creeper.harbor.fishing.rod.RodMenu;
 import wiki.creeper.harbor.fishing.roll.RollEngine;
 
 /** /harbor fishing … (docs 20 3.5). Core applies the harbor.admin.fishing permission. */
@@ -44,13 +45,14 @@ public final class FishingCommands {
     private final FishingAdminSubcommands subcommands;
     private final FishingPlayerCommands playerCommands;
 
-    public FishingCommands(HarborApi api, Tasks tasks, FishingManager fishing, FoodManager food) {
+    public FishingCommands(
+            HarborApi api, Tasks tasks, FishingManager fishing, FoodManager food, RodMenu rodMenu) {
         this.api = api;
         this.fishing = fishing;
         this.subcommands = new FishingAdminSubcommands(api, fishing, food);
         this.playerCommands =
                 new FishingPlayerCommands(
-                        api, tasks, subcommands, new BaitMenu(api, fishing.baits()));
+                        api, tasks, subcommands, new BaitMenu(api, fishing.baits()), rodMenu);
     }
 
     public LiteralArgumentBuilder<CommandSourceStack> adminCommand() {

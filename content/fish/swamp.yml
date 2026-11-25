@@ -8,6 +8,7 @@
   lore: "등에 얇게 이끼가 낀 민물 붕어. 강 낚시는 여기서 시작된다."
   grade: common
   region: region/swamp
+  tags: [fresh]
   size_cm: [10, 30]
   base_price: 6
   model: harbor:fish/moss_crucian
@@ -19,6 +20,7 @@
   lore: "여울을 거슬러 오르며 햇빛에 무지갯빛을 반짝인다."
   grade: common
   region: region/swamp
+  tags: [fresh]
   time: [day]
   size_cm: [5, 12]
   base_price: 6
@@ -31,6 +33,7 @@
   lore: "수염으로 강바닥을 더듬어 먹이를 찾는다. 비 오는 밤에 특히 잘 문다."
   grade: common
   region: region/swamp
+  tags: [fresh]
   time: [night]
   weather: [rain]
   size_cm: [30, 70]
@@ -44,6 +47,7 @@
   lore: "물이 맑은 곳에서만 산다. 버들치가 보이면 그 물은 마셔도 된다."
   grade: common
   region: region/swamp
+  tags: [fresh]
   time: [day]
   size_cm: [8, 15]
   base_price: 6
@@ -56,6 +60,7 @@
   lore: "미끄러워서 잡았다 싶으면 빠져나간다. 추어탕 재료."
   grade: common
   region: region/swamp
+  tags: [fresh]
   weather: [rain]
   size_cm: [10, 20]
   base_price: 6
@@ -68,6 +73,7 @@
   lore: "느긋하지만 한번 물면 놓지 않는다. 강의 터줏대감."
   grade: common
   region: region/swamp
+  tags: [fresh]
   size_cm: [30, 80]
   base_price: 6
   model: harbor:fish/river_carp
@@ -80,6 +86,7 @@
   lore: "빛을 본 적이 없어 눈이 퇴화했다. 대신 소리에 민감하다."
   grade: common
   region: region/swamp
+  tags: [fresh]
   size_cm: [5, 15]
   base_price: 6
   model: harbor:fish/cave_blindfish
@@ -91,6 +98,7 @@
   lore: "갈대 사이를 떼 지어 다닌다. 작은 물고기를 노리는 큰 물고기의 미끼로 쓴다."
   grade: common
   region: region/swamp
+  tags: [fresh]
   time: [day]
   size_cm: [3, 6]
   base_price: 6
@@ -103,6 +111,7 @@
   lore: "진흙탕에서도 숨을 쉰다. 늪지의 작은 폭군."
   grade: common
   region: region/swamp
+  tags: [fresh, carnivore, toothy]
   area: [mushroom_bog]
   size_cm: [40, 90]
   base_price: 6
@@ -115,6 +124,7 @@
   lore: "돌 밑에 붙어 사는 점박이 물고기. 돌을 뒤집으면 놀라 도망친다."
   grade: common
   region: region/swamp
+  tags: [fresh]
   area: [moss_river]
   size_cm: [10, 18]
   base_price: 6
@@ -127,6 +137,7 @@
   lore: "표범 무늬를 두른 강의 사냥꾼. 날카로운 등지느러미를 조심할 것."
   grade: uncommon
   region: region/swamp
+  tags: [fresh, carnivore]
   time: [dawn]
   size_cm: [25, 55]
   base_price: 18
@@ -139,6 +150,7 @@
   lore: "차갑고 맑은 물을 좋아한다. 몸 옆의 타원 무늬가 아름답다."
   grade: uncommon
   region: region/swamp
+  tags: [fresh, carnivore]
   area: [moss_river]
   weather: [clear]
   size_cm: [20, 40]
@@ -152,6 +164,7 @@
   lore: "자기 영역을 지키느라 덩치보다 훨씬 사납다."
   grade: uncommon
   region: region/swamp
+  tags: [fresh, carnivore]
   area: [moss_river]
   time: [day]
   size_cm: [12, 25]
@@ -165,6 +178,7 @@
   lore: "등지느러미에 작은 버섯이 자라 있다. 먹어도 되는지는 아무도 모른다."
   grade: uncommon
   region: region/swamp
+  tags: [fresh]
   area: [mushroom_bog]
   weather: [rain]
   size_cm: [25, 50]
@@ -178,6 +192,7 @@
   lore: "햇빛을 받으면 금화처럼 빛난다. 어시장 상인이 값을 후하게 쳐준다."
   grade: uncommon
   region: region/swamp
+  tags: [fresh]
   weather: [clear]
   size_cm: [15, 30]
   base_price: 18
@@ -190,6 +205,7 @@
   lore: "늪 바닥의 진흙 속에서 길게 몸을 뻗고 있다. 힘이 장사다."
   grade: uncommon
   region: region/swamp
+  tags: [fresh]
   time: [night]
   size_cm: [50, 100]
   base_price: 18
@@ -202,6 +218,7 @@
   lore: "눈이 붉게 달아오른 듯한 냉수성 귀족. 상류의 가장 깊은 소(沼)에만 산다."
   grade: rare
   region: region/swamp
+  tags: [fresh, carnivore]
   area: [moss_river]
   time: [dawn]
   weather: [clear]
@@ -216,6 +233,7 @@
   lore: "꼬리에 희미한 빛이 감돈다. 늪 위를 나는 반딧불이와 같은 빛이다."
   grade: rare
   region: region/swamp
+  tags: [fresh]
   time: [night]
   weather: [clear]
   size_cm: [15, 30]
@@ -230,6 +248,7 @@
   lore: "몸속이 수정처럼 비쳐 보인다. 동굴 천장의 자수정 빛을 받아 반짝인다."
   grade: rare
   region: region/swamp
+  tags: [fresh]
   time: [night]
   weather: [rain]
   size_cm: [15, 30]

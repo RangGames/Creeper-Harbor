@@ -3,6 +3,7 @@ package wiki.creeper.harbor.common.content.type;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import wiki.creeper.harbor.common.content.ContentType;
 import wiki.creeper.harbor.common.content.ParseContext;
@@ -14,7 +15,9 @@ import wiki.creeper.harbor.common.model.Grade;
 import wiki.creeper.harbor.common.yaml.YamlNode;
 
 /**
- * Fish species definition (fish/*.yml). Fields follow '11. Data design' 2.1.
+ * Fish species definition (fish/*.yml). Fields follow '11. Data design' 2.1, plus (proposed, docs
+ * 20 17-1 3.3) {@code tags} (bait bonus targets: sea, fresh, carnivore, toothy …) and {@code extra}
+ * (special spawn conditions: player flag, server flag, worn equipment tag).
  *
  * @param hintText free text shown at collection hint stage 3 (docs 20 4.3 hint_text, proposed; null
  *     if absent)
@@ -40,11 +43,103 @@ public record FishDef(
         boolean releaseOnly,
         String model,
         int season,
+        List<String> tags,
+        List<Extra> extra,
         @Nullable String hintText) {
 
     public static final int DEFAULT_WEIGHT = 100;
 
+    /** Tag and flag name format (lowercase, digits, underscore; flags may contain '/'). */
+    private static final Pattern TAG = Pattern.compile("[a-z0-9_]+");
+
+    private static final Pattern FLAG = Pattern.compile("[a-z0-9_]+(/[a-z0-9_]+)*");
+
+    /**
+     * One special spawn condition (proposed, docs 20 17-1 3.3 {@code extra}).
+     *
+     * @param type condition kind
+     * @param value flag name or equipment tag
+     */
+    public record Extra(Type type, String value) {
+
+        /** Condition kinds. */
+        public enum Type {
+            /** The player has the flag (e.g. story/ch7_done, boss_clear/void_nebula). */
+            PLAYER_FLAG,
+            /** The server has the flag. */
+            WORLD_FLAG,
+            /** The player wears equipment with the tag (gold = any golden armour piece). */
+            EQUIPMENT_TAG;
+
+            /** YAML key (player_flag, world_flag, equipment_tag). */
+            public String key() {
+                return name().toLowerCase(java.util.Locale.ROOT);
+            }
+        }
+    }
+
+    public FishDef {
+        lore = List.copyOf(lore);
+        area = List.copyOf(area);
+        time = List.copyOf(time);
+        weather = List.copyOf(weather);
+        moon = List.copyOf(moon);
+        bait = List.copyOf(bait);
+        tags = List.copyOf(tags);
+        extra = List.copyOf(extra);
+    }
+
     /** Without hint_text (keeps the constructor used before the field existed). */
+    public FishDef(
+            FishId id,
+            int no,
+            String name,
+            List<String> lore,
+            Grade grade,
+            RegionId region,
+            List<String> area,
+            List<String> time,
+            List<String> weather,
+            List<String> moon,
+            List<ItemId> bait,
+            int jobTierMin,
+            @Nullable String unlockFlag,
+            double sizeMin,
+            double sizeMax,
+            int basePrice,
+            int weight,
+            boolean releaseOnly,
+            String model,
+            int season,
+            List<String> tags,
+            List<Extra> extra) {
+        this(
+                id,
+                no,
+                name,
+                lore,
+                grade,
+                region,
+                area,
+                time,
+                weather,
+                moon,
+                bait,
+                jobTierMin,
+                unlockFlag,
+                sizeMin,
+                sizeMax,
+                basePrice,
+                weight,
+                releaseOnly,
+                model,
+                season,
+                tags,
+                extra,
+                null);
+    }
+
+    /** Definition without tags or special conditions (the original '11. Data design' fields). */
     public FishDef(
             FishId id,
             int no,
@@ -87,6 +182,8 @@ public record FishDef(
                 releaseOnly,
                 model,
                 season,
+                List.of(),
+                List.of(),
                 null);
     }
 
@@ -111,6 +208,8 @@ public record FishDef(
                     "release_only",
                     "model",
                     "season",
+                    "tags",
+                    "extra",
                     "hint_text");
 
     public static final ContentType.Entries<FishDef> TYPE =
@@ -169,6 +268,34 @@ public record FishDef(
 
         int weight = node.integer("weight", DEFAULT_WEIGHT, 1, 1_000_000);
 
+        List<String> tags = new java.util.ArrayList<>();
+        for (YamlNode t : node.list("tags")) {
+            String tag = t.asString();
+            if (!TAG.matcher(tag).matches()) {
+                t.error("tags는 소문자·숫자·밑줄이어야 합니다: '" + tag + "'");
+            } else if (!tags.contains(tag)) {
+                tags.add(tag);
+            }
+        }
+        List<Extra> extra = new java.util.ArrayList<>();
+        for (YamlNode e : node.list("extra")) {
+            e.allowOnly(Set.of("type", "value"));
+            Optional<Extra.Type> type = e.require("type").flatMap(FishDef::extraType);
+            String value = e.string("value");
+            if (type.isEmpty()) {
+                continue;
+            }
+            boolean ok =
+                    type.get() == Extra.Type.EQUIPMENT_TAG
+                            ? TAG.matcher(value).matches()
+                            : FLAG.matcher(value).matches();
+            if (!ok) {
+                e.error("extra value 형식이 틀렸습니다: '" + value + "'");
+                continue;
+            }
+            extra.add(new Extra(type.get(), value));
+        }
+
         return new FishDef(
                 new FishId(rawId),
                 node.integer("no"),
@@ -190,6 +317,20 @@ public record FishDef(
                 node.bool("release_only", false),
                 node.string("model"),
                 node.integer("season"),
+                tags,
+                extra,
                 node.optString("hint_text").orElse(null));
+    }
+
+    private static Optional<Extra.Type> extraType(YamlNode node) {
+        String raw = node.asString();
+        for (Extra.Type t : Extra.Type.values()) {
+            if (t.key().equals(raw)) {
+                return Optional.of(t);
+            }
+        }
+        node.error(
+                "extra type은 player_flag · world_flag · equipment_tag 중 하나여야 합니다: '" + raw + "'");
+        return Optional.empty();
     }
 }

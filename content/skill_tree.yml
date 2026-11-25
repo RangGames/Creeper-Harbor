@@ -138,6 +138,7 @@
   cost: 20
   effects:
     - {modifier: event_forewarn_s, value_per_rank: 30}
+    - {modifier: event_spawn_bonus, value_per_rank: 0.05}   # 이벤트 해역(해상 이벤트 진행 중인 지역)에서 희귀 이상 출현 +5% (Fishing이 읽음, 추가 제안 키)
 
 - id: skill/capstone/uncharted_waters
   name: 미개척 해역 일시 개방

@@ -318,6 +318,7 @@ final class MinigameRunner {
         RegionId region = s.region;
         ItemId bait = s.bait;
         boolean legendBait = s.legendBait;
+        boolean baitConsumed = s.baitConsumed;
         Location hookLoc = s.hookLoc;
         FishingSession.MythicHold hold = s.mythic;
         CastHandler.closeShadow(s, result == MinigameResult.CAUGHT);
@@ -338,11 +339,7 @@ final class MinigameRunner {
             if (BaitRule.consumeOnResult(legendBait, result, fish.grade())) {
                 gear.consumeBait(player, bait);
             }
-            if (BaitRule.refund(
-                    legendBait,
-                    result,
-                    random.nextDouble(),
-                    ctx.stat(player.getUniqueId(), "bait_save_chance"))) {
+            if (BaitRule.refund(result, baitConsumed)) {
                 gear.refundBait(player, bait);
             }
         }
