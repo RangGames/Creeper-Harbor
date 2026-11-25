@@ -114,7 +114,8 @@ public final class ShopRepository {
     /** Locks the wallet row and reads debt (inside a refund/payment transaction). */
     public static long lockDebt(Connection c, UUID player) throws SQLException {
         try (PreparedStatement ps =
-                c.prepareStatement("INSERT IGNORE INTO pearl_wallet (uuid) VALUES (?)")) {
+                c.prepareStatement(
+                        "INSERT INTO pearl_wallet (uuid) VALUES (?) ON DUPLICATE KEY UPDATE uuid = uuid")) {
             ps.setString(1, player.toString());
             ps.executeUpdate();
         }
@@ -427,7 +428,8 @@ public final class ShopRepository {
     public static ShopProfile.Pass lockPass(Connection c, UUID player, int season)
             throws SQLException {
         try (PreparedStatement ps =
-                c.prepareStatement("INSERT IGNORE INTO season_pass (uuid, season) VALUES (?, ?)")) {
+                c.prepareStatement(
+                        "INSERT INTO season_pass (uuid, season) VALUES (?, ?) ON DUPLICATE KEY UPDATE season = season")) {
             ps.setString(1, player.toString());
             ps.setInt(2, season);
             ps.executeUpdate();

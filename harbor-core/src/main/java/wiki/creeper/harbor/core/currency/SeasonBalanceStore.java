@@ -26,9 +26,13 @@ public final class SeasonBalanceStore implements BalanceStore {
     @Override
     public long lockBalance(Connection c, UUID player, Currency currency) throws SQLException {
         requireGameCurrency(currency);
+        // Not INSERT IGNORE: on an existing row it takes a shared lock that the FOR UPDATE below
+        // then upgrades, so two writes for the same player deadlock each other. ON DUPLICATE KEY
+        // UPDATE takes the exclusive lock right away
         try (PreparedStatement ps =
                 c.prepareStatement(
-                        "INSERT IGNORE INTO player_season (uuid, season) VALUES (?, ?)")) {
+                        "INSERT INTO player_season (uuid, season) VALUES (?, ?)"
+                                + " ON DUPLICATE KEY UPDATE season = season")) {
             ps.setString(1, player.toString());
             ps.setInt(2, season.value());
             ps.executeUpdate();

@@ -35,7 +35,8 @@ final class AquariumTx {
     static void lockSeason(Connection c, SeasonId season) throws SQLException {
         try (var ps =
                 c.prepareStatement(
-                        "INSERT IGNORE INTO aquarium_state (season, points, species_count) VALUES (?, 0, 0)")) {
+                        "INSERT INTO aquarium_state (season, points, species_count) VALUES (?, 0, 0)"
+                                + " ON DUPLICATE KEY UPDATE season = season")) {
             ps.setInt(1, season.value());
             ps.executeUpdate();
         }

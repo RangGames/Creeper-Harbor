@@ -21,7 +21,8 @@ public final class PearlWalletStore implements BalanceStore {
             throws SQLException {
         requirePearl(currency);
         try (PreparedStatement ps =
-                connection.prepareStatement("INSERT IGNORE INTO pearl_wallet (uuid) VALUES (?)")) {
+                connection.prepareStatement(
+                        "INSERT INTO pearl_wallet (uuid) VALUES (?) ON DUPLICATE KEY UPDATE uuid = uuid")) {
             ps.setString(1, player.toString());
             ps.executeUpdate();
         }

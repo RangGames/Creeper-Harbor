@@ -48,7 +48,8 @@ class LedgerWriterIT {
         public long lockBalance(Connection c, UUID player, Currency currency) throws SQLException {
             try (PreparedStatement ps =
                     c.prepareStatement(
-                            "INSERT IGNORE INTO test_wallet (uuid, balance) VALUES (?, 0)")) {
+                            "INSERT INTO test_wallet (uuid, balance) VALUES (?, 0)"
+                                    + " ON DUPLICATE KEY UPDATE uuid = uuid")) {
                 ps.setString(1, player.toString());
                 ps.executeUpdate();
             }

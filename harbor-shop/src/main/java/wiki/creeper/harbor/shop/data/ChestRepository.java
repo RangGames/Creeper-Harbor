@@ -19,7 +19,8 @@ public final class ChestRepository {
             throws SQLException {
         try (PreparedStatement ps =
                 c.prepareStatement(
-                        "INSERT IGNORE INTO chest_pity (uuid, season, chest_id) VALUES (?, ?, ?)")) {
+                        "INSERT INTO chest_pity (uuid, season, chest_id) VALUES (?, ?, ?)"
+                                + " ON DUPLICATE KEY UPDATE season = season")) {
             ps.setString(1, player.toString());
             ps.setInt(2, season);
             ps.setString(3, chest.toString());
@@ -111,7 +112,8 @@ public final class ChestRepository {
      */
     public static boolean addShards(Connection c, UUID player, long delta) throws SQLException {
         try (PreparedStatement ps =
-                c.prepareStatement("INSERT IGNORE INTO shop_shards (uuid) VALUES (?)")) {
+                c.prepareStatement(
+                        "INSERT INTO shop_shards (uuid) VALUES (?) ON DUPLICATE KEY UPDATE uuid = uuid")) {
             ps.setString(1, player.toString());
             ps.executeUpdate();
         }
