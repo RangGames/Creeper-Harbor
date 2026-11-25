@@ -59,8 +59,10 @@ import wiki.creeper.harbor.core.message.DialogManager;
 import wiki.creeper.harbor.core.message.MessageManager;
 import wiki.creeper.harbor.core.message.UiManager;
 import wiki.creeper.harbor.core.modifier.ModifierManager;
+import wiki.creeper.harbor.core.pack.LobbyMusic;
 import wiki.creeper.harbor.core.pack.PackCommand;
 import wiki.creeper.harbor.core.pack.PackManager;
+import wiki.creeper.harbor.core.pack.PackRefresh;
 import wiki.creeper.harbor.core.pack.ResourcePacks;
 import wiki.creeper.harbor.core.pack.SoundCues;
 import wiki.creeper.harbor.core.player.PlayerManager;
@@ -386,6 +388,12 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
             pm.registerEvents(
                     new ResourcePacks(infra, packManager, messageBus, msg, dialogs, r, tasks),
                     this);
+            LobbyMusic music = new LobbyMusic(content::snapshot);
+            pm.registerEvents(music, this);
+            music.start(tasks);
+        } else {
+            // Other servers only push pack updates to players already there
+            var _ = new PackRefresh(packManager, msg);
         }
         if (infra.role() == ServerRole.MAIN) {
             AfkWatcher afk = new AfkWatcher(content::snapshot, proxy, msg, tasks);

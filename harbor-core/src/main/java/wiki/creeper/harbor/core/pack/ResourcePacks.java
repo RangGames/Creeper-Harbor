@@ -91,9 +91,7 @@ public final class ResourcePacks implements Listener {
                         p ->
                                 all.add(
                                         ResourcePackInfo.resourcePackInfo(
-                                                UUID.nameUUIDFromBytes(
-                                                        "harbor-pack:auto"
-                                                                .getBytes(StandardCharsets.UTF_8)),
+                                                PackRefresh.AUTO_PACK_ID,
                                                 URI.create(p.url()),
                                                 p.sha1())));
         return all;

@@ -16,6 +16,7 @@
 - **잠수 시 로비로:** 본 서버(main)에서 움직임·시점·입력·채팅·명령·클릭이 없으면 경고 뒤 로비로 보낸다. 자리는 유예된다 (`harbor.afk.exempt` 제외).
 - **가구·커스텀 블록:** 가구 아이템을 들고 블록을 우클릭하면 놓이고, 웅크리고 우클릭하면 회수한다. 앉을 수 있는 가구도 있다.
 - **리소스팩:** 로비 접속 때 필수 리소스팩을 받는다.
+- **로비 배경음:** 로비에 있는 동안 balance.yml `lobby.music`(기본 `harbor:music.harbor`)을 곡이 끝날 때마다 다시 낸다. 접속할 때와 리소스팩을 다 받았을 때 처음부터 낸다.
 
 모듈에 제공하는 것 (`wiki.creeper.harbor.core.api`, 진입점 `Harbor.api()`):
 
@@ -172,7 +173,7 @@
 1. **빌드 서버**(`harbor-infra.yml`의 `pack.build: true`, lobby 한 대)가 `plugins/Harbor/pack/`의 에셋을 압축한다. `pack.merge`나 `plugins/Harbor/pack-merge/`의 다른 팩도 합친다 (앞쪽 우선).
 2. SHA-1이 바뀌었으면 CDN에 올린다 (API 키는 서버 설정에만 둔다).
 3. Redis `harbor:pack`에 주소·SHA-1·모델/소리 목록을 저장하고 발행한다.
-4. 모든 서버가 그 목록으로 쓸 수 있는 모델·소리를 판정한다. lobby는 접속자에게 그 팩을 보낸다.
+4. 모든 서버가 그 목록으로 쓸 수 있는 모델·소리를 판정한다. lobby는 접속자에게 그 팩을 보내고, lobby가 아닌 서버는 팩이 바뀌면 이미 접속해 있는 사람에게 새 자동 빌드 팩만 다시 보낸다 (같은 팩 ID로 교체, 거절해도 끊기지 않게 필수 아님. 다음 lobby 접속 때 필수로 확인).
 5. 팩 정보가 없으면 `content/resource_pack.yml`로 판정한다.
 
 ### 최적화 (PackSquash 방식, 무손실)
