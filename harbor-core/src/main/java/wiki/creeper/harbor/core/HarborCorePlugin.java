@@ -373,9 +373,14 @@ public final class HarborCorePlugin extends JavaPlugin implements Listener {
         pm.registerEvents(soundCues, this);
         soundCues.subscribe(messageBus, tasks);
         NetworkEvents.subscribe(messageBus, tasks);
-        ChatHeads chatHeads = new ChatHeads(content::snapshot, tasks, log);
+        ChatHeads chatHeads = new ChatHeads(content::snapshot, r, tasks, log);
         pm.registerEvents(chatHeads, this);
         chatHeads.start();
+        org.bukkit.plugin.Plugin papiPlugin = pm.getPlugin("PlaceholderAPI");
+        if (papiPlugin != null && papiPlugin.isEnabled()) {
+            // Bridge class: only loaded when PlaceholderAPI is there
+            wiki.creeper.harbor.core.chat.HeadExpansion.register(chatHeads);
+        }
         pm.registerEvents(
                 new ChatBridge(
                         infra,

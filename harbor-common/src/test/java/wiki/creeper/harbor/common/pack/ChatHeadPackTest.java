@@ -15,25 +15,31 @@ import org.junit.jupiter.api.Test;
 
 class ChatHeadPackTest {
 
+    private static JsonObject font(Map<String, byte[]> files, int size) {
+        return JsonParser.parseString(
+                        new String(files.get(ChatHeadPack.fontFile(size)), StandardCharsets.UTF_8))
+                .getAsJsonObject();
+    }
+
     @Test
-    void fontHasRowGlyphsAndBackSpaces() {
+    void everySizeStepsOnePixelPerColumn() {
         Map<String, byte[]> files = ChatHeadPack.files();
-        JsonObject font =
-                JsonParser.parseString(
-                                new String(
-                                        files.get(ChatHeadPack.FONT_FILE), StandardCharsets.UTF_8))
-                        .getAsJsonObject();
-        var providers = font.getAsJsonArray("providers");
-        JsonObject space = providers.get(0).getAsJsonObject();
-        assertEquals(
-                -2, space.getAsJsonObject("advances").get("" + ChatHeadPack.BACK_TWO).getAsInt());
-        assertEquals(
-                -1, space.getAsJsonObject("advances").get("" + ChatHeadPack.BACK_ONE).getAsInt());
-        JsonObject bitmap = providers.get(1).getAsJsonObject();
-        String chars = bitmap.getAsJsonArray("chars").get(0).getAsString();
-        assertEquals(8, chars.length());
-        assertEquals(ChatHeadPack.row(0), chars.charAt(0));
-        assertEquals(8, bitmap.get("height").getAsInt());
+        for (int size = ChatHeadPack.MIN_SIZE; size <= ChatHeadPack.MAX_SIZE; size++) {
+            JsonObject font = font(files, size);
+            var providers = font.getAsJsonArray("providers");
+            JsonObject advances = providers.get(0).getAsJsonObject().getAsJsonObject("advances");
+            double in = advances.get("" + ChatHeadPack.BACK_IN).getAsDouble();
+            double end = advances.get("" + ChatHeadPack.BACK_END).getAsDouble();
+            JsonObject bitmap = providers.get(1).getAsJsonObject();
+            assertEquals(size, bitmap.get("height").getAsInt());
+            assertTrue(bitmap.get("ascent").getAsInt() <= size, "ascent ≤ height");
+            assertEquals(8, bitmap.getAsJsonArray("chars").get(0).getAsString().length());
+            // The game's advance for a 1-pixel glyph of an 8-pixel cell drawn `size` tall
+            int glyph = (int) (0.5 + size / 8.0) + 1;
+            double pixel = size / 8.0;
+            assertEquals(0, glyph + in, 1e-9, "stay in the column at " + size);
+            assertEquals(pixel, glyph + end, 1e-3, "next column at " + size);
+        }
     }
 
     @Test
@@ -50,5 +56,12 @@ class ChatHeadPackTest {
                 assertTrue(x == y ? a == 255 : a == 0, x + "," + y);
             }
         }
+    }
+
+    @Test
+    void sizesAreClamped() {
+        assertEquals("harbor:chat_head_4", ChatHeadPack.font(1));
+        assertEquals("harbor:chat_head_16", ChatHeadPack.font(99));
+        assertEquals("harbor:chat_head_8", ChatHeadPack.font(8));
     }
 }

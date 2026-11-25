@@ -131,7 +131,7 @@ public final class ChatBridge implements Listener {
                                     applied.resolver(),
                                     ui.glyphs(),
                                     Placeholder.unparsed("name", player.getName()),
-                                    Placeholder.component("head", heads.head(player)),
+                                    heads.tag(player),
                                     Placeholder.component("display_name", player.displayName()),
                                     Placeholder.unparsed("server", infra.serverId()),
                                     Placeholder.unparsed("message", ProxyMessages.MESSAGE_SLOT));

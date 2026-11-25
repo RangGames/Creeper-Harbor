@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -112,6 +113,11 @@ public final class PlaceholderApiHook {
     private static Component value(MethodHandle handle, OfflinePlayer player, String token) {
         try {
             String raw = (String) handle.invokeExact(player, token);
+            if (token.startsWith("%harbor_head")) {
+                // Harbor's own head placeholders are MiniMessage (font, hex colors) built from skin
+                // pixels only, never from player input
+                return MiniMessage.miniMessage().deserialize(raw);
+            }
             return LEGACY.deserialize(raw.replace('§', '&'));
         } catch (Throwable e) {
             return Component.text(token);

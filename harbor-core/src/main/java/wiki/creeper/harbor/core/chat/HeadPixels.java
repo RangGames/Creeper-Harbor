@@ -15,8 +15,6 @@ import wiki.creeper.harbor.common.pack.ChatHeadPack;
  */
 public final class HeadPixels {
 
-    private static final Key FONT = Key.key(ChatHeadPack.FONT);
-
     private HeadPixels() {}
 
     /**
@@ -34,6 +32,31 @@ public final class HeadPixels {
                 int hat = skin.getRGB(40 + x, 8 + y);
                 rgb[y * 8 + x] = blend(base, hat) & 0xFFFFFF;
             }
+        }
+        return rgb;
+    }
+
+    /** 64 pixels as 384 hex digits (RRGGBB each), for the Redis cache. */
+    public static String encode(int[] rgb) {
+        StringBuilder out = new StringBuilder(64 * 6);
+        for (int c : rgb) {
+            out.append(String.format(java.util.Locale.ROOT, "%06x", c & 0xFFFFFF));
+        }
+        return out.toString();
+    }
+
+    /** Inverse of {@link #encode}; null for a missing or malformed value. */
+    public static int @Nullable [] decode(@Nullable String hex) {
+        if (hex == null || hex.length() != 64 * 6) {
+            return null;
+        }
+        int[] rgb = new int[64];
+        try {
+            for (int i = 0; i < 64; i++) {
+                rgb[i] = Integer.parseInt(hex, i * 6, i * 6 + 6, 16);
+            }
+        } catch (NumberFormatException e) {
+            return null;
         }
         return rgb;
     }
@@ -58,11 +81,15 @@ public final class HeadPixels {
     }
 
     /**
-     * The head drawn column by column in the chat head font, without text shadow, followed by a
-     * space in the normal font. Neighbouring pixels of the same color share one text part.
+     * The head drawn column by column in the chat head font of that size (GUI pixels tall, see
+     * ChatHeadPack), without text shadow, followed by a space in the normal font. Neighbouring
+     * pixels of the same color share one text part.
      */
-    public static Component component(int[] rgb) {
-        TextComponent.Builder head = Component.text().font(FONT).shadowColor(ShadowColor.none());
+    public static Component component(int[] rgb, int size) {
+        TextComponent.Builder head =
+                Component.text()
+                        .font(Key.key(ChatHeadPack.font(size)))
+                        .shadowColor(ShadowColor.none());
         StringBuilder run = new StringBuilder();
         int runColor = -1;
         for (int x = 0; x < 8; x++) {
@@ -75,9 +102,9 @@ public final class HeadPixels {
                 runColor = color;
                 run.append(ChatHeadPack.row(y));
                 if (y < 7) {
-                    run.append(ChatHeadPack.BACK_TWO);
+                    run.append(ChatHeadPack.BACK_IN);
                 } else if (x < 7) {
-                    run.append(ChatHeadPack.BACK_ONE);
+                    run.append(ChatHeadPack.BACK_END);
                 }
             }
         }

@@ -12,6 +12,7 @@ tasks.withType<JavaCompile>().configureEach {
 
 dependencies {
     api(project(":harbor-common"))
+    compileOnly(libs.placeholderapi)
     testImplementation(libs.snakeyaml)
     testImplementation(libs.gson)
 }

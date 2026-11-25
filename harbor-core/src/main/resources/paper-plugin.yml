@@ -8,9 +8,10 @@ description: '크리퍼 항구 공통 플러그인 (콘텐츠, 플레이어 데�
 website: https://creeper.wiki
 dependencies:
   server:
-    PlaceholderAPI:     # 있으면 채팅 형식에서 %플레이스홀더% (추가 제안)
+    PlaceholderAPI:     # 있으면 채팅 형식에서 %플레이스홀더%, %harbor_head…% 등록 (추가 제안)
       load: BEFORE
       required: false
+      join-classpath: true
 permissions:
   harbor.admin:
     description: /harbor 관리 명령

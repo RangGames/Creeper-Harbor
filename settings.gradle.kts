@@ -17,6 +17,10 @@ dependencyResolutionManagement {
         maven("https://repo.skriptlang.org/releases") {
             content { includeGroup("com.github.SkriptLang") }
         }
+        // PlaceholderAPI (Harbor-Core compile only: the %harbor_head%… expansion)
+        maven("https://repo.extendedclip.com/releases/") {
+            content { includeGroup("me.clip") }
+        }
     }
 }
 

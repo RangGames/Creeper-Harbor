@@ -972,7 +972,8 @@ fish_demo:
 
 # 채팅 줄 형식 (추가 제안). 보낸 사람이 있는 서버가 그려서 프록시로 보낸다 (이 키를 지우면 harbor-proxy.yml chat.format).
 #   <name> 이름 · <display_name> 표시 이름 · <server> 서버 ID · <message> 메시지 · <glyph:이름> 글리프
-#   <head> 보낸 사람 머리 8×8 (뒤에 빈칸 포함, 스킨을 아직 못 읽었거나 balance.yml chat.heads: false면 비어 있음)
+#   <head> 보낸 사람 머리 (뒤에 빈칸 포함) · <head:12> 크기(4~16, 기본 balance.yml chat.head_size) · <head:이름> 다른 사람 머리 · <head:이름:12>
+#          스킨을 아직 못 읽었거나 chat.heads: false면 비어 있다. PlaceholderAPI로는 %harbor_head% · %harbor_head_12% · %harbor_head_이름% · %harbor_head_이름_12%
 #   PlaceholderAPI가 있으면 %플레이스홀더%도 쓸 수 있다 (예: %luckperms_prefix%, &·§ 색 코드는 색으로 바뀐다)
 chat:
   format: "<gray>[<server>]</gray> <head><white><name></white><gray>:</gray> <message>"

@@ -1,5 +1,6 @@
 package wiki.creeper.harbor.core.chat;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -35,30 +36,40 @@ class HeadPixelsTest {
     }
 
     @Test
-    void headAdvancesEightPixelsAcrossEightColumns() {
+    void headIsSixtyFourGlyphsColumnByColumn() {
         int[] rgb = new int[64];
         for (int i = 0; i < 64; i++) {
             rgb[i] = i % 3 == 0 ? 0xFF0000 : 0x00FF00;
         }
-        Component head = HeadPixels.component(rgb);
+        Component head = HeadPixels.component(rgb, 8);
         String text = PlainTextComponentSerializer.plainText().serialize(head);
-        // Each row glyph advances 2; BACK_TWO −2, BACK_ONE −1 (see ChatHeadPack)
-        int advance = 0;
         int glyphs = 0;
+        int ins = 0;
+        int ends = 0;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (c >= ChatHeadPack.row(0) && c <= ChatHeadPack.row(7)) {
-                advance += 2;
                 glyphs++;
-            } else if (c == ChatHeadPack.BACK_TWO) {
-                advance -= 2;
-            } else if (c == ChatHeadPack.BACK_ONE) {
-                advance -= 1;
+            } else if (c == ChatHeadPack.BACK_IN) {
+                ins++;
+            } else if (c == ChatHeadPack.BACK_END) {
+                ends++;
             }
         }
         assertEquals(64, glyphs);
-        // 7 columns move 1 each, the last column leaves its glyph advance (2): 9, then the space
-        assertEquals(9, advance);
+        assertEquals(56, ins); // 7 per column
+        assertEquals(7, ends); // after every column but the last
         assertEquals(' ', text.charAt(text.length() - 1));
+    }
+
+    @Test
+    void cacheFormatRoundTrips() {
+        int[] rgb = new int[64];
+        for (int i = 0; i < 64; i++) {
+            rgb[i] = i * 0x030507;
+        }
+        assertArrayEquals(rgb, HeadPixels.decode(HeadPixels.encode(rgb)));
+        assertNull(HeadPixels.decode("abc"));
+        assertNull(HeadPixels.decode(null));
     }
 }

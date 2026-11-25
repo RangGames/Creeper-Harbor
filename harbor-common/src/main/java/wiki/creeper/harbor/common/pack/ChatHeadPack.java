@@ -5,32 +5,37 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.imageio.ImageIO;
 
 /**
- * Generated font for player heads in chat (proposed; the technique of OGminso/ChatHeadFont, CC BY
- * 4.0). Font {@code harbor:chat_head} (separate from the default font, so other packs' default
- * fonts are left alone):
+ * Generated fonts for player heads in chat (proposed; the technique of OGminso/ChatHeadFont, CC BY
+ * 4.0). One font per head size {@code harbor:chat_head_<size>} ({@link #MIN_SIZE}..{@link
+ * #MAX_SIZE} GUI pixels tall), separate from the default font so other packs' default fonts are
+ * left alone. Every font has:
  *
  * <ul>
  *   <li>Eight 1-pixel-wide bitmap glyphs {@link #row(int)} U+E000..U+E007, glyph y lighting only
- *       row y (one 8×8 texture with a white diagonal). Each advances 2 pixels (1 wide + 1 gap)
- *   <li>Spaces {@link #BACK_ONE} (−1) and {@link #BACK_TWO} (−2)
+ *       row y (one shared 8×8 texture with a white diagonal), scaled to the size
+ *   <li>Spaces {@link #BACK_IN} (back over one glyph: stay in the column) and {@link #BACK_END}
+ *       (back over a glyph but one pixel less: move to the next column)
  * </ul>
  *
  * A head is drawn column by column: 8 row glyphs colored with the skin pixel, each followed by
- * BACK_TWO (stay in the column) except the last, followed by BACK_ONE (move one pixel right).
+ * BACK_IN except the last, followed by BACK_END.
  */
 public final class ChatHeadPack {
 
-    public static final String FONT = "harbor:chat_head";
-    public static final String FONT_FILE = "assets/harbor/font/chat_head.json";
+    public static final int MIN_SIZE = 4;
+    public static final int MAX_SIZE = 16;
+    public static final int DEFAULT_SIZE = 8;
+
     public static final String TEXTURE_FILE = "assets/harbor/textures/font/chat_head.png";
 
-    public static final char BACK_ONE = '';
-    public static final char BACK_TWO = '';
+    public static final char BACK_IN = '';
+    public static final char BACK_END = '';
 
     private ChatHeadPack() {}
 
@@ -39,27 +44,61 @@ public final class ChatHeadPack {
         return (char) ('' + y);
     }
 
-    /** The font JSON and texture, to add to the pack build's generated files. */
+    /** Font key for a head size (clamped to the generated range). */
+    public static String font(int size) {
+        return "harbor:chat_head_" + clamp(size);
+    }
+
+    public static int clamp(int size) {
+        return Math.clamp(size, MIN_SIZE, MAX_SIZE);
+    }
+
+    static String fontFile(int size) {
+        return "assets/harbor/font/chat_head_" + size + ".json";
+    }
+
+    /**
+     * Glyph advance the game gives a 1-pixel-wide glyph of the 8-pixel cell drawn {@code size}
+     * pixels tall (bitmap provider: {@code (int) (0.5 + width * scale) + 1}).
+     */
+    static int glyphAdvance(int size) {
+        return (int) (0.5 + size / 8.0) + 1;
+    }
+
+    /** The fonts and texture, to add to the pack build's generated files. */
     public static Map<String, byte[]> files() {
         Map<String, byte[]> files = new TreeMap<>();
-        files.put(FONT_FILE, fontJson().getBytes(StandardCharsets.UTF_8));
+        for (int size = MIN_SIZE; size <= MAX_SIZE; size++) {
+            files.put(fontFile(size), fontJson(size).getBytes(StandardCharsets.UTF_8));
+        }
         files.put(TEXTURE_FILE, texture());
         return files;
     }
 
-    static String fontJson() {
+    static String fontJson(int size) {
         StringBuilder chars = new StringBuilder();
         for (int y = 0; y < 8; y++) {
             chars.append(escape(row(y)));
         }
+        double pixel = size / 8.0;
+        int advance = glyphAdvance(size);
+        // Centred on the text line (normal glyphs: ascent 7, height 8); ascent may not pass height
+        int ascent = Math.min(size, (int) Math.floor(3.5 + size / 2.0));
         return "{\"providers\":["
                 + "{\"type\":\"space\",\"advances\":{\""
-                + escape(BACK_ONE)
-                + "\":-1,\""
-                + escape(BACK_TWO)
-                + "\":-2}},"
-                + "{\"type\":\"bitmap\",\"file\":\"harbor:font/chat_head.png\",\"ascent\":7,"
-                + "\"height\":8,\"chars\":[\""
+                + escape(BACK_IN)
+                + "\":"
+                + number(-advance)
+                + ",\""
+                + escape(BACK_END)
+                + "\":"
+                + number(pixel - advance)
+                + "}},"
+                + "{\"type\":\"bitmap\",\"file\":\"harbor:font/chat_head.png\",\"ascent\":"
+                + ascent
+                + ",\"height\":"
+                + size
+                + ",\"chars\":[\""
                 + chars
                 + "\"]}]}";
     }
@@ -79,7 +118,11 @@ public final class ChatHeadPack {
         return out.toByteArray();
     }
 
+    private static String number(double v) {
+        return v == Math.rint(v) ? String.valueOf((long) v) : String.format(Locale.ROOT, "%.3f", v);
+    }
+
     private static String escape(char c) {
-        return String.format("\\u%04x", (int) c);
+        return String.format(Locale.ROOT, "\\u%04x", (int) c);
     }
 }
