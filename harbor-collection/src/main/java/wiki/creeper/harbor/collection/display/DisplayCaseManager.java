@@ -17,14 +17,10 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.entity.BlockDisplay;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.jspecify.annotations.Nullable;
@@ -37,6 +33,7 @@ import wiki.creeper.harbor.collection.data.CollectionRepository;
 import wiki.creeper.harbor.collection.data.DisplayRepository;
 import wiki.creeper.harbor.collection.hook.NpcBridge;
 import wiki.creeper.harbor.collection.service.CollectionManager;
+import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.donor.DonorTier;
 import wiki.creeper.harbor.common.id.FishId;
 import wiki.creeper.harbor.common.id.HarborId;
@@ -85,6 +82,8 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
     private final ShopThemes themes;
     private final DisplayCaseRenderer renderer;
     private final DisplayCaseMenus menus;
+    private final DisplayCaseHover hover;
+    private final DisplayCaseClicks clicks;
     private final Map<Long, PlotView> plots = new HashMap<>();
     private final Map<UUID, SlotRef> boxes = new HashMap<>();
     private final Set<Long> loading = new HashSet<>();
@@ -149,6 +148,13 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         this.themes = themes;
         this.renderer = new DisplayCaseRenderer(this, api, log, housing, boxes);
         this.menus = new DisplayCaseMenus(this, plugin, api, tasks, themes);
+        this.hover = new DisplayCaseHover(this, menus, plugin, api, housing, plots, boxes);
+        this.clicks = new DisplayCaseClicks(housing, menus, hover, plots, boxes);
+    }
+
+    /** Tank click Listener (register it next to this one). */
+    public Listener clicks() {
+        return clicks;
     }
 
     DisplayCaseRules rules() {
@@ -165,6 +171,7 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         if (t != null) {
             t.cancel();
         }
+        hover.stop();
         plots.values().forEach(this::despawn);
         plots.clear();
         boxes.clear();
@@ -209,13 +216,50 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         }
     }
 
+    /**
+     * A tank was placed or removed. The display only points at the owner's collection (nothing is
+     * consumed), so removing a tank empties its slot: the fish goes back to the collection, the
+     * owner is told, and a later tank on the same slot number starts empty. A new tank also clears
+     * a row left on its slot from before this rule (proposed).
+     */
     @EventHandler
     public void onAnchor(DisplayAnchorChangedEvent event) {
-        PlotView view = plots.get(event.plot().plotId());
+        long plotId = event.plot().plotId();
+        int slot = event.anchor().slot();
+        PlotView view = plots.get(plotId);
         if (view != null) {
             view.plot = event.plot();
+        }
+        DisplaySlot row = view == null ? null : view.rows.get(slot);
+        if (view == null || row != null || !event.added()) {
+            UUID owner = event.plot().owner();
+            var _ =
+                    clear(null, plotId, slot)
+                            .thenAccept(
+                                    removed -> {
+                                        if (removed && !event.added()) {
+                                            returned(owner, row);
+                                        }
+                                    });
+        }
+        if (view != null) {
             render(view);
         }
+    }
+
+    private void returned(UUID owner, @Nullable DisplaySlot row) {
+        Player player = Bukkit.getPlayer(owner);
+        if (player == null || row == null) {
+            return;
+        }
+        String name =
+                api.content()
+                        .snapshot()
+                        .get(FishDef.TYPE, row.fish().id())
+                        .map(FishDef::name)
+                        .orElse(row.fish().id().name());
+        api.messages()
+                .send(player, "collection.display.returned", Placeholder.unparsed("name", name));
     }
 
     /**
@@ -303,10 +347,12 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
     }
 
     private void despawn(PlotView view) {
+        hover.invalidate(view.plot.plotId());
         renderer.despawn(view);
     }
 
     private void render(PlotView view) {
+        hover.invalidate(view.plot.plotId());
         renderer.render(view);
     }
 
@@ -314,6 +360,9 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
 
     private void tick() {
         ticks++;
+        if (ticks % DisplayCaseHover.PERIOD == 0) {
+            hover.tick(ticks);
+        }
         if (ticks % VIEW_TICKS == 0) {
             for (PlotView view : plots.values()) {
                 World world = Bukkit.getWorld(view.plot.world());
@@ -349,28 +398,6 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
                     }
                 }
             }
-        }
-    }
-
-    // ------------------------------------------------------------------ clicks
-
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onClick(PlayerInteractEntityEvent event) {
-        Entity clicked = event.getRightClicked();
-        SlotRef ref = boxes.get(clicked.getUniqueId());
-        if (ref == null || event.getHand() != EquipmentSlot.HAND) {
-            return;
-        }
-        event.setCancelled(true);
-        PlotView view = plots.get(ref.plotId());
-        if (view == null) {
-            return;
-        }
-        Player player = event.getPlayer();
-        if (housing.can(player, view.plot, PlotPermission.EDIT_DISPLAY) && !player.isSneaking()) {
-            menus.openEditor(player, view, ref.slot());
-        } else {
-            menus.showInfo(player, view, ref.slot());
         }
     }
 

@@ -308,7 +308,7 @@ final class DecorShop {
                                 kit.tasks().main());
     }
 
-    private ItemStack item(DecorDef d, int amount) {
+    ItemStack item(DecorDef d, int amount) {
         ItemStack stack = coreItem(d, amount).orElse(null);
         if (stack == null) {
             stack =

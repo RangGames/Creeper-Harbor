@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -226,8 +227,18 @@ public final class DecorPlacement implements Listener {
         block.getChunk().getPersistentDataContainer().remove(blockKey(block));
         event.setDropItems(false);
         Optional<HousingManager.PlotState> plot = housing.stateAt(block.getLocation());
-        UUID owner = plot.map(p -> p.info.owner()).orElse(event.getPlayer().getUniqueId());
-        creditAfterWorldSave(block.getWorld(), owner, d.get().id(), 1);
+        Player breaker = event.getPlayer();
+        UUID owner = plot.map(p -> p.info.owner()).orElse(breaker.getUniqueId());
+        if (owner.equals(breaker.getUniqueId()) && breaker.getGameMode() != GameMode.CREATIVE) {
+            // The owner gets the decor item back like a normal block drop (proposed). It is saved
+            // with the chunk like the removal, and goes back to storage when leaving the housing
+            // world. Anyone else breaking it returns it to the owner's storage
+            block.getWorld()
+                    .dropItemNaturally(
+                            block.getLocation().add(0.5, 0.5, 0.5), decor.item(d.get(), 1));
+        } else {
+            creditAfterWorldSave(block.getWorld(), owner, d.get().id(), 1);
+        }
         if (d.get().kind() == DecorDef.Kind.TANK && plot.isPresent()) {
             removeAnchorAt(plot.get(), block);
         }

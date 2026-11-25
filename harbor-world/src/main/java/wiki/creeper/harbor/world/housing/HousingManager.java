@@ -72,6 +72,7 @@ public final class HousingManager implements HousingService, Listener {
     private final PlotStore store;
     private final PlotActions actions;
     private final PlotProtection protection;
+    private final HousingReturn returns;
     private final Map<UUID, GameMode> savedMode = new HashMap<>();
 
     /**
@@ -87,6 +88,7 @@ public final class HousingManager implements HousingService, Listener {
         this.store = new PlotStore(kit, bestTier);
         this.actions = new PlotActions(kit, store);
         this.protection = new PlotProtection(kit, store);
+        this.returns = new HousingReturn(kit, router);
     }
 
     /** Plot protection Listener (register it right after this object). */
@@ -200,15 +202,18 @@ public final class HousingManager implements HousingService, Listener {
                                                             uuid,
                                                             size,
                                                             n -> {
+                                                                // Entry on the plot's south
+                                                                // edge row, facing in, so
+                                                                // building works on arrival
                                                                 PlotGrid.Bounds bounds =
                                                                         PlotGrid.bounds(
                                                                                 PlotGrid.cell(n),
                                                                                 cellSize,
-                                                                                cellSize - 8);
+                                                                                size);
                                                                 return new double[] {
                                                                     bounds.centerX(),
                                                                     floor + 1,
-                                                                    bounds.maxZ() + 3.5,
+                                                                    bounds.maxZ() + 0.5,
                                                                     180
                                                                 };
                                                             }));
@@ -295,14 +300,41 @@ public final class HousingManager implements HousingService, Listener {
         go(player, plot);
     }
 
+    /** /부두 나가기: back to where the player was before entering housing. */
+    public void leave(Player player) {
+        World world = WorldKit.loc(player).getWorld();
+        if (world == null || !isHousingWorld(world)) {
+            kit.send(player, "world.housing.not_in_housing");
+            return;
+        }
+        returns.leave(player);
+    }
+
     void go(Player player, PlotInfo plot) {
+        World here = WorldKit.loc(player).getWorld();
+        if (here == null || !isHousingWorld(here)) {
+            returns.remember(player);
+        }
         String server = kit.balance().b().string("world.housing.server").orElse(null);
-        router.send(
-                player,
-                new ServerRouter.Destination(
-                        plot.world(), plot.spawnX(), plot.spawnY(), plot.spawnZ(), plot.spawnYaw()),
-                server,
-                "housing");
+        router.send(player, entry(plot), server, "housing");
+    }
+
+    /**
+     * The plot entry. /부두 입구 always stores a point inside the plot; an entry outside it is the old
+     * default (on the road south of the largest plot square), which left the player outside the
+     * plot on arrival, so such plots use the south edge row instead.
+     */
+    private ServerRouter.Destination entry(PlotInfo plot) {
+        if (plot.contains(plot.world(), plot.spawnX(), plot.spawnZ())) {
+            return new ServerRouter.Destination(
+                    plot.world(), plot.spawnX(), plot.spawnY(), plot.spawnZ(), plot.spawnYaw());
+        }
+        return new ServerRouter.Destination(
+                plot.world(),
+                (plot.minX() + plot.maxX() + 1) / 2.0,
+                kit.balance().housingFloorY() + 1,
+                plot.maxZ() + 0.5,
+                180);
     }
 
     // ------------------------------------------------------------------ settings and likes

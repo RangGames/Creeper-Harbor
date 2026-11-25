@@ -43,6 +43,9 @@ sections:
     commands:
       - {command: "해도", text: "지역 해도와 이동"}
       - {command: "부두", text: "내 부두(집)로 가기"}
+      - {command: "부두 나가기", text: "부두에 들어오기 전 자리로 돌아가기"}
+      - {command: "부두 상점", text: "장식 상점 (블록·가구·수조)"}
+      - {command: "부두 장식", text: "산 장식 꺼내기 · 수조를 놓고 우클릭하면 잡은 물고기 전시 (개인 어항)"}
       - {command: "선박", text: "내 배 부르기"}
       - {command: "조선소", text: "배 고르기 · 수리 · 개조"}
       - {command: "비행선", text: "비행선 타기"}

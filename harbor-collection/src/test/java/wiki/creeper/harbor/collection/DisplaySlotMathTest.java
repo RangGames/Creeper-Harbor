@@ -25,6 +25,7 @@ class DisplaySlotMathTest {
                     120,
                     32,
                     5,
+                    6,
                     0.25,
                     null,
                     new DisplayCaseRules.Theme(null, "minecraft:sand", null),

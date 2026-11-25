@@ -33,8 +33,8 @@ import wiki.creeper.harbor.world.content.DecorDef;
  * (housing_decor.yml) updates the ledger (HOUSING_DECOR) and the owned count (housing_decor_owned)
  * in one transaction (ShopService.charge if Economy is present). Bought decor accumulates as a
  * count rather than inventory items and is taken out from the palette inside a plot to place it.
- * Breaking it returns it to the count, and leaving the housing world returns decor items in the
- * inventory to storage (the count).
+ * Breaking it drops the item for the plot owner (others return it to the owner's count), and
+ * leaving the housing world returns decor items in the inventory to storage (the count).
  *
  * <p>Placed block decor is recorded in the chunk PDC as position → decor ID. Placing tank decor
  * creates a personal aquarium slot (DisplayAnchor, housing_anchor) and notifies Collection via
@@ -70,6 +70,11 @@ public final class DecorManager implements Listener {
 
     Optional<DecorDef> def(HarborId id) {
         return kit.api().content().snapshot().get(DecorDef.TYPE, id);
+    }
+
+    /** A decor item as the palette hands it out (tagged, so it can be placed and returned). */
+    ItemStack item(DecorDef d, int amount) {
+        return shop.item(d, amount);
     }
 
     Optional<DecorDef> def(@Nullable ItemStack stack) {

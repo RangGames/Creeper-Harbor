@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -77,19 +78,46 @@ final class DisplayCaseMenus {
             api.messages().send(player, "collection.display.empty");
             return;
         }
+        var _ = rank(view, row).thenAccept(rank -> info(player, view, sv, row, rank));
+    }
+
+    /** The owner's server rank this season for the displayed fish (0 = none). Main thread. */
+    CompletableFuture<Integer> rank(PlotView view, DisplaySlot row) {
         SeasonId season = api.infra().season();
         UUID owner = view.plot.owner();
-        var _ =
-                api.database()
-                        .async(c -> CollectionRepository.rank(c, row.fish(), season, "all", owner))
-                        .exceptionally(e -> 0)
-                        .thenAcceptAsync(rank -> info(player, view, sv, row, rank), tasks.main());
+        return api.database()
+                .async(c -> CollectionRepository.rank(c, row.fish(), season, "all", owner))
+                .exceptionally(e -> 0)
+                .thenApplyAsync(rank -> rank, tasks.main());
     }
 
     private void info(Player player, PlotView view, SlotView sv, DisplaySlot row, int rank) {
         if (!player.isOnline()) {
             return;
         }
+        List<Component> lines = infoLines(view, row, rank);
+        World world = Bukkit.getWorld(view.plot.world());
+        if (world == null) {
+            return;
+        }
+        Location at = sv.center.clone().add(0, 0.9, 0);
+        Component text = Component.join(JoinConfiguration.newlines(), lines);
+        TextDisplay display =
+                world.spawn(
+                        at,
+                        TextDisplay.class,
+                        e -> {
+                            e.setPersistent(false);
+                            e.setVisibleByDefault(false);
+                            e.setBillboard(Display.Billboard.CENTER);
+                            e.text(text);
+                        });
+        player.showEntity(plugin, display);
+        var _ = tasks.later(manager.rules().infoSeconds() * 20L, display::remove);
+    }
+
+    /** Info lines: name and owner, size and stars, first catch date, server rank. */
+    List<Component> infoLines(PlotView view, DisplaySlot row, int rank) {
         MessageService msg = api.messages();
         String name =
                 api.content()
@@ -121,24 +149,7 @@ final class DisplayCaseMenus {
                                 "collection.display.info_rank",
                                 Placeholder.unparsed("rank", String.valueOf(rank)))
                         : msg.get("collection.display.info_no_rank"));
-        World world = Bukkit.getWorld(view.plot.world());
-        if (world == null) {
-            return;
-        }
-        Location at = sv.center.clone().add(0, 0.9, 0);
-        Component text = Component.join(JoinConfiguration.newlines(), lines);
-        TextDisplay display =
-                world.spawn(
-                        at,
-                        TextDisplay.class,
-                        e -> {
-                            e.setPersistent(false);
-                            e.setVisibleByDefault(false);
-                            e.setBillboard(Display.Billboard.CENTER);
-                            e.text(text);
-                        });
-        player.showEntity(plugin, display);
-        var _ = tasks.later(manager.rules().infoSeconds() * 20L, display::remove);
+        return lines;
     }
 
     // ------------------------------------------------------------------ edit menu

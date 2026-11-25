@@ -138,6 +138,7 @@ public final class WorldCommands {
                                 Commands.literal("장식")
                                         .executes(ctx -> player(ctx, decor::openPalette)))
                         .then(Commands.literal("상점").executes(ctx -> player(ctx, decor::openShop)))
+                        .then(Commands.literal("나가기").executes(ctx -> player(ctx, housing::leave)))
                         .then(
                                 Commands.literal("건축자")
                                         .then(

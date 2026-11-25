@@ -27,6 +27,7 @@ import wiki.creeper.harbor.common.yaml.YamlNode;
  * @param partBudget rig part budget per plot (beyond it, simple rigs are used)
  * @param viewRadius also visible to players outside the plot within this distance
  * @param infoSeconds how long visitor click info is shown
+ * @param hoverDistance info shows while a player looks at a tank within this many blocks (0 = off)
  * @param swimRadius swim radius inside the tank (blocks)
  * @param simpleRig single-part simple rig (if absent, slots beyond the budget are not shown)
  * @param defaultTheme default theme (all slots)
@@ -39,6 +40,7 @@ public record DisplayCaseRules(
         int partBudget,
         double viewRadius,
         int infoSeconds,
+        double hoverDistance,
         double swimRadius,
         @Nullable RigId simpleRig,
         Theme defaultTheme,
@@ -136,6 +138,7 @@ public record DisplayCaseRules(
                         "part_budget",
                         "view_radius",
                         "info_seconds",
+                        "hover_distance",
                         "swim_radius",
                         "simple_rig",
                         "default_theme",
@@ -183,6 +186,7 @@ public record DisplayCaseRules(
                 node.integer("part_budget", 120, 1, 2000),
                 node.number("view_radius", 32),
                 node.integer("info_seconds", 5, 1, 60),
+                Math.clamp(node.number("hover_distance", 6), 0, 16),
                 node.number("swim_radius", 0.25),
                 simple,
                 def,

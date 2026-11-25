@@ -7,6 +7,7 @@ base_theme_slots: 1         # 기본 테마가 아닌 테마를 걸 수 있는 �
 part_budget: 120            # 플롯당 리그 부품 상한 (넘으면 간이 리그)
 view_radius: 32             # 플롯 경계에서 이 거리 안 플레이어에게도 보인다
 info_seconds: 5             # 방문객 클릭 정보 표시 시간
+hover_distance: 6           # 수조를 이 거리(블록) 안에서 바라보면 물고기 정보를 띄운다 (0이면 끔)
 swim_radius: 0.25           # 수조 안 헤엄 반경 (블록)
 simple_rig: rig/fish/shadow_small   # 부품 1개짜리 간이 리그
 

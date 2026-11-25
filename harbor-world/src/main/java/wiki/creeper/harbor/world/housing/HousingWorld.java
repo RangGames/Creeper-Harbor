@@ -113,7 +113,7 @@ final class HousingWorld {
 
         @Override
         public @Nullable Location getFixedSpawnLocation(World world, Random random) {
-            // Road just south of cell 0's yard, the same spot a plot entry uses.
+            // Road just south of cell 0's yard.
             int offset = (layout.cell() - layout.yard()) / 2;
             double x = offset + layout.yard() / 2.0;
             double z = offset + layout.yard() + 2.5;
