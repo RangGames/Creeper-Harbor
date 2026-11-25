@@ -172,6 +172,37 @@ paths:
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/Internal"}
         "503": {$ref: "#/components/responses/Unavailable"}
+  /players/{id}/online:
+    get:
+      tags: [players]
+      operationId: getPlayerOnline
+      summary: 접속 여부 (네트워크 전체)
+      description: |
+        세션 잠금(Redis `harbor:lock:<uuid>`)으로 네트워크 전체 접속 여부를 답한다. REST를 연 서버에 접속해 있으면
+        잠금을 읽지 않는다. 잠금이 handoff 상태면 `moving`이 true이고 `server`는 도착 서버다.
+        Redis를 읽지 못하면 이 서버만 확인하고 `scope`가 `server`가 된다.
+        서버가 비정상 종료되면 최대 30초(잠금 만료) 동안 true로 남을 수 있다. players 행이 없으면 404 player_not_found.
+      parameters:
+        - $ref: "#/components/parameters/PlayerId"
+      responses:
+        "200":
+          description: 접속 여부
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/OkEnvelope"
+                  - type: object
+                    required: [data]
+                    properties:
+                      data: {$ref: "#/components/schemas/PlayerOnline"}
+              example: {"ok": true, "data": {"uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5", "online": true, "server": "play", "moving": false, "scope": "network"}}
+        "400": {$ref: "#/components/responses/BadId"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/PlayerNotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/Internal"}
+        "503": {$ref: "#/components/responses/Unavailable"}
   /players/{id}/ledger:
     get:
       tags: [players]
@@ -889,6 +920,24 @@ components:
           description: 누적 플레이 시간 (초)
         season:
           $ref: "#/components/schemas/PlayerSeason"
+    PlayerOnline:
+      type: object
+      required: [uuid, online, scope]
+      properties:
+        uuid: {type: string, format: uuid}
+        online:
+          type: boolean
+          description: 네트워크 어딘가의 백엔드에 접속해 있는지
+        server:
+          type: string
+          description: 있는 서버 ID (moving이면 도착 서버). online이 false면 키가 없다.
+        moving:
+          type: boolean
+          description: 서버 이동 중(세션 잠금 handoff). online이 false면 키가 없다.
+        scope:
+          type: string
+          enum: [network, server]
+          description: "network: 세션 잠금으로 판정. server: Redis를 읽지 못해 이 서버만 확인함"
     PlayerSeason:
       type: object
       description: 이번 시즌 player_season 행. 행이 없으면 이 객체 자체가 없다.

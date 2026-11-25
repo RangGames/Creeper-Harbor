@@ -1,5 +1,6 @@
 package wiki.creeper.harbor.web.http;
 
+import io.lettuce.core.RedisException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -13,6 +14,8 @@ import java.util.UUID;
 import org.bukkit.Bukkit;
 import wiki.creeper.harbor.common.content.type.FishDef;
 import wiki.creeper.harbor.common.model.Currency;
+import wiki.creeper.harbor.common.session.LockState;
+import wiki.creeper.harbor.common.session.SessionLocks;
 import wiki.creeper.harbor.core.api.LedgerRecord;
 
 /**
@@ -53,6 +56,10 @@ public final class CoreRoutes {
                                         r.query("type", ""),
                                         r.queryInt("limit", 100, 1, 500))));
         router.get("content/fish", "어종 목록 (ID·번호·이름·등급·지역)", r -> fish(calls));
+        router.get(
+                "players/{id}/online",
+                "접속 여부 (네트워크 전체, 세션 잠금 기준): online·server·moving",
+                r -> online(calls, r.param("id")));
         router.get(
                 "players/{id}/ledger",
                 "재화 원장 최근 기록 (?currency=gold|mulbineul&limit=50, 최대 200)",
@@ -199,6 +206,51 @@ public final class CoreRoutes {
             throw new Router.ApiException(404, "player_not_found", "플레이어를 찾지 못했습니다: " + id);
         }
         return result;
+    }
+
+    /**
+     * Online check across the network from the session lock ({@code harbor:lock:<uuid>}, held by
+     * the server that has the player and switched to handoff while moving). This server's own
+     * player list answers first; if Redis cannot be read, only this server is checked (scope =
+     * server).
+     */
+    private static Object online(Calls calls, String id) throws Router.ApiException {
+        UUID uuid = resolve(calls, id);
+        String here = calls.api().infra().serverId();
+        boolean onHere = calls.main(() -> Bukkit.getPlayer(uuid) != null);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("uuid", uuid.toString());
+        if (onHere) {
+            out.put("online", true);
+            out.put("server", here);
+            out.put("moving", false);
+            out.put("scope", "network");
+            return out;
+        }
+        Optional<LockState> lock;
+        try {
+            lock = new SessionLocks(calls.api().redis()).inspect(uuid);
+        } catch (RedisException e) {
+            out.put("online", false);
+            out.put("scope", "server");
+            return out;
+        }
+        LockState state = lock.orElse(null);
+        switch (state) {
+            case LockState.Owned(String server) -> {
+                out.put("online", true);
+                out.put("server", server);
+                out.put("moving", false);
+            }
+            case LockState.Handoff(String to, var _) -> {
+                out.put("online", true);
+                out.put("server", to);
+                out.put("moving", true);
+            }
+            case null -> out.put("online", false);
+        }
+        out.put("scope", "network");
+        return out;
     }
 
     private static Object ledger(Calls calls, String id, String currencyKey, int limit)

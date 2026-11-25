@@ -106,6 +106,7 @@ webhooks:
 | `GET /v1/health` | 살아 있는지 (토큰 불필요) |
 | `GET /v1/server` | 서버 ID·시즌·접속 인원 (`online` 네트워크 전체, `server_online` 이 서버) |
 | `GET /v1/players/{uuid 또는 이름}` | 이름·접속 시각·플레이 시간 + 이번 시즌 레벨·직업·골드·물비늘·평판 |
+| `GET /v1/players/{id}/online` | 접속 여부 (네트워크 전체): `online`·`server`(있는 서버)·`moving`(서버 이동 중) |
 | `GET /v1/players/{id}/collection?scope=total\|season` | 도감 (등록 수·%·어종별 최대 크기·최고 품질·횟수) — Collection |
 | `GET /v1/players/{id}/quests` | 퀘스트 상태 (이번 시즌 + 이월된 메인, 퀘스트마다 한 줄) — Quest |
 | `GET /v1/players/{id}/ledger?currency=gold\|mulbineul&limit=50` | 재화 원장 최근 기록 (사유·증감·잔액·시각, 최대 200) |

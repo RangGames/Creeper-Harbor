@@ -19,7 +19,7 @@
 | 묶음 | 경로 | 필요한 플러그인 |
 |---|---|---|
 | 메타 | `/v1/health`, `/v1` | Harbor-Core |
-| 코어 | `/v1/server`, `/v1/players/{id}`, `/v1/players/{id}/ledger`, `/v1/events`, `/v1/content/fish` | Harbor-Core |
+| 코어 | `/v1/server`, `/v1/players/{id}`, `/v1/players/{id}/online`, `/v1/players/{id}/ledger`, `/v1/events`, `/v1/content/fish` | Harbor-Core |
 | 도감 | `/v1/players/{id}/collection`, `/v1/records` | Harbor-Collection |
 | 퀘스트 | `/v1/players/{id}/quests` | Harbor-Quest |
 | 경제 | `/v1/market`, `/v1/auctions` | Harbor-Economy |
@@ -156,6 +156,7 @@ Access-Control-Allow-Methods: GET, OPTIONS
 | `GET /v1` | 등록된 경로 목록 | – | `listRoutes` |
 | `GET /v1/server` | 서버 ID·시즌·접속 인원 | – | `getServer` |
 | `GET /v1/players/{id}` | 플레이어 요약 | – | `getPlayer` |
+| `GET /v1/players/{id}/online` | 접속 여부 (네트워크 전체) | – | `getPlayerOnline` |
 | `GET /v1/players/{id}/ledger` | 재화 원장 최근 기록 | – | `getPlayerLedger` |
 | `GET /v1/players/{id}/collection` | 플레이어 도감 | Collection | `getPlayerCollection` |
 | `GET /v1/players/{id}/quests` | 플레이어 퀘스트 | Quest | `getPlayerQuests` |
@@ -167,7 +168,7 @@ Access-Control-Allow-Methods: GET, OPTIONS
 | `GET /v1/rankings` | 랭킹 보드 목록 | Season | `listRankingBoards` |
 | `GET /v1/rankings/{board}` | 랭킹 순위표 | Season | `getRankingBoard` |
 
-총 14개. 아래 예시의 `$HARBOR`는 `https://harbor-api.example.com` 같은 앞단 주소, `$TOKEN`은 토큰이다.
+총 15개. 아래 예시의 `$HARBOR`는 `https://harbor-api.example.com` 같은 앞단 주소, `$TOKEN`은 토큰이다.
 
 ## 8. 경로별 설명
 
@@ -218,6 +219,21 @@ curl -s -H "Authorization: Bearer $TOKEN" $HARBOR/v1/players/069a79f4-44e9-4726-
 - `{id}` 해석 (모든 `/players/{id}…` 공통): UUID 형식이면 UUID로, 아니면 `[A-Za-z0-9_]{1,16}`인 이름으로 보고 players 테이블에서 `last_join`이 가장 최근인 행을 찾는다. 이름 비교의 대소문자 구분은 DB 콜레이션을 따른다. 형식이 둘 다 아니면 400 `bad_id`, UUID든 이름이든 players 행이 없으면 404 `player_not_found`.
 - `season`: 이번 시즌 행이 없으면(이번 시즌에 접속한 적 없음) 키가 없다. `job_line`은 2차 전직 전이면 키가 없다 (`explore`·`collect`·`produce`·`economy`). `job_tier`는 1~3.
 - `playtime_seconds`는 누적 초. 접속 중이면 마지막 저장 시점까지다.
+
+### GET /v1/players/{id}/online
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" $HARBOR/v1/players/Steve/online
+# {"ok":true,"data":{"uuid":"069a79f4-44e9-4726-a5be-fca90e38aaf5","online":true,"server":"play","moving":false,"scope":"network"}}
+# {"ok":true,"data":{"uuid":"069a79f4-44e9-4726-a5be-fca90e38aaf5","online":false,"scope":"network"}}
+```
+
+- 네트워크 전체 기준이다. 플레이어를 가진 서버가 잡는 세션 잠금(Redis `harbor:lock:<uuid>`)을 읽는다. REST를 연 서버에 접속해 있으면 잠금을 읽지 않고 바로 답한다.
+- `server`: 플레이어가 있는 백엔드 서버 ID (`harbor-infra.yml`의 `server.id`). `online`이 false면 키가 없다.
+- `moving`: 서버 이동 중(잠금이 handoff 상태)이면 true이고, `server`는 도착 서버다.
+- `scope`: `network`이면 위 판정, `server`이면 Redis를 읽지 못해 이 서버만 확인한 값이다 (`online`이 false여도 다른 서버에 있을 수 있다).
+- 서버가 비정상 종료되면 잠금이 만료될 때까지 최대 30초 동안 `online`이 true로 남을 수 있다. 정상 퇴장은 바로 false다.
+- 프록시에만 붙어 있고 백엔드에 아직 들어가지 않은 순간(접속 중·대기열)은 false다.
 
 ### GET /v1/players/{id}/ledger
 
@@ -417,6 +433,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$HARBOR/v1/rankings/level?league=tier
 - **이벤트 정수 보존:** `/v1/events`와 웹훅 `json`에서 정수가 `13.0`이 아니라 `13`으로 나온다. 웹훅 `json` 본문은 HTML 문자를 이스케이프하지 않는다.
 - **`/v1/auctions` 페이지:** `limit` 최대 200을 실제로 지키고, 응답이 `{items, next}`이며 `cursor`로 다음 페이지를 읽는다. `category` 기본값은 `all`.
 - **`player_name` 채움:** UUID만 있는 모듈 이벤트도 발행 서버가 이름을 찾아 넣는다 (디스코드 `<player>`에 이름이 찍힌다).
+- **`/v1/players/{id}/online` 추가:** 세션 잠금 기준 네트워크 전체 접속 여부 (`online`, `server`, `moving`, `scope`).
 - **`/v1/server`:** `online`이 네트워크 전체(하트비트 합계)가 되고, `online_scope`·`servers_reporting`·`server_online`(이 서버)이 생겼다.
 - **입력 검사 통일:** 선택형 파라미터(`currency`·`scope`·`category`·`league`)와 정수 파라미터가 틀리면 모두 400 `bad_parameter`(`error.param`, `error.allowed`). 오류 코드 `bad_currency`·`bad_league`는 없어졌다.
 - **없는 플레이어 404:** ledger·collection·quests도 UUID로 불렀을 때 players 행이 없으면 404 `player_not_found`.
