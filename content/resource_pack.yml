@@ -1,7 +1,9 @@
 # 리소스팩에 들어 있는 item_model·소리 목록 (Core ItemModels가 이 목록에 있는 모델만 쓴다).
 # 손으로 고치지 않는다. 팩을 바꾸면 다시 만든다: ./gradlew packIndex -Ppack=<리소스팩 폴더 또는 zip>
-# 만든 팩: Creeper-Harbor-RP.zip
+# 만든 팩: resourcepack
 models:
+  - harbor:decor/coral_tank
+  - harbor:decor/glass_tank
   - harbor:fish/abyss_lanternfish
   - harbor:fish/abyss_lanternfish/body_1
   - harbor:fish/abyss_lanternfish/body_2
