@@ -10,7 +10,7 @@
 |---|---|---|
 | `validateContent` | `content/` YAML 검사 | 오류가 있으면 실패 |
 | `packIndex -Ppack=<팩 폴더 또는 zip>` | 리소스팩의 item_model·소리 목록 뽑기 | `content/resource_pack.yml` |
-| `rigImport -Prigs=<팩 assets/harbor/rigs/fish 폴더> [-PrigStep=<틱>]` | 어종 리그 JSON(harbor_rig_v1) 변환 | `content/rigs/fish/<이름>.yml` |
+| `rigImport -Prigs=<팩 assets/harbor/rigs/fish·boss 폴더> [-PrigStep=<틱>]` | 리그 JSON(harbor_rig_v1) 변환 | `content/rigs/fish·boss/<이름>.yml` |
 | `resourcePack -PpackDir=<팩 폴더> [-PpackMeta=<zip 또는 폴더>]` | 클라이언트 리소스팩 zip 만들기 | `build/resourcepack/<이름>.zip` + `.sha1` |
 | `dist -Ppack=<zip>` 또는 `dist -PpackDir=<폴더>` | 플러그인 jar와 함께 팩·SHA-1 모으기 | `build/dist/resourcepack/` |
 
@@ -44,11 +44,12 @@ gradlew.bat packIndex -Ppack=<리소스팩 폴더 또는 zip>
 gradlew.bat rigImport -Prigs=<리소스팩 assets/harbor/rigs/fish 폴더>
 ```
 
-- 리소스팩의 어종 리그 JSON(harbor_rig_v1)을 플러그인 리그 형식으로 바꾼다.
+- 리소스팩의 리그 JSON(harbor_rig_v1)을 플러그인 리그 형식으로 바꾼다. id가 `harbor:fish/<이름>`이면 `content/rigs/fish/`, `harbor:boss/<이름>`이면 `content/rigs/boss/`에 쓴다.
+- JSON에 있으면 그대로 옮기는 값: 리그 `default_animation`(없으면 swim)·`view_range`, 뼈 `hitbox`({width, height, offset}, 뼈 기준 상자 중심)·`glow_color`. 보스 판정 상자·약점 발광은 이 값으로 정한다.
 - 원본 키프레임을 다시 계산하지 않는다. 원본의 `baked.frames`(20tps)를 부모 본 기준 지역 변환으로 풀어 고른 간격 샘플로 넣는다.
 - 샘플 간격은 `balance.yml` `rig.fps`에서 정한다 (20 / fps틱). `-PrigStep`으로 바꿀 수 있다.
 - 모델이 없는 본(root 등)은 빼고, 그 자식은 모델이 있는 가장 가까운 조상에 붙인다.
-- `content/rigs/fish/*.yml`은 직접 고치지 말고 다시 변환한다.
+- `content/rigs/fish/*.yml`·`content/rigs/boss/*.yml`은 직접 고치지 말고 다시 변환한다. 변환한 분류 폴더의 기존 yml은 지운다.
 
 ## resourcePack
 

@@ -195,7 +195,7 @@ public record RigDef(
     public static final ContentType.Entries<RigDef> TYPE =
             new ContentType.Entries<>(
                     "rig",
-                    List.of("rigs/*.yml", "rigs/fish/*.yml"),
+                    List.of("rigs/*.yml", "rigs/fish/*.yml", "rigs/boss/*.yml"),
                     RigId.PREFIX,
                     RigDef::parse,
                     r -> r.id().id());

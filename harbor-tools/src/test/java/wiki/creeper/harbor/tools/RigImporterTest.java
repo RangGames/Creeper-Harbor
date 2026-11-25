@@ -158,6 +158,43 @@ class RigImporterTest {
     }
 
     @Test
+    void bossRigKeepsHitboxGlowAndDefaultAnimation() throws IOException {
+        JsonObject json = sample();
+        json.addProperty("id", "harbor:boss/test");
+        json.addProperty("default_animation", "swim");
+        json.addProperty("view_range", 2.0);
+        for (JsonElement e : json.getAsJsonArray("bones")) {
+            JsonObject b = e.getAsJsonObject();
+            if (b.get("name").getAsString().equals("head")) {
+                JsonObject hitbox = new JsonObject();
+                hitbox.addProperty("width", 0.75);
+                hitbox.addProperty("height", 0.45);
+                JsonArray offset = new JsonArray();
+                offset.add(0);
+                offset.add(0.02);
+                offset.add(-0.375);
+                hitbox.add("offset", offset);
+                b.add("hitbox", hitbox);
+                b.addProperty("glow_color", "#FF5555");
+            }
+        }
+        RigImporter.Converted converted = RigImporter.convert(json, 1);
+        assertEquals("boss", converted.category());
+        RigDef rig = parse(converted.yaml());
+        assertEquals("harbor:rig/boss/test", rig.id().toString());
+        assertEquals("swim", rig.defaultAnimation());
+        assertEquals(2.0, rig.viewRange(), 1e-9);
+        RigDef.Bone head =
+                rig.bones().stream().filter(b -> b.name().equals("head")).findFirst().orElseThrow();
+        RigDef.Hitbox hitbox = Objects.requireNonNull(head.hitbox());
+        assertEquals(0.75, hitbox.width(), 1e-9);
+        assertEquals(0.45, hitbox.height(), 1e-9);
+        assertEquals(-0.375, hitbox.offset().z(), 1e-9);
+        assertEquals(0xFF5555, Objects.requireNonNull(head.part()).glowColor());
+        assertEquals(1, rig.hitboxCount());
+    }
+
+    @Test
     void eulerRoundTrip() {
         Vec3[] angles = {
             new Vec3(0, 25, -10),

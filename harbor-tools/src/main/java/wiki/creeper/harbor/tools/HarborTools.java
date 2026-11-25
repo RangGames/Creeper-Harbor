@@ -38,7 +38,7 @@ import wiki.creeper.harbor.world.content.WorldContent;
  * <pre>
  * harbor-tools validate &lt;content folder&gt;
  * harbor-tools pack-index &lt;resource pack folder or zip&gt; &lt;content folder&gt;   (generates resource_pack.yml)
- * harbor-tools rig-import &lt;rig JSON folder&gt; &lt;content folder&gt; [sample interval ticks]   (generates rigs/fish/*.yml)
+ * harbor-tools rig-import &lt;rig JSON folder&gt; &lt;content folder&gt; [sample interval ticks]   (generates rigs/fish/*.yml, rigs/boss/*.yml)
  * </pre>
  *
  * Checks that need the server API (vanilla item IDs, etc.) run only on the server. When adding a
@@ -105,8 +105,8 @@ public final class HarborTools {
     }
 
     /**
-     * Resource pack fish rig JSON → content/rigs/fish/*.yml. Without an interval, uses balance.yml
-     * rig.fps (20 / fps ticks).
+     * Resource pack rig JSON → content/rigs/{fish,boss}/*.yml. Without an interval, uses
+     * balance.yml rig.fps (20 / fps ticks).
      */
     private static void rigImport(String[] args, PrintStream out) {
         Path contentDir = Path.of(args[2]);
@@ -124,7 +124,14 @@ public final class HarborTools {
                 }
             }
             out.println(
-                    "rigs/fish: 리그 "
+                    "rigs/"
+                            + String.join(
+                                    ", rigs/",
+                                    converted.stream()
+                                            .map(RigImporter.Converted::category)
+                                            .distinct()
+                                            .toList())
+                            + ": 리그 "
                             + converted.size()
                             + "개 ("
                             + bytes / 1024

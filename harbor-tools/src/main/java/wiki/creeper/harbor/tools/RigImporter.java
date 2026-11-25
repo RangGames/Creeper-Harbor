@@ -22,8 +22,14 @@ import wiki.creeper.harbor.common.rig.Vec3;
 import wiki.creeper.harbor.common.rig.Xform;
 
 /**
- * Converts resource pack fish rig JSON (harbor_rig_v1) into the plugin rig format
- * (content/rigs/fish/&lt;name&gt;.yml) ({@code harbor-tools rig-import}, proposed).
+ * Converts resource pack rig JSON (harbor_rig_v1) into the plugin rig format ({@code harbor-tools
+ * rig-import}, proposed): fish rigs ({@code harbor:fish/<name>}) →
+ * content/rigs/fish/&lt;name&gt;.yml, boss rigs ({@code harbor:boss/<name>}) →
+ * content/rigs/boss/&lt;name&gt;.yml.
+ *
+ * <p>Optional extras pass through as is: rig {@code default_animation} (else swim if present) and
+ * {@code view_range}, bone {@code hitbox} ({width, height, offset}, box centre relative to the
+ * bone) and {@code glow_color}.
  *
  * <p>Instead of recomputing the source keyframes (Blockbench Euler, catmullrom), it copies the
  * source's {@code baked.frames} (20tps, per-bone translation/left_rotation/scale relative to the
@@ -70,18 +76,33 @@ final class RigImporter {
 
     private static final String HEADER =
             """
-            # 리소스팩 어종 리그(harbor_rig_v1)에서 harbor-tools rig-import로 만든 파일. 직접 고치지 말고 다시 변환한다 (./gradlew rigImport -Prigs=<리그 폴더>).
+            # 리소스팩 리그(harbor_rig_v1)에서 harbor-tools rig-import로 만든 파일. 직접 고치지 말고 다시 변환한다 (./gradlew rigImport -Prigs=<리그 폴더>).
             # 동작은 원본 베이크 프레임(20tps)을 고른 틱 간격(step) 샘플로 옮긴 것이다. 회전은 기본 자세 오일러 각(X → Y → Z)에 더하는 값(도), 위치는 pivot에 더하는 값(블록).
             """;
 
-    /** One conversion result. */
-    record Converted(String name, String yaml, int bones, int animations, List<String> events) {}
+    /**
+     * One conversion result.
+     *
+     * @param category rig folder under content/rigs (fish, boss)
+     */
+    record Converted(
+            String category,
+            String name,
+            String yaml,
+            int bones,
+            int animations,
+            List<String> events) {}
+
+    /** id prefix → content/rigs folder. */
+    private static final Map<String, String> CATEGORIES =
+            Map.of("harbor:fish/", "fish", "harbor:boss/", "boss");
 
     private RigImporter() {}
 
     /**
-     * Converts every *.json in rigsDir and writes contentDir/rigs/fish/&lt;name&gt;.yml. Old yml
-     * files in that folder are deleted.
+     * Converts every *.json in rigsDir and writes
+     * contentDir/rigs/&lt;category&gt;/&lt;name&gt;.yml. Old yml files in the written category
+     * folders are deleted.
      */
     static List<Converted> run(Path rigsDir, Path contentDir, int step) throws IOException {
         List<Path> sources;
@@ -107,14 +128,18 @@ final class RigImporter {
                         source.getFileName() + ": " + String.valueOf(e.getMessage()), e);
             }
         }
-        Path target = contentDir.resolve("rigs").resolve("fish");
-        Files.createDirectories(target);
-        try (Stream<Path> old = Files.list(target)) {
-            for (Path p : old.filter(p -> p.getFileName().toString().endsWith(".yml")).toList()) {
-                Files.delete(p);
+        for (String category : out.stream().map(Converted::category).distinct().toList()) {
+            Path target = contentDir.resolve("rigs").resolve(category);
+            Files.createDirectories(target);
+            try (Stream<Path> old = Files.list(target)) {
+                for (Path p :
+                        old.filter(p -> p.getFileName().toString().endsWith(".yml")).toList()) {
+                    Files.delete(p);
+                }
             }
         }
         for (Converted c : out) {
+            Path target = contentDir.resolve("rigs").resolve(c.category());
             Files.writeString(target.resolve(c.name() + ".yml"), c.yaml(), StandardCharsets.UTF_8);
         }
         return out;
@@ -123,7 +148,11 @@ final class RigImporter {
     // ------------------------------------------------------------------ Conversion
 
     private record SrcBone(
-            String name, @Nullable String parent, @Nullable String model, Xform rest) {}
+            String name,
+            @Nullable String parent,
+            @Nullable String model,
+            Xform rest,
+            JsonObject json) {}
 
     /** Output bones: only bones with a model; the parent is the nearest ancestor with a model. */
     private record OutBone(
@@ -132,7 +161,8 @@ final class RigImporter {
             String model,
             Vec3 pivot,
             Vec3 rotation,
-            Vec3 scale) {}
+            Vec3 scale,
+            JsonObject json) {}
 
     static Converted convert(JsonObject json, int step) {
         if (step < 1 || step > 20) {
@@ -143,10 +173,16 @@ final class RigImporter {
             throw new IllegalArgumentException("모르는 형식: " + format);
         }
         String id = string(json, "id");
-        String prefix = "harbor:fish/";
-        if (!id.startsWith(prefix)) {
-            throw new IllegalArgumentException("id가 harbor:fish/로 시작하지 않습니다: " + id);
-        }
+        String prefix =
+                CATEGORIES.keySet().stream()
+                        .filter(id::startsWith)
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "id가 harbor:fish/ 또는 harbor:boss/로 시작하지 않습니다: "
+                                                        + id));
+        String category = java.util.Objects.requireNonNull(CATEGORIES.get(prefix));
         String name = id.substring(prefix.length());
 
         Map<String, SrcBone> src = new LinkedHashMap<>();
@@ -164,7 +200,8 @@ final class RigImporter {
                             boneName,
                             parent,
                             optString(b, "item_model"),
-                            xform(b.getAsJsonObject("rest"))));
+                            xform(b.getAsJsonObject("rest")),
+                            b));
         }
 
         // Output bones and rest pose (local transforms; channels are computed from the rounded
@@ -185,7 +222,8 @@ final class RigImporter {
                             model,
                             round(local.translation(), 4),
                             round(local.rotation().toEuler(), 2),
-                            round(local.scale(), 4));
+                            round(local.scale(), 4),
+                            b.json());
             bones.add(out);
         }
         if (bones.isEmpty()) {
@@ -194,15 +232,27 @@ final class RigImporter {
 
         StringBuilder y = new StringBuilder();
         y.append(HEADER);
-        y.append("- id: rig/fish/").append(name).append('\n');
+        y.append("- id: rig/").append(category).append('/').append(name).append('\n');
         y.append("  forward: -z\n");
         double length =
                 json.has("model_length_blocks") ? json.get("model_length_blocks").getAsDouble() : 0;
         if (length > 0) {
             y.append("  length: ").append(num(length, 4)).append('\n');
         }
+        if (json.has("view_range")) {
+            y.append("  view_range: ")
+                    .append(num(json.get("view_range").getAsDouble(), 2))
+                    .append('\n');
+        }
         JsonObject animations = json.getAsJsonObject("animations");
-        if (animations.has("swim")) {
+        String defaultAnimation = optString(json, "default_animation");
+        if (defaultAnimation != null) {
+            if (!animations.has(defaultAnimation)) {
+                throw new IllegalArgumentException(
+                        "default_animation '" + defaultAnimation + "' 동작이 없습니다");
+            }
+            y.append("  default_animation: ").append(defaultAnimation).append('\n');
+        } else if (animations.has("swim")) {
             y.append("  default_animation: swim\n");
         }
         y.append("  bones:\n");
@@ -220,7 +270,32 @@ final class RigImporter {
             if (!isOne(b.scale(), 0)) {
                 y.append(", scale: ").append(vec(b.scale(), 4));
             }
-            y.append(", part: {item_model: \"").append(b.model()).append("\"}}\n");
+            y.append(", part: {item_model: \"").append(b.model()).append('"');
+            String glow = optString(b.json(), "glow_color");
+            if (glow != null) {
+                y.append(", glow_color: \"").append(glow).append('"');
+            }
+            y.append('}');
+            JsonObject hitbox = b.json().getAsJsonObject("hitbox");
+            if (hitbox != null) {
+                y.append(", hitbox: {width: ")
+                        .append(num(hitbox.get("width").getAsDouble(), 3))
+                        .append(", height: ")
+                        .append(num(hitbox.get("height").getAsDouble(), 3));
+                JsonArray off = hitbox.getAsJsonArray("offset");
+                if (off != null) {
+                    y.append(", offset: ")
+                            .append(
+                                    vec(
+                                            new Vec3(
+                                                    off.get(0).getAsDouble(),
+                                                    off.get(1).getAsDouble(),
+                                                    off.get(2).getAsDouble()),
+                                            4));
+                }
+                y.append('}');
+            }
+            y.append("}\n");
         }
 
         List<String> events = new ArrayList<>();
@@ -232,7 +307,7 @@ final class RigImporter {
             JsonObject a = entry.getValue().getAsJsonObject();
             animation(y, anim, a, bones, step, events);
         }
-        return new Converted(name, y.toString(), bones.size(), animations.size(), events);
+        return new Converted(category, name, y.toString(), bones.size(), animations.size(), events);
     }
 
     private static void animation(

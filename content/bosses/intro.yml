@@ -20,11 +20,12 @@
       repair: [[-2, 1, 0], [2, 1, 0], [0, 1, -2]]
   party: {min: 1, max: 2, base: 1}
   hp: {base: 2000}              # 제안값 ('7. 밸런스 기획' 9장)
-  rig: rig/boss/gnome
+  rig: rig/boss/gnome          # 낚시 모델 036 swamp_lord_catfish 부품 + 보스 전용 동작 (rigImport로 생성)
+  rig_scale: 2.5               # 길이 약 7블록 (제안값)
   parts:
     - {id: head, bone: head, weakpoint: true}
-    - {id: body, bone: body}
-    - {id: tail, bone: tail_2, armor: true}
+    - {id: body, bone: body_2}
+    - {id: tail, bone: tail, armor: true}
   hull: {max: 100, repair_per_action: 30}   # 선박 수리 키트 = 내구도 30% ('3. 아이템 목록' 5장)
   phases:
     - id: hook
@@ -54,6 +55,7 @@
       weight: 2
     - id: tail_sweep
       name: "<green>꼬리 휩쓸기"
+      animation: tail_sweep
       telegraph: {shape: line, size: 4, length: 16, at: boss}
       effect: {hull_damage: 15, knockback: 1.0}
       cooldown: 12
@@ -69,6 +71,7 @@
     title: title/swamp_master   # 늪지 칭호 100%
   summon: {item: item/boss/summon_swamp_catfish, cooldown: 300}
   presentation:
+    intro: emerge                         # 늪에서 솟구치며 포효
     music: "harbor:boss.swamp_catfish"
     roar: "harbor:boss.gnome.roar"        # 등장·반격·최후의 줄다리기 포효 ('15. 사운드' 4.3, 추가 제안)
     announce: true

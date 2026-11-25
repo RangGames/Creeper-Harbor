@@ -49,10 +49,10 @@ val packIndex by tasks.registering(JavaExec::class) {
     })
 }
 
-// ./gradlew rigImport -Prigs=<resource pack assets/harbor/rigs/fish folder> [-PrigStep=<ticks>] → content/rigs/fish/<name>.yml (fish rig conversion)
+// ./gradlew rigImport -Prigs=<resource pack assets/harbor/rigs/fish or rigs/boss folder> [-PrigStep=<ticks>] → content/rigs/{fish,boss}/<name>.yml (rig conversion)
 val rigImport by tasks.registering(JavaExec::class) {
     group = "content"
-    description = "리소스팩 어종 리그 JSON(harbor_rig_v1)을 content/rigs/fish/*.yml로 바꾼다 (-Prigs=<폴더>)"
+    description = "리소스팩 리그 JSON(harbor_rig_v1)을 content/rigs/fish·boss/*.yml로 바꾼다 (-Prigs=<폴더>)"
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass = application.mainClass
     val rigs = providers.gradleProperty("rigs")
