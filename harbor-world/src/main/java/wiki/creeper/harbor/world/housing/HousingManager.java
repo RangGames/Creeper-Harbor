@@ -28,6 +28,7 @@ import wiki.creeper.harbor.world.api.PlotInfo;
 import wiki.creeper.harbor.world.api.PlotPermission;
 import wiki.creeper.harbor.world.api.TankBounds;
 import wiki.creeper.harbor.world.api.VisitPolicy;
+import wiki.creeper.harbor.world.content.DecorDef;
 import wiki.creeper.harbor.world.content.WorldBalance;
 import wiki.creeper.harbor.world.region.ServerRouter;
 
@@ -383,6 +384,15 @@ public final class HousingManager implements HousingService, Listener {
     public TankBounds tankOf(DisplayAnchor anchor) {
         Tanks t = tanks;
         return t == null ? TankBounds.of(anchor) : t.tankOf(anchor);
+    }
+
+    @Override
+    public Optional<String> tankModel(DisplayAnchor anchor) {
+        return kit.api()
+                .content()
+                .snapshot()
+                .get(DecorDef.TYPE, anchor.decor())
+                .map(DecorDef::tankModel);
     }
 
     void addAnchor(PlotState state, DisplayAnchor anchor) {

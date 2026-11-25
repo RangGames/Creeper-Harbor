@@ -3,9 +3,13 @@
 # 만든 팩: resourcepack
 models:
   - harbor:decor/coral_tank
+  - harbor:decor/coral_tank_placed
   - harbor:decor/glass_tank
+  - harbor:decor/glass_tank_placed
   - harbor:decor/grand_aquarium
+  - harbor:decor/grand_aquarium_placed
   - harbor:decor/wide_tank
+  - harbor:decor/wide_tank_placed
   - harbor:fish/abyss_lanternfish
   - harbor:fish/abyss_lanternfish/body_1
   - harbor:fish/abyss_lanternfish/body_2

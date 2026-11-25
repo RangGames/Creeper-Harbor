@@ -41,6 +41,14 @@ public interface HousingService {
         return TankBounds.of(anchor);
     }
 
+    /**
+     * Item model drawn over the placed tank of an anchor (housing_decor.yml tank_model: frame,
+     * water and decoration around the glass blocks), empty if the decor has none (proposed).
+     */
+    default Optional<String> tankModel(DisplayAnchor anchor) {
+        return Optional.empty();
+    }
+
     /** Result of {@link #visit}. */
     enum VisitResult {
         /** Sent to the plot entry (a server move if housing runs on another server). */

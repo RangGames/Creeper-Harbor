@@ -16,7 +16,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
-import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -134,7 +134,10 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         List<Interaction> boxes = List.of();
 
         @Nullable RigInstance rig;
-        @Nullable BlockDisplay floor;
+
+        /** Floor and tank model displays of this slot, removed with it. */
+        final List<Display> props = new ArrayList<>();
+
         @Nullable Particle particle;
 
         SlotView(
@@ -166,10 +169,7 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
             if (r != null) {
                 r.remove();
             }
-            BlockDisplay f = floor;
-            if (f != null) {
-                f.remove();
-            }
+            props.forEach(Display::remove);
         }
     }
 

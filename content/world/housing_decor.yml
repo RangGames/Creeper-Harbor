@@ -6,6 +6,8 @@
 #   size       tank 크기 [가로, 높이, 깊이] (기본 [1, 1, 1], 각 1~8). 놓은 블록이 앞·왼쪽·아래 모서리이고
 #              놓는 사람의 오른쪽으로 가로, 바라보는 쪽으로 깊이, 위로 높이만큼 채운다 (추가 제안)
 #   fish       tank 하나에 전시할 물고기 수 (기본 1, 칸 수 이하). 마리마다 전시 칸 하나를 쓴다 (추가 제안)
+#   tank_model 설치한 tank 위에 씌우는 모델 (틀·물·장식, 물고기 없음). 수조 크기에 맞춰 늘리고 놓은 쪽을 앞으로 돌린다.
+#              없으면 material 블록만 보인다. model은 상점·손에 든 아이콘 (추가 제안)
 #   amount     한 번 살 때 받는 개수 (기본 1)
 #   price      골드 (원장 HOUSING_DECOR)
 #   reputation_min  시즌 간 최고 평판 등급 조건 (players.best_rep_tier, D11)
@@ -23,7 +25,7 @@
 - {id: decor/net_wall, name: 벽걸이 그물, kind: furniture, furniture: furniture/net_wall, price: 2000, category: furniture}
 - {id: decor/anchor_statue, name: 닻 조각상, kind: furniture, furniture: furniture/anchor_statue, price: 8000, reputation_min: 3, category: statue}
 - {id: decor/lighthouse_model, name: 등대 모형, kind: furniture, furniture: furniture/lighthouse_model, price: 15000, reputation_min: 4, category: statue}
-- {id: decor/glass_tank, name: 유리 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/glass_tank", price: 3000, category: aquarium}
-- {id: decor/coral_tank, name: 산호 수조, kind: tank, material: minecraft:tinted_glass, model: "harbor:decor/coral_tank", price: 9000, reputation_min: 3, category: aquarium}
-- {id: decor/wide_tank, name: 긴 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/wide_tank", size: [2, 1, 1], fish: 2, price: 7000, category: aquarium}
-- {id: decor/grand_aquarium, name: 대형 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/grand_aquarium", size: [3, 2, 2], fish: 4, price: 20000, reputation_min: 3, category: aquarium}
+- {id: decor/glass_tank, name: 유리 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/glass_tank", tank_model: "harbor:decor/glass_tank_placed", price: 3000, category: aquarium}
+- {id: decor/coral_tank, name: 산호 수조, kind: tank, material: minecraft:tinted_glass, model: "harbor:decor/coral_tank", tank_model: "harbor:decor/coral_tank_placed", price: 9000, reputation_min: 3, category: aquarium}
+- {id: decor/wide_tank, name: 긴 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/wide_tank", tank_model: "harbor:decor/wide_tank_placed", size: [2, 1, 1], fish: 2, price: 7000, category: aquarium}
+- {id: decor/grand_aquarium, name: 대형 수조, kind: tank, material: minecraft:glass, model: "harbor:decor/grand_aquarium", tank_model: "harbor:decor/grand_aquarium_placed", size: [3, 2, 2], fish: 4, price: 20000, reputation_min: 3, category: aquarium}

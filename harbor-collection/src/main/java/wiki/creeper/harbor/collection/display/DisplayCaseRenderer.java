@@ -14,12 +14,15 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Interaction;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -38,6 +41,7 @@ import wiki.creeper.harbor.common.id.RigId;
 import wiki.creeper.harbor.common.rig.FishRigs;
 import wiki.creeper.harbor.common.rig.RigDef;
 import wiki.creeper.harbor.core.api.HarborApi;
+import wiki.creeper.harbor.core.api.ItemModels;
 import wiki.creeper.harbor.core.api.RigInstance;
 import wiki.creeper.harbor.core.api.RigOptions;
 import wiki.creeper.harbor.world.api.DisplayAnchor;
@@ -164,6 +168,11 @@ final class DisplayCaseRenderer {
                 sv.mates = slots;
                 if (a.slot() == slots.getFirst()) {
                     sv.boxes = List.copyOf(tankBoxes);
+                    // The tank's own model goes with the first slot, filled or empty
+                    ItemDisplay model = tankModel(world, b, a);
+                    if (model != null) {
+                        sv.props.add(model);
+                    }
                 }
                 view.views.put(a.slot(), sv);
                 DisplaySlot row = view.rows.get(a.slot());
@@ -173,7 +182,10 @@ final class DisplayCaseRenderer {
                 DisplayCaseRules.Theme theme =
                         rules.theme(row.theme()).orElse(rules.defaultTheme());
                 if (!floored) {
-                    sv.floor = floor(world, b, theme);
+                    BlockDisplay floor = floor(world, b, theme);
+                    if (floor != null) {
+                        sv.props.add(floor);
+                    }
                     floored = true;
                 }
                 sv.particle = theme.particle() == null ? null : particle(theme.particle());
@@ -260,6 +272,50 @@ final class DisplayCaseRenderer {
                                     new Vector3f(0.05f, 0.02f, 0.05f),
                                     new AxisAngle4f(),
                                     new Vector3f(b.sizeX() - 0.1f, 0.06f, b.sizeZ() - 0.1f),
+                                    new AxisAngle4f()));
+                });
+    }
+
+    /**
+     * The decor's tank model (World housing_decor.yml tank_model: frame, water and decoration) over
+     * the glass blocks, stretched to the box and turned so its front (model north) faces the side
+     * the tank was placed from. Null if the decor has none or the pack lacks it.
+     */
+    private @Nullable ItemDisplay tankModel(World world, TankBounds b, DisplayAnchor a) {
+        String model = housing.tankModel(a).orElse(null);
+        ItemStack item = new ItemStack(Material.GLASS);
+        if (model == null || !ItemModels.apply(item, model, api.content().snapshot())) {
+            return null;
+        }
+        String facing = a.facing().toUpperCase(Locale.ROOT);
+        boolean sideways = facing.equals("EAST") || facing.equals("WEST");
+        float width = sideways ? b.sizeZ() : b.sizeX();
+        float depth = sideways ? b.sizeX() : b.sizeZ();
+        float yaw =
+                switch (facing) {
+                    case "SOUTH" -> (float) Math.PI;
+                    case "EAST" -> (float) (-Math.PI / 2);
+                    case "WEST" -> (float) (Math.PI / 2);
+                    default -> 0f;
+                };
+        Location at =
+                new Location(
+                        world,
+                        b.minX() + b.sizeX() / 2.0,
+                        b.minY() + b.sizeY() / 2.0,
+                        b.minZ() + b.sizeZ() / 2.0);
+        return world.spawn(
+                at,
+                ItemDisplay.class,
+                e -> {
+                    e.setPersistent(false);
+                    e.setItemStack(item);
+                    e.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
+                    e.setTransformation(
+                            new Transformation(
+                                    new Vector3f(),
+                                    new AxisAngle4f(yaw, 0, 1, 0),
+                                    new Vector3f(width, b.sizeY(), depth),
                                     new AxisAngle4f()));
                 });
     }

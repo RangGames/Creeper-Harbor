@@ -38,7 +38,8 @@ public record DecorDef(
         int reputationMin,
         String category,
         List<Integer> size,
-        int fish) {
+        int fish,
+        @Nullable String tankModel) {
 
     public DecorDef {
         size = List.copyOf(size);
@@ -86,7 +87,8 @@ public record DecorDef(
                         "reputation_min",
                         "category",
                         "size",
-                        "fish"));
+                        "fish",
+                        "tank_model"));
         HarborId id =
                 node.require("id")
                         .flatMap(n -> n.asId(PREFIX))
@@ -139,6 +141,13 @@ public record DecorDef(
         if (node.has("fish") && kind != Kind.TANK) {
             node.error("fish는 kind: tank 장식에만 씁니다");
         }
+        String tankModel = node.optString("tank_model").orElse(null);
+        if (tankModel != null && !KEY.matcher(tankModel).matches()) {
+            node.error("tank_model은 'harbor:decor/x' 같은 키여야 합니다: '" + tankModel + "'");
+        }
+        if (tankModel != null && kind != Kind.TANK) {
+            node.error("tank_model은 kind: tank 장식에만 씁니다");
+        }
         long price = node.longValue("price", 0);
         if (price <= 0) {
             node.error("price는 0보다 커야 합니다");
@@ -156,7 +165,8 @@ public record DecorDef(
                 node.integer("reputation_min", 0, 0, 10),
                 node.string("category", "misc"),
                 size,
-                fish);
+                fish,
+                tankModel);
     }
 
     private static @Nullable HarborId ref(
