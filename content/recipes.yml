@@ -4,8 +4,6 @@
 # unlock: job_tier · level · visited(플레이어 플래그 visited/<지역>, World가 세움) · quest(quest/<경로>, Quest가 세움) ·
 #         feature(스킬이 올리는 보정자 키) · flags (모두 추가 제안 규칙: 해금 판정은 플래그·보정자로만 한다)
 # weekly_limit: Season weekly_counter 키 craft:<레시피 이름>
-# 보스 비늘(보스 보상 재료)이 들어가는 레시피(심해 수압 낚싯대·심해 기어 릴·심해 통발·고래잡이 작살·보스 소환 미끼)와
-# 전설의 미끼의 보스 비늘 5개는 Harbor-Boss가 보스 비늘 아이템을 만든 뒤 추가한다.
 
 # ---------------------------------------------------------------- 어부 길드 작업대 (장비)
 - id: recipe/coral_carbon_rod
@@ -17,6 +15,38 @@
     - {item: item/rod/harbor_standard, count: 1}
     - {item: item/material/coral_fragment, count: 8}
   unlock: {visited: region/coral_isles}
+
+- id: recipe/deep_pressure_rod
+  result: item/rod/deep_pressure
+  station: workshop
+  category: gear
+  gold: 30000
+  ingredients:
+    - {item: item/rod/coral_carbon, count: 1}
+    - {item: item/material/deep_crystal, count: 10}
+    - {item: item/material/boss_scale, count: 2}
+  unlock: {visited: region/ash_trench}
+
+- id: recipe/deep_gear_reel
+  result: item/reel/deep_gear
+  station: workshop
+  category: gear
+  gold: 6000
+  ingredients:
+    - {item: item/reel/brass, count: 1}
+    - {item: item/material/deep_crystal, count: 6}
+    - {item: item/material/boss_scale, count: 1}
+  unlock: {visited: region/ash_trench}
+
+- id: recipe/whaler_harpoon
+  result: item/gear/whaler_harpoon
+  station: workshop
+  category: gear
+  gold: 8000
+  ingredients:
+    - {item: item/gear/apprentice_harpoon, count: 1}
+    - {item: item/material/boss_scale, count: 4}
+  unlock: {flags: [boss_clear/wreck_moray]}   # 해역 보스 1회 처치 (해역 보스가 늘면 그 보스 플래그로 레시피를 더 둔다)
 
 - id: recipe/steel_wire_line
   result: item/line/steel_wire
@@ -100,14 +130,46 @@
     - {vanilla: minecraft:chorus_fruit, count: 3}
   unlock: {visited: region/void_sea}
 
+- id: recipe/deep_glow_bait
+  result: item/bait/deep_glow
+  amount: 5
+  station: workshop
+  category: bait
+  gold: 150
+  ingredients:
+    - {item: item/bait/shrimp, count: 5}
+    - {item: item/material/deep_crystal, count: 1}
+  unlock: {visited: region/ash_trench}
+
+# 보스 소환 미끼: 그 보스 지역의 희귀 어종 3 (종류 무관) + 새우 미끼 10, 5,000G. 보스별 지역 방문 ('13. 제작 · 상점 가격' 3장)
+- id: recipe/summon_swamp_catfish
+  result: item/boss/summon_swamp_catfish
+  station: workshop
+  category: bait
+  gold: 5000
+  ingredients:
+    - {match: {grade_min: rare, region: region/swamp}, count: 3}
+    - {item: item/bait/shrimp, count: 10}
+  unlock: {visited: region/swamp}
+
+- id: recipe/summon_wreck_moray
+  result: item/boss/summon_wreck_moray
+  station: workshop
+  category: bait
+  gold: 5000
+  ingredients:
+    - {match: {grade_min: rare, region: region/coral_isles}, count: 3}
+    - {item: item/bait/shrimp, count: 10}
+  unlock: {visited: region/coral_isles}
+
 - id: recipe/legendary_bait
   result: item/bait/legendary
   station: workshop
   category: bait
   gold: 20000
   ingredients:
+    - {item: item/material/boss_scale, count: 5}
     - {item: item/material/deep_crystal, count: 5}
-    # 보스 비늘 5 — Harbor-Boss 아이템이 생기면 추가
   unlock: {feature: feature_legend_bait_recipe}   # 생산 계열 '미끼 연구'
   weekly_limit: 1
 
@@ -139,7 +201,7 @@
   ingredients:
     - {item: item/trap/coral, count: 1}
     - {item: item/material/deep_crystal, count: 15}
-    # 보스 비늘 3 — Harbor-Boss 아이템이 생기면 추가
+    - {item: item/material/boss_scale, count: 3}
   unlock: {feature: feature_deep_trap}            # 생산 계열 캡스톤
 
 # ---------------------------------------------------------------- 요리 화로 (결과는 Fishing 요리, 버프는 fishing/food.yml)
@@ -155,7 +217,7 @@
   station: cooking
   category: food
   ingredients:
-    - {match: {fish_any: [fish/harbor_rockfish, fish/breakwater_rockfish]}, count: 1}   # 우럭·메기 중 1 (메기는 늪지 어종이 생기면 추가)
+    - {match: {fish_any: [fish/harbor_rockfish, fish/breakwater_rockfish, fish/moss_catfish]}, count: 1}   # 우럭·메기 중 1
     - {vanilla: minecraft:brown_mushroom, count: 1}
     - {vanilla: minecraft:potion, count: 1}        # 물병
 
@@ -175,4 +237,11 @@
     - {match: {region: region/frost_fjord}, count: 2}   # 서리 협만 어종 2
     - {vanilla: minecraft:potato, count: 1}
 
-# 행운의 차 (반딧불 은어 1, 설탕 1, 물병 1)는 늪지 어종 '반딧불 은어'가 콘텐츠에 생기면 추가한다.
+- id: recipe/lucky_tea
+  result: item/food/lucky_tea
+  station: cooking
+  category: food
+  ingredients:
+    - {match: {fish_any: [fish/firefly_sweetfish]}, count: 1}   # 반딧불 은어 1
+    - {vanilla: minecraft:sugar, count: 1}
+    - {vanilla: minecraft:potion, count: 1}        # 물병

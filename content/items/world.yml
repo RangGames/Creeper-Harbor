@@ -70,7 +70,7 @@
   name: 해도
   lore: "지나온 바다만 그려지는 해도. 지역마다 한 장씩."
   type: tool
-  grade: common
+  grade: uncommon
   base_item: minecraft:filled_map
   model: harbor:tool/sea_chart
   tradeable: false
@@ -80,7 +80,7 @@
   name: 방한 외투
   lore: "서리 협만의 혹한을 막아 주는 두툼한 외투."
   type: gear
-  grade: uncommon
+  grade: rare
   base_item: minecraft:leather_chestplate
   model: harbor:gear/cold_coat
   buy_price: 1500
@@ -91,7 +91,7 @@
   name: 잠수 헬멧
   lore: "유리창 너머로 깊은 바다가 보인다. 잿빛 해구 필수품."
   type: gear
-  grade: rare
+  grade: epic
   base_item: minecraft:leather_helmet
   model: harbor:gear/diving_helmet
   buy_price: 3000
@@ -102,7 +102,7 @@
   name: 내열 장화
   lore: "용암 호수의 뜨거운 바위 위에서도 버티는 장화. 화염 피해 -50%."
   type: gear
-  grade: rare
+  grade: epic
   base_item: minecraft:leather_boots
   model: harbor:gear/heat_boots
   buy_price: 3000          # 제안값 ('13' 2장에 없음)
@@ -113,7 +113,7 @@
   name: 용암 내열 낚싯대
   lore: "용암에 담가도 휘지 않는 낚싯대. 용암 호수 진입에 필요하다."
   type: rod
-  grade: rare
+  grade: epic
   base_item: minecraft:fishing_rod
   model: harbor:rod/heatproof
   stats:

@@ -33,6 +33,7 @@ public record ShopDef(HarborId id, @Nullable NpcId npc, String title, List<Entry
      * @param jobTier required job tier (0 for none)
      * @param visited first visit to a region (player flag visited/<region>, proposed)
      * @param quest quest completed (player flag quest/<path>, proposed)
+     * @param flags other player flags that must all be set, e.g. story/ch4_done (proposed)
      */
     public record Entry(
             @Nullable ItemId item,
@@ -42,7 +43,12 @@ public record ShopDef(HarborId id, @Nullable NpcId npc, String title, List<Entry
             int jobTier,
             @Nullable JobLine line,
             @Nullable RegionId visited,
-            @Nullable QuestId quest) {
+            @Nullable QuestId quest,
+            List<String> flags) {
+
+        public Entry {
+            flags = List.copyOf(flags);
+        }
 
         /** Entry key used in the limit table. */
         public String key() {
@@ -61,6 +67,7 @@ public record ShopDef(HarborId id, @Nullable NpcId npc, String title, List<Entry
             if (q != null) {
                 flags.add(RecipeDef.questFlag(q));
             }
+            flags.addAll(this.flags);
             return flags;
         }
     }
@@ -137,9 +144,17 @@ public record ShopDef(HarborId id, @Nullable NpcId npc, String title, List<Entry
             JobLine line = null;
             RegionId visited = null;
             QuestId quest = null;
+            List<String> flags = new ArrayList<>();
             if (e.has("requires")) {
                 YamlNode r = e.get("requires").orElseThrow();
-                r.allowOnly(Set.of("job_tier", "line", "visited", "quest"));
+                r.allowOnly(Set.of("job_tier", "line", "visited", "quest", "flags"));
+                for (String flag : r.strings("flags")) {
+                    if (flag.matches("[a-z0-9_]+(/[a-z0-9_]+)*")) {
+                        flags.add(flag);
+                    } else {
+                        r.error("플래그 이름 형식이 틀렸습니다: '" + flag + "'");
+                    }
+                }
                 tier = r.integer("job_tier", 0, 0, 3);
                 line = r.has("line") ? r.enumValue("line", JobLine.class).orElse(null) : null;
                 if (r.has("visited")) {
@@ -175,7 +190,8 @@ public record ShopDef(HarborId id, @Nullable NpcId npc, String title, List<Entry
                             tier,
                             line,
                             visited,
-                            quest));
+                            quest,
+                            flags));
         }
         return new ShopDef(id, npc, node.string("title"), List.copyOf(entries));
     }

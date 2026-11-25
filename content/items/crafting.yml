@@ -9,8 +9,21 @@
   base_item: minecraft:fishing_rod
   model: harbor:rod/coral_carbon
   stats:
-    bite_wait: -0.15        # 제안값
-    line_strength: 2        # 제안값
+    rare_weight: 0.05       # 희귀 이상 +5% ('3. 아이템 목록' 1장)
+    cast_distance: 0.2      # 캐스팅 거리 +20%
+  tradeable: true
+  season_reset: true
+
+- id: item/rod/deep_pressure
+  name: 심해 수압 낚싯대
+  lore: "해구의 수압을 버티도록 만든 묵직한 낚싯대. 줄이 바닥까지 닿는다."
+  type: rod
+  grade: epic
+  base_item: minecraft:fishing_rod
+  model: harbor:rod/deep_pressure
+  stats:
+    line_strength: 3        # 줄 강도 +3 ('3. 아이템 목록' 1장)
+    rare_weight: 0.10       # 기획 '심해 어종 가중치 +10%'(제안값)를 희귀 이상 가중치로 대신한다 (지역별 가중치 스탯이 없음)
   tradeable: true
   season_reset: true
 
@@ -30,7 +43,7 @@
   name: 강철 와이어 줄
   lore: "철사를 꼬아 만든 줄. 이빨 날카로운 물고기도 끊지 못한다."
   type: line
-  grade: uncommon
+  grade: rare
   base_item: minecraft:string
   model: harbor:line/steel_wire
   stats: {line_strength: 3}   # 제안값
@@ -65,8 +78,19 @@
   grade: uncommon
   base_item: minecraft:copper_ingot
   model: harbor:reel/brass
-  stats: {reel_speed: 0.15}   # 제안값
+  stats: {reel_speed: 0.10}   # 감기 +10% ('3. 아이템 목록' 2장)
   buy_price: 1500
+  tradeable: true
+  season_reset: true
+
+- id: item/reel/deep_gear
+  name: 심해 기어 릴
+  lore: "톱니 하나하나에 심해 연구원의 계산이 들어갔다."
+  type: reel
+  grade: epic
+  base_item: minecraft:copper_ingot
+  model: harbor:reel/deep_gear
+  stats: {reel_speed: 0.25}   # 감기 +25% ('3. 아이템 목록' 2장, 보스전 줄다리기 보정은 감기 속도로 함께 적용)
   tradeable: true
   season_reset: true
 
@@ -102,11 +126,21 @@
   tradeable: true
   season_reset: true
 
+- id: item/bait/deep_glow
+  name: 심해 발광 미끼
+  lore: "심해 샛비늘치의 등불을 모아 만든 미끼."
+  type: bait
+  grade: epic
+  base_item: minecraft:glow_berries
+  model: harbor:bait/deep_glow
+  tradeable: true
+  season_reset: true
+
 - id: item/bait/magma_cream
   name: 마그마 크림 미끼
   lore: "뜨거운 물에 사는 고기만 견디는 미끼."
   type: bait
-  grade: rare
+  grade: epic
   base_item: minecraft:magma_cream
   model: harbor:bait/magma_cream
   tradeable: true
@@ -116,7 +150,7 @@
   name: 코러스 미끼
   lore: "공허의 바다 고기가 이끌리는 보랏빛 미끼."
   type: bait
-  grade: rare
+  grade: epic
   base_item: minecraft:chorus_fruit
   model: harbor:bait/chorus
   tradeable: true
@@ -146,7 +180,7 @@
   name: 줄 보강 테이프
   lore: "끊어지려는 낚싯줄을 감아 버티게 한다."
   type: tool
-  grade: common
+  grade: uncommon
   base_item: minecraft:paper
   model: harbor:tool/line_tape
   tradeable: true

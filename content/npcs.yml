@@ -110,6 +110,7 @@
   location: {world: harbor_main, x: -300.5, y: 70, z: -420.5, yaw: 135}
   skin: harbor:entity/npc/seori
   dialog: dialog/seori
+  shop: shop/fjord_hunter
 
 - id: npc/morae
   name: "<gray>심해 연구원 모래"

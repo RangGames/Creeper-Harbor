@@ -1,7 +1,7 @@
 # NPC 상점 (추가 제안, docs 20 7.3). price가 없으면 아이템 buy_price ('13. 제작 · 상점 가격' 2장).
 # npc: 대화 액션 shop:open이 이 NPC의 상점을 연다 (npcs.yml의 shop 필드가 먼저). 가격 × shop_buy_price × (1 − 호감도 할인).
 # vanilla: 바닐라 재료 고정가 ('13. 제작 · 상점 가격' 4장, 제안값), 1인 하루 64개 한도 (제안값).
-# requires: {job_tier, line, visited: <지역 ID>, quest: <퀘스트 ID>} — visited·quest는 플레이어 플래그로 판정 (추가 제안).
+# requires: {job_tier, line, visited: <지역 ID>, quest: <퀘스트 ID>, flags: [플레이어 플래그]} — visited·quest도 플레이어 플래그로 판정 (추가 제안).
 
 - id: shop/tackle
   npc: npc/tackle_keeper
@@ -15,6 +15,9 @@
     - {item: item/line/cotton}
     - {item: item/float/feather}
     - {item: item/reel/brass}
+    - {item: item/gear/apprentice_harpoon}
+    - {item: item/gear/cold_coat, requires: {flags: [story/ch4_done]}}       # 진입 장비: 메인 4장 완료 후 ('13. 제작 · 상점 가격' 2장)
+    - {item: item/gear/diving_helmet, requires: {flags: [story/ch5_done]}}   # 메인 5장 완료 후
 
 - id: shop/fish_market
   npc: npc/fish_market
@@ -37,6 +40,13 @@
   entries:
     - {item: item/trap/wood}
     - {item: item/boat/repair_kit}
+
+- id: shop/fjord_hunter
+  npc: npc/seori
+  title: 협만 사냥꾼
+  entries:
+    - {item: item/bait/ice_worm}
+    - {item: item/gear/cold_coat}
 
 - id: shop/peddler
   npc: npc/peddler

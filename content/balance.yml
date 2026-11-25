@@ -20,7 +20,7 @@ fishing:
   ping_comp_s: 0.2                  # 핑 150ms 이상이면 패턴 예고 +0.2초
   grade_exp: {common: 5, uncommon: 12, rare: 40, epic: 150, legendary: 800, mythic: 2000}   # 3.3
   first_catch_mult: {default: 5, legendary: 3}
-  region_exp_mult: {harbor: 1.0, swamp: 1.1, coral_isles: 1.3, lava_lake: 1.6, frost_fjord: 1.7, ash_trench: 1.9, void_sea: 2.2}
+  region_exp_mult: {harbor: 1.0, swamp: 1.0, coral_isles: 1.0, lava_lake: 1.6, frost_fjord: 1.7, ash_trench: 1.9, void_sea: 1.2}   # '7. 밸런스' 3.3 (공허는 가격 ×0.65 대신 경험치 ×1.2)
   minigame:                         # 5장. 텐션 상승·틱당 감기는 제안값
     release_rate: 0.03
     reel_per_tick: 1.6
@@ -221,7 +221,7 @@ jobs:
   catchup:
     week5: {week: 5, gap: 10, bonus: 0.5}
     week9: {week: 9, gap: 10, bonus: 1.0}
-  tier_first_quality_bonus: 2   # 제안값
+  tier_first_quality_bonus: 3   # '7. 밸런스' 7장 (회당 3, 시즌 6)
   tier_points: {2: 8, 3: 30}
   capstone_requires: 60
   other_line_limit: 40

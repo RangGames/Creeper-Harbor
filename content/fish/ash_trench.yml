@@ -282,7 +282,6 @@
   model: harbor:fish/ruin_guardian_fish
   season: 1
 
-# 미끼 조건 '심해 발광 미끼'는 아이템 정의(content/items)가 아직 없어 bait를 비워 둔다 (아이템이 생기면 bait에 추가).
 - id: fish/abyss_lanternfish
   no: 106
   name: 심연 등불어
@@ -290,6 +289,7 @@
   grade: epic
   region: region/ash_trench
   moon: [new]
+  bait: [item/bait/deep_glow]   # 그믐밤 + 심해 발광 미끼 ('2. 어종 목록')
   size_cm: [80, 150]
   base_price: 275
   model: harbor:fish/abyss_lanternfish
