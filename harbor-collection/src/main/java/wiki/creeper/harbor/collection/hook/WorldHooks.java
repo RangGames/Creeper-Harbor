@@ -46,6 +46,7 @@ public final class WorldHooks {
                 new DisplayCaseManager(plugin, api, tasks, log, housing, npc, themes);
         Bukkit.getPluginManager().registerEvents(display, plugin);
         Bukkit.getPluginManager().registerEvents(display.clicks(), plugin);
+        Bukkit.getPluginManager().registerEvents(display.chunks(), plugin);
         display.start();
         return display;
     }

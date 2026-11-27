@@ -10,12 +10,10 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
-import org.bukkit.World;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Player;
@@ -85,6 +83,7 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
     private final DisplayCaseMenus menus;
     private final DisplayCaseHover hover;
     private final DisplayCaseClicks clicks;
+    private final DisplayCaseChunks chunks;
     private final Map<Long, PlotView> plots = new HashMap<>();
     private final Map<UUID, SlotRef> boxes = new HashMap<>();
     private final Set<Long> loading = new HashSet<>();
@@ -191,11 +190,17 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         this.menus = new DisplayCaseMenus(this, plugin, api, tasks, themes);
         this.hover = new DisplayCaseHover(this, menus, plugin, api, housing, plots, boxes);
         this.clicks = new DisplayCaseClicks(housing, menus, hover, plots, boxes);
+        this.chunks = new DisplayCaseChunks(housing, plots);
     }
 
     /** Tank click Listener (register it next to this one). */
     public Listener clicks() {
         return clicks;
+    }
+
+    /** Tank chunk load Listener (register it next to this one). */
+    public Listener chunks() {
+        return chunks;
     }
 
     DisplayCaseRules rules() {
@@ -213,6 +218,7 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
             t.cancel();
         }
         hover.stop();
+        chunks.clear();
         plots.values().forEach(this::despawn);
         plots.clear();
         boxes.clear();
@@ -251,6 +257,7 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
     public void onPlotUnloaded(PlotUnloadedEvent event) {
         long id = event.plot().plotId();
         loading.remove(id);
+        chunks.forget(id);
         PlotView view = plots.remove(id);
         if (view != null) {
             despawn(view);
@@ -405,40 +412,17 @@ public final class DisplayCaseManager implements DisplayCaseService, Listener {
         if (ticks % DisplayCaseHover.PERIOD == 0) {
             hover.tick(ticks);
         }
-        if (ticks % VIEW_TICKS == 0) {
-            for (PlotView view : plots.values()) {
-                World world = Bukkit.getWorld(view.plot.world());
-                if (world == null) {
-                    continue;
-                }
-                List<Player> viewers = renderer.viewers(view, world);
-                Set<UUID> ids = DisplayCaseRenderer.ids(viewers);
-                if (!ids.equals(view.viewers)) {
-                    view.viewers = ids;
-                    for (SlotView sv : view.views.values()) {
-                        RigInstance rig = sv.rig;
-                        if (rig != null) {
-                            rig.setViewers(viewers);
-                        }
-                    }
-                }
-                DisplayCaseRenderer.particles(view, viewers);
+        for (long id : chunks.due()) {
+            PlotView view = plots.get(id);
+            if (view != null) {
+                render(view);
             }
         }
+        if (ticks % VIEW_TICKS == 0) {
+            renderer.updateViewers(plots.values());
+        }
         if (ticks % SWIM_TICKS == 0) {
-            for (PlotView view : plots.values()) {
-                if (view.viewers.isEmpty()) {
-                    continue; // skip movement when nobody is watching
-                }
-                for (SlotView sv : view.views.values()) {
-                    RigInstance rig = sv.rig;
-                    if (rig != null
-                            && rig.isValid()
-                            && ThreadLocalRandom.current().nextInt(3) == 0) {
-                        DisplayCaseRenderer.swim(rig, sv);
-                    }
-                }
-            }
+            DisplayCaseRenderer.swimAll(plots.values());
         }
     }
 

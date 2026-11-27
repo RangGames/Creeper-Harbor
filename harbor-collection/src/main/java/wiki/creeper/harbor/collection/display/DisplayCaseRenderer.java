@@ -1,6 +1,7 @@
 package wiki.creeper.harbor.collection.display;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -347,6 +348,43 @@ final class DisplayCaseRenderer {
     }
 
     // ------------------------------------------------------------------ viewers and swimming
+
+    /** Every second: updates who sees each plot's rigs and shows the theme particles. */
+    void updateViewers(Collection<PlotView> views) {
+        for (PlotView view : views) {
+            World world = Bukkit.getWorld(view.plot.world());
+            if (world == null) {
+                continue;
+            }
+            List<Player> viewers = viewers(view, world);
+            Set<UUID> ids = ids(viewers);
+            if (!ids.equals(view.viewers)) {
+                view.viewers = ids;
+                for (SlotView sv : view.views.values()) {
+                    RigInstance rig = sv.rig;
+                    if (rig != null) {
+                        rig.setViewers(viewers);
+                    }
+                }
+            }
+            particles(view, viewers);
+        }
+    }
+
+    /** Sends about a third of the watched rigs to a new point. */
+    static void swimAll(Collection<PlotView> views) {
+        for (PlotView view : views) {
+            if (view.viewers.isEmpty()) {
+                continue; // skip movement when nobody is watching
+            }
+            for (SlotView sv : view.views.values()) {
+                RigInstance rig = sv.rig;
+                if (rig != null && rig.isValid() && ThreadLocalRandom.current().nextInt(3) == 0) {
+                    swim(rig, sv);
+                }
+            }
+        }
+    }
 
     /** Swims to a random point in the slot's tank (the whole tank for a larger one). */
     static void swim(RigInstance rig, SlotView sv) {
